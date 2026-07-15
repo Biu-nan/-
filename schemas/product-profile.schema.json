@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yikuauerjing.local/schemas/product-profile.schema.json",
+  "title": "一跨而境商品档案",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "productId",
+    "identity",
+    "lifecycle",
+    "nextAction",
+    "notes",
+    "artifacts",
+    "archive"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "productId": { "type": "string", "format": "uuid" },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["displayName", "workflowMode"],
+      "properties": {
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "workflowMode": {
+          "enum": ["standard_listing", "luxury_insert"]
+        },
+        "standardWorkflowGoal": {
+          "enum": ["full_listing", "seo_content_only"]
+        },
+        "brand": { "type": "string", "maxLength": 120 },
+        "category": { "type": "string", "maxLength": 120 },
+        "bagFamily": { "type": "string", "maxLength": 120 }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "currentStage", "createdAt", "updatedAt"],
+      "properties": {
+        "status": {
+          "enum": ["active", "paused", "failed", "completed", "archived"]
+        },
+        "currentStage": {
+          "enum": [
+            "IDLE",
+            "VALIDATING_INPUT",
+            "READY_FOR_LOGIN",
+            "CREATING_CHAT",
+            "UPLOADING_IMAGES",
+            "SENDING_PROMPT",
+            "WAITING_FOR_RESPONSE",
+            "SENDING_RESEARCH",
+            "WAITING_FOR_RESEARCH",
+            "SENDING_PLANNING",
+            "WAITING_FOR_PLANNING",
+            "VALIDATING_PROMPT_PACK",
+            "GENERATING_IMAGES",
+            "DOWNLOADING_IMAGE",
+            "SENDING_SEO_KEYWORDS",
+            "WAITING_FOR_SEO_KEYWORDS",
+            "SENDING_LISTING_CONTENT",
+            "WAITING_FOR_LISTING_CONTENT",
+            "SAVING_LISTING_CONTENT",
+            "INSERT_MARKET_RADAR",
+            "INSERT_IDENTIFYING_BAG",
+            "INSERT_WAITING_BAG_CONFIRMATION",
+            "INSERT_QUERYING_NOTEBOOK",
+            "INSERT_WAITING_DESIGN_FREEZE",
+            "INSERT_WAITING_LINER_IMAGES",
+            "INSERT_BUILDING_PROMPTS",
+            "INSERT_GENERATING_IMAGES",
+            "INSERT_ARCHIVING",
+            "PAUSED",
+            "COMPLETED",
+            "FAILED"
+          ]
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "taskStartedAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "archivedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "nextAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["suggested", "effective"],
+      "properties": {
+        "suggested": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "effective": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "manualOverride": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value", "updatedAt", "source"],
+          "properties": {
+            "value": { "type": "string", "minLength": 1, "maxLength": 500 },
+            "updatedAt": { "type": "string", "format": "date-time" },
+            "source": { "enum": ["user", "agent_suggestion"] }
+          }
+        }
+      }
+    },
+    "notes": { "type": "string", "maxLength": 10000 },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "type", "size", "updatedAt"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+          },
+          "type": {
+            "enum": [
+              "source_image",
+              "generated_image",
+              "seo",
+              "listing_content",
+              "prompt",
+              "notebook",
+              "fact_report",
+              "state",
+              "other"
+            ]
+          },
+          "size": { "type": "integer", "minimum": 0 },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "archive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["archived"],
+      "properties": {
+        "archived": { "type": "boolean" },
+        "directoryName": { "type": "string", "minLength": 1, "maxLength": 255 }
+      }
+    },
+    "queueSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["queueTaskId", "sourceExcelFile", "sourceExcelRow"],
+      "properties": {
+        "queueTaskId": { "type": "string", "format": "uuid" },
+        "sourceExcelFile": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "sourceExcelRow": { "type": "integer", "minimum": 2 }
+      }
+    }
+  }
+}

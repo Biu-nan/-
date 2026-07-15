@@ -1,0 +1,3232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>[DEBUG] smt_choice_listing 任务卡 v2 预览 — 调试/追踪专用</title>
+  <style>
+    :root {
+      --bg: #f5f5f7;
+      --card: #ffffff;
+      --text: #1d1d1f;
+      --text-secondary: #6e6e73;
+      --border: #e5e7eb;
+      --primary: #6366f1;
+      --primary-soft: #eef2ff;
+      --orange: #f59e0b;
+      --orange-soft: #fff7ed;
+      --red: #ef4444;
+      --red-soft: #fef2f2;
+      --green: #22c55e;
+      --green-soft: #f0fdf4;
+      --blue: #3b82f6;
+      --blue-soft: #eff6ff;
+      --gray: #9ca3af;
+      --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 14px; line-height: 1.5;
+    }
+    .container { max-width: 1440px; margin: 0 auto; padding: 28px 28px 40px; }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    }
+    .badge.draft { background: var(--primary-soft); color: var(--primary); }
+    .badge.warning { background: var(--orange-soft); color: var(--orange); }
+    .badge.primary { background: var(--primary-soft); color: var(--primary); }
+    .badge.orange { background: var(--orange-soft); color: #b45309; }
+    .badge.red { background: var(--red-soft); color: var(--red); }
+    .badge.green { background: var(--green-soft); color: #15803d; }
+    .badge.gray { background: #f3f4f6; color: #6b7280; }
+    .badge.blue { background: var(--blue-soft); color: var(--blue); }
+
+    .card {
+      background: var(--card); border-radius: 18px; box-shadow: var(--shadow);
+      padding: 20px; border: 1px solid rgba(0,0,0,0.03);
+    }
+    .card-title {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 15px; font-weight: 700; color: var(--text); margin: 0 0 16px 0;
+    }
+    .card-title .icon { font-size: 18px; }
+
+    .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+    .title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .title-row h1 { font-size: 24px; font-weight: 800; margin: 0; }
+    .subtitle { color: var(--text-secondary); font-size: 13px; margin-top: 6px; }
+    .task-meta { display: flex; flex-direction: column; gap: 8px; min-width: 260px; }
+    .meta-row { display: flex; justify-content: space-between; font-size: 13px; }
+    .meta-row .label { color: var(--text-secondary); }
+    .meta-row .value { font-weight: 600; color: var(--text); }
+
+    .grid-4 { display: grid; grid-template-columns: 1.5fr 1fr 1fr 0.9fr; gap: 20px; margin-bottom: 20px; }
+    .grid-stage { display: grid; grid-template-columns: 2fr 0.9fr; gap: 20px; margin-bottom: 20px; }
+    .grid-fact { display: grid; grid-template-columns: 2.2fr 0.8fr 0.9fr; gap: 20px; margin-bottom: 20px; }
+    .grid-bottom { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+    .right-stack { display: flex; flex-direction: column; gap: 20px; }
+
+    .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+    .field:last-child { margin-bottom: 0; }
+    .field-label { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+    .field-value { font-size: 13px; color: var(--text); word-break: break-word; }
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .entry-content { display: flex; gap: 16px; }
+    .product-thumb { width: 110px; height: 110px; border-radius: 14px; background: linear-gradient(135deg, #f3e8ff 0%, #e0e7ff 100%); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .thumb-placeholder { text-align: center; color: #8b5cf6; font-size: 12px; }
+    .thumb-placeholder .emoji { font-size: 36px; line-height: 1; display: block; margin-bottom: 6px; }
+    .entry-fields { flex: 1; }
+
+    .current-subject { font-weight: 700; color: var(--text); margin-bottom: 12px; font-size: 14px; }
+    .confirm-list { display: flex; flex-direction: column; gap: 10px; }
+    .confirm-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 10px; background: #fafafa; border: 1px solid var(--border); }
+    .confirm-item .question { font-size: 13px; color: var(--text); }
+    .confirm-hint { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--orange-soft); color: #92400e; font-size: 12px; font-weight: 600; }
+
+    .kv-list { display: flex; flex-direction: column; gap: 10px; }
+    .kv-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+    .kv-row .kv-label { color: var(--text-secondary); }
+    .progress-bar { height: 6px; background: #e5e7eb; border-radius: 3px; margin-top: 6px; overflow: hidden; }
+    .progress-fill { height: 100%; width: 20%; background: linear-gradient(90deg, var(--primary), #818cf8); border-radius: 3px; transition: width 0.3s; }
+
+    .stage-flow { display: flex; gap: 12px; align-items: stretch; }
+    .stage { flex: 1; border-radius: 14px; padding: 14px; border: 1px solid var(--border); background: #fafafa; }
+    .stage.active { background: var(--primary-soft); border-color: #c7d2fe; }
+    .stage.pending { background: var(--orange-soft); border-color: #fde68a; }
+    .stage.not-started { background: #f9fafb; }
+    .stage-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .stage-title { font-weight: 700; font-size: 13px; }
+    .stage ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+    .stage li { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary); }
+    .stage li .check { width: 16px; height: 16px; border-radius: 50%; background: var(--green); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; }
+    .stage li .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gray); flex-shrink: 0; }
+    .stage-footer { margin-top: 12px; font-size: 11px; color: var(--text-secondary); }
+    .arrow { display: flex; align-items: center; color: var(--gray); font-size: 18px; font-weight: 700; }
+
+    .done-card { background: #fafafa; border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+    .done-card h3 { font-size: 14px; font-weight: 700; margin: 0 0 12px 0; }
+    .done-item { display: flex; gap: 8px; font-size: 12px; margin-bottom: 8px; color: var(--text-secondary); }
+    .done-item strong { color: var(--text); flex-shrink: 0; }
+
+    .action-stack { display: flex; flex-direction: column; gap: 10px; }
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 10px 16px; border-radius: 10px; font-size: 13px; font-weight: 600;
+      border: 1px solid transparent; transition: all 0.2s;
+    }
+    .btn:disabled { cursor: not-allowed; opacity: 0.7; }
+    .btn:not(:disabled):hover { cursor: pointer; opacity: 0.9; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-secondary { background: #fff; color: var(--text); border-color: var(--border); }
+    .btn-success { background: var(--green); color: #fff; cursor: pointer !important; opacity: 1 !important; }
+    .action-note { font-size: 11px; color: var(--text-secondary); text-align: center; margin-top: 4px; }
+
+    .fact-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    .fact-card { border-radius: 14px; padding: 14px; border: 1px solid var(--border); }
+    .fact-card h3 { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; margin: 0 0 12px 0; }
+    .fact-card.confirmed { background: var(--green-soft); border-color: #bbf7d0; }
+    .fact-card.uncertain { background: var(--orange-soft); border-color: #fed7aa; }
+    .fact-card.missing { background: var(--red-soft); border-color: #fecaca; }
+    .fact-card.evidence { background: var(--blue-soft); border-color: #bfdbfe; }
+    .fact-card ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+    .fact-card li { display: flex; justify-content: space-between; font-size: 12px; }
+    .fact-card li .label { color: var(--text-secondary); }
+    .fact-card .score { font-size: 11px; padding: 2px 6px; border-radius: 10px; background: rgba(255,255,255,0.7); font-weight: 600; }
+    .fact-card .score.high { color: #15803d; }
+    .fact-card .score.medium { color: #b45309; }
+    .fact-card .score.low { color: #6b7280; }
+    .fact-card .card-footer { margin-top: 10px; font-size: 11px; color: var(--text-secondary); }
+
+    .stats { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+    .stat { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 10px; background: #fafafa; border: 1px solid var(--border); }
+    .stat-label { font-size: 13px; color: var(--text-secondary); }
+    .stat-value { font-weight: 700; font-size: 14px; }
+    .stat-value.orange { color: var(--orange); }
+    .stat-value.red { color: var(--red); }
+    .stat-value.blue { color: var(--blue); }
+    .link { font-size: 13px; font-weight: 600; }
+
+    .lock-list { display: flex; flex-direction: column; gap: 10px; }
+    .lock-item { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; border-radius: 10px; background: #fafafa; border: 1px solid var(--border); }
+    .lock-item .label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); }
+    .lock-item .icon { color: var(--red); }
+    .lock-note { margin-top: 12px; font-size: 11px; color: var(--text-secondary); text-align: center; }
+
+    .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+    .tab { padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--text-secondary); cursor: default; }
+    .tab.active { background: var(--text); color: #fff; }
+
+    /* ActionLog / Issue summary */
+    .log-summary {
+      display: flex; align-items: center; gap: 14px; padding: 10px 14px;
+      background: #f9fafb; border-radius: 8px; font-size: 13px;
+      color: var(--text-secondary); margin-bottom: 8px;
+    }
+    .log-summary .ls-count { font-weight: 700; color: var(--text); }
+    .log-summary .ls-detail { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+    .log-summary .ls-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; opacity: 0.7; }
+    .log-summary .ls-expand {
+      font-size: 12px; color: #1e40af; cursor: pointer; font-weight: 600;
+      padding: 4px 10px; border-radius: 6px; border: 1px solid #dbeafe;
+      background: #eff6ff; flex-shrink: 0; user-select: none;
+    }
+    .log-summary .ls-expand:hover { background: #dbeafe; }
+    .log-summary.issue-warning {
+      background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c;
+    }
+    .log-summary.issue-clean {
+      background: #f0fdf4; border: 1px solid #bbf7d0; color: #16a34a;
+    }
+    .log-table-wrap { display: none; }
+    .log-table-wrap.open { display: block; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; font-size: 12px; color: var(--text-secondary); font-weight: 600; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+    td { padding: 12px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+    td.empty { text-align: center; color: var(--gray); border-bottom: none; }
+
+    .artifact-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+    .artifact-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 10px; background: #fafafa; border: 1px solid var(--border); font-size: 13px; }
+    .artifact-item .count { font-weight: 700; color: var(--text); }
+
+    .warning-banner {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      background: var(--orange-soft); color: #92400e; border: 1px solid #fed7aa;
+      border-radius: 14px; padding: 16px; font-weight: 600; text-align: center;
+    }
+    .preview-note { text-align: center; color: var(--text-secondary); font-size: 12px; margin-bottom: 20px; }
+
+    /* ── Debug-only banner ── */
+    .debug-banner {
+      background: #fef2f2;
+      border: 2px solid #ef4444;
+      border-radius: 12px;
+      padding: 14px 20px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 13px;
+      color: #991b1b;
+    }
+    .debug-banner .debug-icon {
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+    .debug-banner .debug-content {
+      flex: 1;
+    }
+    .debug-banner .debug-title {
+      font-weight: 800;
+      font-size: 14px;
+      margin-bottom: 2px;
+    }
+    .debug-banner .debug-desc {
+      font-size: 12px;
+      color: #b91c1c;
+    }
+    .debug-banner .debug-link {
+      font-size: 12px;
+      color: #1e40af;
+      font-weight: 600;
+      text-decoration: underline;
+      flex-shrink: 0;
+    }
+
+    /* ── command bar ── */
+    .cmd-bar {
+      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+      border-radius: 12px; padding: 14px 20px;
+      display: flex; align-items: center; gap: 16px;
+      color: #fff; font-size: 13px; margin-bottom: 8px;
+    }
+    .cmd-bar-title { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .cmd-bar-div { width: 1px; height: 24px; background: rgba(255,255,255,0.2); }
+    .cmd-bar-body { flex: 1; display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .cmd-bar-tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 600;
+      background: rgba(255,255,255,0.15);
+    }
+    .cmd-bar-tag.green { background: rgba(34,197,94,0.25); }
+    .cmd-bar-tag.yellow { background: rgba(245,158,11,0.25); }
+    .cmd-bar-tag.red { background: rgba(239,68,68,0.25); }
+    .cmd-bar-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; opacity: 0.8; }
+    .cmd-bar-label { font-size: 11px; opacity: 0.6; }
+    .cmd-bar-next {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 14px; background: rgba(255,255,255,0.12);
+      border-radius: 8px; flex-shrink: 0;
+    }
+    .cmd-boundary {
+      background: #f5f7fa; border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 14px; margin-bottom: 8px;
+      font-size: 12px; color: var(--text-secondary); text-align: center;
+    }
+
+    /* ── Stage path bar ── */
+    .stage-path {
+      display: flex; align-items: center; gap: 0; margin-bottom: 18px;
+      background: #fff; border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 16px; overflow-x: auto;
+    }
+    .stage-path-item {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; white-space: nowrap; flex-shrink: 0;
+      padding: 4px 8px; border-radius: 6px;
+      transition: all 0.2s;
+    }
+    .stage-path-item.pending { color: #b0b8c1; }
+    .stage-path-item.active {
+      color: #1e40af; background: #eef2ff; font-weight: 700;
+    }
+    .stage-path-item.completed { color: #16a34a; }
+    .stage-path-item.blocked {
+      color: #dc2626; background: #fef2f2; font-weight: 700;
+    }
+    .stage-path-arrow {
+      color: #d1d5db; font-size: 14px; margin: 0 2px; flex-shrink: 0;
+    }
+    .stage-path-item .stage-icon { font-size: 14px; }
+    .stage-path-item .stage-label { font-size: 11px; }
+
+    /* form */
+    .form-section { margin-bottom: 24px; }
+    .form-section .card { border: 2px dashed var(--border); }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .form-field { display: flex; flex-direction: column; gap: 5px; }
+    .form-field.full { grid-column: 1 / -1; }
+    .form-field label { font-size: 12px; font-weight: 600; color: var(--text); }
+    .form-field select, .form-field input, .form-field textarea {
+      padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);
+      font-size: 13px; font-family: inherit; background: #fafafa; color: var(--text);
+    }
+    .form-field textarea { min-height: 70px; resize: vertical; }
+    .form-actions { display: flex; gap: 10px; align-items: center; margin-top: 14px; }
+    .form-hint { font-size: 11px; color: var(--text-secondary); }
+
+    /* empty state */
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
+    .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+    .empty-state h3 { font-size: 18px; font-weight: 700; color: var(--text); margin: 0 0 8px; }
+    .empty-state p { font-size: 14px; margin: 0; max-width: 480px; margin-inline: auto; }
+
+    /* toast */
+    .toast {
+      position: fixed; top: 20px; right: 20px; z-index: 1000;
+      padding: 12px 20px; border-radius: 12px; font-size: 13px; font-weight: 600;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12); animation: slideIn 0.25s ease;
+      max-width: 420px;
+    }
+    .toast.success { background: var(--green-soft); color: #15803d; border: 1px solid #bbf7d0; }
+    .toast.error { background: var(--red-soft); color: var(--red); border: 1px solid #fecaca; }
+    @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+    .task-card-list { margin-bottom: 20px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .task-card-chip {
+      padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;
+      cursor: pointer; border: 1px solid var(--border); background: #fafafa; color: var(--text-secondary);
+      transition: all 0.15s;
+    }
+    .task-card-chip:hover { background: var(--primary-soft); color: var(--primary); border-color: #c7d2fe; }
+    .task-card-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    /* S1 confirmation form */
+    #s1-confirm-form { display: none; }
+    #s1-confirm-form.active { display: block; }
+    #s1-confirm-form .form-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+    #s1-confirm-form .form-field select, 
+    #s1-confirm-form .form-field input, 
+    #s1-confirm-form .form-field textarea {
+      padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);
+      font-size: 13px; font-family: inherit; background: #fafafa; color: var(--text); width: 100%;
+    }
+    #s1-confirm-form .form-field textarea { min-height: 60px; resize: vertical; }
+    #s1-confirm-form .form-field label { font-size: 12px; font-weight: 600; color: var(--text); display: block; margin-bottom: 4px; }
+    #s1-confirm-form .form-field.full { grid-column: 1 / -1; }
+    #s1-confirm-form .form-actions { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+    #s1-confirm-form .form-hint { font-size: 11px; color: var(--text-secondary); }
+    .s1-status-display { display: none; }
+    .s1-status-display.active { display: block; }
+    .s1-blocked-note { display: none; margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--red-soft); color: var(--red); font-size: 12px; font-weight: 600; }
+    .s1-blocked-note.active { display: block; }
+    .btn-warning { background: var(--orange); color: #fff; cursor: pointer !important; opacity: 1 !important; }
+    .btn-danger { background: var(--red); color: #fff; cursor: pointer !important; opacity: 1 !important; }
+
+    /* S1 Flow Control standalone section */
+    .flow-control-section { margin-bottom: 24px; display: none; }
+    .flow-control-section.active { display: block; }
+    .flow-control-section .card { border: 2px solid var(--primary); background: linear-gradient(135deg, #faf5ff 0%, #eef2ff 100%); }
+    .flow-control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .flow-control-panel { border-radius: 14px; background: var(--card); padding: 18px; border: 1px solid var(--border); }
+    .flow-control-panel h3 { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; margin: 0 0 14px; color: var(--text); }
+    .flow-status-display { display: flex; flex-direction: column; gap: 10px; }
+    .flow-status-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 8px; background: #fafafa; font-size: 13px; }
+    .flow-status-item .fkey { color: var(--text-secondary); }
+    .flow-status-item .fval { font-weight: 600; }
+    .flow-blocked-alert { margin-top: 16px; padding: 14px; border-radius: 12px; background: var(--red-soft); border: 1px solid #fecaca; color: var(--red); font-size: 13px; font-weight: 600; display: none; }
+    .flow-blocked-alert.active { display: block; }
+
+    /* S0 product input */
+    .product-input-section { margin-bottom: 24px; }
+    .product-input-section .card { border: 2px solid #bfdbfe; }
+    .input-boundary-note {
+      padding: 10px 14px; border-radius: 10px; background: var(--orange-soft);
+      border: 1px solid #fed7aa; color: #92400e; font-size: 12px; font-weight: 600;
+      margin-bottom: 16px;
+    }
+    .product-input-empty {
+      padding: 18px; border-radius: 12px; background: #f9fafb; border: 1px dashed var(--border);
+      color: var(--text-secondary); font-size: 13px; text-align: center;
+    }
+    .product-input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .product-input-field { display: flex; flex-direction: column; gap: 5px; }
+    .product-input-field.full { grid-column: 1 / -1; }
+    .product-input-field label { font-size: 12px; font-weight: 600; color: var(--text); }
+    .product-input-field input,
+    .product-input-field select,
+    .product-input-field textarea {
+      padding: 9px 12px; border-radius: 9px; border: 1px solid var(--border);
+      font-size: 13px; font-family: inherit; background: #fff; color: var(--text);
+      width: 100%;
+    }
+    .product-input-field textarea { min-height: 72px; resize: vertical; }
+    .product-input-actions { display: flex; gap: 10px; align-items: center; margin-top: 14px; }
+    .product-input-actions .form-hint { font-size: 11px; color: var(--text-secondary); }
+    .evidence-source-summary {
+      margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);
+      display: none;
+    }
+    .evidence-source-summary.active { display: block; }
+    .evidence-source-note {
+      padding: 10px 14px; border-radius: 10px; background: var(--blue-soft);
+      border: 1px solid #bfdbfe; color: #1d4ed8; font-size: 12px; font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .evidence-source-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .evidence-source-stat {
+      padding: 10px 12px; border-radius: 10px; background: #fafafa; border: 1px solid var(--border);
+    }
+    .evidence-source-stat .stat-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+    .evidence-source-stat .stat-value { font-size: 18px; font-weight: 800; color: var(--text); }
+
+    /* S2 Fact Base QC Panel */
+    .s2-qc-panel { margin-bottom: 20px; display: none; }
+    .s2-qc-panel.active { display: block; }
+    .s2-qc-panel .card { border: 2px solid #818cf8; background: linear-gradient(135deg, #faf5ff 0%, #eff6ff 100%); }
+    .qc-checklist { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .qc-check-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border); background: #fff; font-size: 13px; }
+    .qc-check-item.pass { border-color: #bbf7d0; background: var(--green-soft); }
+    .qc-check-item.fail { border-color: #fecaca; background: var(--red-soft); }
+    .qc-check-item .qc-icon { font-size: 16px; flex-shrink: 0; }
+    .qc-meta { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+    .qc-meta-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 6px 0; }
+    .qc-meta-row .qkey { color: var(--text-secondary); }
+    .qc-meta-row .qval { font-weight: 600; }
+    .qc-reviewer-notes { margin-bottom: 14px; }
+    .qc-reviewer-notes label { display: block; font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+    .qc-reviewer-notes textarea { width: 100%; min-height: 70px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); font-size: 13px; font-family: inherit; resize: vertical; background: #fff; color: var(--text); }
+    .qc-status-card { border-radius: 14px; padding: 16px 20px; text-align: center; }
+    .qc-status-card.approved { background: var(--green-soft); border: 2px solid #bbf7d0; color: #15803d; }
+    .qc-status-card.blocked { background: var(--red-soft); border: 2px solid #fecaca; color: var(--red); }
+    .qc-status-card.needs_review { background: var(--orange-soft); border: 2px solid #fed7aa; color: #92400e; }
+    .qc-status-card h3 { font-size: 16px; font-weight: 800; margin: 0 0 6px; }
+    .qc-status-card p { font-size: 13px; margin: 0; }
+    .qc-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; align-items: center; }
+    .qc-actions .form-hint { flex-basis: 100%; }
+
+    /* S2 Fact Base Draft Panel */
+    .s2-draft-panel { margin-bottom: 20px; display: none; }
+    .s2-draft-panel.active { display: block; }
+    .s2-draft-panel .card { border: 2px solid #818cf8; background: linear-gradient(135deg, #faf5ff 0%, #f0fdf4 100%); }
+    .s2-manual-note {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 14px; border-radius: 10px; background: var(--orange-soft);
+      color: #92400e; font-size: 12px; font-weight: 600; margin-bottom: 16px;
+      border: 1px solid #fed7aa;
+    }
+    .s2-draft-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .s2-draft-form-field { display: flex; flex-direction: column; gap: 5px; }
+    .s2-draft-form-field label { font-size: 12px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 6px; }
+    .s2-draft-form-field textarea { min-height: 100px; resize: vertical; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); font-size: 13px; font-family: inherit; background: #fff; color: var(--text); }
+    .s2-draft-form-field.confirmed textarea { border-color: #bbf7d0; background: #fafdf9; }
+    .s2-draft-form-field.uncertain textarea { border-color: #fed7aa; background: #fffdf7; }
+    .s2-draft-form-field.missing textarea { border-color: #fecaca; background: #fff9f9; }
+    .s2-draft-form-field.evidence textarea { border-color: #bfdbfe; background: #f9faff; }
+    .s2-draft-saved-note { display: none; padding: 8px 12px; border-radius: 8px; background: var(--green-soft); color: #15803d; font-size: 12px; font-weight: 600; margin-top: 12px; }
+    .s2-draft-saved-note.active { display: block; }
+
+    /* responsive */
+    /* Context Pack Panel */
+    .context-pack-panel { margin-bottom: 20px; display: none; }
+    .context-pack-panel.active { display: block; }
+    .context-pack-panel .card { border: 2px solid #f59e0b; background: linear-gradient(135deg, #fffbeb 0%, #f0fdf4 100%); }
+    .cp-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+    .cp-field:last-child { margin-bottom: 0; }
+    .cp-field-label { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+    .cp-field-value { font-size: 13px; color: var(--text); word-break: break-word; }
+    .cp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+    .cp-empty { text-align: center; padding: 20px; color: var(--text-secondary); font-size: 13px; }
+
+    /* Artifact Panel */
+    .artifact-panel { margin-bottom: 20px; display: none; }
+    .artifact-panel.active { display: block; }
+    .artifact-panel .card { border: 2px solid #8b5cf6; background: linear-gradient(135deg, #faf5ff 0%, #eff6ff 100%); }
+    .artifact-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+    .artifact-table th { text-align: left; font-size: 12px; color: var(--text-secondary); font-weight: 600; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    .artifact-table td { padding: 8px 10px; font-size: 12px; color: var(--text); border-bottom: 1px solid var(--border); }
+    .artifact-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+    .artifact-form-field { display: flex; flex-direction: column; gap: 5px; }
+    .artifact-form-field label { font-size: 12px; font-weight: 600; color: var(--text); }
+    .artifact-form-field select,
+    .artifact-form-field input,
+    .artifact-form-field textarea {
+      padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border);
+      font-size: 13px; font-family: inherit; background: #fafafa; color: var(--text);
+    }
+    .artifact-form-field textarea { min-height: 60px; resize: vertical; }
+    .artifact-empty { text-align: center; padding: 20px; color: var(--text-secondary); font-size: 13px; }
+
+    .ai-job-notice {
+      background: #fff8d6;
+      border: 1px solid #f0d060;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #7a5c00;
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+
+    .ai-job-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+    .ai-job-item { border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; background: var(--bg); cursor: pointer; transition: border-color 0.15s; }
+    .ai-job-item:hover { border-color: var(--accent); }
+    .ai-job-item.selected { border-color: var(--accent); background: #f0f7ff; }
+    .ai-job-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .ai-job-id { font-size: 11px; color: #888; font-family: monospace; }
+    .ai-job-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+    .ai-job-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .ai-job-form-field label { display: block; font-size: 11px; font-weight: 600; color: #555; margin-bottom: 3px; }
+    .ai-job-form-field input, .ai-job-form-field select { width: 100%; padding: 5px 8px; font-size: 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); }
+    .ai-job-detail { border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; margin-top: 8px; background: var(--bg); font-size: 12px; }
+    .ai-job-detail-title { font-weight: 700; font-size: 13px; margin-bottom: 8px; color: #333; }
+    .ai-job-detail-grid { display: grid; grid-template-columns: 100px 1fr; gap: 4px 8px; }
+    .ai-job-detail-key { color: #666; font-weight: 600; }
+    .ai-job-detail-val { word-break: break-all; }
+    .ai-job-section-title { font-size: 12px; font-weight: 700; color: #444; margin: 8px 0 4px; }
+    .ai-job-execute-section { margin-top: 10px; }
+    .ai-job-execute-btn { display: block; width: 100%; padding: 8px 12px; font-size: 12px; border-radius: 6px; cursor: pointer; border: none; font-weight: 600; margin-top: 6px; }
+    .ai-job-execute-btn.btn-danger-soft { background: #fff0f0; color: #c0392b; border: 1px solid #f5c6cb; }
+    .ai-job-execute-btn.btn-danger-soft:hover { background: #fde8e8; }
+    .ai-job-execute-btn.btn-warning-soft { background: #fef9e7; color: #d35400; border: 1px solid #f39c12; }
+    .ai-job-execute-btn.btn-warning-soft:hover { background: #fdf2d8; }
+    .ai-job-blocked-card { background: #fff3cd; border: 1px solid #f39c12; border-radius: 8px; padding: 12px 14px; margin-top: 10px; font-size: 12px; }
+    .ai-job-blocked-card-header { font-weight: 700; color: #7d6608; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+    .ai-job-blocked-grid { display: grid; grid-template-columns: 90px 1fr; gap: 3px 8px; }
+    .ai-job-blocked-key { color: #7d6608; font-weight: 600; }
+    .ai-job-blocked-val { color: #333; word-break: break-all; }
+    .ai-job-blocked-note { margin-top: 8px; color: #7d6608; font-size: 11px; font-style: italic; }
+    .ai-job-execute-spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 6px; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 1200px) {
+      .grid-4, .grid-fact, .grid-stage, .grid-bottom { grid-template-columns: 1fr; }
+      .entry-content { flex-direction: column; }
+      .stage-flow { flex-direction: column; }
+      .arrow { transform: rotate(90deg); justify-content: center; }
+      .form-grid { grid-template-columns: 1fr; }
+      .s2-draft-form-grid { grid-template-columns: 1fr; }
+      .cp-grid { grid-template-columns: 1fr; }
+      .artifact-form-grid { grid-template-columns: 1fr; }
+      .ai-job-form-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- ═══ DEBUG ONLY 警告条 ═══ -->
+    <div class="debug-banner">
+      <span class="debug-icon">🔧</span>
+      <div class="debug-content">
+        <div class="debug-title">DEBUG / TRACE ONLY — 调试追踪专用页面</div>
+        <div class="debug-desc">此页面仅供开发调试与合约验证使用，不是正式产品页面。请勿在此页面执行日常业务操作。所有业务功能请使用 <a href="/index.html">Mac 主站</a>。</div>
+      </div>
+      <a class="debug-link" href="/index.html">→ 前往主站</a>
+    </div>
+
+    <!-- ═══ 任务指挥条 ═══ -->
+    <div class="cmd-bar" id="cmd-bar">
+      <div class="cmd-bar-title">
+        <span style="font-size:16px;">📋</span>
+        <strong style="font-size:15px;">AI 新品工作流</strong>
+        <span class="cmd-bar-tag">验证阶段</span>
+      </div>
+      <div class="cmd-bar-div"></div>
+      <div class="cmd-bar-body" id="cmd-body">
+        <span class="cmd-bar-label">尚未创建任务卡</span>
+      </div>
+      <div class="cmd-bar-next" id="cmd-next">
+        <span class="cmd-bar-label">下一步 →</span>
+        <span id="cmd-next-text" style="font-weight:600;">创建任务卡</span>
+      </div>
+    </div>
+    <div class="cmd-boundary" id="cmd-boundary">
+      ⚠️ 当前不会调用 ChatGPT / 1688 抓取 / 店小秘 / Listing / 主图 / 商品发布
+    </div>
+
+    <!-- ═══ 主流程路径条 ═══ -->
+    <div class="stage-path" id="stage-path">
+      <span class="stage-path-item pending" data-stage="create"><span class="stage-icon">📝</span><span class="stage-label">创建任务</span></span>
+      <span class="stage-path-arrow">→</span>
+      <span class="stage-path-item pending" data-stage="S0"><span class="stage-icon">🔖</span><span class="stage-label">S0 来源采集</span></span>
+      <span class="stage-path-arrow">→</span>
+      <span class="stage-path-item pending" data-stage="S1"><span class="stage-icon">🏷️</span><span class="stage-label">S1 销售主体</span></span>
+      <span class="stage-path-arrow">→</span>
+      <span class="stage-path-item pending" data-stage="S2"><span class="stage-icon">📋</span><span class="stage-label">S2 事实底稿</span></span>
+      <span class="stage-path-arrow">→</span>
+      <span class="stage-path-item pending" data-stage="QC"><span class="stage-icon">✅</span><span class="stage-label">QC 审核</span></span>
+      <span class="stage-path-arrow">→</span>
+      <span class="stage-path-item pending" data-stage="CTX"><span class="stage-icon">📦</span><span class="stage-label">Context / AI Job</span></span>
+    </div>
+
+    <p class="preview-note">⚠️ 调试/追踪模式 — 仅供合约验证与状态追踪，非正式产品页面。已连接运行时 API，未触发自动化。</p>
+
+    <!-- 1. Top identity -->
+    <div class="page-header">
+      <div class="title-block">
+        <div class="title-row">
+          <span class="icon">📋</span>
+          <h1>smt_choice_listing 任务卡</h1>
+          <span class="badge draft">草稿模式</span>
+          <span class="badge warning">⚠ 草稿模式，未执行任何自动化</span>
+        </div>
+        <div class="subtitle">速卖通上品工作流任务卡</div>
+      </div>
+      <div class="task-meta card">
+        <div class="meta-row"><span class="label">任务ID</span><span class="value" id="meta-task-id">--</span></div>
+        <div class="meta-row"><span class="label">创建时间</span><span class="value" id="meta-created">--</span></div>
+        <div class="meta-row"><span class="label">更新时间</span><span class="value" id="meta-updated">--</span></div>
+      </div>
+    </div>
+
+    <!-- Task card selector (when multiple exist) -->
+    <div class="task-card-list" id="task-card-selector" style="display:none;"></div>
+
+    <!-- Entry form (always visible, collapsible) -->
+    <div class="form-section" id="entry-form-section">
+      <div class="card">
+        <h2 class="card-title"><span class="icon">✏️</span> 输入表单 — 创建草稿任务卡</h2>
+        <form id="entry-form" onsubmit="return false;">
+          <div class="form-grid">
+            <div class="form-field">
+              <label for="entry-type">输入类型</label>
+              <select id="entry-type">
+                <option value="image_and_url" selected>image_and_url</option>
+                <option value="image_only">image_only</option>
+                <option value="url_only">url_only</option>
+                <option value="manual_note">manual_note</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label for="target-platform">目标平台</label>
+              <input type="text" id="target-platform" value="AliExpress" />
+            </div>
+            <div class="form-field">
+              <label for="product-images">商品图片（逗号分隔）</label>
+              <input type="text" id="product-images" placeholder="local-path-or-placeholder" />
+            </div>
+            <div class="form-field">
+              <label for="source-links">来源链接（逗号分隔）</label>
+              <input type="text" id="source-links" placeholder="https://detail.1688.com/offer/xxx.html" />
+            </div>
+            <div class="form-field full">
+              <label for="operator-notes">人工备注</label>
+              <textarea id="operator-notes" placeholder="人工备注..."></textarea>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-success" id="btn-create">创建草稿任务卡</button>
+            <span class="form-hint" id="form-status"></span>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- S1 Flow Control｜销售主体确认流转 (standalone section) -->
+    <div class="flow-control-section" id="flow-control-section">
+      <div class="card">
+        <h2 class="card-title"><span class="icon">🔄</span> S1 Flow Control｜销售主体确认流转</h2>
+        <div class="flow-control-grid">
+          <!-- Left: Current state + action buttons -->
+          <div class="flow-control-panel">
+            <h3>📊 当前阶段状态</h3>
+            <div class="flow-status-display" id="flow-status">
+              <div class="flow-status-item">
+                <span class="fkey">S0 — 商品来源采集</span>
+                <span class="badge gray" id="flow-s0-badge">--</span>
+              </div>
+              <div class="flow-status-item">
+                <span class="fkey">S1 — 销售主体确认</span>
+                <span class="badge gray" id="flow-s1-badge">--</span>
+              </div>
+              <div class="flow-status-item">
+                <span class="fkey">S2 — 产品事实底稿</span>
+                <span class="badge gray" id="flow-s2-badge">--</span>
+              </div>
+              <div class="flow-status-item">
+                <span class="fkey">当前阶段 ID</span>
+                <span class="badge primary" id="flow-current-stage">--</span>
+              </div>
+            </div>
+            <div class="flow-blocked-alert" id="flow-blocked-alert">
+              🚫 品牌/IP 风险阻断。该任务无法进入 S2，需人工处理。
+            </div>
+          </div>
+          <!-- Right: Action buttons -->
+          <div class="flow-control-panel">
+            <h3>⚡ 流转操作</h3>
+            <div class="action-stack" id="flow-action-buttons">
+              <!-- dynamically rendered -->
+            </div>
+            <div class="action-note" id="flow-action-note" style="margin-top:12px;">请先创建 task card 再操作</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty state (when no task cards) -->
+    <div id="empty-state" style="display:none;">
+      <div class="card">
+        <div class="empty-state">
+          <div class="icon">📭</div>
+          <h3>暂无任务卡</h3>
+          <p>请在上方输入表单中创建草稿任务卡。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- S0 standardized product input -->
+    <div class="product-input-section" id="product-input-section">
+      <div class="card">
+        <h2 class="card-title"><span class="icon">🧾</span> S0 商品输入区</h2>
+        <div class="input-boundary-note">当前只保存输入信息，不自动抓取，不调用 ChatGPT，不分析商品事实。</div>
+        <div class="product-input-empty" id="product-input-empty">请先创建 Task Card，再填写商品输入信息。</div>
+        <form id="product-input-form" onsubmit="return false;" style="display:none;">
+          <div class="product-input-grid">
+            <div class="product-input-field">
+              <label for="pi-product-images">商品图片</label>
+              <input type="text" id="pi-product-images" placeholder="文本占位 / 本地路径 / 图片 URL，多个用逗号分隔" />
+            </div>
+            <div class="product-input-field">
+              <label for="pi-product-url">商品 URL</label>
+              <input type="text" id="pi-product-url" placeholder="普通商品链接文本" />
+            </div>
+            <div class="product-input-field">
+              <label for="pi-1688-url">1688 链接</label>
+              <input type="text" id="pi-1688-url" placeholder="https://detail.1688.com/offer/..." />
+            </div>
+            <div class="product-input-field">
+              <label for="pi-target-platform">目标平台</label>
+              <select id="pi-target-platform">
+                <option value="AliExpress">AliExpress</option>
+                <option value="Amazon">Amazon</option>
+                <option value="SHEIN">SHEIN</option>
+                <option value="Etsy">Etsy</option>
+                <option value="Walmart">Walmart</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="product-input-field">
+              <label for="pi-input-status">当前输入状态</label>
+              <select id="pi-input-status">
+                <option value="未填写">未填写</option>
+                <option value="已填写">已填写</option>
+                <option value="待补充">待补充</option>
+              </select>
+            </div>
+            <div class="product-input-field full">
+              <label for="pi-operator-notes">人工备注</label>
+              <textarea id="pi-operator-notes" placeholder="人工补充说明，不会自动写入确认事实"></textarea>
+            </div>
+          </div>
+          <div class="product-input-actions">
+            <button type="submit" class="btn btn-primary" id="btn-save-product-input">保存商品输入</button>
+            <span class="form-hint" id="product-input-status"></span>
+          </div>
+        </form>
+        <div class="evidence-source-summary" id="evidence-source-summary">
+          <h3 style="font-size:13px;font-weight:800;margin:0 0 10px 0;">Evidence Source｜商品证据源</h3>
+          <div class="evidence-source-note">
+            证据源只代表输入来源，不等于已确认商品事实。当前不会自动抓取 1688，也不会调用 ChatGPT。
+          </div>
+          <div class="evidence-source-grid">
+            <div class="evidence-source-stat"><div class="stat-label">当前证据数量</div><div class="stat-value" id="evidence-total-count">0</div></div>
+            <div class="evidence-source-stat"><div class="stat-label">图片证据数量</div><div class="stat-value" id="evidence-image-count">0</div></div>
+            <div class="evidence-source-stat"><div class="stat-label">商品链接证据数量</div><div class="stat-value" id="evidence-product-url-count">0</div></div>
+            <div class="evidence-source-stat"><div class="stat-label">1688 证据数量</div><div class="stat-value" id="evidence-1688-count">0</div></div>
+            <div class="evidence-source-stat"><div class="stat-label">人工备注证据数量</div><div class="stat-value" id="evidence-manual-note-count">0</div></div>
+            <div class="evidence-source-stat"><div class="stat-label">目标平台证据数量</div><div class="stat-value" id="evidence-target-platform-count">0</div></div>
+            <div class="evidence-source-stat"><div class="stat-label">待补充数量</div><div class="stat-value" id="evidence-missing-count">0</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Task card content (when a card is selected) -->
+    <div id="task-card-content" style="display:none;">
+      <div class="grid-4">
+        <!-- 2. Entry summary -->
+        <div class="card">
+          <h2 class="card-title"><span class="icon">1️⃣</span> Entry 输入摘要</h2>
+          <div class="entry-content">
+            <div class="product-thumb">
+              <div class="thumb-placeholder">
+                <span class="emoji">🧸</span>
+                <div id="entry-img-count">0 张</div>
+              </div>
+            </div>
+            <div class="entry-fields">
+              <div class="field">
+                <span class="field-label">输入类型</span>
+                <span class="badge primary" id="entry-type-display">--</span>
+              </div>
+              <div class="field">
+                <span class="field-label">来源链接</span>
+                <span class="field-value" id="entry-links">--</span>
+              </div>
+              <div class="field">
+                <span class="field-label">商品 URL</span>
+                <span class="field-value" id="entry-product-url">--</span>
+              </div>
+              <div class="field">
+                <span class="field-label">1688 链接</span>
+                <span class="field-value" id="entry-1688-url">--</span>
+              </div>
+              <div class="field">
+                <span class="field-label">商品图片</span>
+                <span class="field-value" id="entry-images">--</span>
+              </div>
+              <div class="field">
+                <span class="field-label">人工备注</span>
+                <span class="field-value" id="entry-notes">--</span>
+              </div>
+              <div class="field">
+                <span class="field-label">目标平台</span>
+                <span class="field-value" id="entry-platform">--</span>
+              </div>
+              <div class="field">
+                <span class="field-label">输入状态</span>
+                <span class="field-value" id="entry-input-status">--</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Dispatch result -->
+        <div class="card">
+          <h2 class="card-title"><span class="icon">2️⃣</span> 分流判断结果</h2>
+          <div class="field">
+            <span class="field-label">匹配工作流</span>
+            <span class="badge primary" id="dispatch-workflow">--</span>
+          </div>
+          <div class="field">
+            <span class="field-label">匹配原因</span>
+            <span class="field-value" id="dispatch-reason">--</span>
+          </div>
+          <div class="field">
+            <span class="field-label">优先级</span>
+            <span class="badge orange" id="dispatch-priority">--</span>
+          </div>
+          <div class="field">
+            <span class="field-label">建议下一步</span>
+            <span class="field-value" id="dispatch-next">--</span>
+          </div>
+        </div>
+
+        <!-- 4. Sales subject confirmation -->
+        <div class="card">
+          <h2 class="card-title"><span class="icon">🔴</span> 销售主体确认（非常关键）</h2>
+          <div class="current-subject" id="selling-subject">当前判断：--</div>
+
+          <!-- S1 confirmed status display -->
+          <div class="s1-status-display" id="s1-confirmed-display">
+            <div class="confirm-list" id="s1-confirm-list">
+              <div class="confirm-item">
+                <span class="question">销售主体</span>
+                <span class="badge green" id="s1-item-subject">--</span>
+              </div>
+              <div class="confirm-item">
+                <span class="question">SKU 意图</span>
+                <span class="badge green" id="s1-item-sku">--</span>
+              </div>
+              <div class="confirm-item">
+                <span class="question">目标平台</span>
+                <span class="badge green" id="s1-item-platform">--</span>
+              </div>
+              <div class="confirm-item">
+                <span class="question">品牌 / IP 风险</span>
+                <span class="badge orange" id="s1-item-risk">--</span>
+              </div>
+            </div>
+            <div class="s1-blocked-note" id="s1-blocked-note">🚫 品牌/IP 风险阻断，任务已标记为 blocked，需人工介入处理。</div>
+          </div>
+
+          <!-- S1 confirmation form (shown when S1=needs_review) -->
+          <div id="s1-confirm-form">
+            <form id="s1-form" onsubmit="return false;">
+              <div class="form-grid">
+                <div class="form-field full">
+                  <label for="s1-selling-subject">销售主体（必填）</label>
+                  <input type="text" id="s1-selling-subject" placeholder="例：紫色毛绒钥匙扣挂件" />
+                </div>
+                <div class="form-field full">
+                  <label for="s1-sku-intent">SKU 意图（必填）</label>
+                  <input type="text" id="s1-sku-intent" placeholder="例：单色单款 / 多色多款 / 待确认" />
+                </div>
+                <div class="form-field">
+                  <label for="s1-target-platform">目标平台</label>
+                  <input type="text" id="s1-target-platform" value="AliExpress" />
+                </div>
+                <div class="form-field">
+                  <label for="s1-target-market">目标市场</label>
+                  <input type="text" id="s1-target-market" placeholder="例：美国 / 欧洲 / 东南亚" />
+                </div>
+                <div class="form-field">
+                  <label for="s1-brand-risk">品牌 / IP 风险等级</label>
+                  <select id="s1-brand-risk">
+                    <option value="clear" selected>clear — 无风险</option>
+                    <option value="needs_review">needs_review — 需审核</option>
+                    <option value="blocked">blocked — 高风险 / 阻断</option>
+                  </select>
+                </div>
+                <div class="form-field full">
+                  <label for="s1-confirmation-notes">确认备注</label>
+                  <textarea id="s1-confirmation-notes" placeholder="补充说明..."></textarea>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary" id="btn-confirm-s1">确认销售主体</button>
+                <span class="form-hint" id="s1-form-status"></span>
+              </div>
+            </form>
+          </div>
+
+          <!-- Pending hint (shown before S0 completion) -->
+          <div class="confirm-hint" id="s1-pending-hint">⚠ 请先完成 S0 商品来源采集，再进入 S1 销售主体确认。</div>
+        </div>
+
+        <!-- 5. Task status overview -->
+        <div class="card">
+          <h2 class="card-title"><span class="icon">📊</span> 任务状态概览</h2>
+          <div class="kv-list">
+            <div class="kv-row">
+              <span class="kv-label">任务状态</span>
+              <span class="badge draft" id="status-badge">--</span>
+            </div>
+            <div class="kv-row">
+              <span class="kv-label">当前阶段</span>
+              <span class="badge primary" id="status-stage">--</span>
+            </div>
+            <div class="kv-row">
+              <span class="kv-label">整体进度</span>
+              <span class="field-value" id="status-progress-text">--</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" id="status-progress-bar"></div></div>
+            <div class="kv-row">
+              <span class="kv-label">优先级</span>
+              <span class="badge orange" id="status-priority">--</span>
+            </div>
+            <div class="kv-row">
+              <span class="kv-label">负责人</span>
+              <span class="field-value">待分配</span>
+            </div>
+            <div class="kv-row">
+              <span class="kv-label">目标平台</span>
+              <span class="field-value" id="status-platform">--</span>
+            </div>
+            <div class="kv-row">
+              <span class="kv-label">工作流</span>
+              <span class="field-value" id="status-workflow">--</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6. Stage tracking -->
+      <div class="grid-stage">
+        <div class="card">
+          <h2 class="card-title"><span class="icon">3️⃣</span> 阶段追踪（S0 → S1 → S2）</h2>
+          <div class="stage-flow">
+            <div class="stage" id="stage-S0">
+              <div class="stage-head">
+                <span class="stage-title">S0 商品来源采集</span>
+                <span class="badge green" id="stage-badge-S0">--</span>
+              </div>
+              <ul>
+                <li><span class="check" id="s0-check-images">✓</span> 商品图片</li>
+                <li><span class="check" id="s0-check-links">✓</span> 来源链接</li>
+                <li><span class="check" id="s0-check-notes">✓</span> 人工备注</li>
+                <li><span class="check" id="s0-check-type">✓</span> 来源类型</li>
+              </ul>
+              <div class="stage-footer" id="stage-footer-S0">--</div>
+            </div>
+            <div class="arrow">→</div>
+            <div class="stage" id="stage-S1">
+              <div class="stage-head">
+                <span class="stage-title">S1 销售主体 / 上品意图确认</span>
+                <span class="badge gray" id="stage-badge-S1">--</span>
+              </div>
+              <ul>
+                <li><span class="dot"></span> 销售主体确认</li>
+                <li><span class="dot"></span> SKU 结构确认</li>
+                <li><span class="dot"></span> 目标平台确认</li>
+                <li><span class="dot"></span> 风险初步判断</li>
+              </ul>
+              <div class="stage-footer" id="stage-footer-S1">--</div>
+            </div>
+            <div class="arrow">→</div>
+            <div class="stage" id="stage-S2">
+              <div class="stage-head">
+                <span class="stage-title">S2 产品事实底稿</span>
+                <span class="badge gray" id="stage-badge-S2">--</span>
+              </div>
+              <ul>
+                <li><span class="dot"></span> 产品名称</li>
+                <li><span class="dot"></span> 材质 / 尺寸</li>
+                <li><span class="dot"></span> 功能 / 结构</li>
+                <li><span class="dot"></span> 包装 / 配件</li>
+                <li><span class="dot"></span> 缺失信息标记</li>
+              </ul>
+              <div class="stage-footer" id="stage-footer-S2">--</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="right-stack">
+          <div class="done-card">
+            <h3>阶段完成标准（Done is Done）</h3>
+            <div class="done-item"><strong>S0 完成：</strong>图片 / 链接 / 备注至少有一项有效来源</div>
+            <div class="done-item"><strong>S1 完成：</strong>销售主体、目标平台、SKU 意图已确认</div>
+            <div class="done-item"><strong>S2 完成：</strong>事实底稿生成、缺失信息已标记、证据来源已记录</div>
+          </div>
+          <div class="card">
+            <h2 class="card-title"><span class="icon">⚡</span> 下一步动作中心</h2>
+            <div class="action-stack" id="action-buttons">
+              <!-- dynamically rendered by renderActions() -->
+            </div>
+            <div class="action-note" id="action-note">所有按钮均为 preview 状态，不触发真实动作</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- S2 Fact Base Draft Panel（仅在 S2=ready 或 S2=draft 时显示） -->
+      <div class="s2-draft-panel" id="s2-draft-panel">
+        <div class="card">
+          <h2 class="card-title"><span class="icon">📝</span> S2 产品事实底稿草稿 <span class="badge draft" id="s2-draft-status-badge">DRAFT</span> <span class="badge warning">⚠ 草稿模式，未执行任何自动化</span></h2>
+          <div class="s2-manual-note">
+            <span>📋</span>
+            <span>仅人工草稿。尚未执行 AI 提取。所有字段均为人工填写，未调用 ChatGPT / AI 提取。</span>
+          </div>
+
+          <!-- Input form -->
+          <form id="s2-fact-form" onsubmit="return false;">
+            <div class="s2-draft-form-grid">
+              <div class="s2-draft-form-field confirmed">
+                <label>✅ 已确认事实<span style="font-size:11px;color:var(--text-secondary);font-weight:400;">— 每行一条</span></label>
+                <textarea id="s2-confirmed-facts" placeholder="例：材质：毛绒 + 金属钥匙扣&#10;颜色：紫色&#10;尺寸：约 8cm"></textarea>
+              </div>
+              <div class="s2-draft-form-field uncertain">
+                <label>⚠️ 不确定事实<span style="font-size:11px;color:var(--text-secondary);font-weight:400;">— 每行一条</span></label>
+                <textarea id="s2-uncertain-facts" placeholder="例：重量待确认&#10;包装方式待确认（OPP袋 vs 盒装）"></textarea>
+              </div>
+              <div class="s2-draft-form-field missing">
+                <label>❌ 缺失信息<span style="font-size:11px;color:var(--text-secondary);font-weight:400;">— 每行一条</span></label>
+                <textarea id="s2-missing-info" placeholder="例：无产品条形码&#10;无官方材质证明&#10;无品牌授权书"></textarea>
+              </div>
+              <div class="s2-draft-form-field evidence">
+                <label>🔗 证据来源<span style="font-size:11px;color:var(--text-secondary);font-weight:400;">— 每行一条</span></label>
+                <textarea id="s2-source-evidence" placeholder="例：1688 详情页截图 (高)&#10;买家评价摘录 (中)&#10;人工目测判断 (低)"></textarea>
+              </div>
+            </div>
+            <div class="form-actions" style="margin-top:14px;">
+              <button type="submit" class="btn btn-primary" id="btn-save-fact-base">💾 保存事实底稿草稿</button>
+              <span class="form-hint" id="s2-form-status"></span>
+            </div>
+            <div class="s2-draft-saved-note" id="s2-draft-saved-note">✓ 事实底稿已保存。内容显示在下方预览区。</div>
+          </form>
+
+          <!-- Display-only area (shown after first save, updates fact cards below) -->
+          <div class="s2-draft-display" id="s2-draft-display">
+            <div class="fact-grid-preview">
+              <div class="fact-card confirmed">
+                <h3>✅ 已确认事实</h3>
+                <ul id="s2-display-confirmed"><li><span class="label">--</span></li></ul>
+                <div class="card-footer" id="s2-display-confirmed-count">共 0 项</div>
+              </div>
+              <div class="fact-card uncertain">
+                <h3>⚠️ 不确定事实</h3>
+                <ul id="s2-display-uncertain"><li><span class="label">--</span></li></ul>
+                <div class="card-footer" id="s2-display-uncertain-count">共 0 项</div>
+              </div>
+              <div class="fact-card missing">
+                <h3>❌ 缺失信息</h3>
+                <ul id="s2-display-missing"><li><span class="label">--</span></li></ul>
+                <div class="card-footer" id="s2-display-missing-count">共 0 项</div>
+              </div>
+              <div class="fact-card evidence">
+                <h3>🔗 证据来源</h3>
+                <ul id="s2-display-evidence"><li><span class="label">--</span></li></ul>
+                <div class="card-footer">高：可信度高 · 中：一般 · 低：仅参考</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- S2 Fact Base QC Panel（S2=draft/needs_review/approved/blocked 时显示） -->
+      <div class="s2-qc-panel" id="s2-qc-panel">
+        <div class="card">
+          <h2 class="card-title"><span class="icon">✅</span> S2 事实底稿 QC / 审批 <span class="badge draft" id="s2-qc-title-badge">QC</span> <span class="badge warning">⚠ 草稿模式，未执行任何自动化</span></h2>
+          <div class="s2-manual-note">
+            <span>📋</span>
+            <span>仅人工审查。尚未执行 AI 提取。所有审查均为人工判断，未调用 ChatGPT / AI。</span>
+          </div>
+
+          <!-- QC Checklist -->
+          <div class="qc-checklist" id="qc-checklist">
+            <div class="qc-check-item" id="qc-check-confirmed">
+              <span class="qc-icon">✅</span>
+              <span>已确认事实不为空</span>
+            </div>
+            <div class="qc-check-item" id="qc-check-missing">
+              <span class="qc-icon">✅</span>
+              <span>缺失信息已明确</span>
+            </div>
+            <div class="qc-check-item" id="qc-check-evidence">
+              <span class="qc-icon">✅</span>
+              <span>证据来源不为空</span>
+            </div>
+            <div class="qc-check-item" id="qc-check-uncertainty">
+              <span class="qc-icon">✅</span>
+              <span>不确定事实已分离</span>
+            </div>
+          </div>
+
+          <!-- QC Meta -->
+          <div class="qc-meta" id="qc-meta" style="display:none;">
+            <div class="qc-meta-row">
+              <span class="qkey">审核备注</span>
+              <span class="qval" id="qc-reviewer-notes-display">--</span>
+            </div>
+            <div class="qc-meta-row">
+              <span class="qkey">审核时间</span>
+              <span class="qval" id="qc-reviewed-at">--</span>
+            </div>
+          </div>
+
+          <!-- Reviewer Notes Input (shown in needs_review state) -->
+          <div class="qc-reviewer-notes" id="qc-reviewer-notes-input" style="display:none;">
+            <label for="qc-reviewer-notes-field">审核备注</label>
+            <textarea id="qc-reviewer-notes-field" placeholder="审核意见..."></textarea>
+          </div>
+
+          <!-- Status Card (approved/blocked final states) -->
+          <div class="qc-status-card" id="qc-status-card" style="display:none;"></div>
+
+          <!-- Action Buttons -->
+          <div class="qc-actions" id="qc-actions">
+            <button class="btn btn-primary" id="btn-qc-submit" onclick="handleQcSubmitReview()" style="display:none;">📤 提交审核</button>
+            <button class="btn btn-success" id="btn-qc-approve" onclick="handleQcApprove()" style="display:none;">✅ 批准事实底稿</button>
+            <button class="btn btn-danger" id="btn-qc-block" onclick="handleQcBlock()" style="display:none;">🚫 阻断事实底稿</button>
+            <span class="form-hint" id="qc-status-msg"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-fact">
+        <!-- 7. Product fact draft -->
+        <div class="card">
+          <h2 class="card-title"><span class="icon">4️⃣</span> 产品事实底稿（S2 内容预览区）</h2>
+          <div class="fact-grid">
+            <div class="fact-card confirmed">
+              <h3>✅ 已确认事实</h3>
+              <ul id="fact-confirmed"><li><span class="label">--</span></li></ul>
+              <div class="card-footer" id="fact-confirmed-count">共 0 项</div>
+            </div>
+            <div class="fact-card uncertain">
+              <h3>⚠️ 不确定事实</h3>
+              <ul id="fact-uncertain"><li><span class="label">--</span></li></ul>
+              <div class="card-footer" id="fact-uncertain-count">共 0 项</div>
+            </div>
+            <div class="fact-card missing">
+              <h3>❌ 缺失信息</h3>
+              <ul id="fact-missing"><li><span class="label">--</span></li></ul>
+              <div class="card-footer" id="fact-missing-count">共 0 项</div>
+            </div>
+            <div class="fact-card evidence">
+              <h3>🔗 证据来源</h3>
+              <ul id="fact-evidence"><li><span class="label">--</span></li></ul>
+              <div class="card-footer">高：可信度高 · 中：一般 · 低：仅参考</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 8. Risk & missing -->
+        <div class="card">
+          <h2 class="card-title"><span class="icon">5️⃣</span> 风险与缺失信息</h2>
+          <div class="stats">
+            <div class="stat">
+              <span class="stat-label">缺失信息</span>
+              <span class="stat-value orange" id="risk-missing">--</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">潜在风险</span>
+              <span class="stat-value red">2 项</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">需人工确认</span>
+              <span class="stat-value blue">3 项</span>
+            </div>
+          </div>
+          <a href="#" class="link">查看详情 →</a>
+        </div>
+
+        <!-- 10. Execution lock -->
+        <div class="card">
+          <h2 class="card-title"><span class="icon">6️⃣</span> 执行锁定</h2>
+          <div class="lock-list">
+            <div class="lock-item">
+              <span class="label"><span class="icon">🔒</span> ChatGPT 自动化</span>
+              <span class="badge red" id="lock-chatgpt">locked</span>
+            </div>
+            <div class="lock-item">
+              <span class="label"><span class="icon">🔒</span> 1688 抓取</span>
+              <span class="badge red" id="lock-1688">locked</span>
+            </div>
+            <div class="lock-item">
+              <span class="label"><span class="icon">🔒</span> 店小秘操作</span>
+              <span class="badge red" id="lock-dianxiaomi">locked</span>
+            </div>
+            <div class="lock-item">
+              <span class="label"><span class="icon">🔒</span> 主图生成</span>
+              <span class="badge red" id="lock-image">locked</span>
+            </div>
+            <div class="lock-item">
+              <span class="label"><span class="icon">🔒</span> Listing 输出 / 发布</span>
+              <span class="badge red" id="lock-listing">locked</span>
+            </div>
+          </div>
+        <div class="lock-note">本阶段仅任务卡表达，不执行任何自动化。</div>
+      </div>
+    </div>
+
+    <!-- Context Pack Panel -->
+    <div class="context-pack-panel" id="context-pack-panel">
+      <div class="card">
+        <h2 class="card-title"><span class="icon">📦</span> 上下文包 <span class="badge warning">⚠ 规则化汇总，非 AI 生成</span></h2>
+        <div class="cp-empty" id="cp-empty">尚未生成上下文包。请先完成销售主体确认和事实底稿草稿，再生成上下文包。</div>
+        <div id="cp-content" style="display:none;">
+          <div class="cp-grid">
+            <div class="cp-field">
+              <span class="cp-field-label">状态</span>
+              <span class="badge" id="cp-status">--</span>
+            </div>
+            <div class="cp-field">
+              <span class="cp-field-label">创建时间</span>
+              <span class="cp-field-value" id="cp-created">--</span>
+            </div>
+            <div class="cp-field">
+              <span class="cp-field-label">更新时间</span>
+              <span class="cp-field-value" id="cp-updated">--</span>
+            </div>
+          </div>
+          <div class="cp-field">
+            <span class="cp-field-label">摘要</span>
+            <span class="cp-field-value" id="cp-summary">--</span>
+          </div>
+          <div class="cp-field">
+            <span class="cp-field-label">缺失上下文</span>
+            <span class="cp-field-value" id="cp-missing">--</span>
+          </div>
+          <div class="cp-field">
+            <span class="cp-field-label">风险备注</span>
+            <span class="cp-field-value" id="cp-risk-notes">--</span>
+          </div>
+        </div>
+        <div class="form-actions" style="margin-top:14px;">
+          <button class="btn btn-primary" id="btn-generate-context-pack" onclick="handleGenerateContextPack()">生成上下文包</button>
+          <span class="form-hint" id="cp-status-msg"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-bottom">
+      <!-- 11. Action log / issue -->
+        <div class="card">
+          <h2 class="card-title"><span class="icon">7️⃣</span> 动作记录 / 异常</h2>
+          <div class="tabs">
+            <div class="tab active" id="tab-action-logs" onclick="switchLogTab('action')">动作记录 (<span id="action-log-count">0</span>)</div>
+            <div class="tab" id="tab-issues" onclick="switchLogTab('issue')">异常记录 (<span id="issue-count">0</span>)</div>
+          </div>
+          <!-- ActionLog tab -->
+          <div id="action-logs-content">
+            <div class="log-summary" id="action-log-summary" style="display:none;">
+              <span class="ls-count" id="als-count">0 条动作</span>
+              <span class="ls-detail" id="als-detail"></span>
+              <span class="ls-expand" id="als-expand" onclick="toggleLogTable('action')">展开查看 ▼</span>
+            </div>
+            <div id="action-empty-msg" style="text-align:center;padding:16px;color:var(--text-secondary);font-size:13px;">暂无动作记录</div>
+            <div class="log-table-wrap" id="action-log-table-wrap" style="overflow-x:auto;">
+              <table>
+                <thead><tr><th>时间</th><th>阶段</th><th>操作类型</th><th>操作人</th><th>摘要</th><th>详情</th></tr></thead>
+                <tbody id="action-logs-body"><tr><td colspan="6" class="empty">--</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <!-- Issue tab -->
+          <div id="issues-content" style="display:none;">
+            <div class="log-summary" id="issue-log-summary" style="display:none;">
+              <span class="ls-count" id="is-count">0 条异常</span>
+              <span class="ls-detail" id="is-detail"></span>
+              <span class="ls-expand" id="is-expand" onclick="toggleLogTable('issue')">展开查看 ▼</span>
+            </div>
+            <div id="issue-empty-msg" style="text-align:center;padding:16px;color:var(--text-secondary);font-size:13px;">暂无阻断异常</div>
+            <div class="log-table-wrap" id="issue-log-table-wrap" style="overflow-x:auto;">
+              <table>
+                <thead><tr><th>时间</th><th>阶段</th><th>异常类型</th><th>严重程度</th><th>状态</th><th>摘要</th><th>详情</th></tr></thead>
+                <tbody id="issues-body"><tr><td colspan="7" class="empty">--</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- 12. Artifact 产物引用 -->
+        <div class="artifact-panel" id="artifact-panel">
+          <div class="card">
+            <h2 class="card-title"><span class="icon">🗂️</span> 产物引用</h2>
+            <div class="artifact-empty" id="artifact-empty">暂无产物引用。</div>
+            <div id="artifact-content" style="display:none;">
+              <table class="artifact-table">
+                <thead><tr><th>产物类型</th><th>阶段</th><th>标题</th><th>状态</th><th>引用类型</th><th>引用内容</th><th>创建时间</th></tr></thead>
+                <tbody id="artifact-tbody"></tbody>
+              </table>
+            </div>
+            <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:14px;">
+              <h3 style="font-size:13px;font-weight:700;margin:0 0 10px 0;">新增产物引用</h3>
+              <div class="artifact-form-grid">
+                <div class="artifact-form-field">
+                  <label for="artifact-type">产物类型</label>
+                  <select id="artifact-type">
+                    <option value="fact_base_preview" selected>fact_base_preview</option>
+                    <option value="listing">listing</option>
+                    <option value="main_image">main_image</option>
+                    <option value="screenshot">screenshot</option>
+                    <option value="document">document</option>
+                  </select>
+                </div>
+                <div class="artifact-form-field">
+                  <label for="artifact-stage-id">阶段</label>
+                  <select id="artifact-stage-id">
+                    <option value="S0">S0</option>
+                    <option value="S1">S1</option>
+                    <option value="S2" selected>S2</option>
+                  </select>
+                </div>
+                <div class="artifact-form-field">
+                  <label for="artifact-title">标题</label>
+                  <input type="text" id="artifact-title" placeholder="例：事实底稿 v1" />
+                </div>
+                <div class="artifact-form-field">
+                  <label for="artifact-status">状态</label>
+                  <select id="artifact-status">
+                    <option value="draft" selected>draft</option>
+                    <option value="final">final</option>
+                  </select>
+                </div>
+                <div class="artifact-form-field">
+                  <label for="artifact-ref-type">引用类型</label>
+                  <select id="artifact-ref-type">
+                    <option value="task_field" selected>task_field</option>
+                    <option value="url">url</option>
+                    <option value="file_path">file_path</option>
+                  </select>
+                </div>
+                <div class="artifact-form-field">
+                  <label for="artifact-ref">引用内容</label>
+                  <input type="text" id="artifact-ref" placeholder="例：fact_base_preview" />
+                </div>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-primary" id="btn-add-artifact" onclick="handleAddArtifact()">新增产物引用</button>
+                <span class="form-hint" id="artifact-status-msg"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 13. AI Job -->
+        <div class="card" id="ai-job-panel">
+          <h2 class="card-title"><span class="icon">🤖</span> AI Job 执行契约</h2>
+          <div class="ai-job-notice">
+            AI Job 当前仅为占位对象和执行契约，不会调用 ChatGPT，不会生成 Listing，不会生成主图，不会修改事实底稿。
+          </div>
+          <div class="ai-job-list" id="ai-job-list">
+            <div class="empty">暂无 AI Job。</div>
+          </div>
+          <div id="ai-job-detail-loading" style="display:none;color:#7f8c8d;font-size:12px;padding:8px 0;">读取中...</div>
+          <div id="ai-job-detail" style="display:none;"></div>
+          <div id="ai-job-execution-result"></div>
+          <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px;">
+            <h3 style="font-size:13px;font-weight:700;margin:0 0 10px 0;">创建 AI Job 占位</h3>
+            <div class="ai-job-form-grid">
+              <div class="ai-job-form-field">
+                <label for="ai-job-type">Job 类型</label>
+                <select id="ai-job-type">
+                  <option value="product_fact_extraction_mvp1" selected>product_fact_extraction_mvp1</option>
+                  <option value="listing_generation">listing_generation</option>
+                  <option value="image_prompt_generation">image_prompt_generation</option>
+                  <option value="market_research">market_research</option>
+                  <option value="other">other</option>
+                </select>
+              </div>
+              <div class="ai-job-form-field">
+                <label for="ai-job-expected-output">预期输出类型</label>
+                <input type="text" id="ai-job-expected-output" placeholder="例：product_facts_structured" />
+              </div>
+              <div class="ai-job-form-field">
+                <label for="ai-job-artifact-target">产物目标</label>
+                <input type="text" id="ai-job-artifact-target" placeholder="例：listing / main_image" />
+              </div>
+            </div>
+            <div class="form-actions" style="margin-top:10px;">
+              <button class="btn btn-primary" id="btn-create-ai-job" onclick="handleCreateAiJob()">创建 AI Job 占位</button>
+              <span class="form-hint" id="ai-job-status-msg"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 13. Bottom warning -->
+      <div class="warning-banner">
+        <span>⚠️</span>
+        <span>DEBUG / TRACE ONLY — 本页面仅为任务卡草稿调试展示，不是正式产品页面。所有信息待人工确认后才能进入下一阶段。日常业务操作请使用 <a href="/index.html">Mac 主站</a>。</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── State ──
+    const state = {
+      taskCards: [],
+      selectedCard: null,
+      selectedIndex: -1,
+      contextPack: null,
+      artifacts: [],
+      aiJobs: []
+    };
+
+    const API_BASE = '/api/smt-choice/task-cards';
+
+    // ── Compute next action ──
+    function computeNextAction(card) {
+      if (!card) return '创建任务卡';
+
+      const stageId = card.current_stage_id;
+      const stages = card.stages || [];
+      const taskStatus = card.task_status;
+
+      // Blocked at task level
+      if (taskStatus === 'blocked') return '查看 Issue 并修复阻断原因';
+
+      // Approved → next steps
+      if (taskStatus === 'approved') return '生成 Context Pack / 创建 AI Job';
+
+      // Stage-based logic
+      if (stageId === 'S0') {
+        const s0 = stages.find(s => s.stage_id === 'S0');
+        if (s0 && (s0.status === 'in_progress' || s0.status === 'needs_review' || s0.status === 'ready'))
+          return '完成 S0 商品来源采集';
+      }
+
+      if (stageId === 'S1') {
+        const s1 = stages.find(s => s.stage_id === 'S1');
+        if (s1 && (s1.status === 'in_progress' || s1.status === 'needs_review' || s1.status === 'pending' || s1.status === 'ready'))
+          return '确认销售主体';
+        if (s1 && s1.status === 'blocked') return '查看 Issue 并修复阻断原因';
+      }
+
+      if (stageId === 'S2') {
+        const s2 = stages.find(s => s.stage_id === 'S2');
+        if (s2 && (s2.status === 'draft' || s2.status === 'ready')) return '填写事实底稿并提交审核';
+        if (s2 && (s2.status === 'submitted' || s2.status === 'needs_review')) return '执行 QC 审核';
+        if (s2 && s2.status === 'blocked') return '查看 Issue 并修复阻断原因';
+        if (s2 && s2.status === 'approved') return '生成 Context Pack / 创建 AI Job';
+      }
+
+      // Stage-level blocked check
+      const currentStage = stages.find(s => s.stage_id === stageId);
+      if (currentStage && currentStage.status === 'blocked') return '查看 Issue 并修复阻断原因';
+
+      return '创建任务卡';
+    }
+
+    // ── Update command bar ──
+    function updateCommandBar() {
+      const body = document.getElementById('cmd-body');
+      const nextText = document.getElementById('cmd-next-text');
+      const card = state.selectedCard;
+
+      if (!card) {
+        body.innerHTML = '<span class="cmd-bar-label">尚未创建任务卡</span>';
+        nextText.textContent = '创建任务卡';
+        return;
+      }
+
+      const stageId = card.current_stage_id || '--';
+      const taskStatus = card.task_status || '--';
+      const taskId = card.task_id || '--';
+
+      let statusTagClass = '';
+      let statusTagText = taskStatus;
+      if (taskStatus === 'approved') { statusTagClass = 'green'; statusTagText = '已批准'; }
+      else if (taskStatus === 'blocked') { statusTagClass = 'red'; statusTagText = '已阻断'; }
+      else if (taskStatus === 'draft' || taskStatus === 'in_progress') { statusTagClass = 'yellow'; statusTagText = '进行中'; }
+      else if (taskStatus === 'completed') { statusTagClass = 'green'; statusTagText = '已完成'; }
+
+      body.innerHTML =
+        '<span class="cmd-bar-mono">' + esc(taskId) + '</span>' +
+        '<span class="cmd-bar-tag' + (statusTagClass ? ' ' + statusTagClass : '') + '">' + esc(statusTagText) + '</span>' +
+        '<span class="cmd-bar-tag">' + esc(stageId) + '</span>';
+
+      nextText.textContent = computeNextAction(card);
+    }
+
+    // ── Update stage path bar ──
+    function updateStagePath() {
+      const card = state.selectedCard;
+      const items = document.querySelectorAll('.stage-path-item');
+      items.forEach(el => {
+        el.className = 'stage-path-item pending';
+        const icon = el.querySelector('.stage-icon');
+        if (icon) icon.textContent = icon.textContent.replace(/✅|⏳|🚫/g, '').trim() || icon.textContent;
+      });
+
+      function setStage(stageKey, status, label) {
+        const el = document.querySelector('.stage-path-item[data-stage="' + stageKey + '"]');
+        if (!el) return;
+        el.className = 'stage-path-item ' + status;
+        const icon = el.querySelector('.stage-icon');
+        if (icon) {
+          if (status === 'completed') icon.textContent = '✅';
+          else if (status === 'active') icon.textContent = '⏳';
+          else if (status === 'blocked') icon.textContent = '🚫';
+        }
+        if (label && status === 'active') {
+          const lbl = el.querySelector('.stage-label');
+          if (lbl) lbl.textContent = label;
+        }
+      }
+
+      if (!card) {
+        // No card: only "create" is pending with active hint
+        return;
+      }
+
+      const stageId = card.current_stage_id;
+      const stages = card.stages || [];
+      const taskStatus = card.task_status;
+      const s0 = stages.find(s => s.stage_id === 'S0');
+      const s1 = stages.find(s => s.stage_id === 'S1');
+      const s2 = stages.find(s => s.stage_id === 'S2');
+
+      // Stage: create task — always completed once a card exists
+      setStage('create', 'completed');
+
+      // S0
+      if (s0) {
+        if (s0.status === 'blocked') setStage('S0', 'blocked');
+        else if (s0.status === 'completed' || s0.status === 'ready') setStage('S0', 'completed');
+        else if (s0.status === 'in_progress' || s0.status === 'needs_review') setStage('S0', 'active');
+      } else if (stageId === 'S0') {
+        setStage('S0', 'active');
+      }
+
+      // S1
+      if (s1) {
+        if (s1.status === 'blocked') setStage('S1', 'blocked');
+        else if (s1.status === 'completed' || s1.status === 'ready') setStage('S1', 'completed');
+        else if (s1.status === 'in_progress' || s1.status === 'needs_review' || s1.status === 'pending') setStage('S1', 'active');
+      } else if (stageId === 'S1') {
+        setStage('S1', 'active');
+      } else if (s0 && (s0.status === 'completed' || s0.status === 'ready')) {
+        setStage('S1', 'active');
+      }
+
+      // S2
+      if (s2) {
+        if (s2.status === 'blocked') setStage('S2', 'blocked');
+        else if (s2.status === 'approved' || s2.status === 'completed') setStage('S2', 'completed');
+        else if (s2.status === 'submitted' || s2.status === 'needs_review') setStage('S2', 'active', 'S2 事实底稿');
+        else if (s2.status === 'draft' || s2.status === 'ready') setStage('S2', 'active');
+        else if (s2.status === 'in_progress') setStage('S2', 'active');
+      } else if (stageId === 'S2') {
+        setStage('S2', 'active');
+      }
+
+      // QC — tied to S2 submission/review
+      if (s2 && (s2.status === 'submitted' || s2.status === 'needs_review')) {
+        setStage('QC', 'active');
+      } else if (s2 && (s2.status === 'approved' || s2.status === 'completed')) {
+        setStage('QC', 'completed');
+      } else if (s2 && s2.status === 'blocked') {
+        setStage('QC', 'blocked');
+      }
+
+      // Context / AI Job
+      if (taskStatus === 'approved') {
+        setStage('CTX', 'active');
+      } else if (taskStatus === 'blocked') {
+        setStage('CTX', 'blocked');
+      } else if (s2 && (s2.status === 'approved' || s2.status === 'completed')) {
+        setStage('CTX', 'active');
+      }
+    }
+
+    // ── Toast ──
+    function showToast(msg, type) {
+      const t = document.createElement('div');
+      t.className = 'toast ' + type;
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 3500);
+    }
+
+    // ── Format date ──
+    function fmtDate(iso) {
+      if (!iso) return '--';
+      const d = new Date(iso);
+      return d.toLocaleString('zh-CN', { hour12: false });
+    }
+
+    // ── Escape HTML ──
+    function esc(s) { 
+      if (s == null) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── API calls ──
+    async function fetchTaskCards() {
+      const res = await fetch(API_BASE);
+      if (!res.ok) throw new Error('无法连接测试服务。请确认当前端口服务已启动。');
+      const data = await res.json();
+      return data.taskCards || [];
+    }
+
+    async function fetchTaskCard(taskId) {
+      const res = await fetch(API_BASE + '/' + taskId);
+      if (!res.ok) {
+        if (res.status === 404) throw new Error('任务卡未找到');
+        throw new Error('无法连接测试服务。请确认当前端口服务已启动。');
+      }
+      const data = await res.json();
+      return data.taskCard;
+    }
+
+    async function createTaskCard(body) {
+      const res = await fetch(API_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 400) throw new Error(err.error || '至少需要图片、链接或备注');
+        throw new Error(err.error || '无法连接测试服务。当前页面会请求同端口 /api 接口；如果页面打开在 3101，请确认 3101 服务已启动。');
+      }
+      const data = await res.json();
+      return data.taskCard;
+    }
+
+    async function completeS0(taskId) {
+      const res = await fetch(API_BASE + '/' + taskId + '/complete-s0', { method: 'POST' });
+      if (!res.ok) {
+        if (res.status === 404) throw new Error('任务卡未找到');
+        throw new Error('无法完成 S0');
+      }
+      const data = await res.json();
+      return data.taskCard;
+    }
+
+    async function updateProductInput(taskId, body) {
+      const res = await fetch(API_BASE + '/' + taskId + '/product-input', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 404) throw new Error('任务卡未找到');
+        throw new Error(err.error || '保存商品输入失败');
+      }
+      const data = await res.json();
+      return data.taskCard;
+    }
+
+    async function confirmSellingSubject(taskId, body) {
+      const res = await fetch(API_BASE + '/' + taskId + '/confirm-selling-subject', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 400) throw new Error(err.error || '缺少必填字段');
+        throw new Error(err.error || '无法连接测试服务。请确认当前端口服务已启动。');
+      }
+      const data = await res.json();
+      return data.taskCard;
+    }
+
+    async function updateFactBase(taskId, body) {
+      const res = await fetch(API_BASE + '/' + taskId + '/update-fact-base-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || '保存事实底稿草稿失败');
+      }
+      const data = await res.json();
+      return data.taskCard;
+    }
+
+    async function submitFactBaseReview(taskId) {
+      const res = await fetch(API_BASE + '/' + taskId + '/submit-fact-base-review', { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 404) throw new Error('任务卡未找到');
+        if (res.status === 400) throw new Error(err.error || '检查项不满足 / 状态无效');
+        throw new Error(err.error || '无法连接测试服务。请确认当前端口服务已启动。');
+      }
+      const data = await res.json();
+      return data.taskCard;
+    }
+
+    async function approveFactBase(taskId, body) {
+      const res = await fetch(API_BASE + '/' + taskId + '/approve-fact-base', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 404) throw new Error('任务卡未找到');
+        if (res.status === 400) throw new Error(err.error || '检查项不满足 / 状态无效');
+        throw new Error(err.error || '无法连接测试服务。请确认当前端口服务已启动。');
+      }
+      const data = await res.json();
+      return data.taskCard;
+    }
+
+    async function blockFactBase(taskId, body) {
+      const res = await fetch(API_BASE + '/' + taskId + '/block-fact-base', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 404) throw new Error('任务卡未找到');
+        if (res.status === 400) throw new Error(err.error || '状态无效 / 需要填写审核备注');
+        throw new Error(err.error || '无法连接测试服务。请确认当前端口服务已启动。');
+      }
+      const data = await res.json();
+      return data.taskCard;
+    }
+
+    async function fetchActionLogs(taskId) {
+      const res = await fetch(API_BASE + '/' + taskId + '/action-logs');
+      if (!res.ok) throw new Error('无法读取动作记录，请确认服务已启动。');
+      const data = await res.json();
+      return data.actionLogs || [];
+    }
+
+    async function fetchIssues(taskId) {
+      const res = await fetch(API_BASE + '/' + taskId + '/issues');
+      if (!res.ok) throw new Error('无法读取异常记录，请确认服务已启动。');
+      const data = await res.json();
+      return data.issues || [];
+    }
+
+    async function refreshCurrentCard() {
+      if (!state.selectedCard) return;
+      const fresh = await fetchTaskCard(state.selectedCard.task_id);
+      state.selectedCard = fresh;
+      state.taskCards[state.selectedIndex] = fresh;
+
+      // Fetch context pack, artifacts, and ai jobs
+      try { state.contextPack = await fetchContextPack(fresh.task_id); } catch (e) { state.contextPack = null; }
+      try { state.artifacts = await fetchArtifacts(fresh.task_id); } catch (e) { state.artifacts = []; }
+      try { state.aiJobs = await fetchAiJobs(fresh.task_id); } catch (e) { state.aiJobs = []; }
+
+      renderCard(fresh);
+    }
+
+    // ── Parse comma-separated string to array ──
+    function parseCsv(val) {
+      if (!val || !val.trim()) return [];
+      return val.split(',').map(s => s.trim()).filter(Boolean);
+    }
+
+    // ── Tab switch for action logs / issues ──
+    function switchLogTab(tab) {
+      const tabActionLogs = document.getElementById('tab-action-logs');
+      const tabIssues = document.getElementById('tab-issues');
+      const actionContent = document.getElementById('action-logs-content');
+      const issueContent = document.getElementById('issues-content');
+      if (!tabActionLogs || !tabIssues || !actionContent || !issueContent) return;
+      if (tab === 'action') {
+        tabActionLogs.classList.add('active');
+        tabIssues.classList.remove('active');
+        actionContent.style.display = 'block';
+        issueContent.style.display = 'none';
+      } else {
+        tabIssues.classList.add('active');
+        tabActionLogs.classList.remove('active');
+        actionContent.style.display = 'none';
+        issueContent.style.display = 'block';
+      }
+    }
+
+    // ── Toggle log table expand/collapse ──
+    function toggleLogTable(type) {
+      const wrap = document.getElementById(type === 'action' ? 'action-log-table-wrap' : 'issue-log-table-wrap');
+      const btn = document.getElementById(type === 'action' ? 'als-expand' : 'is-expand');
+      if (!wrap || !btn) return;
+      const isOpen = wrap.classList.toggle('open');
+      btn.textContent = isOpen ? '收起 ▲' : '展开查看 ▼';
+    }
+
+    // ── Render action logs table ──
+    function renderActionLogs(logs) {
+      const body = document.getElementById('action-logs-body');
+      const count = document.getElementById('action-log-count');
+      const summary = document.getElementById('action-log-summary');
+      const emptyMsg = document.getElementById('action-empty-msg');
+      const tableWrap = document.getElementById('action-log-table-wrap');
+      const alsCount = document.getElementById('als-count');
+      const alsDetail = document.getElementById('als-detail');
+      const alsExpand = document.getElementById('als-expand');
+
+      if (!body || !count) return;
+      const list = logs || [];
+      count.textContent = list.length;
+
+      if (list.length === 0) {
+        if (summary) summary.style.display = 'none';
+        if (emptyMsg) emptyMsg.style.display = 'block';
+        if (tableWrap) tableWrap.classList.remove('open');
+        body.innerHTML = '<tr><td colspan="6" class="empty">暂无动作记录</td></tr>';
+        return;
+      }
+
+      if (emptyMsg) emptyMsg.style.display = 'none';
+      if (summary) summary.style.display = 'flex';
+
+      // Summary
+      if (alsCount) alsCount.textContent = list.length + ' 条动作';
+      const last = list[list.length - 1];
+      const stageNames = { 'S0': '商品来源采集', 'S1': '销售主体确认', 'S2': '事实底稿' };
+      if (alsDetail && last) {
+        alsDetail.innerHTML = '<span>最近：</span>' +
+          '<span>' + esc(last.action_type || '--') + '</span>' +
+          '<span class="ls-mono">' + fmtDate(last.created_at) + '</span>';
+      }
+      if (alsExpand) alsExpand.textContent = '展开查看 ▼';
+
+      // Close table by default
+      if (tableWrap) tableWrap.classList.remove('open');
+
+      // Table content
+      const actorLabels = { 'human': '人工', 'system': '系统' };
+      body.innerHTML = list.map(log => {
+        const time = fmtDate(log.created_at);
+        const stage = stageNames[log.stage_id] || log.stage_id || '--';
+        const actionType = esc(log.action_type || '--');
+        const actor = actorLabels[log.actor] || log.actor || '--';
+        const summary = esc(log.summary || '--');
+        const detail = esc(log.detail || '--');
+        return '<tr><td>' + time + '</td><td>' + stage + '</td><td>' + actionType + '</td><td>' + actor + '</td><td>' + summary + '</td><td style="max-width:240px;word-wrap:break-word;">' + detail + '</td></tr>';
+      }).join('');
+    }
+
+    // ── Render issues table ──
+    function renderIssues(issues) {
+      const body = document.getElementById('issues-body');
+      const count = document.getElementById('issue-count');
+      const summary = document.getElementById('issue-log-summary');
+      const emptyMsg = document.getElementById('issue-empty-msg');
+      const tableWrap = document.getElementById('issue-log-table-wrap');
+      const isCount = document.getElementById('is-count');
+      const isDetail = document.getElementById('is-detail');
+      const isExpand = document.getElementById('is-expand');
+
+      if (!body || !count) return;
+      const list = issues || [];
+      count.textContent = list.length;
+
+      if (list.length === 0) {
+        if (summary) { summary.style.display = 'flex'; summary.className = 'log-summary issue-clean'; }
+        if (emptyMsg) emptyMsg.style.display = 'block';
+        if (tableWrap) tableWrap.classList.remove('open');
+        if (isCount) isCount.textContent = '0 条异常';
+        if (isDetail) isDetail.innerHTML = '<span style="color:#16a34a;">暂无阻断异常</span>';
+        if (isExpand) isExpand.style.display = 'none';
+        body.innerHTML = '<tr><td colspan="7" class="empty">暂无异常记录</td></tr>';
+        return;
+      }
+
+      if (emptyMsg) emptyMsg.style.display = 'none';
+      if (isExpand) isExpand.style.display = '';
+
+      const blockingCount = list.filter(i => i.severity === 'blocking' && i.status !== 'resolved').length;
+      const hasBlocking = blockingCount > 0;
+
+      if (summary) {
+        summary.style.display = 'flex';
+        summary.className = 'log-summary' + (hasBlocking ? ' issue-warning' : '');
+      }
+      if (isCount) isCount.textContent = list.length + ' 条异常' + (blockingCount > 0 ? '（其中 ' + blockingCount + ' 条阻断）' : '');
+      if (isDetail) {
+        if (hasBlocking) {
+          isDetail.innerHTML = '<span style="font-weight:700;">⚠️ 存在阻断异常，请先处理 Issue</span>';
+        } else {
+          const last = list[list.length - 1];
+          isDetail.innerHTML = '<span>最近：</span><span>' + esc(last.issue_type || '--') + '</span><span class="ls-mono">' + fmtDate(last.created_at) + '</span>';
+        }
+      }
+      if (isExpand) isExpand.textContent = '展开查看 ▼';
+
+      // Close table by default
+      if (tableWrap) tableWrap.classList.remove('open');
+
+      // Table content
+      const stageNames = { 'S0': '商品来源采集', 'S1': '销售主体确认', 'S2': '事实底稿' };
+      const severityLabels = { 'info': '信息', 'warning': '警告', 'blocking': '阻断' };
+      const severityBadges = { 'info': 'badge blue', 'warning': 'badge orange', 'blocking': 'badge red' };
+      const statusLabels = { 'open': '开启', 'resolved': '已解决' };
+      const statusBadges = { 'open': 'badge red', 'resolved': 'badge green' };
+      body.innerHTML = list.map(iss => {
+        const time = fmtDate(iss.created_at);
+        const stage = stageNames[iss.stage_id] || iss.stage_id || '--';
+        const issueType = esc(iss.issue_type || '--');
+        const sevLabel = severityLabels[iss.severity] || iss.severity;
+        const sevBadge = severityBadges[iss.severity] || 'badge gray';
+        const stLabel = statusLabels[iss.status] || iss.status;
+        const stBadge = statusBadges[iss.status] || 'badge gray';
+        const issSummary = esc(iss.summary || '--');
+        const detail = esc(iss.detail || '--');
+        return '<tr><td>' + time + '</td><td>' + stage + '</td><td>' + issueType + '</td><td><span class="' + sevBadge + '">' + sevLabel + '</span></td><td><span class="' + stBadge + '">' + stLabel + '</span></td><td>' + issSummary + '</td><td style="max-width:200px;word-wrap:break-word;">' + detail + '</td></tr>';
+      }).join('');
+    }
+
+    // ── Render task card chips ──
+    function renderCardSelector() {
+      const el = document.getElementById('task-card-selector');
+      if (state.taskCards.length <= 1) {
+        el.style.display = 'none';
+      } else {
+        el.style.display = 'flex';
+        el.innerHTML = state.taskCards.map((c, i) => {
+          const cls = 'task-card-chip' + (i === state.selectedIndex ? ' active' : '');
+          return '<span class="' + cls + '" data-index="' + i + '" title="' + esc(c.task_id) + '">' + esc(c.task_id.slice(-12)) + '</span>';
+        }).join('');
+      }
+    }
+
+    function renderProductInput(card) {
+      const empty = document.getElementById('product-input-empty');
+      const form = document.getElementById('product-input-form');
+      const status = document.getElementById('product-input-status');
+      const evidenceSummary = document.getElementById('evidence-source-summary');
+      if (!empty || !form) return;
+
+      if (!card) {
+        empty.style.display = 'block';
+        form.style.display = 'none';
+        if (evidenceSummary) evidenceSummary.className = 'evidence-source-summary';
+        if (status) status.textContent = '';
+        return;
+      }
+
+      const entry = card.entry || {};
+      empty.style.display = 'none';
+      form.style.display = 'block';
+      document.getElementById('pi-product-images').value = (entry.product_images || []).join(', ');
+      document.getElementById('pi-product-url').value = entry.product_url || '';
+      document.getElementById('pi-1688-url').value = entry.source_1688_url || '';
+      document.getElementById('pi-operator-notes').value = entry.operator_notes || '';
+      document.getElementById('pi-target-platform').value = entry.target_platform || 'AliExpress';
+      document.getElementById('pi-input-status').value = entry.input_status || '未填写';
+      if (status) status.textContent = '归属 Task Card：' + (card.task_id || '--');
+      renderEvidenceSourceSummary(card.evidence_sources || []);
+    }
+
+    function renderEvidenceSourceSummary(sources) {
+      const summary = document.getElementById('evidence-source-summary');
+      if (!summary) return;
+      const list = sources || [];
+      const active = list.filter(source => source.source_status === 'active');
+      const countByType = (type) => active.filter(source => source.source_type === type).length;
+      summary.className = 'evidence-source-summary active';
+      document.getElementById('evidence-total-count').textContent = active.length;
+      document.getElementById('evidence-image-count').textContent = countByType('image');
+      document.getElementById('evidence-product-url-count').textContent = countByType('product_url');
+      document.getElementById('evidence-1688-count').textContent = countByType('supplier_1688_url');
+      document.getElementById('evidence-manual-note-count').textContent = countByType('manual_note');
+      document.getElementById('evidence-target-platform-count').textContent = countByType('target_platform');
+      document.getElementById('evidence-missing-count').textContent =
+        list.filter(source => source.source_status === 'missing').length;
+    }
+
+    // ── Render task card ──
+    function renderCard(card) {
+      if (!card) return;
+      try {
+      renderProductInput(card);
+
+      // Meta
+      document.getElementById('meta-task-id').textContent = card.task_id || '--';
+      document.getElementById('meta-created').textContent = fmtDate(card.created_at);
+      document.getElementById('meta-updated').textContent = fmtDate(card.updated_at);
+
+      // Entry
+      const entry = card.entry || {};
+      document.getElementById('entry-type-display').textContent = entry.entry_type || '--';
+      const links = entry.source_links || [];
+      document.getElementById('entry-links').innerHTML = links.length ? links.map(l => '<a href="#">' + esc(l) + '</a>').join('<br>') : '--';
+      document.getElementById('entry-product-url').textContent = entry.product_url || '--';
+      document.getElementById('entry-1688-url').textContent = entry.source_1688_url || '--';
+      const imgs = entry.product_images || [];
+      document.getElementById('entry-img-count').textContent = imgs.length + ' 张';
+      document.getElementById('entry-images').textContent = imgs.length ? imgs.join(', ') : '--';
+      document.getElementById('entry-notes').textContent = entry.operator_notes || '--';
+      document.getElementById('entry-platform').textContent = entry.target_platform || '--';
+      document.getElementById('entry-input-status').textContent = entry.input_status || '--';
+
+      // Dispatch
+      const d = card.dispatch || {};
+      document.getElementById('dispatch-workflow').textContent = d.matched_workflow_id || '--';
+      document.getElementById('dispatch-reason').textContent = d.reason || '--';
+      document.getElementById('dispatch-priority').textContent = d.priority || '--';
+      document.getElementById('dispatch-next').textContent = d.suggested_next_step || '--';
+
+      // Selling subject
+      document.getElementById('selling-subject').textContent = '当前判断：' + (card.selling_subject || '待确认');
+
+      // Stages — extract early for S1 UI logic
+      const stages = card.stages || [];
+
+      // S1 UI: show/hide form vs status display vs pending hint
+      const s1Stage = stages.find(s => s.stage_id === 'S1');
+      const s1Status = s1Stage ? s1Stage.status : 'not_started';
+      const s0Stage = stages.find(s => s.stage_id === 'S0');
+      const s0Status = s0Stage ? s0Stage.status : 'not_started';
+      const s2Stage = stages.find(s => s.stage_id === 'S2');
+      const s2Status = s2Stage ? s2Stage.status : 'not_started';
+      const form = document.getElementById('s1-confirm-form');
+      const confirmedDisplay = document.getElementById('s1-confirmed-display');
+      const pendingHint = document.getElementById('s1-pending-hint');
+      const blockedNote = document.getElementById('s1-blocked-note');
+
+      if (s1Status === 'needs_review') {
+        form.classList.add('active');
+        confirmedDisplay.classList.remove('active');
+        pendingHint.style.display = 'none';
+      } else if (s1Status === 'confirmed' || s1Status === 'blocked') {
+        form.classList.remove('active');
+        confirmedDisplay.classList.add('active');
+        pendingHint.style.display = 'none';
+        // Populate confirmed values
+        document.getElementById('s1-item-subject').textContent = card.selling_subject || '--';
+        document.getElementById('s1-item-sku').textContent = card.sku_intent || '--';
+        document.getElementById('s1-item-platform').textContent = (card.entry && card.entry.target_platform) || '--';
+        const risk = card.brand_ip_risk || '--';
+        const riskBadge = document.getElementById('s1-item-risk');
+        if (risk === 'blocked') { riskBadge.className = 'badge red'; }
+        else if (risk === 'needs_review') { riskBadge.className = 'badge orange'; }
+        else { riskBadge.className = 'badge green'; }
+        riskBadge.textContent = risk;
+        // Show/hide blocked note
+        blockedNote.className = 's1-blocked-note' + (s1Status === 'blocked' ? ' active' : '');
+      } else {
+        form.classList.remove('active');
+        confirmedDisplay.classList.remove('active');
+        pendingHint.style.display = 'block';
+      }
+
+      // Render dynamic action buttons (right column + flow control)
+      renderActions(card, s1Status);
+      renderFlowControl(card, s0Status, s1Status, s2Status);
+      renderS2DraftPanel(card);
+      renderS2QcPanel(card);
+
+      // Task status
+      document.getElementById('status-badge').textContent = card.task_status || '--';
+      const stageLabel = card.current_stage_id || '--';
+      document.getElementById('status-stage').textContent = stageLabel;
+
+      const progressMap = { 'S0': 20, 'S1': 50, 'S2': 80 };
+      const pct = progressMap[card.current_stage_id] || 0;
+      document.getElementById('status-progress-text').textContent = pct + '%';
+      document.getElementById('status-progress-bar').style.width = pct + '%';
+      document.getElementById('status-priority').textContent = (card.dispatch && card.dispatch.priority) || '--';
+      document.getElementById('status-platform').textContent = (card.entry && card.entry.target_platform) || '--';
+      document.getElementById('status-workflow').textContent = card.workflow_id || '--';
+
+      // Stages — handle all statuses: in_progress, completed, needs_review, confirmed, blocked, ready, not_started
+      const stageNames = { 'S0': '商品来源采集', 'S1': '销售主体 / 上品意图确认', 'S2': '产品事实底稿' };
+      const stageLabels = { 'S0': '商品来源采集', 'S1': '销售主体确认', 'S2': '事实底稿' };
+      ['S0', 'S1', 'S2'].forEach(sid => {
+        const sData = stages.find(s => s.stage_id === sid);
+        const status = sData ? sData.status : 'not_started';
+        const el = document.getElementById('stage-' + sid);
+        const badge = document.getElementById('stage-badge-' + sid);
+        const footer = document.getElementById('stage-footer-' + sid);
+
+        el.className = 'stage';
+        if (status === 'in_progress' || status === 'draft') el.classList.add('active');
+        else if (status === 'needs_review' || status === 'ready') el.classList.add('pending');
+        else if (status === 'not_started') el.classList.add('not-started');
+        // completed, confirmed keep default card style
+
+        if (status === 'in_progress') {
+          badge.className = 'badge green'; badge.textContent = '进行中';
+          footer.textContent = '进行中...';
+        } else if (status === 'completed') {
+          badge.className = 'badge green'; badge.textContent = '已完成';
+          footer.textContent = '已完成';
+        } else if (status === 'needs_review') {
+          badge.className = 'badge orange'; badge.textContent = '待确认';
+          footer.textContent = '等待人工确认';
+        } else if (status === 'confirmed') {
+          badge.className = 'badge green'; badge.textContent = '已确认';
+          footer.textContent = '销售主体已确认';
+        } else if (status === 'blocked') {
+          badge.className = 'badge red'; badge.textContent = '已阻断';
+          footer.textContent = '品牌/IP 风险阻断';
+          el.classList.add('not-started');
+        } else if (status === 'ready') {
+          badge.className = 'badge blue'; badge.textContent = '就绪';
+          footer.textContent = '可进入下一阶段';
+        } else if (status === 'draft') {
+          badge.className = 'badge green'; badge.textContent = '草稿';
+          footer.textContent = '底稿草稿已保存';
+        } else if (status === 'approved') {
+          badge.className = 'badge green'; badge.textContent = '已批准';
+          footer.textContent = 'QC 审核已通过';
+        } else {
+          badge.className = 'badge gray'; badge.textContent = '未开始';
+          footer.textContent = '预计开始：--';
+        }
+      });
+
+      // S0 sub-checks (based on entry data)
+      const hasImages = imgs.length > 0;
+      const hasLinks = links.length > 0;
+      const hasNotes = !!(entry.operator_notes);
+      const hasType = !!entry.entry_type;
+
+      updateCheck('s0-check-images', hasImages);
+      updateCheck('s0-check-links', hasLinks);
+      updateCheck('s0-check-notes', hasNotes);
+      updateCheck('s0-check-type', hasType);
+
+      // Fact base preview
+      const fb = card.fact_base_preview || {};
+      renderFactList('fact-confirmed', fb.confirmed_facts || []);
+      renderFactList('fact-uncertain', fb.uncertain_facts || []);
+      renderFactList('fact-missing', fb.missing_info || []);
+      renderFactList('fact-evidence', fb.source_evidence || []);
+      document.getElementById('fact-confirmed-count').textContent = '共 ' + (fb.confirmed_facts || []).length + ' 项';
+      document.getElementById('fact-uncertain-count').textContent = '共 ' + (fb.uncertain_facts || []).length + ' 项';
+      document.getElementById('fact-missing-count').textContent = '共 ' + (fb.missing_info || []).length + ' 项';
+      document.getElementById('risk-missing').textContent = (fb.missing_info || []).length + ' 项';
+
+      // Execution lock
+      const lock = card.execution_lock || {};
+      document.getElementById('lock-chatgpt').textContent = lock.chatgpt_automation || 'locked';
+      document.getElementById('lock-1688').textContent = lock['1688_fetch'] || 'locked';
+      document.getElementById('lock-dianxiaomi').textContent = lock.dianxiaomi || 'locked';
+      document.getElementById('lock-image').textContent = lock.image_generation || 'locked';
+      document.getElementById('lock-listing').textContent = lock.listing_publish || 'locked';
+
+      // Action logs & issues
+      renderActionLogs(card.action_logs || []);
+      renderIssues(card.issues || []);
+
+      // Context Pack & Artifacts
+      renderContextPack(state.contextPack);
+      renderArtifacts(state.artifacts);
+      renderAiJobs(state.aiJobs);
+      updateCommandBar();
+      updateStagePath();
+      } catch (err) {
+        console.error('renderCard error:', err);
+        showToast('页面渲染失败，请刷新后重试；如持续出现，请检查前端面板容器是否存在。', 'error');
+        showEmptyState(true);
+      }
+    }
+
+    function updateCheck(id, checked) {
+      const el = document.getElementById(id);
+      if (checked) {
+        el.style.background = 'var(--green)';
+        el.style.color = '#fff';
+        el.textContent = '✓';
+      } else {
+        el.style.background = 'var(--gray)';
+        el.style.color = '#fff';
+        el.textContent = '✗';
+      }
+    }
+
+    function renderFactList(id, items) {
+      const ul = document.getElementById(id);
+      if (!items || items.length === 0) {
+        ul.innerHTML = '<li><span class="label">--</span></li>';
+      } else {
+        ul.innerHTML = items.map(item => '<li><span class="label">' + esc(item) + '</span></li>').join('');
+      }
+    }
+
+    // ── Show / hide states ──
+    function showEmptyState(show) {
+      document.getElementById('empty-state').style.display = show ? 'block' : 'none';
+      document.getElementById('task-card-content').style.display = show ? 'none' : 'block';
+      if (show) { state.selectedCard = null; renderProductInput(null); updateCommandBar(); updateStagePath(); }
+    }
+
+    function showContent(show) {
+      document.getElementById('empty-state').style.display = show ? 'none' : 'block';
+      document.getElementById('task-card-content').style.display = show ? 'block' : 'none';
+      const fc = document.getElementById('flow-control-section');
+      fc.className = 'flow-control-section' + (show ? ' active' : '');
+    }
+
+    // ── Load task cards ──
+    async function loadTaskCards() {
+      document.getElementById('form-status').textContent = '';
+      try {
+        state.taskCards = await fetchTaskCards();
+      } catch (err) {
+        showToast('无法连接测试服务。当前页面会请求同端口 /api 接口；如果页面打开在 3101，请确认 3101 服务已启动。', 'error');
+        showEmptyState(true);
+        return;
+      }
+
+        if (state.taskCards.length === 0) {
+          showEmptyState(true);
+        } else {
+          state.selectedIndex = state.taskCards.length - 1;
+          state.selectedCard = state.taskCards[state.selectedIndex];
+          renderCardSelector();
+          showContent(true);
+          await refreshCurrentCard();
+        }
+    }
+
+    // ── Handle chip click ──
+    document.getElementById('task-card-selector').addEventListener('click', async function(e) {
+      const chip = e.target.closest('.task-card-chip');
+      if (!chip) return;
+      const idx = parseInt(chip.dataset.index, 10);
+      if (idx === state.selectedIndex) return;
+      state.selectedIndex = idx;
+      state.selectedCard = state.taskCards[idx];
+
+      // Update chip active state
+      this.querySelectorAll('.task-card-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+
+      await refreshCurrentCard();
+    });
+
+    // ── Handle form submit ──
+    document.getElementById('entry-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-create');
+      const status = document.getElementById('form-status');
+      btn.disabled = true;
+      btn.textContent = '创建中...';
+      status.textContent = '';
+
+      const body = {
+        entry_type: document.getElementById('entry-type').value,
+        product_images: parseCsv(document.getElementById('product-images').value),
+        source_links: parseCsv(document.getElementById('source-links').value),
+        operator_notes: document.getElementById('operator-notes').value.trim(),
+        target_platform: document.getElementById('target-platform').value.trim() || 'AliExpress'
+      };
+
+      try {
+        const newCard = await createTaskCard(body);
+        showToast('任务卡已创建：' + newCard.task_id, 'success');
+        status.textContent = '已创建：' + newCard.task_id;
+
+        // Reload list and show the new card
+        state.taskCards = await fetchTaskCards();
+        const foundIdx = state.taskCards.findIndex(c => c.task_id === newCard.task_id);
+        if (foundIdx >= 0) {
+          state.selectedIndex = foundIdx;
+          state.selectedCard = state.taskCards[foundIdx];
+        } else {
+          state.selectedIndex = state.taskCards.length - 1;
+          state.selectedCard = state.taskCards[state.selectedIndex];
+        }
+        renderCardSelector();
+        showContent(true);
+        renderCard(state.selectedCard);
+
+        // Reset form
+        document.getElementById('product-images').value = '';
+        document.getElementById('source-links').value = '';
+        document.getElementById('operator-notes').value = '';
+      } catch (err) {
+        showToast(err.message, 'error');
+        status.textContent = '请求失败：' + err.message;      }
+
+      btn.disabled = false;
+      btn.textContent = '创建草稿任务卡';
+    });
+
+    document.getElementById('product-input-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      if (!state.selectedCard) return;
+      const btn = document.getElementById('btn-save-product-input');
+      const status = document.getElementById('product-input-status');
+      btn.disabled = true;
+      btn.textContent = '保存中...';
+      status.textContent = '';
+
+      const body = {
+        product_images: parseCsv(document.getElementById('pi-product-images').value),
+        product_url: document.getElementById('pi-product-url').value.trim(),
+        source_1688_url: document.getElementById('pi-1688-url').value.trim(),
+        operator_notes: document.getElementById('pi-operator-notes').value.trim(),
+        target_platform: document.getElementById('pi-target-platform').value,
+        input_status: document.getElementById('pi-input-status').value
+      };
+
+      try {
+        await updateProductInput(state.selectedCard.task_id, body);
+        showToast('商品输入信息已保存', 'success');
+        status.textContent = '已保存到当前 Task Card';
+        await refreshCurrentCard();
+      } catch (err) {
+        showToast(err.message, 'error');
+        status.textContent = '请求失败：' + err.message;
+      }
+
+      btn.disabled = false;
+      btn.textContent = '保存商品输入';
+    });
+
+    // ── Render S2 Fact Base Draft Panel ──
+    function renderS2DraftPanel(card) {
+      const panel = document.getElementById('s2-draft-panel');
+      const s2Stage = (card.stages || []).find(s => s.stage_id === 'S2');
+      const s2Status = s2Stage ? s2Stage.status : 'not_started';
+      const s1Stage = (card.stages || []).find(s => s.stage_id === 'S1');
+      const s1Status = s1Stage ? s1Stage.status : 'not_started';
+
+      // Only show when S2 is ready or draft, AND S1 is confirmed
+      const show = (s2Status === 'ready' || s2Status === 'draft') && s1Status === 'confirmed';
+      panel.className = 's2-draft-panel' + (show ? ' active' : '');
+
+      if (!show) return;
+
+      // Update status badge
+      const badge = document.getElementById('s2-draft-status-badge');
+      if (s2Status === 'draft') {
+        badge.className = 'badge green';
+        badge.textContent = '草稿（已保存）';
+      } else {
+        badge.className = 'badge blue';
+        badge.textContent = '就绪（待填写）';
+      }
+
+      // Populate form fields from existing fact_base_preview
+      const fb = card.fact_base_preview || {};
+      const arrToText = (arr) => (arr || []).join('\n');
+      document.getElementById('s2-confirmed-facts').value = arrToText(fb.confirmed_facts);
+      document.getElementById('s2-uncertain-facts').value = arrToText(fb.uncertain_facts);
+      document.getElementById('s2-missing-info').value = arrToText(fb.missing_info);
+      document.getElementById('s2-source-evidence').value = arrToText(fb.source_evidence);
+
+      // Show/hide saved note and display area
+      const hasContent = (fb.confirmed_facts || []).length > 0 || (fb.uncertain_facts || []).length > 0
+        || (fb.missing_info || []).length > 0 || (fb.source_evidence || []).length > 0;
+      document.getElementById('s2-draft-saved-note').className = 's2-draft-saved-note' + (s2Status === 'draft' && hasContent ? ' active' : '');
+      document.getElementById('s2-draft-display').className = 's2-draft-display' + (hasContent ? ' active' : '');
+
+      if (hasContent) {
+        renderFactList('s2-display-confirmed', fb.confirmed_facts || []);
+        renderFactList('s2-display-uncertain', fb.uncertain_facts || []);
+        renderFactList('s2-display-missing', fb.missing_info || []);
+        renderFactList('s2-display-evidence', fb.source_evidence || []);
+        document.getElementById('s2-display-confirmed-count').textContent = '共 ' + (fb.confirmed_facts || []).length + ' 项';
+        document.getElementById('s2-display-uncertain-count').textContent = '共 ' + (fb.uncertain_facts || []).length + ' 项';
+        document.getElementById('s2-display-missing-count').textContent = '共 ' + (fb.missing_info || []).length + ' 项';
+      }
+    }
+
+    // ── Render S2 Fact Base QC / Approval Panel ──
+    function renderS2QcPanel(card) {
+      const panel = document.getElementById('s2-qc-panel');
+      const s2Stage = (card.stages || []).find(s => s.stage_id === 'S2');
+      const s2Status = s2Stage ? s2Stage.status : 'not_started';
+      const s1Stage = (card.stages || []).find(s => s.stage_id === 'S1');
+      const s1Status = s1Stage ? s1Stage.status : 'not_started';
+
+      // Only show when S1 is confirmed and S2 is in a QC-relevant state
+      const show = s1Status === 'confirmed' && ['draft', 'needs_review', 'approved', 'blocked'].includes(s2Status);
+      panel.className = 's2-qc-panel' + (show ? ' active' : '');
+      if (!show) return;
+
+      const qc = card.fact_base_qc || {};
+      const qcStatus = qc.status || 'not_started';
+      const checklist = qc.checklist || {};
+
+      // Update title badge
+      const titleBadge = document.getElementById('s2-qc-title-badge');
+      const qcStatusLabels = { 'not_started': '未开始', 'needs_review': '待审查', 'approved': '已批准', 'blocked': '已阻断' };
+      const qcStatusColors = { 'not_started': 'badge gray', 'needs_review': 'badge orange', 'approved': 'badge green', 'blocked': 'badge red' };
+      titleBadge.className = qcStatusColors[qcStatus] || 'badge gray';
+      titleBadge.textContent = qcStatusLabels[qcStatus] || 'QC';
+
+      // Render checklist
+      renderQcChecklist(checklist);
+
+      // Show/hide meta & status card based on state
+      const meta = document.getElementById('qc-meta');
+      const notesInput = document.getElementById('qc-reviewer-notes-input');
+      const statusCard = document.getElementById('qc-status-card');
+      const btnSubmit = document.getElementById('btn-qc-submit');
+      const btnApprove = document.getElementById('btn-qc-approve');
+      const btnBlock = document.getElementById('btn-qc-block');
+      const statusMsg = document.getElementById('qc-status-msg');
+
+      // Reset all
+      meta.style.display = 'none';
+      notesInput.style.display = 'none';
+      statusCard.style.display = 'none';
+      btnSubmit.style.display = 'none';
+      btnApprove.style.display = 'none';
+      btnBlock.style.display = 'none';
+      statusMsg.textContent = '';
+
+      if (s2Status === 'draft') {
+        // Draft → show Submit button
+        btnSubmit.style.display = 'flex';
+        statusMsg.textContent = '点击「提交审核」开始 QC 审查';
+      } else if (s2Status === 'needs_review') {
+        // Needs review → show Approve/Block buttons + reviewer_notes input
+        notesInput.style.display = 'block';
+        document.getElementById('qc-reviewer-notes-field').value = qc.reviewer_notes || '';
+        btnApprove.style.display = 'flex';
+        btnBlock.style.display = 'flex';
+        statusMsg.textContent = '请审核检查项并决定批准或阻断';
+      } else if (s2Status === 'approved') {
+        // Approved → show green status card
+        statusCard.style.display = 'block';
+        statusCard.className = 'qc-status-card approved';
+        statusCard.innerHTML = '<h3>✅ 事实底稿已批准</h3><p>产品事实底稿已审核通过。</p>';
+        meta.style.display = 'flex';
+        document.getElementById('qc-reviewer-notes-display').textContent = qc.reviewer_notes || '--';
+        document.getElementById('qc-reviewed-at').textContent = fmtDate(qc.reviewed_at);
+      } else if (s2Status === 'blocked') {
+        // Blocked → show red status card
+        statusCard.style.display = 'block';
+        statusCard.className = 'qc-status-card blocked';
+        statusCard.innerHTML = '<h3>🚫 事实底稿已阻断</h3><p>产品事实底稿已被阻断，需重新修改后再次提交。</p>';
+        meta.style.display = 'flex';
+        document.getElementById('qc-reviewer-notes-display').textContent = qc.reviewer_notes || '--';
+        document.getElementById('qc-reviewed-at').textContent = fmtDate(qc.reviewed_at);
+      }
+    }
+
+    function renderQcChecklist(checklist) {
+      const items = [
+        { id: 'qc-check-confirmed', key: 'confirmed_facts_present', label: '已确认事实不为空' },
+        { id: 'qc-check-missing', key: 'missing_info_marked', label: '缺失信息已明确' },
+        { id: 'qc-check-evidence', key: 'source_evidence_present', label: '证据来源不为空' },
+        { id: 'qc-check-uncertainty', key: 'uncertainty_separated', label: '不确定事实已分离' }
+      ];
+      items.forEach(item => {
+        const el = document.getElementById(item.id);
+        const pass = !!checklist[item.key];
+        el.className = 'qc-check-item' + (pass ? ' pass' : ' fail');
+        el.querySelector('.qc-icon').textContent = pass ? '✅' : '❌';
+        el.querySelector('span:last-child').textContent = item.label;
+      });
+    }
+
+    // ── QC Action Handlers ──
+    async function handleQcSubmitReview() {
+      if (!state.selectedCard) return;
+      const btn = document.getElementById('btn-qc-submit');
+      const msg = document.getElementById('qc-status-msg');
+      btn.disabled = true;
+      btn.textContent = '提交中...';
+      msg.textContent = '';
+      try {
+        const updated = await submitFactBaseReview(state.selectedCard.task_id);
+        showToast('事实底稿已提交审核，S2=待审查', 'success');
+        await refreshCurrentCard();
+      } catch (err) {
+        showToast(err.message, 'error');
+        msg.textContent = '请求失败：' + err.message;
+      }
+      btn.disabled = false;
+      btn.textContent = '📤 提交审核';
+    }
+
+    async function handleQcApprove() {
+      if (!state.selectedCard) return;
+      const btn = document.getElementById('btn-qc-approve');
+      const msg = document.getElementById('qc-status-msg');
+      btn.disabled = true;
+      btn.textContent = '审批中...';
+      msg.textContent = '';
+      const body = {
+        reviewer_notes: document.getElementById('qc-reviewer-notes-field').value.trim() || undefined
+      };
+      try {
+        const updated = await approveFactBase(state.selectedCard.task_id, body);
+        showToast('事实底稿已批准，S2=已审批', 'success');
+        await refreshCurrentCard();
+      } catch (err) {
+        showToast(err.message, 'error');
+        msg.textContent = '请求失败：' + err.message;
+      }
+      btn.disabled = false;
+      btn.textContent = '✅ 批准事实底稿';
+    }
+
+    async function handleQcBlock() {
+      if (!state.selectedCard) return;
+      const btn = document.getElementById('btn-qc-block');
+      const msg = document.getElementById('qc-status-msg');
+      btn.disabled = true;
+      btn.textContent = '阻断中...';
+      msg.textContent = '';
+      const notes = document.getElementById('qc-reviewer-notes-field').value.trim();
+      if (!notes) {
+        showToast('阻断需要填写审核备注', 'error');
+        msg.textContent = '请求失败：审核备注不能为空';
+        btn.disabled = false;
+        btn.textContent = '🚫 阻断事实底稿';
+        return;
+      }
+      try {
+        const updated = await blockFactBase(state.selectedCard.task_id, { reviewer_notes: notes });
+        showToast('事实底稿已阻断，S2=已阻断', 'success');
+        await refreshCurrentCard();
+      } catch (err) {
+        showToast(err.message, 'error');
+        msg.textContent = '请求失败：' + err.message;
+      }
+      btn.disabled = false;
+      btn.textContent = '🚫 阻断事实底稿';
+    }
+    function renderFlowControl(card, s0Status, s1Status, s2Status) {
+      // Status badges
+      const statusBadge = (status) => {
+        const map = { 'in_progress': ['badge green','进行中'], 'completed': ['badge green','已完成'],
+          'needs_review': ['badge orange','待确认'], 'confirmed': ['badge green','已确认'],
+          'blocked': ['badge red','已阻断'], 'ready': ['badge blue','就绪'], 'draft': ['badge green','草稿'],
+          'approved': ['badge green','已批准'], 'not_started': ['badge gray','未开始'] };
+        const [cls,label] = map[status] || ['badge gray','未开始'];
+        return '<span class="' + cls + '">' + label + '</span>';
+      };
+
+      const s0Badge = document.getElementById('flow-s0-badge');
+      const s1Badge = document.getElementById('flow-s1-badge');
+      const s2Badge = document.getElementById('flow-s2-badge');
+      if (s0Badge) s0Badge.innerHTML = statusBadge(s0Status);
+      if (s1Badge) s1Badge.innerHTML = statusBadge(s1Status);
+      if (s2Badge) s2Badge.innerHTML = statusBadge(s2Status);
+      document.getElementById('flow-current-stage').textContent = card.current_stage_id || '--';
+
+      // Blocked alert
+      const blockedAlert = document.getElementById('flow-blocked-alert');
+      blockedAlert.className = 'flow-blocked-alert' + (s1Status === 'blocked' ? ' active' : '');
+
+      // Action buttons
+      const container = document.getElementById('flow-action-buttons');
+      const note = document.getElementById('flow-action-note');
+      let html = '';
+
+      if (s0Status === 'not_started' || s0Status === 'in_progress') {
+        html += '<button class="btn btn-primary" id="btn-flow-complete-s0" onclick="handleFlowCompleteS0()">✅ 完成 S0 — 完成商品来源采集</button>';
+        note.textContent = '完成 S0 后，S1 将进入待确认状态，可填写销售主体表单';
+      } else if (s1Status === 'needs_review') {
+        html += '<div class="confirm-item" style="margin-bottom:12px;"><span>S0 已完成</span><span class="badge green">✓</span></div>';
+        html += '<button class="btn btn-warning" disabled>🔔 S1 待确认 — 请在右侧销售主体确认区填写并提交</button>';
+        note.textContent = '请在页面下方【销售主体确认】区域填写信息后点击确认按钮';
+      } else if (s1Status === 'confirmed') {
+        html += '<div class="confirm-item" style="margin-bottom:8px;"><span>S0 已完成</span><span class="badge green">✓</span></div>';
+        html += '<div class="confirm-item" style="margin-bottom:8px;"><span>S1 已确认</span><span class="badge green">✓</span></div>';
+        html += '<div class="confirm-item" style="margin-bottom:12px;"><span>销售主体</span><span style="font-weight:600;">' + esc(card.selling_subject || '--') + '</span></div>';
+        if (s2Status === 'ready') {
+          html += '<button class="btn btn-primary" disabled>📝 S2 就绪 — 请填写下方事实底稿草稿</button>';
+          note.textContent = 'S2 已就绪，请在下方 S2 Fact Base Draft Panel 中填写产品信息';
+        } else if (s2Status === 'draft') {
+          html += '<button class="btn btn-primary" disabled>📝 S2 事实底稿已保存 — 请提交 QC 审查</button>';
+          note.textContent = 'S2 事实底稿草稿已保存，请在下方 QC Panel 提交审查';
+        } else if (s2Status === 'needs_review') {
+          html += '<button class="btn btn-warning" disabled>🔍 S2 等待 QC 审核</button>';
+          note.textContent = 'S2 已提交 QC，请在下方 QC Panel 进行审核';
+        } else if (s2Status === 'approved') {
+          html += '<button class="btn btn-success" disabled>✅ S2 已审核通过</button>';
+          note.textContent = 'S2 事实底稿已审批通过';
+        } else if (s2Status === 'blocked') {
+          html += '<button class="btn btn-danger" disabled>🚫 S2 已被阻断</button>';
+          note.textContent = 'S2 事实底稿已被阻断，需重新修改';
+        } else {
+          html += '<button class="btn btn-primary" disabled>📝 进入 S2 事实底稿（下一阶段）</button>';
+          note.textContent = 'S2 就绪，等待下一阶段开发';
+        }
+      } else if (s1Status === 'blocked') {
+        html += '<div class="confirm-item" style="margin-bottom:8px;"><span>S0 已完成</span><span class="badge green">✓</span></div>';
+        html += '<button class="btn btn-danger" disabled>🚫 S1 已阻断 — 需人工处理品牌/IP 风险</button>';
+        html += '<button class="btn btn-secondary" disabled>✏️ 重新确认销售主体</button>';
+        note.textContent = '品牌/IP 风险阻断，需人工介入处理后方可继续';
+      } else {
+        html += '<button class="btn btn-secondary" disabled>等待 S0 完成...</button>';
+        note.textContent = '请先创建 task card 并完成 S0';
+      }
+
+      container.innerHTML = html;
+    }
+
+    // ── Handle Flow Control Complete S0 ──
+    async function handleFlowCompleteS0() {
+      if (!state.selectedCard) return;
+      const btn = document.getElementById('btn-flow-complete-s0');
+      if (!btn) return;
+      btn.disabled = true;
+      btn.textContent = 'S0 完成中...';
+      try {
+        const updated = await completeS0(state.selectedCard.task_id);
+        showToast('S0 已完成，S1 进入待确认', 'success');
+        await refreshCurrentCard();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // ── Render dynamic action buttons (right column) ──
+    function renderActions(card, s1Status) {
+      const s0Status = (card.stages || []).find(s => s.stage_id === 'S0');
+      const s0Done = s0Status && s0Status.status === 'completed';
+      const container = document.getElementById('action-buttons');
+      const note = document.getElementById('action-note');
+      let html = '';
+
+      if (!s0Done) {
+        // S0 not completed yet → show "Complete S0" button
+        html += '<button class="btn btn-primary" id="btn-complete-s0" onclick="handleCompleteS0()">✅ 完成 S0 — 进入 S1 销售主体确认</button>';
+        note.textContent = '点击完成 S0 后，S1 将进入待确认状态';
+      } else if (s1Status === 'needs_review') {
+        // S1 awaiting confirmation
+        html += '<button class="btn btn-secondary" disabled>✅ S0 已完成</button>';
+        note.textContent = '请在左侧【销售主体确认】区填写信息并确认';
+      } else if (s1Status === 'confirmed') {
+        html += '<button class="btn btn-secondary" disabled>✅ S0 已完成</button>';
+        html += '<button class="btn btn-secondary" disabled>✅ S1 已确认</button>';
+        html += '<button class="btn btn-primary" disabled>📝 S2 事实底稿（下一阶段）</button>';
+        note.textContent = 'S2 就绪，等待下一阶段开发';
+      } else if (s1Status === 'blocked') {
+        html += '<button class="btn btn-secondary" disabled>✅ S0 已完成</button>';
+        html += '<button class="btn btn-danger" disabled>🚫 S1 已阻断 — 品牌/IP 风险</button>';
+        note.textContent = '任务被阻断，需人工处理品牌/IP 风险后重新确认';
+      } else {
+        html += '<button class="btn btn-primary" disabled>进入 S1 销售主体确认</button>';
+        html += '<button class="btn btn-secondary" disabled>✏️ 补充 / 修改信息</button>';
+        html += '<button class="btn btn-secondary" disabled>🚫 标记阻断 / 风险</button>';
+        html += '<button class="btn btn-secondary" disabled>📝 生成 S2 事实底稿草稿</button>';
+        note.textContent = '所有按钮均为 preview 状态，不触发真实动作';
+      }
+
+      container.innerHTML = html;
+    }
+
+    // ── Handle Complete S0 ──
+    async function handleCompleteS0() {
+      if (!state.selectedCard) return;
+      const btn = document.getElementById('btn-complete-s0');
+      if (!btn) return;
+      btn.disabled = true;
+      btn.textContent = 'S0 完成中...';
+      try {
+        const updated = await completeS0(state.selectedCard.task_id);
+        showToast('S0 已完成，S1 进入待确认', 'success');
+        await refreshCurrentCard();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+      // No need to reset button — renderActions rebuilds it
+    }
+
+    // ── Handle Confirm S1 ──
+    async function handleConfirmS1() {
+      if (!state.selectedCard) return;
+      const btn = document.getElementById('btn-confirm-s1');
+      const status = document.getElementById('s1-form-status');
+      btn.disabled = true;
+      btn.textContent = '确认中...';
+      status.textContent = '';
+
+      const body = {
+        selling_subject: document.getElementById('s1-selling-subject').value.trim(),
+        sku_intent: document.getElementById('s1-sku-intent').value.trim(),
+        target_platform: document.getElementById('s1-target-platform').value.trim() || 'AliExpress',
+        target_market: document.getElementById('s1-target-market').value.trim() || undefined,
+        brand_ip_risk: document.getElementById('s1-brand-risk').value,
+        confirmation_notes: document.getElementById('s1-confirmation-notes').value.trim() || undefined
+      };
+
+      try {
+        const updated = await confirmSellingSubject(state.selectedCard.task_id, body);
+        const isBlocked = updated.brand_ip_risk === 'blocked';
+        showToast(isBlocked ? 'S1 已阻断 — 检测到品牌/IP 风险' : 'S1 已确认，S2 就绪', isBlocked ? 'error' : 'success');
+        await refreshCurrentCard();
+      } catch (err) {
+        showToast(err.message, 'error');
+        status.textContent = '请求失败：' + err.message;      }
+
+      btn.disabled = false;
+      btn.textContent = '确认销售主体';
+    }
+
+    // ── Handle S1 form submit ──
+    document.getElementById('s1-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      handleConfirmS1();
+    });
+
+    // ── Handle Save Fact Base Draft ──
+    async function handleSaveFactBase() {
+      if (!state.selectedCard) return;
+      const btn = document.getElementById('btn-save-fact-base');
+      const status = document.getElementById('s2-form-status');
+      btn.disabled = true;
+      btn.textContent = '保存中...';
+      status.textContent = '';
+
+      const parseLines = (val) => {
+        if (!val || !val.trim()) return [];
+        return val.split('\n').map(s => s.trim()).filter(Boolean);
+      };
+
+      const body = {
+        confirmed_facts: parseLines(document.getElementById('s2-confirmed-facts').value),
+        uncertain_facts: parseLines(document.getElementById('s2-uncertain-facts').value),
+        missing_info: parseLines(document.getElementById('s2-missing-info').value),
+        source_evidence: parseLines(document.getElementById('s2-source-evidence').value)
+      };
+
+      try {
+        const updated = await updateFactBase(state.selectedCard.task_id, body);
+        showToast('事实底稿草稿已保存', 'success');
+        status.textContent = '已保存 ✓';
+        await refreshCurrentCard();
+      } catch (err) {
+        showToast(err.message, 'error');
+        status.textContent = '请求失败：' + err.message;      }
+
+      btn.disabled = false;
+      btn.textContent = '💾 保存事实底稿草稿';
+    }
+
+    // ── Handle S2 fact form submit ──
+    document.getElementById('s2-fact-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      handleSaveFactBase();
+    });
+
+    // ── Context Pack API ──
+    async function fetchContextPack(taskId) {
+      const res = await fetch(API_BASE + '/' + taskId + '/context-pack');
+      if (!res.ok) {
+        if (res.status === 404) return null;
+        throw new Error('无法读取上下文包，请确认服务已启动。');
+      }
+      const data = await res.json();
+      return data.contextPack || null;
+    }
+
+    async function generateContextPack(taskId) {
+      const res = await fetch(API_BASE + '/' + taskId + '/generate-context-pack', { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 404) throw new Error('任务卡未找到');
+        throw new Error(err.error || '无法生成上下文包，请确认服务已启动。');
+      }
+      // API 返回 taskCard，不包含 contextPack，需另外获取
+      await res.json();
+      // 生成成功后获取上下文包
+      return await fetchContextPack(taskId);
+    }
+
+    // ── Artifact API ──
+    async function fetchArtifacts(taskId) {
+      const res = await fetch(API_BASE + '/' + taskId + '/artifacts');
+      if (!res.ok) throw new Error('无法读取产物引用，请确认服务已启动。');
+      const data = await res.json();
+      return data.artifacts || [];
+    }
+
+    async function createArtifact(taskId, body) {
+      const res = await fetch(API_BASE + '/' + taskId + '/artifacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 400) throw new Error(err.error || '缺少必填字段');
+        throw new Error(err.error || '无法新增产物引用，请确认服务已启动。');
+      }
+      // API 返回 taskCard，不包含 artifact
+      await res.json();
+      return null;
+    }
+
+    // ── Render Context Pack ──
+    function renderContextPack(cp) {
+      const panel = document.getElementById('context-pack-panel');
+      const emptyEl = document.getElementById('cp-empty');
+      const contentEl = document.getElementById('cp-content');
+
+      if (!cp) {
+        panel.classList.add('active');
+        emptyEl.style.display = 'block';
+        contentEl.style.display = 'none';
+        return;
+      }
+
+      panel.classList.add('active');
+      emptyEl.style.display = 'none';
+      contentEl.style.display = 'block';
+
+      const statusLabels = { 'generated': '已生成', 'outdated': '已过期' };
+      const statusBadges = { 'generated': 'badge green', 'outdated': 'badge orange' };
+      const st = cp.status || 'generated';
+      const stBadge = document.getElementById('cp-status');
+      stBadge.className = 'badge ' + (statusBadges[st] || 'badge gray').replace('badge ', '');
+      stBadge.textContent = statusLabels[st] || st;
+
+      document.getElementById('cp-summary').textContent = cp.summary || '--';
+      document.getElementById('cp-missing').textContent = (cp.missing_context || []).length > 0 ? cp.missing_context.join('；') : '无';
+      document.getElementById('cp-risk-notes').textContent = cp.risk_notes || '无';
+      document.getElementById('cp-created').textContent = fmtDate(cp.created_at);
+      document.getElementById('cp-updated').textContent = fmtDate(cp.updated_at);
+    }
+
+    // ── Render Artifacts ──
+    function renderArtifacts(artifacts) {
+      const panel = document.getElementById('artifact-panel');
+      const emptyEl = document.getElementById('artifact-empty');
+      const contentEl = document.getElementById('artifact-content');
+      const tbody = document.getElementById('artifact-tbody');
+
+      panel.classList.add('active');
+
+      const list = artifacts || [];
+      if (list.length === 0) {
+        emptyEl.style.display = 'block';
+        contentEl.style.display = 'none';
+        return;
+      }
+
+      emptyEl.style.display = 'none';
+      contentEl.style.display = 'block';
+
+      const stageNames = { 'S0': '商品来源采集', 'S1': '销售主体确认', 'S2': '事实底稿' };
+      const statusLabels = { 'draft': '草稿', 'final': '终稿' };
+
+      tbody.innerHTML = list.map(a => {
+        const time = fmtDate(a.created_at);
+        const stage = stageNames[a.stage_id] || a.stage_id || '--';
+        const artType = esc(a.artifact_type || '--');
+        const title = esc(a.title || '--');
+        const status = statusLabels[a.status] || a.status || '--';
+        const refType = esc(a.ref_type || '--');
+        const ref = esc(a.ref || '--');
+        return '<tr><td>' + artType + '</td><td>' + stage + '</td><td>' + title + '</td><td>' + status + '</td><td>' + refType + '</td><td style="max-width:200px;word-wrap:break-word;">' + ref + '</td><td>' + time + '</td></tr>';
+      }).join('');
+    }
+
+    // ── Handle Generate Context Pack ──
+    async function handleGenerateContextPack() {
+      if (!state.selectedCard) return;
+      const btn = document.getElementById('btn-generate-context-pack');
+      const msg = document.getElementById('cp-status-msg');
+      btn.disabled = true;
+      btn.textContent = '生成中...';
+      msg.textContent = '';
+      try {
+        const cp = await generateContextPack(state.selectedCard.task_id);
+        showToast('上下文包已生成（规则化汇总，非 AI 生成）', 'success');
+        await refreshCurrentCard();
+      } catch (err) {
+        showToast(err.message, 'error');
+        msg.textContent = '请求失败：' + err.message;
+      }
+      btn.disabled = false;
+      btn.textContent = '生成上下文包';
+    }
+
+    // ── Handle Add Artifact ──
+    async function handleAddArtifact() {
+      if (!state.selectedCard) return;
+      const btn = document.getElementById('btn-add-artifact');
+      const msg = document.getElementById('artifact-status-msg');
+      btn.disabled = true;
+      btn.textContent = '新增中...';
+      msg.textContent = '';
+
+      const body = {
+        artifact_type: document.getElementById('artifact-type').value,
+        stage_id: document.getElementById('artifact-stage-id').value,
+        title: document.getElementById('artifact-title').value.trim(),
+        status: document.getElementById('artifact-status').value,
+        ref_type: document.getElementById('artifact-ref-type').value,
+        ref: document.getElementById('artifact-ref').value.trim()
+      };
+
+      if (!body.title) {
+        showToast('标题不能为空', 'error');
+        msg.textContent = '请求失败：标题不能为空';
+        btn.disabled = false;
+        btn.textContent = '新增产物引用';
+        return;
+      }
+
+      try {
+        const art = await createArtifact(state.selectedCard.task_id, body);
+        showToast('产物引用已新增', 'success');
+        msg.textContent = '已新增 ✓';
+
+        // Reset form
+        document.getElementById('artifact-title').value = '';
+        document.getElementById('artifact-ref').value = '';
+
+        await refreshCurrentCard();
+      } catch (err) {
+        showToast(err.message, 'error');
+        msg.textContent = '请求失败：' + err.message;
+      }
+      btn.disabled = false;
+      btn.textContent = '新增产物引用';
+    }
+
+    // ── AI Job API ──
+    async function fetchAiJobs(taskId) {
+      const res = await fetch(API_BASE + '/' + taskId + '/ai-jobs');
+      if (!res.ok) throw new Error('无法读取 AI Job，请确认服务已启动。');
+      const data = await res.json();
+      return data.aiJobs || [];
+    }
+
+    async function createAiJob(taskId, body) {
+      const res = await fetch(API_BASE + '/' + taskId + '/ai-jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 400) throw new Error(err.error || '缺少必填字段');
+        throw new Error(err.error || '无法创建 AI Job，请确认服务已启动。');
+      }
+      // POST returns {taskCard} only; no return value needed
+    }
+
+    async function fetchAiJobDetail(taskId, aiJobId) {
+      const res = await fetch(API_BASE + '/' + taskId + '/ai-jobs/' + aiJobId);
+      if (!res.ok) {
+        if (res.status === 404) throw new Error('未找到该 AI Job。');
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || '无法读取 AI Job 详情，请确认服务已启动。');
+      }
+      const data = await res.json();
+      if (!data.aiJob) throw new Error('未找到该 AI Job。');
+      return data.aiJob;
+    }
+
+    // ── Render AI Jobs ──
+    function renderAiJobs(jobs) {
+      const listEl = document.getElementById('ai-job-list');
+      if (!listEl) return;
+      const list = jobs || [];
+      if (list.length === 0) {
+        listEl.innerHTML = '<div class="empty">暂无 AI Job。</div>';
+        document.getElementById('ai-job-detail').style.display = 'none';
+        return;
+      }
+      const statusBadges = {
+        'created': 'badge blue',
+        'blocked': 'badge red',
+        'ready': 'badge blue',
+        'running': 'badge orange',
+        'completed': 'badge green',
+        'failed': 'badge red',
+        'cancelled': 'badge gray'
+      };
+      const statusLabels = {
+        'created': '已创建',
+        'blocked': '已阻断',
+        'ready': '就绪',
+        'running': '运行中',
+        'completed': '已完成',
+        'failed': '失败',
+        'cancelled': '已取消'
+      };
+      const jobTypeLabels = {
+        'product_fact_extraction_mvp1': '商品事实提取',
+        'listing_generation': 'Listing 生成',
+        'image_prompt_generation': '主图提示词',
+        'market_research': '市场调研',
+        'other': '其他'
+      };
+      listEl.innerHTML = list.map(job => {
+        const statusCls = statusBadges[job.status] || 'badge gray';
+        const statusLbl = statusLabels[job.status] || job.status || '--';
+        const typeLbl = jobTypeLabels[job.job_type] || job.job_type || '--';
+        const execLbl = job.execution_allowed ? '可执行' : '已锁定';
+        const execCls = job.execution_allowed ? 'badge green' : 'badge red';
+        return '<div class="ai-job-item" data-id="' + esc(job.ai_job_id) + '">' +
+          '<div class="ai-job-header">' +
+          '<span class="ai-job-id">' + esc(job.ai_job_id.slice(-16)) + '</span>' +
+          '<span class="' + esc(statusCls) + '">' + esc(statusLbl) + '</span>' +
+          '</div>' +
+          '<div class="ai-job-meta">' +
+          '<span class="badge gray">' + esc(typeLbl) + '</span>' +
+          '<span class="' + esc(execCls) + '">' + esc(execLbl) + '</span>' +
+          '</div>' +
+          '</div>';
+      }).join('');
+
+      // Click to show detail — fetch from API
+      listEl.querySelectorAll('.ai-job-item').forEach(item => {
+        item.addEventListener('click', async () => {
+          const id = item.dataset.id;
+          listEl.querySelectorAll('.ai-job-item').forEach(el => el.classList.remove('selected'));
+          item.classList.add('selected');
+          const detailEl = document.getElementById('ai-job-detail');
+          detailEl.style.display = 'none';
+          document.getElementById('ai-job-detail-loading').style.display = 'block';
+          try {
+            const job = await fetchAiJobDetail(state.selectedCard.task_id, id);
+            state.selectedAiJob = job;
+            renderAiJobDetail(job);
+          } catch (err) {
+            document.getElementById('ai-job-detail-loading').style.display = 'none';
+            detailEl.style.display = 'block';
+            detailEl.innerHTML = '<div class="ai-job-detail-title">🤖 AI Job 详情</div><div style="color:#e74c3c;font-size:13px;padding:12px 0;">' + esc(err.message) + '</div>';
+          }
+        });
+      });
+    }
+
+    function renderAiJobDetail(job) {
+      const detailEl = document.getElementById('ai-job-detail');
+      if (!detailEl || !job) return;
+      document.getElementById('ai-job-detail-loading').style.display = 'none';
+      detailEl.style.display = 'block';
+      const execLbl = job.execution_allowed ? '可执行' : '已锁定';
+      const execCls = job.execution_allowed ? 'badge green' : 'badge red';
+      const out = job.output_placeholder || {};
+      const inp = job.input_snapshot || {};
+      detailEl.innerHTML =
+        '<div class="ai-job-detail-title">🤖 AI Job 详情</div>' +
+        '<div class="ai-job-detail-grid">' +
+        '<span class="ai-job-detail-key">Job ID</span><span class="ai-job-detail-val" style="font-family:monospace;font-size:11px;">' + esc(job.ai_job_id) + '</span>' +
+        '<span class="ai-job-detail-key">Job 类型</span><span class="ai-job-detail-val">' + esc(job.job_type) + '</span>' +
+        '<span class="ai-job-detail-key">状态</span><span class="ai-job-detail-val"><span class="' + esc(execCls) + '">' + esc(execLbl) + '</span> ' + esc(job.status) + '</span>' +
+        '<span class="ai-job-detail-key">锁定原因</span><span class="ai-job-detail-val">' + esc(job.execution_lock_reason || '--') + '</span>' +
+        '<span class="ai-job-detail-key">Context Pack ID</span><span class="ai-job-detail-val" style="font-family:monospace;font-size:11px;">' + esc(job.context_pack_id || '--') + '</span>' +
+        '<span class="ai-job-detail-key">创建时间</span><span class="ai-job-detail-val">' + fmtDate(job.created_at) + '</span>' +
+        '<span class="ai-job-detail-key">更新时间</span><span class="ai-job-detail-val">' + fmtDate(job.updated_at) + '</span>' +
+        '</div>' +
+        '<div class="ai-job-section-title">Input Snapshot</div>' +
+        '<div class="ai-job-detail-grid">' +
+        '<span class="ai-job-detail-key">入口摘要</span><span class="ai-job-detail-val">' + esc(inp.entry_summary || '--') + '</span>' +
+        '<span class="ai-job-detail-key">销售主体</span><span class="ai-job-detail-val">' + esc(inp.selling_subject?.selling_subject || '--') + '</span>' +
+        '<span class="ai-job-detail-key">SKU 意图</span><span class="ai-job-detail-val">' + esc(inp.selling_subject?.sku_intent || '--') + '</span>' +
+        '<span class="ai-job-detail-key">品牌风险</span><span class="ai-job-detail-val">' + esc(inp.selling_subject?.brand_ip_risk || '--') + '</span>' +
+        '<span class="ai-job-detail-key">事实底稿摘要</span><span class="ai-job-detail-val">' + esc(typeof inp.fact_base_preview === 'object' ? JSON.stringify(inp.fact_base_preview) : (inp.fact_base_preview || '--')) + '</span>' +
+        '<span class="ai-job-detail-key">上下文包摘要</span><span class="ai-job-detail-val">' + esc(inp.context_pack_summary || '--') + '</span>' +
+        '<span class="ai-job-detail-key">风险备注</span><span class="ai-job-detail-val">' + esc((inp.risk_notes || []).join(', ') || '--') + '</span>' +
+        '<span class="ai-job-detail-key">缺失上下文</span><span class="ai-job-detail-val">' + esc((inp.missing_context || []).join(', ') || '--') + '</span>' +
+        '</div>' +
+        '<div class="ai-job-section-title">Output Placeholder</div>' +
+        '<div class="ai-job-detail-grid">' +
+        '<span class="ai-job-detail-key">预期输出类型</span><span class="ai-job-detail-val">' + esc(out.expected_output_type || '--') + '</span>' +
+        '<span class="ai-job-detail-key">产物目标</span><span class="ai-job-detail-val">' + esc(out.artifact_target || '--') + '</span>' +
+        '<span class="ai-job-detail-key">结果引用</span><span class="ai-job-detail-val">' + esc(out.result_ref || '(空)') + '</span>' +
+        '<span class="ai-job-detail-key">错误引用</span><span class="ai-job-detail-val">' + esc(out.error_ref || '(空)') + '</span>' +
+        '</div>' +
+        '<div class="ai-job-section-title">执行契约</div>' +
+        '<div class="ai-job-detail-grid">' +
+        '<span class="ai-job-detail-key">允许执行</span><span class="ai-job-detail-val"><span class="' + esc(execCls) + '">' + esc(execLbl) + '</span></span>' +
+        '<span class="ai-job-detail-key">锁定原因</span><span class="ai-job-detail-val">' + esc(job.execution_lock_reason || '--') + '</span>' +
+        '</div>' +
+        '<div class="ai-job-execute-section">' +
+        '<button id="btn-execute-ai-job" class="ai-job-execute-btn ' + (job.execution_allowed ? 'btn-warning-soft' : 'btn-danger-soft') + '" onclick="handleExecuteAiJob()" title="' + (job.execution_allowed ? '尝试执行' : '当前会被阻断') + '">' +
+        '<span id="btn-execute-icon">' + (job.execution_allowed ? '▶' : '⚠') + '</span> ' +
+        '<span id="btn-execute-text">尝试执行 AI Job' + (job.execution_allowed ? '' : '（当前会被阻断）') + '</span></button>' +
+        '</div>' +
+        '<div style="color:#c0392b;font-size:12px;background:#fdf2f2;border:1px solid #f5c6cb;border-radius:6px;padding:8px 12px;margin-top:10px;">当前版本仅创建 AI Job 占位对象，不允许实际执行。</div>';
+    }
+
+    // ── Handle Create AI Job ──
+    async function handleCreateAiJob() {
+      if (!state.selectedCard) return;
+      const btn = document.getElementById('btn-create-ai-job');
+      const msg = document.getElementById('ai-job-status-msg');
+      btn.disabled = true;
+      btn.textContent = '创建中...';
+      msg.textContent = '';
+
+      const body = {
+        job_type: document.getElementById('ai-job-type').value,
+        expected_output_type: document.getElementById('ai-job-expected-output').value.trim(),
+        artifact_target: document.getElementById('ai-job-artifact-target').value.trim()
+      };
+
+      if (!body.expected_output_type || !body.artifact_target) {
+        showToast('预期输出类型和产物目标不能为空', 'error');
+        msg.textContent = '请求失败：必填字段不能为空';
+        btn.disabled = false;
+        btn.textContent = '创建 AI Job 占位';
+        return;
+      }
+
+      try {
+        await createAiJob(state.selectedCard.task_id, body);
+        showToast('AI Job 占位已创建（execution_locked，暂不执行）', 'success');
+        msg.textContent = '已创建 ✓';
+        document.getElementById('ai-job-expected-output').value = '';
+        document.getElementById('ai-job-artifact-target').value = '';
+        await refreshCurrentCard();
+      } catch (err) {
+        showToast(err.message, 'error');
+        msg.textContent = '请求失败：' + err.message;
+      }
+      btn.disabled = false;
+      btn.textContent = '创建 AI Job 占位';
+    }
+
+    // ── Handle Execute AI Job ──
+    async function handleExecuteAiJob() {
+      if (!state.selectedCard || !state.selectedAiJob) {
+        showToast('无法尝试执行 AI Job，请确认服务已启动。', 'error');
+        return;
+      }
+      const taskId = state.selectedCard.task_id;
+      const aiJobId = state.selectedAiJob.ai_job_id;
+      const btn = document.getElementById('btn-execute-ai-job');
+      const btnText = document.getElementById('btn-execute-text');
+      const btnIcon = document.getElementById('btn-execute-icon');
+      const resultEl = document.getElementById('ai-job-execution-result');
+
+      // Set loading state
+      btn.disabled = true;
+      if (btnText) btnText.textContent = ' 尝试执行中...';
+      if (btnIcon) btnIcon.innerHTML = '<span class="ai-job-execute-spinner"></span>';
+      resultEl.innerHTML = '';
+
+      try {
+        const res = await fetch(API_BASE + '/' + taskId + '/ai-jobs/' + aiJobId + '/execute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (res.status === 423) {
+          // Expected blocked response — render blocked card, not an error
+          let errData = {};
+          try { errData = await res.json(); } catch (e) { /* ignore */ }
+          const reason = errData.reason || 'AI execution is not enabled in v0.6-G';
+          const blockedJobId = errData.aiJob?.ai_job_id || aiJobId;
+
+          resultEl.innerHTML =
+            '<div class="ai-job-blocked-card">' +
+            '<div class="ai-job-blocked-card-header">⚠ 本次执行尝试已被系统阻断</div>' +
+            '<div class="ai-job-blocked-grid">' +
+            '<span class="ai-job-blocked-key">blocked</span><span class="ai-job-blocked-val">' + esc(String(errData.blocked !== false)) + '</span>' +
+            '<span class="ai-job-blocked-key">reason</span><span class="ai-job-blocked-val">' + esc(reason) + '</span>' +
+            '<span class="ai-job-blocked-key">status_code</span><span class="ai-job-blocked-val">423 Locked</span>' +
+            '<span class="ai-job-blocked-key">ai_job_id</span><span class="ai-job-blocked-val" style="font-family:monospace;font-size:11px;">' + esc(blockedJobId) + '</span>' +
+            '<span class="ai-job-blocked-key">created_at</span><span class="ai-job-blocked-val">' + esc(new Date().toLocaleString('zh-CN')) + '</span>' +
+            '</div>' +
+            '<div class="ai-job-blocked-note">本次只是验证 Execution Guard，不会调用 ChatGPT，不会生成 Listing，不会生成主图。</div>' +
+            '</div>';
+          showToast('AI Job 执行被阻断，这是当前版本的预期行为。', 'info');
+        } else if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          showToast(err.error || '无法尝试执行 AI Job，请确认服务已启动。', 'error');
+          resultEl.innerHTML = '<div style="color:#c0392b;font-size:12px;margin-top:8px;">页面渲染失败，请刷新后重试。</div>';
+        } else {
+          // 200/201 — unlikely in v0.6-G but handle gracefully
+          const data = await res.json();
+          resultEl.innerHTML =
+            '<div class="ai-job-blocked-card" style="background:#d5f5e3;border-color:#27ae60;">' +
+            '<div class="ai-job-blocked-card-header" style="color:#1e8449;">✓ 执行请求已发送</div>' +
+            '<div class="ai-job-blocked-grid">' +
+            '<span class="ai-job-blocked-key">status</span><span class="ai-job-blocked-val">' + esc(data.status || res.status) + '</span>' +
+            '</div>' +
+            '</div>';
+          showToast('执行请求已发送（请检查后端日志）', 'success');
+        }
+
+        // Refresh all data: task card, ai_jobs, action_logs, issues, selected_ai_job detail
+        await refreshCurrentCard();
+        if (state.selectedAiJob) {
+          try {
+            state.selectedAiJob = await fetchAiJobDetail(taskId, aiJobId);
+            renderAiJobDetail(state.selectedAiJob);
+          } catch (e) {
+            // If detail fetch fails, keep current state and just refresh list
+          }
+        }
+
+      } catch (err) {
+        showToast('无法尝试执行 AI Job，请确认服务已启动。', 'error');
+        resultEl.innerHTML = '<div style="color:#c0392b;font-size:12px;margin-top:8px;">页面渲染失败，请刷新后重试。</div>';
+      }
+
+      // Restore button
+      const restoredBtn = document.getElementById('btn-execute-ai-job');
+      if (restoredBtn) {
+        restoredBtn.disabled = false;
+      }
+    }
+
+    // ── Init ──
+    loadTaskCards();
+  </script>
+</body>
+</html>

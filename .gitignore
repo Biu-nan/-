@@ -1,0 +1,33 @@
+# ── 依赖（可由 npm install 还原）──
+node_modules/
+
+# ── 业务数据 / 生成产物（体积大、非代码，不入库）──
+users/
+data/
+当前产品/
+商品队列/
+已完成产品/
+已遗弃产品/
+
+# ── 旧备份（git 已取代其作用）──
+dist.old/
+
+# ── 运行态 / 日志（频繁变动，不入库）──
+run-state.json
+daily-waiting-items.json
+data-collection-tasks.json
+performance-snapshots.json
+*.log
+watchdog.out.log
+
+# ── 敏感 / 机器相关（绝不入库）──
+.chrome-profile/
+.workbuddy/
+
+# ── 误创建 / 系统噪音 ──
+nul
+.DS_Store
+Thumbs.db
+
+# 说明：dist/ 是本项目真正的源码（无 src/），必须入库。
+# public/、prompts/、schemas/、根配置 JSON、package.json、watchdog.js、start-* 均入库。

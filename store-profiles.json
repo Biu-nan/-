@@ -1,0 +1,24 @@
+[
+  {
+    "store_id": "d7449032-0e4e-4396-8968-08b4817cde27",
+    "store_alias": "Phase1A Test Store",
+    "platform": "AliExpress",
+    "hitoor_env_name": "Phase1A Hitoor Env",
+    "hitoor_env_id": "PHASE1A-ENV",
+    "store_role": "test",
+    "status": "enabled",
+    "remark": "Phase1A persistence test only",
+    "updated_at": "2026-06-20T02:41:31.973Z"
+  },
+  {
+    "store_id": "02b6af05-4252-495f-b217-339610aea6d1",
+    "store_alias": "洛慈三店",
+    "platform": "AliExpress",
+    "hitoor_env_name": "本地 Chrome",
+    "hitoor_env_id": "",
+    "store_role": "main",
+    "status": "enabled",
+    "remark": "",
+    "updated_at": "2026-06-20T14:37:33.654Z"
+  }
+]

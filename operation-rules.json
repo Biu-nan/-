@@ -1,0 +1,44 @@
+{
+  "auto_judgement_rules": [
+    {
+      "rule_id": "HAS_ADD_TO_CART_NO_ORDER",
+      "name": "有加购但订单少",
+      "enabled": true,
+      "suggested_action": "检查价格、详情页和优惠承接"
+    }
+  ],
+  "threshold_required_rules": [
+    {
+      "rule_id": "POTENTIAL_CTR_LOW",
+      "name": "有曝光但 CTR 低",
+      "enabled": true,
+      "suggested_action": "测主图",
+      "metric": "ctr",
+      "threshold": 0.01
+    },
+    {
+      "rule_id": "ADS_ROI_LOW",
+      "name": "广告 ROI 偏低",
+      "enabled": true,
+      "suggested_action": "检查关键词、出价和转化承接",
+      "metric": "roi",
+      "threshold": 1
+    }
+  ],
+  "manual_confirmation_rules": [
+    {
+      "rule_id": "CVR_ABOVE_CATEGORY",
+      "name": "CVR 高于同类商品平均水平",
+      "enabled": true,
+      "suggested_action": "人工确认类目基准后判断是否升级爆品"
+    }
+  ],
+  "action_suggestion_rules": [
+    {
+      "rule_id": "REVIEW_DUE",
+      "name": "运营动作到期复盘",
+      "enabled": true,
+      "suggested_action": "填写复盘结果并决定继续、放大或停止"
+    }
+  ]
+}

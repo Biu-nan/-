@@ -1,0 +1,77 @@
+[
+  {
+    "product_id": "f11e0555-c9b2-434b-a6d2-595e275e629c",
+    "product_tier": "normal",
+    "current_operation_goal": "",
+    "entry_reason": "",
+    "current_strategy": "",
+    "next_review_at": "",
+    "linked_listing_ids": [
+      "62997ca2-db82-4a4c-8e4a-34588e651a31"
+    ],
+    "agent_summary": "",
+    "updated_at": "2026-06-20T02:41:31.990Z",
+    "latest_snapshot_id": "021d111a-5b3b-484f-ad44-5d9829483b28",
+    "latest_action_id": "3629218c-50b2-47d6-9bcb-62848fd729ff"
+  },
+  {
+    "product_id": "50fcea42-320f-40bc-b480-c6110161f207",
+    "product_tier": "normal",
+    "current_operation_goal": "完成上新生产线，形成可上架资产",
+    "entry_reason": "新开发新品建档",
+    "current_strategy": "请上传产品素材，开始 AI 识别",
+    "next_review_at": "",
+    "linked_listing_ids": [],
+    "agent_summary": "轻量建档来源：new_product_development",
+    "updated_at": "2026-06-20T13:33:28.288Z"
+  },
+  {
+    "product_id": "8560bf25-9c6f-426c-b033-ef7587a82e19",
+    "product_tier": "normal",
+    "current_operation_goal": "已有素材，等待上架接入",
+    "entry_reason": "已有素材，等待上架接入",
+    "current_strategy": "去上架接入",
+    "next_review_at": "",
+    "linked_listing_ids": [],
+    "agent_summary": "轻量建档来源：asset_ready_pending_listing",
+    "updated_at": "2026-06-20T13:33:55.374Z"
+  },
+  {
+    "product_id": "80a0e83d-b057-4ab3-a51d-eb96116d3327",
+    "product_tier": "normal",
+    "current_operation_goal": "已有素材，等待上架接入",
+    "entry_reason": "已有素材，等待上架接入",
+    "current_strategy": "去上架接入",
+    "next_review_at": "",
+    "linked_listing_ids": [],
+    "agent_summary": "轻量建档来源：asset_ready_pending_listing",
+    "updated_at": "2026-06-20T14:49:04.953Z"
+  },
+  {
+    "product_id": "fe89e3d3-8f58-4380-b788-bc3804adf0ce",
+    "product_tier": "normal",
+    "current_operation_goal": "基于现货库存创建链接或绑定已有链接",
+    "entry_reason": "现货库存驱动建档",
+    "current_strategy": "创建链接或绑定已有链接",
+    "next_review_at": "",
+    "linked_listing_ids": [],
+    "agent_summary": "轻量建档来源：inventory_driven",
+    "updated_at": "2026-06-20T14:51:48.220Z"
+  },
+  {
+    "product_id": "75dfe882-826b-4125-bebf-3a2793258332",
+    "product_tier": "normal",
+    "current_operation_goal": "接入经营系统，完成 SKU 映射和首个周期数据采集",
+    "entry_reason": "已在售老品补建档",
+    "current_strategy": "先补齐平台商品 ID、SKU 映射和 7 天周期数据",
+    "next_review_at": "",
+    "linked_listing_ids": [
+      "0d53a45d-f38c-4555-b09f-292897f6257b",
+      "56faa7a2-b122-4f7c-a894-37d939630d4f"
+    ],
+    "agent_summary": "该商品为已在售老品补建档，当前重点是完成平台实体映射和首个经营周期观察",
+    "updated_at": "2026-06-26T09:00:38.532Z",
+    "latest_snapshot_id": "727fa6a3-c90c-42f6-99d0-335709d2cbfb",
+    "latest_action_id": "484c92d8-3867-43be-9188-143bef006435"
+  }
+]

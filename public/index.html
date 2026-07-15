@@ -1,0 +1,2080 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f5f5f7" />
+    <title>一跨而境｜AI 跨境电商工作台</title>
+    <link rel="stylesheet" href="/styles.css?v=20260706-1" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar primary-sidebar">
+        <a class="brand" href="#" aria-label="返回工作台首页">
+          <span class="brand-mark">境</span>
+          <span><strong>一跨而境</strong><small>AI COMMERCE STUDIO</small></span>
+        </a>
+
+        <nav class="stage-nav" aria-label="一跨而境工作区">
+          <div id="workspaceSwitcher" class="workspace-switcher" aria-label="一级工作区"></div>
+        </nav>
+      </aside>
+
+      <aside id="workspacePanel" class="workspace-panel">
+        <div class="workspace-panel-header">
+          <div class="eyebrow">当前工作区</div>
+          <h2 id="workspacePanelTitle">首页总控台</h2>
+          <p id="workspacePanelSubtitle">AI 总控入口</p>
+        </div>
+        <nav id="workspaceMenu" class="workspace-menu active" aria-label="当前模块二级导航"></nav>
+      </aside>
+
+      <main class="workspace main-workspace">
+        <header id="productionTopbar" class="topbar hidden">
+          <div>
+            <p class="eyebrow">AI 跨境电商视觉与 Listing 工作台</p>
+            <h1>让一个商品，完整走向全球。</h1>
+            <div class="mode-switch" aria-label="选择业务模式">
+              <button class="mode-option active" data-mode="standard_listing">标准 Listing</button>
+              <button class="mode-option" data-mode="luxury_insert">奢侈包内胆设计</button>
+            </div>
+            <div id="standardGoalSwitch" class="goal-switch" aria-label="选择标准 Listing 任务目标">
+              <button class="goal-option active" data-goal="full_listing">完整 Listing</button>
+              <button class="goal-option" data-goal="seo_content_only">仅 SEO 与商品文案</button>
+            </div>
+          </div>
+          <div class="system-status">
+            <span id="chatStatus" class="status-chip"><i></i>ChatGPT 未连接</span>
+            <span id="awakeStatus" class="status-chip"><i></i>节能模式</span>
+            <span id="statusBadge" class="status-chip strong">等待启动</span>
+          </div>
+        </header>
+
+        <header id="commerceTopbar" class="topbar commerce-topbar">
+          <div>
+            <p id="commerceTopbarEyebrow" class="eyebrow">LOCAL COMMAND CENTER</p>
+            <h1 id="commerceTopbarTitle">今日指挥台</h1>
+            <p id="commerceTopbarDescription" class="topbar-description">
+              汇总今日任务、QClaw 状态、异常阻断、待复盘和知识沉淀入口。
+            </p>
+          </div>
+          <div class="topbar-actions">
+            <div id="operatorBadge" class="operator-badge hidden">
+              <span>当前使用人</span>
+              <strong id="operatorName">未选择</strong>
+              <button id="switchOperatorButton" class="text-button" type="button">切换使用人</button>
+            </div>
+            <button id="commercePrimaryAction" class="button primary">查看经营总览</button>
+            <button id="commerceSecondaryAction" class="button secondary">打开全量商品库</button>
+          </div>
+        </header>
+
+        <section class="hero-card standard-workspace">
+          <div class="hero-copy">
+            <span id="heroKicker" class="hero-kicker">AUTOMATED COMMERCE WORKFLOW</span>
+            <h2 id="heroTitle">从产品素材到高转化 Listing，一次完成。</h2>
+            <p id="heroDescription">自动完成产品识别、市场调研、视觉规划、10 张图片生成，以及 SEO 商品文案。</p>
+            <button id="runAllButton" class="button primary hero-action">
+              一键开始全部流程
+            </button>
+          </div>
+          <div class="hero-metrics">
+            <article><strong id="metricImageCount">0</strong><span>产品素材</span></article>
+            <article><strong id="metricPhase">待开始</strong><span>当前阶段</span></article>
+            <article><strong id="metricGenerated">0/10</strong><span>生成图片</span></article>
+          </div>
+          <div class="hero-progress">
+            <div><span>整体进度</span><strong id="overallProgressText">0%</strong></div>
+            <div id="progress" class="progress"><span></span></div>
+          </div>
+        </section>
+
+        <div class="view-stack">
+          <section class="workflow-view" data-view-panel="v2-home-dashboard">
+            <div class="v2-home-dashboard">
+              <section class="v2-hero-panel">
+                <div>
+                  <span class="mini-label">AI COMMAND CENTER</span>
+                  <h2>一跨而境</h2>
+                  <p class="v2-hero-slogan">帮助打造一人跨境公司</p>
+                  <p class="v2-hero-subtitle">AI 总控工作台</p>
+                  <p class="v2-hero-copy">
+                    围绕目标、今日工作、业务场景、复盘沉淀和 Agent 协作，帮助个人创业者系统化经营跨境电商。
+                  </p>
+                  <div class="row-actions">
+                    <button class="button primary" type="button" data-home-view="daily-cockpit">进入今日工作台</button>
+                    <button class="button secondary" type="button" data-home-scroll="#v2ScenarioGrid">查看业务场景</button>
+                  </div>
+                </div>
+                <div class="v2-hero-status">
+                  <span>V2.0 MVP</span>
+                  <strong>目标驱动</strong>
+                  <small>目标 -> 今日任务 -> 场景执行 -> 复盘沉淀</small>
+                </div>
+              </section>
+
+              <section class="v2-home-grid top">
+                <article class="panel v2-card">
+                  <div class="profile-card-heading">
+                    <div><span class="mini-label">GOAL</span><h3>目标状态卡</h3></div>
+                    <span class="profile-status">v0.1 占位</span>
+                  </div>
+                  <div class="v2-goal-list">
+                    <div><span>当前阶段目标</span><strong>待设置</strong></div>
+                    <div><span>本周目标</span><strong>待设置</strong></div>
+                    <div><span>今日目标</span><strong>完成每日运营巡检并处理 P0 卡点</strong></div>
+                    <div><span>目标进度</span><strong>占位</strong></div>
+                    <div><span>差距提示</span><strong>后续接入目标中心 v0.1</strong></div>
+                  </div>
+                  <button class="button secondary compact-button" type="button" data-home-toast="目标中心 v0.1 后续接入">设置目标</button>
+                </article>
+
+                <article class="panel v2-card">
+                  <div class="profile-card-heading">
+                    <div><span class="mini-label">TODAY</span><h3>今日工作卡</h3></div>
+                    <span class="profile-status executing">优先执行</span>
+                  </div>
+                  <div class="v2-work-list">
+                    <div><span>今日最优先</span><strong>进入每日运营驾驶舱</strong></div>
+                    <div><span>今日待跟进</span><strong id="v2TodayWaitingText">等待摘要读取中</strong></div>
+                    <div><span>今日复查</span><strong>占位</strong></div>
+                    <div><span>今日时间记录</span><strong>占位</strong></div>
+                    <div><span>今日完成情况</span><strong>占位</strong></div>
+                  </div>
+                  <div class="row-actions">
+                    <button class="button primary" type="button" data-home-view="daily-cockpit">进入每日运营</button>
+                    <button class="button secondary" type="button" data-home-scroll="#v2WaitingBlock">查看待跟进</button>
+                  </div>
+                </article>
+
+                <article id="v2WaitingBlock" class="panel v2-card">
+                  <div class="profile-card-heading">
+                    <div><span class="mini-label">BLOCKERS</span><h3>卡点与等待区</h3></div>
+                    <span id="v2WaitingStatus" class="profile-status warning">Waiting</span>
+                  </div>
+                  <div class="v2-waiting-metrics">
+                    <div><strong id="v2WaitingOverdue">0</strong><span>逾期等待</span></div>
+                    <div><strong id="v2WaitingToday">0</strong><span>今日到期</span></div>
+                    <div><strong id="v2WaitingFuture">0</strong><span>未来等待</span></div>
+                    <div><strong id="v2WaitingResolved">0</strong><span>已解决</span></div>
+                  </div>
+                  <p class="daily-muted">第一版复用 WaitingItem 摘要；队列创建与处理仍在每日运营中完成。</p>
+                  <button class="button secondary compact-button" type="button" data-home-view="daily-cockpit">进入等待队列</button>
+                </article>
+              </section>
+
+              <section class="panel v2-card">
+                <div class="profile-card-heading">
+                  <div><span class="mini-label">SCENARIOS</span><h3>业务场景入口</h3></div>
+                  <span class="profile-status">归位已有模块</span>
+                </div>
+                <div id="v2ScenarioGrid" class="v2-scenario-grid">
+                  <article class="v2-scenario-card">
+                    <span>选品开发</span>
+                    <h4>发现市场机会与开发候选</h4>
+                    <p>当前入口：选品开发 / 内胆包型雷达。下一步：记录候选方向，再决定是否转商品。</p>
+                    <button type="button" class="button secondary" data-home-view="selection-overview">进入</button>
+                  </article>
+                  <article class="v2-scenario-card">
+                    <span>上品生产</span>
+                    <h4>从素材生成 Listing 资产</h4>
+                    <p>当前入口：产品素材。下一步：上传素材，进入识别、调研、图片和文案生产。</p>
+                    <button type="button" class="button secondary" data-home-view="materials">进入</button>
+                  </article>
+                  <article class="v2-scenario-card">
+                    <span>做图 / 视觉</span>
+                    <h4>生成主图、详情图与视觉素材</h4>
+                    <p>当前入口：Listing 图片生成。下一步：沿用现有视觉流程和 Prompt Pack。</p>
+                    <button type="button" class="button secondary" data-home-view="images">进入</button>
+                  </article>
+                  <article class="v2-scenario-card">
+                    <span>商品运维</span>
+                    <h4>跟进重点商品、动作和复盘</h4>
+                    <p>当前入口：重点商品运营池。下一步：查看潜力品、爆品和异常商品。</p>
+                    <button type="button" class="button secondary" data-home-view="operation-pool">进入</button>
+                  </article>
+                  <article class="v2-scenario-card">
+                    <span>上架接入</span>
+                    <h4>绑定店铺、Listing 与 SKU 映射</h4>
+                    <p>当前入口：上架接入 / SKU 映射。下一步：接入老品或新链接。</p>
+                    <button type="button" class="button secondary" data-home-view="listing-matrix">进入</button>
+                  </article>
+                  <article class="v2-scenario-card muted">
+                    <span>广告投放</span>
+                    <h4>预算、ROI 与流量诊断</h4>
+                    <p>当前入口：数据采集 / 商品复盘。独立广告页后续接入。</p>
+                    <button type="button" class="button secondary" data-home-view="data-tasks">查看数据</button>
+                  </article>
+                  <article class="v2-scenario-card muted">
+                    <span>售后 / 订单</span>
+                    <h4>处理订单、发货、客服和纠纷</h4>
+                    <p>当前入口：每日运营。独立售后页后续接入。</p>
+                    <button type="button" class="button secondary" data-home-view="daily-cockpit">进入巡检</button>
+                  </article>
+                  <article class="v2-scenario-card muted">
+                    <span>库存 / 供应链</span>
+                    <h4>识别低库存、断货与供应风险</h4>
+                    <p>当前入口：每日运营 / 商品运维。库存专页后续接入。</p>
+                    <button type="button" class="button secondary" data-home-view="daily-cockpit">进入巡检</button>
+                  </article>
+                  <article class="v2-scenario-card">
+                    <span>数据复盘</span>
+                    <h4>复盘动作结果和商品表现</h4>
+                    <p>当前入口：商品复盘。下一步：查看待复盘 ActionLog 与经营结果。</p>
+                    <button type="button" class="button secondary" data-home-view="operation-review">进入</button>
+                  </article>
+                </div>
+              </section>
+
+              <section class="v2-home-grid bottom">
+                <article class="panel v2-card">
+                  <div class="profile-card-heading">
+                    <div><span class="mini-label">FEEDBACK</span><h3>数据反馈与复盘沉淀</h3></div>
+                    <span class="profile-status">摘要占位</span>
+                  </div>
+                  <div class="v2-feedback-grid">
+                    <div><strong>占位</strong><span>今日动作 ActionLog</span></div>
+                    <div><strong>占位</strong><span>未关闭 Issue</span></div>
+                    <div><strong>占位</strong><span>待复盘动作</span></div>
+                    <div><strong>占位</strong><span>可沉淀 SOP 候选</span></div>
+                    <div><strong>占位</strong><span>Prompt / Skill 候选</span></div>
+                  </div>
+                  <div class="row-actions">
+                    <button class="button secondary" type="button" data-home-view="operation-actions">查看今日执行记录</button>
+                    <button class="button secondary" type="button" data-home-view="operation-review">进入商品数据复盘</button>
+                    <button class="button secondary" type="button" data-home-view="profiles">查看商品中枢</button>
+                  </div>
+                </article>
+
+                <article class="panel v2-card">
+                  <div class="profile-card-heading">
+                    <div><span class="mini-label">AGENTS</span><h3>工具与 Agent 快捷区</h3></div>
+                    <span class="profile-status">快捷入口</span>
+                  </div>
+                  <div class="v2-agent-grid">
+                    <div><strong>ChatGPT</strong><span>战略、复盘、分析、Prompt 生成</span></div>
+                    <div><strong>Codex</strong><span>本地代码与系统实现</span></div>
+                    <div><strong>QClaw</strong><span>桌面执行、店小秘填报</span></div>
+                    <div><strong>Marvis</strong><span>网页执行、后台操作</span></div>
+                    <div><strong>Chrome AI</strong><span>网页识别、商品调研</span></div>
+                    <div><strong>店小秘</strong><span>ERP、订单、库存</span></div>
+                    <div><strong>图片工具</strong><span>主图、详情图、视觉素材</span></div>
+                    <div><strong>广告工具</strong><span>直通车、广告诊断</span></div>
+                  </div>
+                  <p class="daily-muted">第一版只做说明和占位按钮，不接外部自动化。</p>
+                </article>
+              </section>
+            </div>
+          </section>
+
+          <section class="workflow-view" data-view-panel="goal-center">
+            <div class="section-heading">
+              <div><span class="section-index">GOALS</span><h2>目标中心</h2></div>
+              <p>用于管理当前阶段目标、本周目标、今日目标和目标进度。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">V2.0 PLACEHOLDER</span>
+              <h3>当前目标</h3>
+              <p>第一阶段先在首页总控台展示静态目标卡，后续再接入目标拆解、目标进度和今日任务联动。</p>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="goal-planning">
+            <div class="section-heading">
+              <div><span class="section-index">GOAL PLAN</span><h2>周 / 月 / 阶段目标</h2></div>
+              <p>承接一人跨境公司的阶段目标拆解，第一版暂不做复杂 OKR。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">V2.0 PLACEHOLDER</span>
+              <h3>目标拆解后续接入</h3>
+              <p>这里后续会承接周目标、月目标、阶段目标和关键指标。当前仅作为目标中心二级入口归位。</p>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="goal-progress">
+            <div class="section-heading">
+              <div><span class="section-index">PROGRESS</span><h2>目标进度</h2></div>
+              <p>展示目标达成进度和距离目标差距，第一阶段先保留位置。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">V2.0 PLACEHOLDER</span>
+              <h3>进度追踪后续接入</h3>
+              <p>后续会从业务数据、今日任务和复盘结果反推目标进度。当前不做目标数据持久化。</p>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="goal-decomposition">
+            <div class="section-heading">
+              <div><span class="section-index">GOAL MAP</span><h2>目标拆解</h2></div>
+              <p>把阶段目标拆到周目标、今日目标和业务场景动作。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">V2.0 PLACEHOLDER</span>
+              <h3>目标拆解后续接入</h3>
+              <p>当前仅用于 IA 归位。后续再把目标拆成每日运营、选品、上品、商品运维和复盘动作。</p>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="goal-gap">
+            <div class="section-heading">
+              <div><span class="section-index">GOAL GAP</span><h2>目标差距</h2></div>
+              <p>展示距离当前目标的差距和下一步补位方向。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">V2.0 PLACEHOLDER</span>
+              <h3>目标差距后续接入</h3>
+              <p>后续会从经营数据、执行记录和复盘结论中生成差距提示。当前不做自动目标分析。</p>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="daily-waiting">
+            <div class="section-heading">
+              <div><span class="section-index">TODAY</span><h2>今日待跟进</h2></div>
+              <p>WaitingItem 归入今日工作台，用于查看仓库、小二、供应商、主管和平台审核等卡点。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">WAITING ITEMS</span>
+              <h3>当前仍复用每日运营中的等待队列</h3>
+              <p>第一阶段不单独重写等待队列。请先进入“今日驾驶舱 / 每日运营”查看和处理等待事项。</p>
+              <button class="button primary compact-button" type="button" data-home-view="daily-cockpit">进入每日运营</button>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="daily-check">
+            <div class="section-heading">
+              <div><span class="section-index">TODAY CHECK</span><h2>今日复查</h2></div>
+              <p>承接今天需要回看、确认和补动作的事项。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">V2.0 PLACEHOLDER</span>
+              <h3>今日复查后续接入</h3>
+              <p>当前先通过每日运营、WaitingItem、ActionLog 和 Issue 分散承接，后续再统一成今日复查队列。</p>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="daily-review">
+            <div class="section-heading">
+              <div><span class="section-index">DAILY REVIEW</span><h2>今日复盘</h2></div>
+              <p>把今日动作、问题、卡点和明日复查收束为日报。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">V2.0 PLACEHOLDER</span>
+              <h3>今日复盘入口</h3>
+              <p>当前保留入口，后续接入 Daily Review、ActionLog 回顾和可沉淀 SOP / Prompt / Skill 候选。</p>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="time-record">
+            <div class="section-heading">
+              <div><span class="section-index">TIME</span><h2>时间记录</h2></div>
+              <p>用于观察时间花在哪里，第一阶段暂不做复杂工时系统。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">V2.0 PLACEHOLDER</span>
+              <h3>时间记录后续接入</h3>
+              <p>当前每日运营已有任务计时能力；这里后续会统一展示今日时间分布。</p>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="ad-center">
+            <div class="section-heading">
+              <div><span class="section-index">ADS</span><h2>广告投放</h2></div>
+              <p>承接预算、流量异常、广告调整和投放动作。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">V2.0 PLACEHOLDER</span>
+              <h3>广告投放中心后续接入</h3>
+              <p>第一阶段先从数据采集和商品复盘查看广告相关指标，不接平台 API，不做自动投放。</p>
+              <button class="button secondary compact-button" type="button" data-home-view="data-tasks">查看数据采集</button>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="service-center">
+            <div class="section-heading">
+              <div><span class="section-index">SERVICE</span><h2>售后 / 订单</h2></div>
+              <p>承接订单、发货、客服、纠纷和退款异常。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">V2.0 PLACEHOLDER</span>
+              <h3>售后 / 订单中心后续接入</h3>
+              <p>当前先归入每日运营的订单 / 发货 / 客服异常处理任务，不接外部平台 API。</p>
+              <button class="button secondary compact-button" type="button" data-home-view="daily-cockpit">进入今日驾驶舱</button>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="inventory-center">
+            <div class="section-heading">
+              <div><span class="section-index">SUPPLY</span><h2>库存 / 供应链</h2></div>
+              <p>承接低库存、断货、超龄库存、供应商反馈和补货风险。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">V2.0 PLACEHOLDER</span>
+              <h3>库存 / 供应链中心后续接入</h3>
+              <p>当前先归入每日运营和商品运维，不做 SKU 多规格矩阵和复杂库存系统。</p>
+              <button class="button secondary compact-button" type="button" data-home-view="operation-pool">进入商品运维</button>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="ad-review">
+            <div class="section-heading">
+              <div><span class="section-index">ADS REVIEW</span><h2>广告数据复盘</h2></div>
+              <p>用于看广告花费、流量、转化和动作结果。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">V2.0 PLACEHOLDER</span>
+              <h3>广告复盘后续接入</h3>
+              <p>当前不接平台广告 API。后续从 performance snapshots、ActionLog 和广告动作中沉淀投放结论。</p>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="action-review">
+            <div class="section-heading">
+              <div><span class="section-index">ACTION REVIEW</span><h2>动作效果复盘</h2></div>
+              <p>分析运营动作是否有效，而不是再次创建动作。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">REVIEW VIEW</span>
+              <h3>ActionLog 的复盘视角</h3>
+              <p>ActionLog 默认归今日工作台；这里仅承接动作效果分析，后续可复用动作日志和商品复盘数据。</p>
+              <button class="button secondary compact-button" type="button" data-home-view="operation-review">进入商品复盘</button>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="issue-review">
+            <div class="section-heading">
+              <div><span class="section-index">ISSUE REVIEW</span><h2>Issue / 问题复盘</h2></div>
+              <p>分析问题原因、处理结果和可沉淀规则。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">REVIEW VIEW</span>
+              <h3>Issue 的复盘视角</h3>
+              <p>Issue 默认归今日工作台；这里只做问题复盘和结论沉淀，后续接入未关闭 Issue 与 P0 风险分析。</p>
+              <button class="button secondary compact-button" type="button" data-home-view="issue-log">查看今日问题</button>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="data-quality-review">
+            <div class="section-heading">
+              <div><span class="section-index">DATA QA</span><h2>数据质量审核</h2></div>
+              <p>审核数据是否完整、可信、可用于复盘。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">REVIEW VIEW</span>
+              <h3>数据审核，不是数据补录</h3>
+              <p>数据采集 / 数据补录主归属业务场景中心；这里仅用于检查数据缺口、异常和复盘可用性。</p>
+              <button class="button secondary compact-button" type="button" data-home-view="data-tasks">进入数据补录</button>
+              <div class="flow-action-bar" data-production-step="qa">
+                <p class="step-next-hint">上架质检通过后，只生成 QClaw 草稿，等待人工确认。</p>
+                <div>
+                  <button class="flow-secondary-action" type="button" data-flow-step="listing-matrix">返回上架草稿</button>
+                  <button class="flow-primary-action" type="button" data-flow-action="qclaw-draft">生成 QClaw 上架任务草稿</button>
+                </div>
+                <p id="productionQclawDraftHint" class="profile-suggestion">不会直接执行，只会创建 L3 / pending_approval 草稿。</p>
+              </div>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="weekly-review">
+            <div class="section-heading">
+              <div><span class="section-index">WEEKLY</span><h2>周复盘</h2></div>
+              <p>聚合一周动作、问题、商品表现和目标差距。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">V2.0 PLACEHOLDER</span>
+              <h3>周复盘后续接入</h3>
+              <p>第一阶段先保留入口，后续从每日运营、ActionLog、Issue 和商品复盘中汇总周结论。</p>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="monthly-review">
+            <div class="section-heading">
+              <div><span class="section-index">MONTHLY</span><h2>月复盘</h2></div>
+              <p>聚合月度目标、经营结果和能力升级方向。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">V2.0 PLACEHOLDER</span>
+              <h3>月复盘后续接入</h3>
+              <p>当前不做复杂 BI，后续再接入月度目标、商品表现、广告表现和经营结论。</p>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="review-insights">
+            <div class="section-heading">
+              <div><span class="section-index">INSIGHTS</span><h2>复盘结论沉淀</h2></div>
+              <p>把复盘结论转成 SOP、Prompt、Skill 或自动化候选。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">LOOP INPUT</span>
+              <h3>沉淀入口后续接入</h3>
+              <p>这里不承载原始业务页面，只承接经过复盘确认、值得复用和升级的结论。</p>
+              <button class="button secondary compact-button" type="button" data-home-view="knowledge-center">进入知识沉淀</button>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="issue-log">
+            <div class="section-heading">
+              <div><span class="section-index">TODAY ISSUE</span><h2>今日问题 / Issue</h2></div>
+              <p>用于承接今天执行过程中暴露的问题、P0 风险和待跟进事项。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">TODAY WORK</span>
+              <h3>Issue 默认归今日工作台</h3>
+              <p>当前 Issue 分布在每日运营和经营数据中，后续再统一承接今日问题创建、跟进和复查。复盘视角在数据与复盘中心。</p>
+              <button class="button secondary compact-button" type="button" data-home-view="issue-review">进入问题复盘</button>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="knowledge-center">
+            <div class="section-heading">
+              <div><span class="section-index">SOP</span><h2>知识与能力沉淀</h2></div>
+              <p>Loop Engineering 的沉淀层，用于把经验变成 SOP、Prompt、Skills 和自动化候选。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">V2.0 PLACEHOLDER</span>
+              <h3>SOP 库</h3>
+              <p>第一阶段只保留入口。后续把高频运营步骤、判断标准和完成标准沉淀为 SOP。</p>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="prompt-library">
+            <div class="section-heading">
+              <div><span class="section-index">PROMPTS</span><h2>Prompt 库</h2></div>
+              <p>集中管理后台已注册的 Prompt，修改后会直接影响对应流程。</p>
+            </div>
+            <div class="prompt-library-summary">
+              <span class="mini-label">BACKEND PROMPTS</span>
+              <strong id="promptLibraryCount">0 个 Prompt</strong>
+            </div>
+            <div id="promptLibraryList" class="prompt-grid prompt-library-grid"></div>
+          </section>
+
+          <section class="workflow-view" data-view-panel="skill-library">
+            <div class="section-heading">
+              <div><span class="section-index">SKILLS</span><h2>Skills</h2></div>
+              <p>把成熟流程封装成可复用能力。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">V2.0 PLACEHOLDER</span>
+              <h3>Skills 后续接入</h3>
+              <p>当前不做复杂自动化，只记录未来可封装的能力位置。</p>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="knowledge-base">
+            <div class="section-heading">
+              <div><span class="section-index">KNOWLEDGE</span><h2>知识库</h2></div>
+              <p>保存平台规则、商品经验、历史判断和业务资料。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">V2.0 PLACEHOLDER</span>
+              <h3>知识库后续接入</h3>
+              <p>当前不新增资料库结构，后续与复盘、SOP 和 Prompt 候选联动。</p>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="loop-engineering">
+            <div class="section-heading">
+              <div><span class="section-index">LOOP</span><h2>Loop Engineering</h2></div>
+              <p>让系统越用越聪明，而不是每次靠重新写 Prompt。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">V2.0 PLACEHOLDER</span>
+              <h3>系统进化机制</h3>
+              <p>后续从执行记录、复盘沉淀、SOP、Prompt 和 Skills 中提取可升级能力。</p>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="automation-candidates">
+            <div class="section-heading">
+              <div><span class="section-index">AUTOMATION</span><h2>自动化候选</h2></div>
+              <p>记录可被 Heartbeat / Scheduler 调度的候选动作。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">V2.0 PLACEHOLDER</span>
+              <h3>自动化候选后续接入</h3>
+              <p>第一阶段不做自动执行，仅保留未来人工确认和规则升级入口。</p>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="agent-center">
+            <div class="section-heading">
+              <div><span class="section-index">AGENTS</span><h2>工具与 Agent</h2></div>
+              <p>统一管理 ChatGPT、Codex、QClaw、Marvis、Chrome AI、店小秘和工具入口。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">V2.0 PLACEHOLDER</span>
+              <h3>工具与 Agent 总览</h3>
+              <p>第一版只做说明和入口归位，不接自动化、不接外部 API。</p>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="agent-chatgpt">
+            <div class="section-heading"><div><span class="section-index">AGENT</span><h2>ChatGPT</h2></div><p>用于战略、复盘、分析和 Prompt 生成。</p></div>
+            <article class="panel v2-placeholder-panel"><span class="mini-label">V2.0 PLACEHOLDER</span><h3>ChatGPT 后续接入</h3><p>当前仅保留工具说明，不做 API 接入。</p></article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="agent-codex">
+            <div class="section-heading"><div><span class="section-index">AGENT</span><h2>Codex</h2></div><p>用于本地代码与系统实现。</p></div>
+            <article class="panel v2-placeholder-panel"><span class="mini-label">V2.0 PLACEHOLDER</span><h3>Codex 后续接入</h3><p>当前仅保留工具说明，不做自动调度。</p></article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="agent-qclaw">
+            <div class="section-heading"><div><span class="section-index">AGENT</span><h2>QClaw</h2></div><p>用于桌面执行、店小秘填报等本机操作。</p></div>
+            <article class="panel v2-placeholder-panel"><span class="mini-label">V2.0 PLACEHOLDER</span><h3>QClaw 后续接入</h3><p>当前仅保留入口，不接桌面自动化。</p></article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="agent-marvis">
+            <div class="section-heading"><div><span class="section-index">AGENT</span><h2>Marvis</h2></div><p>用于网页执行和后台操作。</p></div>
+            <article class="panel v2-placeholder-panel"><span class="mini-label">V2.0 PLACEHOLDER</span><h3>Marvis 后续接入</h3><p>当前仅保留入口，不接外部自动化。</p></article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="agent-chrome-ai">
+            <div class="section-heading"><div><span class="section-index">AGENT</span><h2>Chrome AI</h2></div><p>用于网页识别和商品调研。</p></div>
+            <article class="panel v2-placeholder-panel"><span class="mini-label">V2.0 PLACEHOLDER</span><h3>Chrome AI 后续接入</h3><p>当前仅保留入口，不接网页识别自动化。</p></article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="agent-dianxiaomi">
+            <div class="section-heading"><div><span class="section-index">TOOL</span><h2>店小秘</h2></div><p>用于 ERP、订单和库存。</p></div>
+            <article class="panel v2-placeholder-panel"><span class="mini-label">V2.0 PLACEHOLDER</span><h3>店小秘入口后续接入</h3><p>当前仅保留工具说明，不接账号和外部 API。</p></article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="agent-image-tools">
+            <div class="section-heading"><div><span class="section-index">TOOL</span><h2>图片工具</h2></div><p>用于主图、详情图和视觉素材。</p></div>
+            <article class="panel v2-placeholder-panel"><span class="mini-label">V2.0 PLACEHOLDER</span><h3>图片工具后续接入</h3><p>当前仍通过上品生产和 Listing 图片生成入口使用。</p><button class="button secondary compact-button" type="button" data-home-view="images">进入做图 / 视觉</button></article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="agent-ad-tools">
+            <div class="section-heading"><div><span class="section-index">TOOL</span><h2>广告工具</h2></div><p>用于直通车、广告诊断和投放复盘。</p></div>
+            <article class="panel v2-placeholder-panel"><span class="mini-label">V2.0 PLACEHOLDER</span><h3>广告工具后续接入</h3><p>当前先通过数据采集和商品复盘承接广告信息。</p></article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="personal-center">
+            <div class="section-heading">
+              <div><span class="section-index">PERSONAL</span><h2>个人效率</h2></div>
+              <p>后置模块，未来承接日记、个人待办、时间记录和个人复盘。</p>
+            </div>
+            <article class="panel v2-placeholder-panel subdued">
+              <span class="mini-label">后置 / 占位</span>
+              <h3>个人效率暂不作为第一阶段核心</h3>
+              <p>当前仅保留弱入口，避免一跨而境变成泛化 Todo 工具。</p>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="diary">
+            <div class="section-heading"><div><span class="section-index">PERSONAL</span><h2>日记</h2></div><p>后置模块，占位。</p></div>
+            <article class="panel v2-placeholder-panel subdued"><span class="mini-label">后置 / 占位</span><h3>日记后续接入</h3><p>第一阶段不做真实功能。</p></article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="personal-todo">
+            <div class="section-heading"><div><span class="section-index">PERSONAL</span><h2>个人待办</h2></div><p>后置模块，占位。</p></div>
+            <article class="panel v2-placeholder-panel subdued"><span class="mini-label">后置 / 占位</span><h3>个人待办后续接入</h3><p>第一阶段不做真实功能。</p></article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="personal-time">
+            <div class="section-heading"><div><span class="section-index">PERSONAL</span><h2>个人时间记录</h2></div><p>后置模块，占位。</p></div>
+            <article class="panel v2-placeholder-panel subdued"><span class="mini-label">后置 / 占位</span><h3>个人时间记录后续接入</h3><p>第一阶段不做真实功能。</p></article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="personal-review">
+            <div class="section-heading"><div><span class="section-index">PERSONAL</span><h2>个人复盘</h2></div><p>后置模块，占位。</p></div>
+            <article class="panel v2-placeholder-panel subdued"><span class="mini-label">后置 / 占位</span><h3>个人复盘后续接入</h3><p>第一阶段不做真实功能。</p></article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="selection-overview">
+            <div class="section-heading">
+              <div><span class="section-index">DISCOVER</span><h2>选品开发</h2></div>
+              <p>这里先作为市场机会与开发候选的弱入口。本阶段只做归位，不展开完整商品机会池和开发池。</p>
+            </div>
+            <div class="scene-tabs" aria-label="选品场景页内入口">
+              <button type="button" class="scene-tab active">标品</button>
+              <button type="button" class="scene-tab">方向品</button>
+              <button type="button" class="scene-tab" data-home-view="selection-radar">机会雷达</button>
+              <button type="button" class="scene-tab">开发池</button>
+              <button type="button" class="scene-tab" data-home-view="operation-review">选品复盘</button>
+            </div>
+            <div class="commerce-dashboard">
+              <article class="panel">
+                <div class="profile-card-heading">
+                  <div><span class="mini-label">OPPORTUNITY</span><h3>机会入口</h3></div>
+                </div>
+                <p class="profile-suggestion">先记录值得观察的商品方向，再决定是否转为具体 Product。完整机会池会在后续阶段展开。</p>
+              </article>
+              <article class="panel">
+                <div class="profile-card-heading">
+                  <div><span class="mini-label">INSERT RADAR</span><h3>内胆包型雷达</h3></div>
+                </div>
+                <p class="profile-suggestion">内胆包型雷达归入选品开发语境；当前保留入口说明，具体执行仍沿用现有内胆流程。</p>
+              </article>
+            </div>
+          </section>
+
+          <section class="workflow-view" data-view-panel="selection-radar">
+            <div class="section-heading">
+              <div><span class="section-index">RADAR</span><h2>内胆包型雷达</h2></div>
+              <p>用于发现可开发的包型候选。本轮只完成入口归位，不新增完整机会池或开发池逻辑。</p>
+            </div>
+            <div class="panel">
+              <p class="profile-suggestion">如需执行现有内胆流程，请进入“上品生产 / 产品素材”，切换到“奢侈包内胆设计”。</p>
+            </div>
+          </section>
+
+          <section class="workflow-view" data-view-panel="materials">
+            <div class="section-heading">
+              <div><span class="section-index">01</span><h2>产品素材</h2></div>
+              <p>上传当前商品的全部事实图片，系统会自动去重并保持商品视觉一致性。</p>
+            </div>
+            <div class="scene-tabs" aria-label="上品场景页内入口">
+              <button type="button" class="scene-tab active" data-home-view="materials">商品事实</button>
+              <button type="button" class="scene-tab" data-home-view="planning">市场调研</button>
+              <button type="button" class="scene-tab" data-home-view="content">Listing</button>
+              <button type="button" class="scene-tab" data-home-view="images">作图</button>
+              <button type="button" class="scene-tab" data-home-view="listing-matrix">上架草稿</button>
+              <button type="button" class="scene-tab" data-home-view="data-quality-review">上架质检</button>
+            </div>
+            <div class="panel">
+              <label id="imageDropZone" class="upload-zone">
+                <input
+                  id="folderInput"
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                  multiple
+                />
+                <span class="upload-icon">＋</span>
+                <strong>选择或拖入产品图片</strong>
+                <span id="folderHint">支持 JPG、PNG、WEBP，单张不超过 15 MB</span>
+              </label>
+              <div id="urlImportPanel" class="url-import">
+                <div>
+                  <strong>通过图片直链导入</strong>
+                  <p id="urlImportHint">每行一个公开图片 URL，最多 12 条。</p>
+                </div>
+                <textarea
+                  id="imageUrls"
+                  placeholder="https://example.com/product-image.jpg"
+                  spellcheck="false"
+                ></textarea>
+                <button id="importUrlsButton" class="button secondary">导入 URL</button>
+              </div>
+              <div class="asset-toolbar">
+                <code id="productDirectory">正在读取…</code>
+                <div class="image-summary">
+                  <span id="imageCount">0 张</span>
+                  <button id="clearImagesButton" class="text-button">清空全部</button>
+                </div>
+              </div>
+              <div id="imageList" class="image-list"></div>
+              <p id="imageLockHint" class="notice warning hidden">
+                当前素材已用于商品对话。为保持事实源一致，图片已锁定。
+              </p>
+              <div class="flow-action-bar" data-production-step="facts">
+                <p class="step-next-hint">下一步：补齐市场判断，再进入 Listing 生产。</p>
+                <div>
+                  <button class="flow-secondary-action" type="button" data-flow-step="content">跳过，直接进入 Listing</button>
+                  <button class="flow-primary-action" type="button" data-flow-step="planning">保存并进入市场调研</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="workflow-view" data-view-panel="connection">
+            <div class="section-heading">
+              <div><span class="section-index">02</span><h2>连接 AI 引擎</h2></div>
+              <p>使用独立 Chrome 登录 ChatGPT 或 Gemini，不保存密码，也不会绕过真人验证。</p>
+            </div>
+            <div class="panel connection-panel">
+              <div class="provider-picker">
+                <span>选择 AI 引擎</span>
+                <div class="segmented-control" role="group" aria-label="选择 AI 引擎">
+                  <button type="button" class="provider-option active" data-provider="chatgpt">
+                    ChatGPT
+                  </button>
+                  <button type="button" class="provider-option" data-provider="gemini">
+                    Gemini
+                  </button>
+                </div>
+                <small>额度不足或流程暂停后，可以切换引擎并迁移当前商品进度。</small>
+              </div>
+              <div class="feature-icon">C</div>
+              <h3 id="providerHeading">连接 ChatGPT</h3>
+              <p id="providerDescription">首次使用请在打开的 Chrome 中手动登录，后续会自动保留登录状态。</p>
+              <div class="actions">
+                <button id="launchButton" class="button primary">启动 Chrome</button>
+                <button id="checkButton" class="button secondary">重新检查连接</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="workflow-view" data-view-panel="identity">
+            <div class="section-heading">
+              <div><span class="section-index">03</span><h2>产品识别</h2></div>
+              <p>提取尺寸、材质、重量、结构、SKU、配件以及图片中的商品参数。</p>
+            </div>
+            <div class="panel action-panel">
+              <div>
+                <span class="mini-label">PRODUCT INTELLIGENCE</span>
+                <h3>建立产品事实档案</h3>
+                <p>系统将新建商品专属对话，上传全部素材，并生成后续调研和设计所需的事实基础。</p>
+                <div class="inline-goal-picker" aria-label="选择标准 Listing 任务目标">
+                  <span>任务目标</span>
+                  <button type="button" class="goal-option active" data-goal="full_listing">完整 Listing</button>
+                  <button type="button" class="goal-option" data-goal="seo_content_only">仅 SEO 与商品文案</button>
+                </div>
+              </div>
+              <button id="runButton" class="button primary">开始产品识别</button>
+              <div id="responseBox" class="response hidden">
+                <strong>产品识别结果</strong>
+                <p id="responseText"></p>
+              </div>
+            </div>
+          </section>
+
+          <section class="workflow-view" data-view-panel="planning">
+            <div class="section-heading">
+              <div><span class="section-index">04</span><h2>市场调研与视觉规划</h2></div>
+              <p>联网分析高表现 Listing，先通过 Storyboard Gate，再允许进入逐图生图。</p>
+            </div>
+            <div class="panel action-panel">
+              <div id="planningSkipNotice" class="skip-notice hidden">
+                当前为“仅 SEO 与商品文案”模式：完成联网市场调研与 VOC 后，将直接进入 SEO，不生成视觉规划与 Prompt Pack。
+              </div>
+              <div class="flow-preview">
+                <span>全网市场调研</span><b>→</b><span>买家决策路径</span><b>→</b><span>Storyboard Gate</span>
+              </div>
+              <button id="planningButton" class="button primary">
+                开始市场调研与视觉规划
+              </button>
+              <div class="flow-action-bar" data-production-step="planning">
+                <p class="step-next-hint">下一步：把调研结论转成 Listing 文案。</p>
+                <div>
+                  <button class="flow-secondary-action" type="button" data-flow-step="materials">返回商品事实</button>
+                  <button class="flow-primary-action" type="button" data-flow-step="content">保存并进入 Listing</button>
+                </div>
+              </div>
+            </div>
+            <div id="listingVisualWorkflow" class="listing-visual-workflow" aria-label="Listing 主图设计流程引擎 v2.0">
+              <div class="listing-visual-workflow-header">
+                <div>
+                  <span class="mini-label">VISUAL WORKFLOW V2</span>
+                  <h3>Listing 主图设计流程引擎</h3>
+                  <p>把调研、策略、规划和单图 Prompt 拆开处理。</p>
+                </div>
+                <span class="listing-visual-workflow-status">Draft</span>
+              </div>
+
+              <article id="listingVisualProductFacts" class="listing-visual-workflow-card" data-listing-visual-stage="productFacts">
+                <header>
+                  <div><span>01</span><strong>Product Facts</strong><small>产品事实底稿</small></div>
+                  <b data-listing-visual-status="productFacts">Draft</b>
+                </header>
+                <textarea id="listingVisualProductFactsInput" placeholder="粘贴或保留当前产品事实底稿"></textarea>
+                <div class="listing-visual-workflow-actions">
+                  <button type="button" class="button secondary compact-button" data-listing-visual-save="productFacts">保存状态</button>
+                </div>
+              </article>
+
+              <article id="listingVisualMarketAudit" class="listing-visual-workflow-card" data-listing-visual-stage="marketAudit">
+                <header>
+                  <div><span>02</span><strong>Market Visual Audit</strong><small>市场视觉调研</small></div>
+                  <b data-listing-visual-status="marketAudit">Not Started</b>
+                </header>
+                <p class="listing-visual-workflow-warning" data-listing-visual-warning="marketAudit">缺少 Product Facts 时不建议进入本阶段。</p>
+                <div class="listing-visual-workflow-actions">
+                  <button type="button" class="button secondary compact-button" data-listing-visual-generate="marketVisualAuditV2">生成 Prompt</button>
+                  <button type="button" class="text-button" data-listing-visual-copy="marketAudit">复制 Prompt</button>
+                </div>
+                <textarea id="listingVisualMarketAuditPrompt" readonly placeholder="Market Visual Audit Prompt v2.0"></textarea>
+                <textarea id="listingVisualMarketAuditResult" placeholder="粘贴 Chrome AI / ChatGPT 市场视觉调研结果"></textarea>
+              </article>
+
+              <article id="listingVisualStrategy" class="listing-visual-workflow-card" data-listing-visual-stage="strategy">
+                <header>
+                  <div><span>03</span><strong>Visual Strategy Compression</strong><small>视觉策略裁剪</small></div>
+                  <b data-listing-visual-status="strategy">Not Started</b>
+                </header>
+                <p class="listing-visual-workflow-warning" data-listing-visual-warning="strategy">缺少 Market Report 时不建议进入本阶段。</p>
+                <div class="listing-visual-workflow-actions">
+                  <button type="button" class="button secondary compact-button" data-listing-visual-generate="visualStrategyCompression">生成 Prompt</button>
+                  <button type="button" class="text-button" data-listing-visual-copy="strategy">复制 Prompt</button>
+                </div>
+                <textarea id="listingVisualStrategyPrompt" readonly placeholder="Visual Strategy Compression Prompt"></textarea>
+                <textarea id="listingVisualStrategyResult" placeholder="粘贴视觉策略裁剪结果"></textarea>
+              </article>
+
+              <article id="listingVisualPlan" class="listing-visual-workflow-card" data-listing-visual-stage="visualPlan">
+                <header>
+                  <div><span>04</span><strong>Visual Planning</strong><small>图组动线规划</small></div>
+                  <b data-listing-visual-status="visualPlan">Not Started</b>
+                </header>
+                <p class="listing-visual-workflow-warning" data-listing-visual-warning="visualPlan">缺少 Visual Strategy Decision 时不建议进入本阶段。</p>
+                <div class="listing-visual-workflow-actions">
+                  <button type="button" class="button secondary compact-button" data-listing-visual-generate="visualPlanningV2">生成 Prompt</button>
+                  <button type="button" class="text-button" data-listing-visual-copy="visualPlan">复制 Prompt</button>
+                </div>
+                <textarea id="listingVisualPlanPrompt" readonly placeholder="Visual Planning Prompt v2.0"></textarea>
+                <textarea id="listingVisualPlanResult" placeholder="粘贴图组动线规划表"></textarea>
+              </article>
+
+              <article id="listingVisualSinglePrompt" class="listing-visual-workflow-card" data-listing-visual-stage="singlePrompt">
+                <header>
+                  <div><span>05</span><strong>Single Image Prompt</strong><small>单图 Prompt 生成</small></div>
+                  <b data-listing-visual-status="singlePrompt">Not Started</b>
+                </header>
+                <p class="listing-visual-workflow-warning" data-listing-visual-warning="singlePrompt">缺少 Visual Plan 时不建议进入本阶段。</p>
+                <label class="listing-visual-workflow-inline">Image Number
+                  <select id="listingVisualImageNumber">
+                    <option value="01">Image 01</option>
+                    <option value="02">Image 02</option>
+                    <option value="03">Image 03</option>
+                    <option value="04">Image 04</option>
+                    <option value="05">Image 05</option>
+                    <option value="06">Image 06</option>
+                    <option value="07">Image 07</option>
+                    <option value="08">Image 08</option>
+                    <option value="09">Image 09</option>
+                    <option value="10">Image 10</option>
+                  </select>
+                </label>
+                <div class="listing-visual-workflow-actions">
+                  <button type="button" class="button secondary compact-button" data-listing-visual-generate="singleImagePromptV2">生成单图 Prompt</button>
+                  <button type="button" class="text-button" data-listing-visual-copy="singlePrompt">复制 Prompt</button>
+                </div>
+                <textarea id="listingVisualSinglePromptText" readonly placeholder="只输出一个 IMAGE_PROMPT 区块"></textarea>
+              </article>
+
+            </div>
+          </section>
+
+          <section class="workflow-view" data-view-panel="images">
+            <div class="section-heading">
+              <div><span class="section-index">05</span><h2>Listing 图片生成</h2></div>
+              <p>Image 1–10 严格逐张生成和保存，中断后可以从已完成编号继续。</p>
+            </div>
+            <div class="panel">
+              <div id="imagesSkipNotice" class="skip-notice hidden">
+                当前模式已跳过 Listing 图片生成，不会消耗生图额度。
+              </div>
+              <div id="generationSteps" class="generation-steps"></div>
+              <button id="imagesButton" class="button primary wide">
+                开始生成 Listing 图片
+              </button>
+              <div id="outputGallery" class="output-gallery"></div>
+              <div class="flow-action-bar" data-production-step="images">
+                <p class="step-next-hint">下一步：把完成的图文资产接入上架草稿。</p>
+                <div>
+                  <button class="flow-secondary-action" type="button" data-flow-step="content">返回 Listing</button>
+                  <button class="flow-primary-action" type="button" data-flow-step="listing-matrix">保存并进入上架草稿</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="workflow-view" data-view-panel="content">
+            <div class="section-heading">
+              <div><span class="section-index">06</span><h2>SEO 与商品文案</h2></div>
+              <p>生成高意向关键词、AliExpress 标题、属性词、五点描述和详情页内容。</p>
+            </div>
+            <div class="panel action-panel">
+              <div class="deliverables">
+                <span>Google Ads 词库</span><span>算法标题</span><span>属性词</span>
+                <span>五点描述</span><span>Q&amp;A</span><span>详情页内容</span>
+              </div>
+              <button id="seoListingButton" class="button primary">
+                开始生成 SEO 与商品文案
+              </button>
+              <div id="contentDownloads" class="content-downloads"></div>
+              <details id="seoResultBox" class="result-box hidden">
+                <summary>查看 SEO 关键词结果</summary><pre id="seoResultText"></pre>
+              </details>
+              <details id="listingResultBox" class="result-box hidden">
+                <summary>查看标题、属性词和详情页内容</summary><pre id="listingResultText"></pre>
+              </details>
+              <div class="flow-action-bar" data-production-step="content">
+                <p class="step-next-hint">下一步：进入作图区，完成主图和详情图资产。</p>
+                <div>
+                  <button class="flow-secondary-action" type="button" data-flow-step="planning">返回市场调研</button>
+                  <button class="flow-primary-action" type="button" data-flow-step="images">保存并进入作图</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="workflow-view" data-view-panel="archive">
+            <div class="section-heading">
+              <div><span class="section-index">07</span><h2>完成与归档</h2></div>
+              <p>保存本商品的素材、生成图片、SEO 文案和运行状态，然后开始下一个商品。</p>
+            </div>
+            <div class="panel completion-panel">
+              <div class="completion-mark">✓</div>
+              <h3>完成当前商品</h3>
+              <p>当前所选任务目标完成后即可归档，Chrome 登录状态会继续保留。</p>
+              <button id="nextProductButton" class="button primary">
+                归档并开始下一个产品
+              </button>
+              <p id="archiveHint" class="notice hidden"></p>
+            </div>
+          </section>
+
+          <section class="workflow-view" data-view-panel="profiles">
+            <div class="section-heading">
+              <div><span class="section-index">PRODUCT OPS</span><h2>商品档案 / 商品中枢</h2></div>
+              <div class="section-heading-actions">
+                <p>管理商品主体、上新资产、Listing、SKU 和下一步动作，并逐个承接历史归档商品。</p>
+                <button id="returnToInsertEditorButton" class="button secondary hidden">返回内胆编辑页面</button>
+              </div>
+            </div>
+            <div id="profileWarning" class="notice warning hidden"></div>
+            <div class="profile-layout">
+              <article class="panel profile-card">
+                <div class="profile-card-heading">
+                  <div>
+                    <span class="mini-label">CURRENT PRODUCT</span>
+                    <h3 id="profileDetailTitle">当前商品档案</h3>
+                  </div>
+                  <div class="profile-heading-actions">
+                    <button id="backToCurrentProfileButton" class="text-button hidden">返回当前商品</button>
+                    <span id="currentProfileStatus" class="profile-status">尚未建档</span>
+                  </div>
+                </div>
+                <div id="currentProfileEmpty" class="profile-empty">
+                  产品识别完成后将自动创建长期商品档案。
+                </div>
+                <div id="currentProfileForm" class="hidden">
+                  <div class="form-grid two">
+                    <label>商品名称<input id="profileDisplayName" maxlength="120" /></label>
+                    <label>商品 ID<input id="profileProductId" readonly /></label>
+                  </div>
+                  <label class="profile-field">下一步人工覆盖
+                    <input id="profileNextAction" maxlength="500" placeholder="留空则使用系统建议" />
+                  </label>
+                  <p class="profile-suggestion">系统建议：<strong id="profileSuggestedAction">-</strong></p>
+                  <label class="profile-field">内部备注
+                    <textarea id="profileNotes" maxlength="10000" placeholder="记录运营备注，不影响自动化流程"></textarea>
+                  </label>
+                  <div class="row-actions">
+                    <button id="saveProfileButton" class="button primary">保存档案信息</button>
+                    <button id="resetProfileActionButton" class="button secondary">恢复系统建议</button>
+                  </div>
+                  <div class="profile-meta">
+                    <span id="profileWorkflowMode">-</span>
+                    <span id="profileCurrentStage">-</span>
+                    <span id="profileArtifactCount">0 个文件</span>
+                  </div>
+                  <details id="profileArtifactsBox" class="result-box">
+                    <summary>查看档案文件索引</summary>
+                    <div id="profileArtifactsList" class="profile-artifacts"></div>
+                  </details>
+                </div>
+              </article>
+
+              <article class="panel profile-card">
+                <div class="profile-card-heading">
+                  <div>
+                    <span class="mini-label">PRODUCT LIBRARY</span>
+                    <h3>历史商品库</h3>
+                  </div>
+                  <button id="refreshProfilesButton" class="text-button">刷新</button>
+                </div>
+                <div class="lightweight-profile-box">
+                  <div class="profile-card-heading compact-heading">
+                    <div><span class="mini-label">NEW PRODUCT</span><h3>新建商品档案</h3></div>
+                  </div>
+                  <div class="form-grid two">
+                    <label class="wide">商品名称<input id="newProductDisplayName" maxlength="120" placeholder="例如：Dior Book Tote 棕色毛毡内胆 / 透明番茄 PVC 拉链钥匙扣 / 行李箱轮" /></label>
+                    <label>类目<input id="newProductCategory" maxlength="120" placeholder="例如：内胆 / 包饰 / 肩带 / 收纳袋 / 钥匙扣" /></label>
+                  </div>
+                  <label class="profile-field">建档来源 / 接入方式
+                    <select id="newProductCreationType">
+                      <option value="new_product_development">新开发新品｜从素材上传开始</option>
+                      <option value="live_legacy_import">已上架老品补录｜绑定已有平台商品</option>
+                      <option value="asset_ready_pending_listing">已有素材待上架｜进入上架接入</option>
+                      <option value="inventory_driven">现货库存驱动｜围绕库存创建或绑定链接</option>
+                    </select>
+                  </label>
+                  <p class="profile-suggestion">这里不是选择商品分类，而是选择这个商品如何进入一跨而境。商品档案是一个可以被上架、绑定 SKU、采集数据和沉淀运营复盘的具体商品主体。</p>
+                  <div id="newProductInventoryFields" class="form-grid two hidden">
+                    <p class="profile-suggestion wide">这些字段用于记录当前商品的库存来源和可售变体线索，本阶段仅写入备注，不改 schema。</p>
+                    <label>内部库存 SKU<input id="newProductInventorySku" maxlength="120" /></label>
+                    <label>仓库 SKU<input id="newProductWarehouseSku" maxlength="120" /></label>
+                    <label>尺寸<input id="newProductSize" maxlength="120" /></label>
+                    <label>颜色<input id="newProductColor" maxlength="120" /></label>
+                    <label class="profile-field wide">现货备注<input id="newProductInventoryRemark" maxlength="500" /></label>
+                  </div>
+                  <label class="profile-field">备注<textarea id="newProductNotes" maxlength="10000"></textarea></label>
+                  <button id="createNewProductButton" class="button secondary wide">新建商品档案</button>
+                  <p id="newProductHint" class="profile-suggestion">请上传产品素材，开始 AI 识别。</p>
+                </div>
+                <div id="productArchiveNotice" class="notice warning product-archive-notice hidden">
+                  <span id="productArchiveNoticeText"></span>
+                  <button id="showAbnormalProductsButton" class="text-button" type="button">查看异常档案</button>
+                </div>
+                <div id="productLibrary" class="product-library">
+                  <p class="profile-empty">正在读取历史商品…</p>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="workflow-view" data-view-panel="queue">
+            <div class="section-heading">
+              <div><span class="section-index">09</span><h2>批量任务队列</h2></div>
+              <p>从 Excel 预载多个商品，系统逐个完成作图、SEO 文案、建档和归档。</p>
+            </div>
+            <div class="queue-layout">
+              <article class="panel queue-import-card">
+                <div>
+                  <span class="mini-label">EXCEL QUEUE IMPORT</span>
+                  <h3>导入商品队列</h3>
+                  <p>一行一个商品，使用 image_url_1 至 image_url_12 填写产品图片直链。</p>
+                </div>
+                <label class="upload-zone compact">
+                  <input id="queueWorkbookInput" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+                  <span class="upload-icon">＋</span>
+                  <strong>选择 Excel 队列文件</strong>
+                  <span>最多 100 个商品，每个商品最多 12 张图片</span>
+                </label>
+                <div class="row-actions queue-import-actions">
+                  <a class="button secondary" href="/api/queue/template">下载 Excel 模板</a>
+                  <span id="queueImportMessage" class="queue-import-message">尚未导入</span>
+                </div>
+              </article>
+
+              <article class="panel queue-overview-card">
+                <div class="profile-card-heading">
+                  <div>
+                    <span class="mini-label">QUEUE STATUS</span>
+                    <h3>队列运行状态</h3>
+                  </div>
+                  <span id="queueStatusBadge" class="profile-status">IDLE</span>
+                </div>
+                <div class="queue-metrics">
+                  <div><strong id="queueReadyCount">0</strong><span>待执行</span></div>
+                  <div><strong id="queueCompletedCount">0</strong><span>已完成</span></div>
+                  <div><strong id="queueAbandonedCount">0</strong><span>已遗弃</span></div>
+                  <div><strong id="queueInvalidCount">0</strong><span>素材无效</span></div>
+                  <div><strong id="queueDuplicateCount">0</strong><span>重复跳过</span></div>
+                </div>
+                <div class="hero-progress queue-progress">
+                  <div><span id="queueCurrentProduct">当前没有运行商品</span><strong id="queueProgressText">0%</strong></div>
+                  <div class="progress"><span id="queueProgressBar"></span></div>
+                </div>
+                <p id="queueError" class="notice warning hidden"></p>
+                <div class="row-actions queue-controls">
+                  <button id="queueStartButton" class="button primary">开始队列</button>
+                  <button id="queuePauseButton" class="button secondary">暂停队列</button>
+                  <button id="queueResumeButton" class="button warning">修复并继续</button>
+                  <button id="queueAbandonButton" class="button danger">遗弃当前并继续下一商品</button>
+                  <button id="queueClearButton" class="text-button">清空已完成记录</button>
+                </div>
+              </article>
+            </div>
+
+            <article class="panel queue-list-card">
+              <div class="profile-card-heading">
+                <div>
+                  <span class="mini-label">QUEUE TASKS</span>
+                  <h3>商品执行清单</h3>
+                </div>
+                <button id="queueRefreshButton" class="text-button">刷新</button>
+              </div>
+              <div id="queueTaskList" class="queue-task-list">
+                <p class="profile-empty">尚未导入商品队列</p>
+              </div>
+            </article>
+          </section>
+
+          <section class="workflow-view active" data-view-panel="daily-cockpit">
+            <div class="section-heading commerce-heading">
+              <div><span class="section-index">DAILY OPS</span><h2>今日驾驶舱</h2></div>
+              <p>不是普通 Todo，而是每日运营节奏、执行步骤、动作证据、问题暴露和明日复查。</p>
+            </div>
+            <div class="daily-cockpit">
+              <article class="panel daily-command-strip">
+                <div class="daily-command-title">
+                  <span class="mini-label">TODAY COCKPIT</span>
+                  <h3>今日驾驶舱</h3>
+                  <p>让运营按节奏执行、按步骤检查、按证据记录、按日报复盘。</p>
+                </div>
+                <div class="daily-direction-grid">
+                  <div><span>系统建议优先任务</span><strong id="dailyPriorityTask">-</strong></div>
+                  <div><span>今日进度</span><strong id="dailyProgressText">0 / 8</strong></div>
+                  <div><span>今日用时</span><strong id="dailyTotalTime">00:00</strong></div>
+                  <div><span>今日风险</span><strong id="dailyIssueCount">P0 0 / Issue 0</strong></div>
+                </div>
+              </article>
+              <article class="panel hidden-loop-summary">
+                <div class="profile-card-heading">
+                  <div><span class="mini-label">HIDDEN DATA LOOP</span><h3>本地事实流</h3></div>
+                  <div class="hidden-loop-actions">
+                    <span id="hiddenDataModeBadge" class="data-mode-badge">正式数据</span>
+                    <button id="refreshTodayDashboardButton" class="text-button" type="button">刷新投影</button>
+                    <button id="hiddenTestDataToggle" class="text-button" type="button">包含测试数据</button>
+                  </div>
+                </div>
+                <p id="hiddenDataModeNote" class="hidden-loop-note">当前已过滤 smoke / qa 测试记录。</p>
+                <div class="hidden-loop-grid">
+                  <div><span>今日任务</span><strong id="hiddenTodayTaskCount">0</strong></div>
+                  <div><span>待确认 QClaw</span><strong id="hiddenQclawPendingCount">0</strong></div>
+                  <div><span>运行中 QClaw</span><strong id="hiddenQclawRunningCount">0</strong></div>
+                  <div><span>失败 / 需人工</span><strong id="hiddenQclawFailedCount">0</strong></div>
+                  <div><span>待复盘</span><strong id="hiddenReviewPendingCount">0</strong></div>
+                  <div><span>知识待审核</span><strong id="hiddenKnowledgePendingCount">0</strong></div>
+                </div>
+                <details id="hiddenDashboardJson" class="hidden-dashboard-json">
+                  <summary>查看投影 JSON</summary>
+                  <pre id="hiddenDashboardJsonText">{}</pre>
+                </details>
+              </article>
+              <article id="dailyWaitingAlert" class="daily-waiting-alert">
+                <strong>今日等待：逾期 0｜今日到期 0｜未来 0｜已解决 0</strong>
+                <button id="dailyWaitingViewAll" class="text-button" type="button">查看全部等待</button>
+              </article>
+
+              <div class="daily-workbench">
+                <article class="panel daily-rhythm-panel">
+                  <div class="profile-card-heading">
+                    <div><span class="mini-label">RHYTHM</span><h3>8 个任务节奏</h3></div>
+                    <span id="dailyTaskProgressBadge" class="profile-status">0/8 已完成</span>
+                  </div>
+                  <div id="dailyTaskList" class="daily-task-list"></div>
+                </article>
+
+                <article class="panel daily-current-panel">
+                  <div class="profile-card-heading">
+                    <div><span class="mini-label">CURRENT TASK</span><h3 id="dailyCurrentTaskName">当前选中任务</h3></div>
+                    <span id="dailyCurrentTaskStatus" class="profile-status">待开始</span>
+                  </div>
+                  <p id="dailyCurrentTaskReason" class="daily-task-reason"></p>
+                  <div id="dailyTaskFacts" class="daily-fact-grid"></div>
+                  <div id="dailyCheckObjects" class="daily-check-panel"></div>
+                  <section class="daily-step-panel">
+                    <div class="daily-section-title">
+                      <span class="mini-label">CHECKLIST</span>
+                      <h4>执行步骤</h4>
+                    </div>
+                      <div id="dailyStepList" class="daily-step-list"></div>
+                    <div class="daily-step-waiting-row">
+                      <span>这一步卡住了？</span>
+                      <button id="dailyStepWaitingButton" class="text-button" type="button">+ 加入等待</button>
+                    </div>
+                  </section>
+                  <section class="daily-judgement-panel">
+                    <div>
+                      <h4>完成判断</h4>
+                      <ul id="dailyDoneList"></ul>
+                    </div>
+                    <div>
+                      <h4>风险等级</h4>
+                      <div id="dailyRiskLevelPills" class="daily-risk-pills"></div>
+                    </div>
+                  </section>
+                  <details class="daily-assist-details">
+                    <summary>展开全部判断标准</summary>
+                    <div class="daily-assist-grid">
+                      <section>
+                        <h4>异常判断标准</h4>
+                        <ul id="dailyAbnormalList"></ul>
+                      </section>
+                      <section>
+                        <h4>辅助提示</h4>
+                        <p id="dailyPossibleOutputs" class="daily-muted"></p>
+                      </section>
+                    </div>
+                  </details>
+                  <div class="daily-timer-card">
+                    <div><span>当前任务用时</span><strong id="dailyCurrentElapsed">00:00</strong></div>
+                    <div class="row-actions">
+                      <button id="dailyStartButton" class="button primary" type="button">开始计时</button>
+                      <button id="dailyPauseButton" class="button secondary" type="button">暂停计时</button>
+                      <button id="dailyCompleteButton" class="button secondary" type="button">完成任务</button>
+                    </div>
+                  </div>
+                </article>
+
+                <article class="panel daily-evidence-panel">
+                  <div class="profile-card-heading">
+                    <div><span class="mini-label">EVIDENCE</span><h3>证据与复查</h3></div>
+                  </div>
+                  <section class="daily-task-waiting-card">
+                    <div class="daily-task-waiting-head">
+                      <div>
+                        <span class="mini-label">WAITING</span>
+                        <h4>本任务等待项</h4>
+                      </div>
+                      <span id="dailyTaskWaitingCount" class="profile-status">Waiting 0</span>
+                    </div>
+                    <p id="dailyTaskWaitingDue" class="daily-muted">逾期 0｜今日到期 0</p>
+                    <div id="dailyTaskWaitingActions" class="daily-waiting-quick-actions"></div>
+                  </section>
+                  <form id="dailyWaitingForm" class="daily-waiting-form hidden">
+                    <input id="dailyWaitingStoreName" type="hidden" required />
+                    <input id="dailyWaitingStoreId" type="hidden" required />
+                    <select id="dailyWaitingTaskId" class="hidden" required></select>
+                    <select id="dailyWaitingType" class="hidden" required>
+                      <option value="warehouse">等待仓库</option>
+                      <option value="platform_operator">等待小二</option>
+                      <option value="supplier">等待供应商</option>
+                      <option value="supervisor">等待主管</option>
+                      <option value="platform_review">等待平台审核</option>
+                      <option value="other">其他</option>
+                    </select>
+                    <div id="dailyWaitingContext" class="daily-waiting-context"></div>
+                    <div class="form-grid two">
+                      <label>等待对象<input id="dailyWaitingOwner" required /></label>
+                      <label>对象角色<input id="dailyWaitingOwnerRole" /></label>
+                    </div>
+                    <label class="profile-field">等待事项<textarea id="dailyWaitingDescription" required></textarea></label>
+                    <div class="form-grid three">
+                      <label>到期时间<input id="dailyWaitingDueAt" type="date" required /></label>
+                      <label>下次跟进<input id="dailyWaitingNextFollowUpAt" type="date" required /></label>
+                      <label>备注<input id="dailyWaitingNote" /></label>
+                    </div>
+                    <div class="row-actions">
+                      <button id="dailyWaitingSubmit" class="button primary" type="submit">保存等待项</button>
+                      <button id="dailyWaitingCancelForm" class="button secondary" type="button">取消</button>
+                    </div>
+                    <p id="dailyWaitingFormError" class="notice warning hidden"></p>
+                  </form>
+                  <div class="daily-record-grid">
+                    <label>动作记录<textarea id="dailyActionInput" placeholder="例如：改了标题 / 处理了纠纷 / 暂停广告 / 提交申诉"></textarea></label>
+                    <label>发现的问题<textarea id="dailyIssueInput" placeholder="例如：P0 红线 / 库存异常 / 广告花费异常 / 商品转化异常"></textarea></label>
+                    <label>无动作原因<textarea id="dailyNoActionInput" placeholder="例如：数据不足 / 已在观察期 / 等待主管确认 / 今日无异常"></textarea></label>
+                    <label>明日复查<textarea id="dailyFollowupInput" placeholder="例如：明天看 CTR / 订单 / ROI / 退款 / 发货状态"></textarea></label>
+                  </div>
+                  <div id="dailyEvidenceHints" class="daily-evidence-hints"></div>
+                </article>
+              </div>
+
+              <article class="panel daily-waiting-panel">
+                <div class="profile-card-heading">
+                  <div><span class="mini-label">ALL WAITING</span><h3>全部等待列表</h3></div>
+                </div>
+                <div id="dailyWaitingSummary" class="daily-waiting-summary"></div>
+                <details id="dailyWaitingListDetails" class="daily-waiting-list-details">
+                  <summary>展开全部等待事项</summary>
+                  <div id="dailyWaitingGroups" class="daily-waiting-groups"></div>
+                </details>
+              </article>
+
+              <article class="panel daily-report-panel compact">
+                <div class="daily-report-summary-row">
+                  <strong id="dailyReportSummary">日报预览：已完成 0｜进行中 0｜未完成 8｜动作 0｜问题 0｜明日复查 0</strong>
+                  <details class="daily-report-details">
+                    <summary>展开日报预览</summary>
+                    <div id="dailyReportPreview" class="daily-report-grid"></div>
+                  </details>
+                </div>
+                <p class="daily-report-note">当前为前端临时预览，刷新后暂不保留。D1-B 再做本地 JSON 保存。</p>
+              </article>
+            </div>
+          </section>
+
+          <section class="workflow-view" data-view-panel="commerce-dashboard">
+            <div class="section-heading commerce-heading">
+              <div><span class="section-index">REVIEW</span><h2>经营数据总览</h2></div>
+              <p>看经营结果、趋势、风险和数据反馈，再判断哪些业务动作需要复盘或调整。</p>
+            </div>
+            <div class="commerce-dashboard">
+              <div id="commerceKpis" class="kpi-grid"></div>
+              <div class="commerce-board">
+                <article class="panel">
+                  <div class="profile-card-heading">
+                    <div><span class="mini-label">TODAY</span><h3>今日待办与风险</h3></div>
+                    <button id="manageCommerceProductsButton" class="button secondary">商品档案 / 商品中枢</button>
+                  </div>
+                  <div id="commerceBoardList" class="commerce-list"></div>
+                </article>
+                <article class="panel">
+                  <div class="profile-card-heading">
+                    <div><span class="mini-label">SUGGESTIONS</span><h3>系统提示</h3></div>
+                  </div>
+                  <div id="commerceSuggestionList" class="commerce-list"></div>
+                </article>
+              </div>
+            </div>
+          </section>
+
+          <section class="workflow-view" data-view-panel="commerce-products">
+            <div class="section-heading">
+              <div><span class="section-index">PRODUCT OPS</span><h2>商品档案 / 商品中枢</h2></div>
+              <p>管理商品主体、Listing、SKU、运营动作与生命周期，是单品业务作战入口。</p>
+            </div>
+            <div class="commerce-layout">
+              <article class="panel">
+                <div class="profile-card-heading">
+                  <div><span class="mini-label">ALL PRODUCTS</span><h3>全部商品</h3></div>
+                  <button id="refreshOperationsButton" class="text-button">刷新</button>
+                </div>
+                <div id="commerceProductList" class="commerce-list"></div>
+              </article>
+              <article class="panel">
+                <div class="profile-card-heading">
+                  <div><span class="mini-label">OPERATION PROFILE</span><h3>商品运营档案</h3></div>
+                  <span id="operationSelectedProduct" class="profile-status">未选择</span>
+                </div>
+                <div class="form-grid two">
+                  <label>商品层级
+                    <select id="operationProductTier">
+                      <option value="normal">普通商品</option>
+                      <option value="potential">潜力品</option>
+                      <option value="hot">爆品</option>
+                      <option value="paused">暂停品</option>
+                      <option value="dead">死亡品</option>
+                    </select>
+                  </label>
+                  <label>下次复盘时间<input id="operationNextReviewAt" type="date" /></label>
+                </div>
+                <label class="profile-field">进入原因<input id="operationEntryReason" /></label>
+                <label class="profile-field">当前运营目标<input id="operationGoal" /></label>
+                <label class="profile-field">当前策略<textarea id="operationStrategy"></textarea></label>
+                <div class="form-grid two">
+                  <label>计划类型
+                    <select id="operationPlanType">
+                      <option value="">暂不设置</option>
+                      <option value="image_test">测图</option>
+                      <option value="title_test">测标题</option>
+                      <option value="ads_test">直通车</option>
+                      <option value="multi_listing_split">多链接裂变</option>
+                      <option value="anti_decline">防回落</option>
+                      <option value="clearance_watch">清退观察</option>
+                    </select>
+                  </label>
+                  <label>目标指标<input id="operationTargetMetric" placeholder="CTR / CVR / ROI" /></label>
+                </div>
+                <label class="profile-field">计划目标<input id="operationPlanObjective" /></label>
+                <div class="form-grid two">
+                  <label>成功条件<input id="operationSuccessCondition" /></label>
+                  <label>失败条件<input id="operationFailureCondition" /></label>
+                </div>
+                <label class="profile-field">Agent 摘要<textarea id="operationAgentSummary"></textarea></label>
+                <div class="row-actions">
+                  <button id="deleteOperationProfileButton" class="button danger">删除运营档案</button>
+                  <button id="saveOperationProfileButton" class="button primary">保存运营档案</button>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="workflow-view" data-view-panel="operation-pool">
+            <div class="section-heading">
+              <div><span class="section-index">FOCUS</span><h2>重点商品运营池</h2></div>
+              <p>聚焦潜力品、爆品和需要跟进的商品，推进优化动作、数据补录和下一步运营。</p>
+            </div>
+            <div class="scene-tabs" aria-label="运维场景页内入口">
+              <button type="button" class="scene-tab active" data-home-view="operation-pool">周期规划</button>
+              <button type="button" class="scene-tab" data-home-view="commerce-products">商品巡检</button>
+              <button type="button" class="scene-tab" data-home-view="ad-center">直通车</button>
+              <button type="button" class="scene-tab" data-home-view="inventory-center">库存供应链</button>
+              <button type="button" class="scene-tab" data-home-view="service-center">订单客服</button>
+              <button type="button" class="scene-tab" data-home-view="issue-log">异常处理</button>
+            </div>
+            <div id="operationPool" class="operation-pool"></div>
+          </section>
+
+          <section class="workflow-view" data-view-panel="commerce-product-detail">
+            <div class="section-heading">
+              <div><span class="section-index">PRODUCT WAR ROOM</span><h2 id="commerceDetailTitle">单品作战台</h2></div>
+              <div class="section-heading-actions">
+                <p id="commerceDetailSubtitle">汇总商品事实、上架接入、SKU 映射、周期数据、动作与复盘入口，推进商品业务闭环。</p>
+                <button id="backToOperationPoolButton" class="button secondary">返回重点商品池</button>
+              </div>
+            </div>
+            <article class="panel commerce-detail-panel">
+              <div id="commerceDetailTabs" class="commerce-tabs" role="tablist" aria-label="单品作战台视图">
+                <button class="commerce-tab active" data-detail-tab="overview" type="button">商品概览</button>
+                <button class="commerce-tab" data-detail-tab="artifacts" type="button">上新资产</button>
+                <button class="commerce-tab" data-detail-tab="listings" type="button">上架接入</button>
+                <button class="commerce-tab" data-detail-tab="sku" type="button">SKU 映射</button>
+                <button class="commerce-tab" data-detail-tab="snapshots" type="button">周期数据</button>
+                <button class="commerce-tab" data-detail-tab="actions" type="button">运营动作与复盘</button>
+              </div>
+              <div id="commerceDetailContent" class="commerce-detail-content"></div>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="listing-matrix">
+            <div class="section-heading">
+              <div><span class="section-index">ONBOARDING</span><h2>上架接入 / SKU 映射</h2></div>
+              <p>将 Product 绑定到真实店铺 Listing、平台商品 ID、Listing URL 和 SKU Mapping，服务上架、履约、库存与后续运营。</p>
+            </div>
+            <div class="commerce-layout">
+              <article class="panel">
+                <div class="legacy-onboard-box">
+                  <div class="profile-card-heading"><div><span class="mini-label">LIVE LEGACY</span><h3>创建老品档案并接入</h3></div></div>
+                  <div class="form-grid two">
+                    <label>商品名称<input id="legacyProductDisplayName" maxlength="120" /></label>
+                    <label>店铺<select id="legacyStoreSelect"></select></label>
+                  </div>
+                  <div class="form-grid two">
+                    <label>平台商品 ID<input id="legacyPlatformProductId" /></label>
+                    <label>Listing URL<input id="legacyListingUrl" /></label>
+                  </div>
+                  <label class="profile-field">平台标题<input id="legacyListingTitle" /></label>
+                  <div class="form-grid two">
+                    <label>库存 SKU<input id="legacyInventorySku" /></label>
+                    <label>链接生命周期
+                      <select id="legacyListingLifecycle">
+                        <option value="listed">已上架</option>
+                        <option value="observing">观察中</option>
+                        <option value="first_order">首单</option>
+                        <option value="growing">增长中</option>
+                        <option value="stable">稳定</option>
+                        <option value="declining">下滑</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="form-grid two">
+                    <label>platform_sku_id<input id="legacyPlatformSkuId" /></label>
+                    <label>Seller SKU 编码<input id="legacySellerSkuCode" /></label>
+                  </div>
+                  <div class="form-grid three">
+                    <label>条码<input id="legacyPlatformBarcode" /></label>
+                    <label>变体<input id="legacyVariantName" /></label>
+                    <label>仓库 SKU<input id="legacyWarehouseSku" /></label>
+                  </div>
+                  <label class="profile-field">备注<textarea id="legacyNotes" maxlength="10000"></textarea></label>
+                  <button id="legacyOnboardButton" class="button primary wide">创建老品档案并接入</button>
+                  <p id="legacyOnboardHint" class="profile-suggestion">平台字段会写入 listing / SKU 映射 JSON，不写入 product-profile。</p>
+                  <hr class="soft-divider" />
+                </div>
+                <div class="profile-card-heading"><div><span class="mini-label">STEP 1</span><h3>选择商品与店铺</h3></div></div>
+                <div class="form-grid two">
+                  <label>商品<select id="listingProductSelect"></select></label>
+                  <label>店铺<select id="listingStoreSelect"></select></label>
+                </div>
+                <div class="profile-card-heading compact-heading"><div><span class="mini-label">STEP 2</span><h3>填写平台商品实体</h3></div></div>
+                <div class="form-grid two">
+                  <label>平台商品 ID<input id="listingPlatformProductId" placeholder="AliExpress 商品 ID" /></label>
+                  <label>平台链接状态<input id="listingStatus" placeholder="Online / Draft / Offline" /></label>
+                </div>
+                <label class="profile-field">平台标题<input id="listingTitle" placeholder="AliExpress 后台商品标题" /></label>
+                <div class="form-grid two">
+                  <label>库存 SKU<input id="listingInventorySku" /></label>
+                  <label>链接生命周期
+                    <select id="listingLifecycle">
+                      <option value="not_listed">未上架</option>
+                      <option value="listed">已上架</option>
+                      <option value="observing">观察中</option>
+                      <option value="first_order">首单</option>
+                      <option value="growing">增长中</option>
+                      <option value="stable">稳定</option>
+                      <option value="declining">下滑</option>
+                      <option value="dead">死亡</option>
+                      <option value="offline">下架</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="form-grid two">
+                  <label>包型 / 场景<input id="listingBagModel" /></label>
+                  <label>目标尺寸<input id="listingTargetSize" /></label>
+                </div>
+                <label class="profile-field">商品链接 URL<input id="listingUrl" /></label>
+                <div class="form-grid two">
+                  <label>图片版本<input id="listingImageVersion" /></label>
+                  <label>标题版本<input id="listingTitleVersion" /></label>
+                </div>
+                <button id="saveListingCardButton" class="button primary wide">保存正式映射</button>
+
+                <hr class="soft-divider" />
+                <div class="profile-card-heading">
+                  <div><span class="mini-label">STEP 3</span><h3>添加 SKU / 变体映射</h3></div>
+                </div>
+                <label class="profile-field">所属链接<select id="skuMappingListingSelect"></select></label>
+                <div class="form-grid two">
+                  <label>货品 ID / platform_sku_id<input id="skuPlatformSkuId" /></label>
+                  <label>Seller SKU 编码<input id="skuSellerSkuCode" /></label>
+                </div>
+                <div class="form-grid two">
+                  <label>货品条码<input id="skuPlatformBarcode" /></label>
+                  <label>变体名称<input id="skuVariantName" placeholder="silver / gold / Colorful" /></label>
+                </div>
+                <div class="form-grid three">
+                  <label>颜色<input id="skuColor" /></label>
+                  <label>尺寸<input id="skuSize" /></label>
+                  <label>状态
+                    <select id="skuMappingStatus">
+                      <option value="active">启用</option>
+                      <option value="inactive">停用</option>
+                      <option value="archived">归档</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="form-grid two">
+                  <label>内部库存 SKU<input id="skuInventorySku" /></label>
+                  <label>仓库 SKU<input id="skuWarehouseSku" /></label>
+                </div>
+                <label class="profile-field">备注<input id="skuMappingRemark" /></label>
+                <button id="saveSkuMappingButton" class="button secondary wide">保存 SKU 映射</button>
+                <div class="flow-action-bar" data-production-step="draft">
+                  <p class="step-next-hint">下一步：检查商品事实、Listing、图片、SKU 映射是否完整。</p>
+                  <div>
+                    <button class="flow-secondary-action" type="button" data-flow-step="images">返回作图</button>
+                    <button class="flow-primary-action" type="button" data-flow-step="data-quality-review">保存并进入上架质检</button>
+                  </div>
+                </div>
+              </article>
+              <article class="panel">
+                <div class="profile-card-heading"><div><span class="mini-label">CONNECTED LISTINGS</span><h3>已接入链接和 SKU 映射</h3></div></div>
+                <div id="listingMatrixList" class="commerce-list"></div>
+              </article>
+            </div>
+          </section>
+
+          <section class="workflow-view" data-view-panel="data-tasks">
+            <div class="section-heading">
+              <div><span class="section-index">DATA FILL-IN</span><h2>数据采集 / 数据补录</h2></div>
+              <p>补齐商品、Listing、广告和周期经营数据，支撑后续运营判断和复盘。</p>
+            </div>
+            <div class="commerce-layout">
+              <article class="panel">
+                <div class="profile-card-heading"><div><span class="mini-label">COLLECTION TASK</span><h3>创建采集任务</h3></div></div>
+                <div class="form-grid two">
+                  <label>目标链接<select id="taskListingSelect"></select></label>
+                  <label>SKU 映射<select id="taskSkuMappingSelect"></select></label>
+                </div>
+                <div class="form-grid two">
+                  <label>周期<input id="taskPeriod" placeholder="近 7 天" /></label>
+                  <label>复盘时间<input id="taskReviewDueAt" type="date" /></label>
+                </div>
+                <div class="form-grid two">
+                  <label>关联计划 ID<input id="taskRelatedPlanId" /></label>
+                </div>
+                <button id="createDataTaskButton" class="button secondary wide">创建采集任务</button>
+
+                <hr class="soft-divider" />
+                <div class="profile-card-heading"><div><span class="mini-label">SNAPSHOT</span><h3>录入周期数据</h3></div></div>
+                <div class="form-grid two">
+                  <label>链接<select id="snapshotListingSelect"></select></label>
+                  <label>关联任务<select id="snapshotTaskSelect"></select></label>
+                </div>
+                <label class="profile-field">SKU 映射<select id="snapshotSkuMappingSelect"></select></label>
+                <div class="form-grid two">
+                  <label>周期开始<input id="snapshotPeriodStart" type="date" /></label>
+                  <label>周期结束<input id="snapshotPeriodEnd" type="date" /></label>
+                </div>
+                <div class="form-grid three">
+                  <label>曝光<input id="snapshotImpressions" type="number" min="0" /></label>
+                  <label>访客<input id="snapshotVisitors" type="number" min="0" /></label>
+                  <label>点击<input id="snapshotClicks" type="number" min="0" /></label>
+                  <label>加购<input id="snapshotAddToCart" type="number" min="0" /></label>
+                  <label>订单<input id="snapshotOrders" type="number" min="0" /></label>
+                  <label>销售额<input id="snapshotRevenue" type="number" min="0" step="0.01" /></label>
+                  <label>广告花费<input id="snapshotAdSpend" type="number" min="0" step="0.01" /></label>
+                  <label>退款数<input id="snapshotRefundCount" type="number" min="0" /></label>
+                  <label>差评/纠纷<input id="snapshotBadReviews" type="number" min="0" /></label>
+                </div>
+                <label class="profile-field">搜索词<input id="snapshotSearchTerms" /></label>
+                <label class="profile-field">库存状态<input id="snapshotInventoryStatus" /></label>
+                <button id="saveSnapshotButton" class="button primary wide">保存周期快照</button>
+              </article>
+              <article class="panel">
+                <div class="profile-card-heading"><div><span class="mini-label">TASKS & SNAPSHOTS</span><h3>任务与快照</h3></div></div>
+                <div id="dataTaskList" class="commerce-list"></div>
+                <div id="snapshotList" class="commerce-list"></div>
+              </article>
+            </div>
+          </section>
+
+          <section class="workflow-view" data-view-panel="operation-actions">
+            <div class="section-heading">
+              <div><span class="section-index">TODAY ACTIONS</span><h2>今日执行记录</h2></div>
+              <p>记录今天做了什么、为什么做、后续看什么指标；这里是业务执行证据，不是单纯复盘结论。</p>
+            </div>
+            <div class="commerce-layout">
+              <article class="panel">
+                <div class="profile-card-heading"><div><span class="mini-label">ACTION</span><h3>创建运营动作</h3></div></div>
+                <div class="form-grid two">
+                  <label>商品<select id="actionProductSelect"></select></label>
+                  <label>链接<select id="actionListingSelect"></select></label>
+                </div>
+                <div class="form-grid two">
+                  <label>动作类型<input id="actionType" placeholder="测图 / 改标题 / 开直通车" /></label>
+                  <label>动作状态
+                    <select id="actionStatus">
+                      <option value="suggested">建议</option>
+                      <option value="approved">已确认</option>
+                      <option value="executing">执行中</option>
+                      <option value="done">已完成</option>
+                      <option value="cancelled">已取消</option>
+                    </select>
+                  </label>
+                </div>
+                <label class="profile-field">动作原因<input id="actionReason" /></label>
+                <div class="form-grid two">
+                  <label>目标指标<input id="actionTargetMetric" /></label>
+                  <label>观察周期<input id="actionObservationPeriod" /></label>
+                </div>
+                <div class="form-grid two">
+                  <label>执行人<input id="actionOperator" /></label>
+                  <label>复盘时间<input id="actionReviewDueAt" type="date" /></label>
+                </div>
+                <button id="createActionButton" class="button primary wide">保存运营动作</button>
+              </article>
+              <article class="panel">
+                <div class="profile-card-heading"><div><span class="mini-label">ACTION LOG</span><h3>动作列表</h3></div></div>
+                <div id="operationActionList" class="commerce-list"></div>
+              </article>
+            </div>
+          </section>
+
+          <section class="workflow-view" data-view-panel="operation-review">
+            <div class="section-heading">
+              <div><span class="section-index">PRODUCT REVIEW</span><h2>商品数据复盘</h2></div>
+              <p>看商品表现、动作结果和下一周期判断，沉淀商品复盘结论。</p>
+            </div>
+            <div class="scene-tabs" aria-label="复盘场景页内入口">
+              <button type="button" class="scene-tab" data-home-view="daily-review">日复盘</button>
+              <button type="button" class="scene-tab" data-home-view="weekly-review">周复盘</button>
+              <button type="button" class="scene-tab active" data-home-view="operation-review">商品复盘</button>
+              <button type="button" class="scene-tab" data-home-view="ad-review">广告复盘</button>
+              <button type="button" class="scene-tab" data-home-view="review-insights">上新复盘</button>
+              <button type="button" class="scene-tab" data-home-view="issue-review">失败案例</button>
+            </div>
+            <div id="operationReviewList" class="operation-pool"></div>
+          </section>
+
+          <section class="workflow-view" data-view-panel="system-status">
+            <div class="section-heading">
+              <div><span class="section-index">SYSTEM</span><h2>本地运行状态</h2></div>
+              <p>系统设置只承载低频技术配置，不承载店铺经营资料。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">TECH SETTINGS</span>
+              <h3>本地服务状态后续接入</h3>
+              <p>后续可展示 3000 / 3101 服务、LaunchAgent 和本地运行健康状态。当前不改运行方式。</p>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="sync-status">
+            <div class="section-heading">
+              <div><span class="section-index">SYNC</span><h2>AI 同步状态</h2></div>
+              <p>用于查看 AI / 本地任务同步状态。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">TECH SETTINGS</span>
+              <h3>同步状态后续接入</h3>
+              <p>当前仍使用现有任务状态和手动同步能力；这里仅作为系统设置语义入口。</p>
+              <button id="syncButton" class="button secondary compact-button" type="button">手动同步状态</button>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="output-folder">
+            <div class="section-heading">
+              <div><span class="section-index">FILES</span><h2>输出文件夹</h2></div>
+              <p>用于定位本地生成内容和输出文件。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">TECH SETTINGS</span>
+              <h3>输出文件夹后续接入</h3>
+              <p>当前不改文件结构，不移动输出目录。后续可在这里承接打开输出文件夹和路径说明。</p>
+              <button id="openOutputButton" class="button secondary compact-button" type="button">打开输出文件夹</button>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="advanced-settings">
+            <div class="section-heading">
+              <div><span class="section-index">ADVANCED</span><h2>高级设置</h2></div>
+              <p>低频技术参数和高级配置入口。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">TECH SETTINGS</span>
+              <h3>高级设置保持低频</h3>
+              <p>这里不承载店铺经营资料。Prompt、运行参数和高级技术配置后续再按权限和风险分层。</p>
+              <button id="settingsButton" class="button secondary compact-button" type="button">打开 Prompt 高级设置</button>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="environment-settings">
+            <div class="section-heading">
+              <div><span class="section-index">ENV</span><h2>环境配置</h2></div>
+              <p>承接本地环境、浏览器环境和运行配置说明。</p>
+            </div>
+            <article class="panel v2-placeholder-panel">
+              <span class="mini-label">TECH SETTINGS</span>
+              <h3>环境配置后续接入</h3>
+              <p>店铺经营资料归业务场景中心；这里只放本地运行、浏览器环境和技术配置。</p>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="store-settings">
+            <div class="section-heading">
+              <div><span class="section-index">STORE OPS</span><h2>店铺经营设置</h2></div>
+              <p>维护店铺经营资料、店铺状态和运营配置；技术环境配置归系统设置。</p>
+            </div>
+            <div class="commerce-layout">
+              <article class="panel">
+                <div class="profile-card-heading"><div><span class="mini-label">STORE PROFILE</span><h3>新增 / 更新店铺</h3></div></div>
+                <div class="form-grid two">
+                  <label>店铺别名<input id="storeAlias" /></label>
+                  <label>平台<input id="storePlatform" value="AliExpress" /></label>
+                </div>
+                <div class="form-grid two">
+                  <label>Hitoor 环境名<input id="storeHitoorEnvName" /></label>
+                  <label>Hitoor 环境 ID<input id="storeHitoorEnvId" /></label>
+                </div>
+                <div class="form-grid two">
+                  <label>店铺角色
+                    <select id="storeRole">
+                      <option value="main">主力店</option>
+                      <option value="test">测试店</option>
+                      <option value="distribution">铺货店</option>
+                    </select>
+                  </label>
+                  <label>状态
+                    <select id="storeStatus">
+                      <option value="enabled">启用</option>
+                      <option value="disabled">停用</option>
+                    </select>
+                  </label>
+                </div>
+                <label class="profile-field">备注<textarea id="storeRemark"></textarea></label>
+                <button id="saveStoreProfileButton" class="button primary wide">保存店铺与环境</button>
+              </article>
+              <article class="panel">
+                <div class="profile-card-heading"><div><span class="mini-label">STORES</span><h3>店铺列表</h3></div></div>
+                <div id="storeProfileList" class="commerce-list"></div>
+              </article>
+            </div>
+          </section>
+        </div>
+
+        <section id="insertWorkspace" class="insert-workspace hidden">
+          <div class="insert-hero">
+            <div>
+              <span class="hero-kicker">LUXURY ORGANIZER WORKFLOW</span>
+              <h2>从目标包型到专属内胆与 7 张 Listing 主图。</h2>
+              <p>官网尺寸核验、NotebookLM 库存匹配、双重人工确认、逐 SKU 素材锁定与 1:1 主图生成。</p>
+            </div>
+            <div class="insert-hero-actions">
+              <div class="insert-task-id"><small>TASK ID</small><strong id="insertTaskId">待创建</strong></div>
+              <button id="returnMarketRadarButton" class="button secondary hidden">返回市场雷达候选</button>
+              <button id="insertPauseTaskButton" class="button warning hidden">暂停当前任务</button>
+              <button id="insertAbandonTaskButton" class="button danger hidden">遗弃并开始新任务</button>
+            </div>
+          </div>
+
+          <article class="insert-step-card radar-card">
+            <header><span>00</span><div><h3>每日市场选款设计</h3><p>发送全网热销包型机会雷达 Prompt，搜索开发池候选、P0/P1/P2 分层和官网白底正面包型图。</p></div></header>
+            <div class="row-actions">
+              <button id="runInsertMarketRadarButton" class="button primary">执行每日市场选款雷达</button>
+              <button id="resetInsertMarketRadarButton" class="button secondary">重置每日选款</button>
+            </div>
+            <div id="insertMarketRadarMeta" class="radar-meta hidden"></div>
+            <div id="insertMarketRadarCandidates" class="radar-candidates hidden"></div>
+            <details id="insertMarketRadarBox" class="result-box hidden">
+              <summary>查看今日开发建议</summary><pre id="insertMarketRadarText"></pre>
+            </details>
+          </article>
+
+          <article class="insert-step-card">
+            <header><span>01</span><div><h3>目标外包识别</h3><p>上传同一包型家族的目标包图片，识别品牌、版本和公开尺寸。</p></div></header>
+            <label class="upload-zone compact">
+              <input id="insertBagInput" type="file" accept=".jpg,.jpeg,.png,.webp" multiple />
+              <span class="upload-icon">＋</span><strong>上传目标外包图片</strong>
+              <span>外包事实确认后将自动锁定</span>
+            </label>
+            <div class="url-import compact-url-import">
+              <div>
+                <strong>通过图片 URL 导入</strong>
+                <p id="insertBagUrlHint">每行一个公开图片直链，最多 12 条。</p>
+              </div>
+              <textarea id="insertBagUrls" placeholder="https://example.com/bag.jpg" spellcheck="false"></textarea>
+              <button id="importInsertBagUrlsButton" class="button secondary">导入 URL</button>
+            </div>
+            <div id="insertBagGallery" class="image-list"></div>
+            <button id="insertIdentifyButton" class="button primary wide">识别包型并联网核对尺寸</button>
+            <details id="insertIdentificationBox" class="result-box hidden">
+              <summary>查看识别与公开尺寸报告</summary><pre id="insertIdentificationText"></pre>
+            </details>
+          </article>
+
+          <article class="insert-step-card">
+            <header><span>02</span><div><h3>人工确认包型与尺寸</h3><p>确认品牌、包型家族和全部尺寸 SKU，指定市场主推版本。</p></div></header>
+            <div class="form-grid two">
+              <label>品牌<input id="insertBrand" placeholder="LOEWE" /></label>
+              <label>包型家族<input id="insertBagFamily" placeholder="Puzzle" /></label>
+            </div>
+            <div id="bagVariantRows" class="variant-table"></div>
+            <div class="row-actions">
+              <button id="addBagVariantButton" class="button secondary">添加尺寸 SKU</button>
+              <button id="unlockBagButton" class="button warning hidden">返回修改包型尺寸</button>
+              <button id="confirmBagButton" class="button primary">确认并锁定外包事实</button>
+            </div>
+          </article>
+
+          <article class="insert-step-card">
+            <header><span>03</span><div><h3>NotebookLM 库存匹配与开发规划</h3><p>发送唯一任务边界到“内胆尺寸库”，判断复用库存或规划新尺寸。</p></div></header>
+            <button id="runNotebookButton" class="button primary wide">提交 NotebookLM 规划</button>
+            <details id="notebookResultBox" class="result-box hidden">
+              <summary>查看 NotebookLM 规划结果</summary><pre id="notebookResultText"></pre>
+            </details>
+          </article>
+
+          <article class="insert-step-card">
+            <header><span>04</span><div><h3>冻结内胆方案与 SKU 素材</h3><p>填写最终内胆尺寸、库存 SKU、材质、颜色、结构和真实重量。</p></div></header>
+            <div id="designVariantRows" class="variant-table"></div>
+            <fieldset class="claim-grid">
+              <legend>允许使用的真实营销承诺</legend>
+              <label><input type="checkbox" data-claim="dispatch48h" />48h Dispatch</label>
+              <label><input type="checkbox" data-claim="returns7Day" />7-Day Returns</label>
+              <label><input type="checkbox" data-claim="waterproof" />Waterproof</label>
+              <label><input type="checkbox" data-claim="tearResistant" />High Tear Resistance</label>
+              <label><input type="checkbox" data-claim="colorfast" />Color Fastness</label>
+            </fieldset>
+            <div class="row-actions">
+              <button id="unlockDesignButton" class="button warning hidden">返回修改内胆方案</button>
+              <button id="freezeDesignButton" class="button primary">确认并冻结最终产品事实</button>
+            </div>
+            <div id="linerUploadGrid" class="liner-upload-grid"></div>
+          </article>
+
+          <article class="insert-step-card">
+            <header><span>05</span><div><h3>Image 01–07 Prompt Pack 与逐图生成</h3><p>主推 SKU 用于 Image 01–06，全部 SKU 汇总到 Image 07。</p></div></header>
+            <div id="insertGenerationSteps" class="generation-steps seven"></div>
+            <div class="row-actions">
+              <button id="buildInsertPromptsButton" class="button secondary">生成并校验 7 图 Prompt Pack</button>
+              <button id="generateInsertImagesButton" class="button primary">逐张生成 7 张图</button>
+            </div>
+            <div id="insertOutputGallery" class="output-gallery square"></div>
+            <div class="row-actions">
+              <button id="generateInsertListingButton" class="button primary">生成内胆 Listing 文案</button>
+              <button id="previewInsertStockSheetButton" class="button secondary">写入内胆库存尺寸表</button>
+              <button id="archiveInsertButton" class="button secondary">完成并归档内胆任务</button>
+            </div>
+            <details id="insertListingContentBox" class="result-box hidden">
+              <summary>查看内胆 Listing 文案</summary><pre id="insertListingContentText"></pre>
+            </details>
+            <div id="insertStockSheetPreview" class="result-box hidden"></div>
+            <button id="insertNextProductButton" class="button secondary wide">
+              开始下一个内胆任务
+            </button>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <aside id="taskDock" class="task-dock">
+      <button id="taskDockIndicator" class="task-indicator" aria-label="展开运行详情"><span></span></button>
+      <div class="task-dock-summary"><small>当前任务</small><strong id="taskDockMessage">等待启动</strong></div>
+      <div class="task-dock-meta">
+        <span id="taskImageNumber" class="hidden">Image 1</span>
+        <span id="taskAwake">节能模式</span>
+      </div>
+      <button id="taskDockToggle" aria-label="展开运行详情">⌃</button>
+      <div id="taskDockDetails" class="task-details hidden">
+        <div class="status-heading">
+          <div><p class="eyebrow">WORKFLOW STATUS</p><h2 id="stage">IDLE</h2></div>
+          <span id="updatedAt"></span>
+        </div>
+        <p id="message" class="message">等待启动</p>
+        <pre id="errorBox" class="error hidden"></pre>
+        <div class="recovery-actions">
+          <span class="task-control-label">任务总控</span>
+          <button id="dockPauseButton" class="button danger">暂停任务</button>
+          <button id="dockRollbackButton" class="button warning">回撤上一步</button>
+          <button id="dockAbandonButton" class="button danger">遗弃当前商品</button>
+          <button id="resumeButton" class="button warning hidden">修复后继续</button>
+          <button id="dockSyncButton" class="button secondary hidden">同步 AI 状态</button>
+        </div>
+      </div>
+    </aside>
+
+    <aside id="secretaryDrawer" class="secretary-shell is-docked" aria-label="秘书对话窗口">
+      <button id="secretaryToggle" class="secretary-toggle" type="button" aria-label="打开秘书">秘书</button>
+      <div id="secretaryPanel" class="secretary-panel" role="dialog" aria-label="秘书 Agent">
+        <div id="secretaryHeader" class="secretary-header secretary-drag-handle">
+          <div>
+            <span class="mini-label">LOCAL SECRETARY</span>
+            <h2>秘书 Agent</h2>
+            <p id="secretaryContext" class="secretary-context">当前页面：今日指挥台｜工作区：today</p>
+          </div>
+          <div class="secretary-window-actions">
+            <button id="secretaryCollapse" class="icon-button" type="button" aria-label="收起秘书">−</button>
+            <button id="secretaryModeToggle" class="icon-button" type="button" aria-label="切换浮动或停靠">⇱</button>
+            <button id="secretaryClose" class="icon-button" type="button" aria-label="关闭秘书">×</button>
+          </div>
+        </div>
+        <div id="secretaryMessageList" class="secretary-message-list" aria-live="polite">
+          <article class="secretary-message agent">
+            <strong>秘书待命</strong>
+            <p>本轮不接大模型 API，只生成本地 command 草稿和结构化占位建议。</p>
+          </article>
+        </div>
+        <div id="secretaryOutput" class="secretary-action-card">
+          <div><span>我理解的意图</span><strong id="secretaryIntent">等待输入</strong></div>
+          <div><span>建议下一步</span><strong id="secretaryNextAction">生成本地草稿，不执行高风险动作</strong></div>
+          <div><span>风险等级</span><strong id="secretaryRisk">-</strong></div>
+          <div><span>是否需要确认</span><strong id="secretaryConfirmation">-</strong></div>
+          <details class="secretary-raw-toggle">
+            <summary>查看原始结构</summary>
+            <pre id="secretaryRawOutput">{}</pre>
+          </details>
+        </div>
+        <div class="secretary-input-bar">
+          <textarea id="secretaryInput" placeholder="输入指令，例如：生成一个 QClaw 任务草稿，但不要直接执行"></textarea>
+          <div class="secretary-actions">
+            <button id="secretarySend" class="button primary" type="button">生成草稿</button>
+            <button id="secretaryCodexPrompt" class="secretary-action-chip" type="button">Codex Prompt</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div id="operatorModal" class="operator-modal hidden" role="dialog" aria-modal="true" aria-labelledby="operatorModalTitle">
+      <div class="operator-modal-card">
+        <button id="closeOperatorModalButton" class="icon-button operator-modal-close" type="button" aria-label="关闭">×</button>
+        <span class="mini-label">OPERATOR</span>
+        <h2 id="operatorModalTitle">选择当前使用人</h2>
+        <p>今日任务、步骤、草稿、计时和逐店进度会按使用人隔离。ActionLog / Issue / WaitingItem 仍作为团队记录共享。</p>
+        <div id="operatorOptions" class="operator-options"></div>
+      </div>
+    </div>
+
+    <div id="settingsBackdrop" class="drawer-backdrop hidden"></div>
+    <aside id="settingsDrawer" class="settings-drawer" aria-hidden="true">
+      <div class="drawer-header">
+        <div><span class="mini-label">ADVANCED SETTINGS</span><h2>Prompt 高级设置</h2></div>
+        <button id="closeSettingsButton" class="icon-button" aria-label="关闭">×</button>
+      </div>
+      <p class="drawer-intro">这里的内容会直接影响自动调研、视觉规划和商品文案。修改后请分别保存。</p>
+      <div class="prompt-grid">
+        <article class="prompt-editor">
+          <div class="prompt-editor-title"><strong>市场调研 Prompt</strong><span id="researchPromptStatus">检查中</span></div>
+          <textarea id="researchPrompt" spellcheck="false"></textarea>
+          <button id="saveResearchPrompt" class="button secondary">保存市场调研 Prompt</button>
+        </article>
+        <article class="prompt-editor">
+          <div class="prompt-editor-title"><strong>视觉规划 Prompt</strong><span id="planningPromptStatus">检查中</span></div>
+          <textarea id="planningPrompt" spellcheck="false"></textarea>
+          <button id="savePlanningPrompt" class="button secondary">保存视觉规划 Prompt</button>
+        </article>
+        <article class="prompt-editor">
+          <div class="prompt-editor-title"><strong>SEO 关键词 Prompt</strong><span id="seoKeywordsPromptStatus">检查中</span></div>
+          <textarea id="seoKeywordsPrompt" spellcheck="false"></textarea>
+          <button id="saveSeoKeywordsPrompt" class="button secondary">保存 SEO 关键词 Prompt</button>
+        </article>
+        <article class="prompt-editor">
+          <div class="prompt-editor-title"><strong>Listing 文案 Prompt</strong><span id="listingContentPromptStatus">检查中</span></div>
+          <textarea id="listingContentPrompt" spellcheck="false"></textarea>
+          <button id="saveListingContentPrompt" class="button secondary">保存 Listing 文案 Prompt</button>
+        </article>
+        <article class="prompt-editor">
+          <div class="prompt-editor-title"><strong>奢侈包内胆 7 图 Prompt</strong><span id="luxuryInsertPromptStatus">检查中</span></div>
+          <textarea id="luxuryInsertPrompt" spellcheck="false"></textarea>
+          <button id="saveLuxuryInsertPrompt" class="button secondary">保存内胆 7 图 Prompt</button>
+        </article>
+        <article class="prompt-editor">
+          <div class="prompt-editor-title"><strong>内胆每日市场选款 Prompt</strong><span id="insertMarketRadarPromptStatus">检查中</span></div>
+          <textarea id="insertMarketRadarPrompt" spellcheck="false"></textarea>
+          <button id="saveInsertMarketRadarPrompt" class="button secondary">保存每日选款 Prompt</button>
+        </article>
+        <article class="prompt-editor">
+          <div class="prompt-editor-title"><strong>内胆 Listing 文案 Prompt</strong><span id="insertListingContentPromptStatus">检查中</span></div>
+          <textarea id="insertListingContentPrompt" spellcheck="false"></textarea>
+          <button id="saveInsertListingContentPrompt" class="button secondary">保存内胆 Listing Prompt</button>
+        </article>
+      </div>
+    </aside>
+
+    <script src="/app.js?v=20260706-1" defer></script>
+  </body>
+</html>

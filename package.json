@@ -1,0 +1,33 @@
+{
+  "name": "chatgpt-listing-mvp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "一跨而境 AI 跨境电商视觉与 Listing 自动化工作台",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/src/server.js",
+    "start:test": "PORT=3101 node dist/src/server.js",
+    "local:install": "sh scripts/install-launch-agent.sh",
+    "local:start": "launchctl kickstart -k gui/501/com.lance.chatgpt-listing-mvp",
+    "local:stop": "launchctl kill SIGTERM gui/501/com.lance.chatgpt-listing-mvp",
+    "test": "npm run build && node --test dist/test/*.test.js"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "express": "^4.21.2",
+    "jsonrepair": "^3.14.0",
+    "multer": "^2.0.0",
+    "playwright-core": "^1.52.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.1",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^22.15.3",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
