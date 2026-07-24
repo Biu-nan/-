@@ -10538,6 +10538,7 @@ const RESEARCH_STATIC_HTML = `
 let researchInited = false;
 let researchSelectedId = null;
 let researchRendering = false;
+let researchResultsSig = "";
 
 function rcEscapeHtml(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({
@@ -10608,6 +10609,10 @@ function rcBuildReportHtml(a) {
 function renderResearchResults(products) {
     const results = document.getElementById("researchResults");
     if (!results) return;
+    // 签名守卫：选中态/记录 id+状态 未变则跳过 innerHTML 重建，避免每秒刷新导致图片闪烁与 CPU 浪费
+    const sig = JSON.stringify([researchSelectedId, (products || []).map((p) => [p.id, p.status])]);
+    if (sig === researchResultsSig) return;
+    researchResultsSig = sig;
     if (!products || !products.length) {
         results.innerHTML = `<div class="rc-empty">还没有爆款记录。在上方导入第一个爆款（图片 + 经营数据），点「拆解」即可生成爆款因子报告。</div>`;
         return;
@@ -10653,6 +10658,7 @@ function rcFacDimLabel(d) {
 }
 let rcFactorDim = "all";
 let rcFactorRendering = false;
+let rcFactorSig = "";
 function rcFacBar(share) {
     const pct = Math.max(2, Math.round((share || 0) * 100));
     return `<div class="rc-fac-bar"><span style="width:${pct}%"></span></div>`;
@@ -10695,6 +10701,10 @@ async function renderResearchFactorLibrary() {
     rcFactorRendering = true;
     try {
         const data = await request("/api/research/factors").catch(() => ({ total: 0, factors: [], byDimension: {} }));
+        // 签名守卫：维度筛选 + 因子聚合结果未变则跳过重建，避免每秒刷新抖动
+        const sig = JSON.stringify([rcFactorDim, data.total, (data.factors || []).map((f) => [f.key, f.count, f.avgWeight])]);
+        if (sig === rcFactorSig) return;
+        rcFactorSig = sig;
         root.innerHTML = rcFacBuildHtml(data);
         const t = document.getElementById("rcFacTotal");
         if (t) t.textContent = data.total ? `（基于 ${data.total} 个已拆解爆款）` : "";
@@ -10703,6 +10713,16 @@ async function renderResearchFactorLibrary() {
     finally { rcFactorRendering = false; }
 }
 
+function resetResearchImportForm() {
+    ["research-sourceUrl", "research-category", "research-title", "research-brand", "research-price", "research-currency", "research-salesVolume", "research-salesRank", "research-rating", "research-reviewCount", "research-wishlistCount"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+    });
+    const fi = document.getElementById("research-images");
+    if (fi) fi.value = "";
+    const plat = document.getElementById("research-platform");
+    if (plat) plat.selectedIndex = 0;
+}
 async function onResearchImport() {
     const fd = new FormData();
     fd.append("sourceUrl", rcVal("research-sourceUrl"));
@@ -10726,6 +10746,7 @@ async function onResearchImport() {
     try {
         await request("/api/research/import", { method: "POST", body: fd });
         rcStatus("已导入，可在下方点「拆解」", "ok");
+        resetResearchImportForm();
         await refreshTwice();
     }
     catch (err) {
