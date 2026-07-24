@@ -1,3 +1,25 @@
+/* 全局错误兜底：避免单点脚本错误导致整页白屏（"闪退"）。
+   任何未捕获的同步错误 / 未处理的 Promise rejection 都会显示到 #errorBox，
+   便于定位问题而不是静默崩溃。 */
+(function installGlobalErrorGuard() {
+  function showError(label, detail) {
+    const box = document.getElementById("errorBox");
+    if (!box) return;
+    box.classList.remove("hidden");
+    box.textContent = `${label}：${detail}`;
+  }
+  window.addEventListener("error", (event) => {
+    /* 资源加载错误（img/script 404 等）通常没有 message，跳过以免噪音刷屏 */
+    if (!event.message) return;
+    showError("⚠️ 页面脚本错误", event.message + (event.filename ? ` @ ${event.filename}:${event.lineno}` : ""));
+  });
+  window.addEventListener("unhandledrejection", (event) => {
+    const reason = event.reason;
+    const text = reason && reason.message ? reason.message : String(reason);
+    showError("⚠️ 未处理的异步错误", text);
+  });
+})();
+
 const elements = {
   modeOptions: [...document.querySelectorAll(".mode-option")],
   standardGoalSwitch: document.querySelector("#standardGoalSwitch"),
@@ -111,6 +133,9 @@ const elements = {
   imageUrls: document.querySelector("#imageUrls"),
   importUrlsButton: document.querySelector("#importUrlsButton"),
   urlImportHint: document.querySelector("#urlImportHint"),
+  objectiveInfoPanel: document.querySelector("#objectiveInfoPanel"),
+  objectiveInfoInput: document.querySelector("#objectiveInfoInput"),
+  objectiveInfoStatus: document.querySelector("#objectiveInfoStatus"),
   launchButton: document.querySelector("#launchButton"),
   checkButton: document.querySelector("#checkButton"),
   runAllButton: document.querySelector("#runAllButton"),
@@ -363,8 +388,18 @@ const elements = {
   insertPauseTaskButton: document.querySelector("#insertPauseTaskButton"),
   insertAbandonTaskButton: document.querySelector("#insertAbandonTaskButton"),
   runInsertMarketRadarButton: document.querySelector("#runInsertMarketRadarButton"),
+  importCurrentChatMarketRadarButton: document.querySelector("#importCurrentChatMarketRadarButton"),
   resetInsertMarketRadarButton: document.querySelector("#resetInsertMarketRadarButton"),
+  recoverMarketRadarButton: document.querySelector("#recoverMarketRadarButton"),
+  insertListingEntryCard: document.querySelector("#insertListingEntryCard"),
+  enterInsertListingButton: document.querySelector("#enterInsertListingButton"),
+  gotoSelectionRadarFromEntryLink: document.querySelector("#gotoSelectionRadarFromEntryLink"),
   insertMarketRadarMeta: document.querySelector("#insertMarketRadarMeta"),
+  reExtractNotebookButton: document.querySelector("#reExtractNotebookButton"),
+  notebookImportBox: document.querySelector("#notebookImportBox"),
+  notebookImportText: document.querySelector("#notebookImportText"),
+  importNotebookButton: document.querySelector("#importNotebookButton"),
+  notebookImportError: document.querySelector("#notebookImportError"),
   insertMarketRadarCandidates: document.querySelector("#insertMarketRadarCandidates"),
   insertMarketRadarBox: document.querySelector("#insertMarketRadarBox"),
   insertMarketRadarText: document.querySelector("#insertMarketRadarText"),
@@ -393,6 +428,7 @@ const elements = {
   generateInsertImagesButton: document.querySelector("#generateInsertImagesButton"),
   insertNextProductButton: document.querySelector("#insertNextProductButton"),
   generateInsertListingButton: document.querySelector("#generateInsertListingButton"),
+  importInsertListingContentButton: document.querySelector("#importInsertListingContentButton"),
   previewInsertStockSheetButton: document.querySelector("#previewInsertStockSheetButton"),
   archiveInsertButton: document.querySelector("#archiveInsertButton"),
   insertListingContentBox: document.querySelector("#insertListingContentBox"),
@@ -517,6 +553,7 @@ const NAV_WORKSPACES = [
     defaultView: "daily-cockpit",
     items: [
       { label: "今日总览", view: "daily-cockpit", status: "ready", isPlaceholder: false, semanticRole: "today-overview" },
+      { label: "每日选款", view: "selection-radar", status: "ready", isPlaceholder: false, semanticRole: "today-selection-radar" },
       { label: "今日必做", view: "daily-check", status: "placeholder", isPlaceholder: true, semanticRole: "today-must" },
       { label: "异常阻断", view: "issue-log", status: "placeholder", isPlaceholder: true, semanticRole: "today-blockers" },
       { label: "待复盘", view: "daily-review", status: "placeholder", isPlaceholder: true, semanticRole: "today-review-pending" },
@@ -544,6 +581,7 @@ const NAV_WORKSPACES = [
     items: [
       { label: "选品", view: "selection-overview", status: "ready", isPlaceholder: false, semanticRole: "business-selection" },
       { label: "上品", view: "materials", status: "ready", isPlaceholder: false, semanticRole: "business-production" },
+      { label: "店小秘上品·乳贴", view: "agent-dianxiaomi", status: "ready", isPlaceholder: false, semanticRole: "business-dianxiaomi-listing" },
       { label: "运维", view: "operation-pool", status: "ready", isPlaceholder: false, semanticRole: "business-operation" },
       { label: "复盘", view: "operation-review", status: "ready", isPlaceholder: false, semanticRole: "business-review" }
     ]
@@ -574,6 +612,15 @@ const NAV_WORKSPACES = [
       { label: "团队成员及权限", view: "personal-center", status: "placeholder", isPlaceholder: true, semanticRole: "settings-team" },
       { label: "系统规则", view: "system-status", status: "placeholder", isPlaceholder: true, semanticRole: "settings-rules" },
       { label: "系统检查", view: "sync-status", status: "placeholder", isPlaceholder: true, semanticRole: "settings-check" }
+    ]
+  },
+  {
+    id: "research",
+    label: "爆款研究中心",
+    subtitle: "拆解爆款原因",
+    defaultView: "research-center",
+    items: [
+      { label: "爆款拆解", view: "research-center", status: "ready", isPlaceholder: false, semanticRole: "research-center" }
     ]
   }
 ];
@@ -644,7 +691,11 @@ const viewWorkspace = NAV_WORKSPACES.reduce((mapping, workspace) => {
   identity: "business",
   planning: "business",
   archive: "business",
-  queue: "business"
+  queue: "business",
+  "selection-overview": "today",
+  "selection-radar": "today",
+  "product-selection": "today",
+  "agent-dianxiaomi": "business"
 });
 
 const operationViews = new Set([
@@ -667,6 +718,20 @@ let secretaryMode = localStorage.getItem("yk_secretary_mode") || "docked";
 if (!["collapsed", "docked", "floating"].includes(secretaryMode)) secretaryMode = "docked";
 
 const commerceTopbarCopy = {
+  "agent-dianxiaomi": {
+    eyebrow: "ERP AUTOMATION",
+    title: "店小秘自动化上品 · 乳贴 v1.0",
+    description: "速卖通半托管（Choice）一键引用模板产品、填固定字段、保存草稿（不发布，等你确认）。准备产品资料（上传图片 + AI 提取事实覆盖字段）为后续 Phase 3。",
+    primary: ["进入上品生产", "materials"],
+    secondary: ["首页总控台", "v2-home-dashboard"]
+  },
+  "research-center": {
+    eyebrow: "HIT PRODUCT RESEARCH",
+    title: "爆款研究中心",
+    description: "导入爆款图片 + 经营数据（销量/排名/评分），用 ChatGPT 多模态反向拆解爆款因子，反哺自有 listing。",
+    primary: ["去导入第一个爆款", "research-center"],
+    secondary: ["业务场景", "business"]
+  },
   "v2-home-dashboard": {
     eyebrow: "AI COMMAND CENTER",
     title: "首页总控台",
@@ -752,10 +817,10 @@ const commerceTopbarCopy = {
     secondary: ["内胆包型雷达", "selection-radar"]
   },
   "selection-radar": {
-    eyebrow: "INSERT RADAR",
-    title: "内胆包型雷达",
-    description: "把内胆包型雷达归入选品开发语境；当前不新增完整机会池和开发池。",
-    primary: ["上品生产", "materials"],
+    eyebrow: "RADAR",
+    title: "每日市场选款设计",
+    description: "全网热销包型机会雷达、候选分层与一键导入 Listing 工作台。",
+    primary: ["上品工作台", "materials"],
     secondary: ["选品开发", "selection-overview"]
   },
   "commerce-dashboard": {
@@ -4510,6 +4575,9 @@ function isResearchRecoveryState(state) {
 }
 
 function planningEndpointForState(state) {
+  if (!state.chatUrl) {
+    return "/api/run";
+  }
   return isResearchRecoveryState(state) ? "/api/run/resume" : "/api/run/planning";
 }
 
@@ -4523,61 +4591,292 @@ function renderProductionConsole(state, availableImages, busy, queueLocked) {
     console.className = "production-console";
     tabs.insertAdjacentElement("afterend", console);
   }
-  const canRecoverResearch = isResearchRecoveryState(state);
+
+  /* ── 流程模式 ── */
+  const seoOnly = state?.standardWorkflowGoal === "seo_content_only";
+  const generatedCount = (state?.generatedImageNumbers || []).length;
+  const overallProgress = workflowProgress(state || {});
   const hasImages = (availableImages || []).length > 0;
+  const canRecoverResearch = isResearchRecoveryState(state);
   const readyToArchive =
     !busy &&
     !queueLocked &&
     state?.workflowMode !== "luxury_insert" &&
     Boolean(state?.chatUrl) &&
     completedAtLeast(state, "MVP5");
-  const statusText = state?.error
-    ? `上次停在：${state.interruptedStage || state.stage}。${state.error}`
-    : readyToArchive
-      ? "当前商品已完成图片、SEO 词库和 Listing 文案，可以归档并开始下一个产品。"
-    : state?.chatUrl
-      ? "当前商品已建立 AI 对话，可在这里继续上品流程。"
-      : hasImages
-        ? "图片已就绪，下一步先完成产品识别。"
-        : "先上传当前商品素材，再进入识别、调研、Listing 和作图。";
+
+  /* ── 面板标题区（含模式切换） ── */
+  const header = document.createElement("div");
+  header.className = "workbench-header";
+  header.innerHTML = `<span class="mini-label workbench-kicker">${
+    seoOnly ? "ENHANCED SEO CONTENT WORKFLOW" : "AUTOMATED COMMERCE WORKFLOW"
+  }</span><strong>${
+    seoOnly ? "从产品事实到高转化文案，跳过作图。" : "从产品素材到高转化 Listing，一次完成。"
+  }</strong><p class="workbench-desc">${
+    seoOnly
+      ? "自动完成产品识别、联网市场调研、VOC、SEO 关键词、标题、属性词和详情页内容。"
+      : "自动完成产品识别、市场调研、视觉规划、10 张图片生成，以及 SEO 商品文案。"
+  }</p>`;
+
+  /* 模式切换器 */
+  const modeSwitch = document.createElement("div");
+  modeSwitch.className = "workbench-mode-switch";
+  modeSwitch.setAttribute("aria-label", "选择流程模式");
+  const modeLabel = document.createElement("span");
+  modeLabel.className = "mode-label";
+  modeLabel.textContent = "流程模式";
+  const fullBtn = document.createElement("button");
+  fullBtn.type = "button";
+  fullBtn.className = `mode-option${!seoOnly ? " active" : ""}`;
+  fullBtn.textContent = "完整 Listing";
+  fullBtn.addEventListener("click", () => void selectStandardWorkflowGoal("full_listing"));
+  const seoBtn = document.createElement("button");
+  seoBtn.type = "button";
+  seoBtn.className = `mode-option${seoOnly ? " active" : ""}`;
+  seoBtn.textContent = "仅 SEO 与商品文案";
+  seoBtn.addEventListener("click", () => void selectStandardWorkflowGoal("seo_content_only"));
+  const insertBtn = document.createElement("button");
+  insertBtn.type = "button";
+  insertBtn.className = "mode-option";
+  insertBtn.title = "切换到奢侈包内胆 Listing 制作流程";
+  insertBtn.textContent = "内胆 Listing";
+  insertBtn.addEventListener("click", () => void selectWorkflowMode("luxury_insert"));
+  modeSwitch.append(modeLabel, fullBtn, seoBtn, insertBtn);
+
+  /* ── 指标卡片 ── */
+  const metrics = document.createElement("div");
+  metrics.className = "workbench-metrics";
+  const phaseText =
+    seoOnly && state?.completedPhase === "MVP5"
+      ? "SEO 完成"
+      : seoOnly && state?.researchCompleted
+        ? "调研完成"
+        : (phaseLabels[state?.completedPhase] || (busy ? "运行中" : "待开始"));
+  metrics.innerHTML =
+    `<article><strong>${hasImages ? availableImages.length : 0}</strong><span>产品素材</span></article>` +
+    `<article><strong>${escapeHtml(phaseText)}</strong><span>当前阶段</span></article>` +
+    `<article><strong>${seoOnly ? "已跳过" : `${generatedCount}/10`}</strong><span>${seoOnly ? "图片生成" : "生成图片"}</span></article>`;
+
+  /* ── 进度条 ── */
+  const progressWrap = document.createElement("div");
+  progressWrap.className = "workbench-progress";
+  progressWrap.innerHTML = `<div><span>整体进度</span><strong>${Math.round(overallProgress)}%</strong></div>` +
+    `<div class="progress${busy || queueLocked ? " is-running" : ""}"><span style="width:${overallProgress}%"></span></div>`;
+
+  /* ── 操作按钮区 ── */
+  const actions = document.createElement("div");
+  actions.className = "workbench-actions";
+
+  /* 一键全部流程按钮（复用 runAllButton 逻辑） */
+  const runAllBtn = document.createElement("button");
+  runAllBtn.type = "button";
+  runAllBtn.id = "workbenchRunAllButton";
+  runAllBtn.className = "flow-primary-action workbench-run-all";
+  const runAllDisabled =
+    busy ||
+    queueLocked ||
+    hasImages === 0 ||
+    completedAtLeast(state, "MVP5") ||
+    !(window.latestPrompts?.research?.ready) ||
+    (!seoOnly && !(window.latestPrompts?.planning?.ready)) ||
+    !(window.latestPrompts?.seoKeywords?.ready) ||
+    !(window.latestPrompts?.listingContent?.ready);
+  runAllBtn.disabled = runAllDisabled;
+  /* 禁用时给出明确原因，帮助用户快速定位下一步操作 */
+  if (runAllDisabled) {
+    let reason = "";
+    if (busy || queueLocked) reason = "当前有任务正在运行，请稍候。";
+    else if (completedAtLeast(state, "MVP5")) reason = seoOnly ? "SEO 与商品文案已全部完成。" : "全部流程已完成，可归档并开始下一个产品。";
+    else if (hasImages === 0) reason = "请先上传当前商品素材，再开始流程。";
+    else if (!(window.latestPrompts?.research?.ready)) reason = "市场调研 Prompt 尚未就绪。";
+    else if (!seoOnly && !(window.latestPrompts?.planning?.ready)) reason = "视觉规划 Prompt 尚未就绪。";
+    else if (!(window.latestPrompts?.seoKeywords?.ready)) reason = "SEO 关键词 Prompt 尚未就绪。";
+    else if (!(window.latestPrompts?.listingContent?.ready)) reason = "商品文案 Prompt 尚未就绪。";
+    runAllBtn.title = reason;
+    runAllBtn.setAttribute("aria-disabled", "true");
+  } else {
+    runAllBtn.title = "一键执行当前模式下的全部上品流程";
+    runAllBtn.removeAttribute("aria-disabled");
+  }
+  if (completedAtLeast(state, "MVP5")) {
+    runAllBtn.textContent = seoOnly ? "SEO 与商品文案已完成" : "全部流程已完成";
+  } else if (state?.completedPhase) {
+    runAllBtn.textContent = seoOnly ? "一键继续 SEO 专线" : "一键继续剩余流程";
+  } else {
+    runAllBtn.textContent = seoOnly ? "一键生成 SEO 与商品文案" : "一键开始全部流程";
+  }
+  /* 运行态：显示加载环，提示操作已受理 */
+  if (busy || queueLocked) runAllBtn.classList.add("is-busy");
+  runAllBtn.addEventListener("click", () => void runAction(runAllBtn, "/api/run/all"));
+
+
+  /* 原有：按步骤操作按钮 */
   const primaryLabel = canRecoverResearch
     ? "从断点继续市场调研"
     : readyToArchive
       ? "归档并开始下一个产品"
-    : state?.chatUrl
-      ? "继续当前上品流程"
-      : "开始产品识别";
+      : state?.chatUrl
+        ? "继续当前上品流程"
+        : "开始产品识别";
   const primaryTarget = canRecoverResearch
     ? "planning"
     : readyToArchive
       ? "archive"
-    : state?.chatUrl
-      ? (state.researchCompleted ? "content" : "planning")
-      : "identity";
-
-  const text = document.createElement("div");
-  text.innerHTML = `<span class="mini-label">PRODUCT WORKBENCH</span><strong>当前商品上品操作台</strong><p></p>`;
-  text.querySelector("p").textContent = statusText;
-  const actions = document.createElement("div");
-  const primary = document.createElement("button");
-  primary.type = "button";
-  primary.className = "flow-primary-action";
-  primary.textContent = primaryLabel;
-  primary.disabled = busy || queueLocked || (!state?.chatUrl && !hasImages);
-  primary.addEventListener("click", () => {
-    if (primaryTarget === "archive") {
-      void startNextProduct();
-      return;
-    }
+      : state?.chatUrl
+        ? (state.researchCompleted ? "content" : "planning")
+        : "identity";
+  const stepBtn = document.createElement("button");
+  stepBtn.type = "button";
+  stepBtn.className = "flow-secondary-action";
+  stepBtn.textContent = primaryLabel;
+  stepBtn.disabled = busy || queueLocked || (!state?.chatUrl && !hasImages);
+  stepBtn.addEventListener("click", () => {
+    if (primaryTarget === "archive") { void startNextProduct(); return; }
     goProductionFlowStep(primaryTarget);
   });
-  const secondary = document.createElement("button");
-  secondary.type = "button";
-  secondary.className = "flow-secondary-action";
-  secondary.textContent = "查看商品事实";
-  secondary.addEventListener("click", () => goProductionFlowStep("materials"));
-  actions.append(secondary, primary);
-  console.replaceChildren(text, actions);
+
+  /* 查看商品事实 */
+  const factsBtn = document.createElement("button");
+  factsBtn.type = "button";
+  factsBtn.className = "text-button quick-action-btn";
+  factsBtn.textContent = "查看商品事实";
+  factsBtn.addEventListener("click", () => goProductionFlowStep("materials"));
+
+  /* 选品快捷入口 */
+  const quickActions = document.createElement("div");
+  quickActions.className = "workbench-quick-actions";
+  const radarBtn = document.createElement("button");
+  radarBtn.type = "button";
+  radarBtn.className = "text-button quick-action-btn";
+  radarBtn.textContent = "机会雷达";
+  radarBtn.setAttribute("data-home-view", "selection-radar");
+  radarBtn.addEventListener("click", () => switchView("selection-radar"));
+  const reviewBtn = document.createElement("button");
+  reviewBtn.type = "button";
+  reviewBtn.className = "text-button quick-action-btn";
+  reviewBtn.textContent = "选品复盘";
+  reviewBtn.setAttribute("data-home-view", "operation-review");
+  reviewBtn.addEventListener("click", () => switchView("operation-review"));
+  quickActions.append(radarBtn, reviewBtn);
+
+  /* 上架店小秘（来自上品资料包）：MVP5 完成后出现 */
+  // 稳定性关键：选择器做成 document.body 上的「单例」，任何面板每秒重建都摘不到它，
+  // 因此 <select> 永不被 detach/attach，下拉可稳定展开、不再闪跳。位置每 tick 重新锚定到按钮。
+  let listBtn;
+  if (readyToArchive) {
+    // 确保可用类目 profile 已加载（乳贴/箱包配件）
+    void dxLoadProfiles();
+
+    const profiles = dianxiaomiState.profiles && dianxiaomiState.profiles.length
+      ? dianxiaomiState.profiles
+      : [
+          { key: "ruTie", label: "乳贴", templateProductId: "1005005575013300" },
+          { key: "xiangBao", label: "箱包配件", templateProductId: "1005012741652735" }
+        ];
+    const currentKey = dianxiaomiState.profileKey || "ruTie";
+    const selectedProfile = profiles.find((p) => p.key === currentKey);
+
+    // 单例：只创建一次，挂在 body 上，永不被任何面板重建摘除
+    let dxProfileBar = document.getElementById("dx-console-profile-bar");
+    if (!dxProfileBar) {
+      dxProfileBar = document.createElement("div");
+      dxProfileBar.id = "dx-console-profile-bar";
+      dxProfileBar.className = "dx-console-profile-bar";
+      dxProfileBar.style.position = "fixed";
+      dxProfileBar.style.zIndex = "50";
+      document.body.appendChild(dxProfileBar);
+
+      const dxProfileWrap = document.createElement("div");
+      dxProfileWrap.id = "dx-console-profile-wrap";
+      dxProfileWrap.className = "dx-console-profile-wrap";
+      dxProfileWrap.style.display = "inline-flex";
+      dxProfileWrap.style.alignItems = "center";
+      dxProfileWrap.style.gap = "6px";
+      dxProfileWrap.style.padding = "4px 8px";
+      dxProfileWrap.style.background = "var(--surface, #fff)";
+      dxProfileWrap.style.border = "1px solid var(--border, #ddd)";
+      dxProfileWrap.style.borderRadius = "6px";
+      dxProfileWrap.style.boxShadow = "0 2px 8px rgba(0,0,0,.12)";
+
+      const dxProfileLabel = document.createElement("label");
+      dxProfileLabel.textContent = "上架模板:";
+      dxProfileLabel.style.fontSize = "12px";
+      dxProfileLabel.style.color = "var(--text-secondary)";
+
+      const dxProfileSelect = document.createElement("select");
+      dxProfileSelect.id = "dx-console-profile";
+      dxProfileSelect.className = "dx-console-profile-select";
+      profiles.forEach((p) => {
+        const opt = document.createElement("option");
+        opt.value = p.key;
+        opt.textContent = p.label + " (" + p.templateProductId + ")";
+        dxProfileSelect.appendChild(opt);
+      });
+      dxProfileSelect.value = currentKey;
+      dxProfileSelect.addEventListener("change", (e) => {
+        dianxiaomiState.profileKey = e.target.value;
+        dxLogLine("⋅ 上架模板已切换: " + e.target.value);
+        // 轻量更新按钮 title，不触发全局重绘（避免闪跳）
+        const btn = document.getElementById("dx-console-apply-btn");
+        if (btn) {
+          const sp = profiles.find((pp) => pp.key === e.target.value);
+          btn.title = "把当前产品资料包填入店小秘 ERP 并保存草稿（不发布）。当前模板：" +
+            (sp ? sp.label + " / " + sp.templateProductId : e.target.value);
+        }
+      });
+
+      dxProfileWrap.append(dxProfileLabel, dxProfileSelect);
+      dxProfileBar.appendChild(dxProfileWrap);
+    }
+    else {
+      // 已存在：仅同步选中值（可能从店小秘面板切换过），绝不重建 DOM
+      const existingSelect = dxProfileBar.querySelector("#dx-console-profile");
+      if (existingSelect && existingSelect.value !== currentKey) {
+        existingSelect.value = currentKey;
+      }
+    }
+
+    listBtn = document.createElement("button");
+    listBtn.id = "dx-console-apply-btn";
+    listBtn.type = "button";
+    listBtn.className = "flow-secondary-action dx-console-apply";
+    listBtn.textContent = "上架店小秘（草稿）";
+    listBtn.disabled = busy || queueLocked;
+    listBtn.title = "把当前产品资料包填入店小秘 ERP 并保存草稿（不发布）。当前模板：" +
+      (selectedProfile ? selectedProfile.label + " / " + selectedProfile.templateProductId : currentKey);
+    listBtn.addEventListener("click", () => void listingApplyToDianxiaomi());
+  }
+  const consoleActions = [runAllBtn, stepBtn, factsBtn];
+  if (listBtn) consoleActions.push(listBtn);
+  consoleActions.push(quickActions);
+  actions.append(...consoleActions);
+
+  /* 组装面板 */
+  const leftCol = document.createElement("div");
+  leftCol.className = "workbench-left";
+  leftCol.append(header, modeSwitch, actions);
+  const rightCol = document.createElement("div");
+  rightCol.className = "workbench-right";
+  rightCol.append(metrics, progressWrap);
+  console.replaceChildren(leftCol, rightCol);
+
+  /* 把「上架模板」选择器锚定到「上架店小秘」按钮正下方（仅 MVP5 完成后、控制台可见时显示） */
+  const dxBar = document.getElementById("dx-console-profile-bar");
+  if (dxBar) {
+    if (readyToArchive && console.offsetParent !== null && listBtn) {
+      dxBar.style.display = "block";
+      const dxSel = dxBar.querySelector("#dx-console-profile");
+      // 用户正在操作下拉时本 tick 不重定位，避免抖动/误关下拉
+      if (!(dxSel && document.activeElement === dxSel)) {
+        const r = listBtn.getBoundingClientRect();
+        dxBar.style.top = (r.bottom + 6) + "px";
+        dxBar.style.left = r.left + "px";
+      }
+    }
+    else {
+      dxBar.style.display = "none";
+    }
+  }
 }
 
 function renderVisualReferenceLock(assets) {
@@ -4833,10 +5132,10 @@ function updateListingVisualWorkflowStatus() {
     node.textContent = status[node.dataset.listingVisualStatus] || "Not Started";
   });
   const warnings = {
-    marketAudit: !productFacts,
-    strategy: !state.market_visual_audit,
-    visualPlan: !state.visual_strategy_decision,
-    singlePrompt: !state.visual_plan
+    marketAudit: false,
+    strategy: false,
+    visualPlan: false,
+    singlePrompt: false
   };
   document.querySelectorAll("[data-listing-visual-warning]").forEach((node) => {
     node.classList.toggle("hidden", !warnings[node.dataset.listingVisualWarning]);
@@ -4920,6 +5219,48 @@ function bindListingVisualWorkflow() {
   });
 }
 
+let objectiveInfoSaveTimer = null;
+async function saveObjectiveInfo() {
+  if (!elements.objectiveInfoInput) return;
+  const value = elements.objectiveInfoInput.value;
+  if (elements.objectiveInfoStatus) {
+    elements.objectiveInfoStatus.textContent = "保存中…";
+    elements.objectiveInfoStatus.className = "objective-info-status saving";
+  }
+  try {
+    await request("/api/state/objective-info", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ objectiveInfo: value })
+    });
+    if (elements.objectiveInfoStatus) {
+      elements.objectiveInfoStatus.textContent = "已自动保存";
+      elements.objectiveInfoStatus.className = "objective-info-status saved";
+    }
+  } catch (error) {
+    if (elements.objectiveInfoStatus) {
+      elements.objectiveInfoStatus.textContent = `保存失败：${error.message}`;
+      elements.objectiveInfoStatus.className = "objective-info-status";
+    }
+  }
+}
+function debouncedSaveObjectiveInfo() {
+  if (objectiveInfoSaveTimer) window.clearTimeout(objectiveInfoSaveTimer);
+  if (elements.objectiveInfoStatus) {
+    elements.objectiveInfoStatus.textContent = "待保存";
+    elements.objectiveInfoStatus.className = "objective-info-status";
+  }
+  objectiveInfoSaveTimer = window.setTimeout(() => saveObjectiveInfo(), 600);
+}
+function hydrateObjectiveInfo(state) {
+  if (elements.objectiveInfoInput && !elements.objectiveInfoInput.matches(":focus")) {
+    elements.objectiveInfoInput.value = state.objectiveInfo || "";
+  }
+}
+function bindObjectiveInfo() {
+  elements.objectiveInfoInput?.addEventListener("input", debouncedSaveObjectiveInfo);
+}
+
 function render(payload) {
   latestPayload = payload;
   const {
@@ -4937,6 +5278,7 @@ function render(payload) {
     insertLinerImages = [],
     insertOutputFiles = []
   } = payload;
+  window.latestPrompts = prompts || {};
   const busy = state.running || state.autoRun;
   const imagesLocked = busy || Boolean(state.chatUrl);
   const generatedCount = (state.generatedImageNumbers || []).length;
@@ -4961,6 +5303,15 @@ function render(payload) {
   renderVisualReferenceLock(productVisualAssets);
   renderGenerationQcPanel(state);
   hydrateListingVisualWorkflow(state);
+  hydrateObjectiveInfo(state);
+  /* 每日市场选款设计独立渲染（selection-radar 视图）——与 insertWorkspace 解耦 */
+  renderSelectionRadar(state, busy);
+  /* 标品选品（Bob 选品研究）独立渲染——与内胆包型选品互不干扰 */
+  renderProductSelection(state, busy);
+  /* 店小秘自动化上品（乳贴 v1.0）板块 —— 复用每秒刷新，状态用模块级变量保持 */
+  renderDianxiaomiListing();
+  /* 爆款研究中心 —— 复用每秒刷新，状态用模块级变量保持 */
+  renderResearchCenter();
   if (selectedArchivedProfile) {
     renderProfileDetail(selectedArchivedProfile, true);
     elements.profileWarning.classList.add("hidden");
@@ -4969,6 +5320,11 @@ function render(payload) {
   }
 
   document.body.classList.toggle("insert-mode", insertMode);
+  /* 上品视图内：非 luxury_insert 模式时显示「进入内胆 Listing 设计」入口卡片 */
+  elements.insertListingEntryCard?.classList.toggle(
+    "hidden",
+    !!insertMode
+  );
   const activeViewBeforeRender = activeViewName();
   elements.insertWorkspace.classList.toggle(
     "hidden",
@@ -5191,27 +5547,34 @@ function render(payload) {
   elements.imageUrls.disabled = imagesLocked || queueLocked;
   elements.importUrlsButton.disabled = imagesLocked || queueLocked;
   elements.urlImportPanel.classList.toggle("locked", imagesLocked || queueLocked);
+  elements.objectiveInfoInput.disabled = imagesLocked || queueLocked;
+  elements.objectiveInfoPanel.classList.toggle("locked", imagesLocked || queueLocked);
   elements.clearImagesButton.disabled =
     imagesLocked || queueLocked || availableImages.length === 0;
   elements.imageLockHint.classList.toggle("hidden", !state.chatUrl);
   const canRecoverResearch = isResearchRecoveryState(state);
+  const needsIdentification = !state.chatUrl;
   elements.planningButton.disabled =
     busy ||
     queueLocked ||
     (!canRecoverResearch &&
       (
         (seoOnly ? Boolean(state.researchCompleted) : completedAtLeast(state, "MVP3")) ||
-        !state.chatUrl ||
         !prompts.research.ready ||
         (!seoOnly && !prompts.planning.ready)
       ));
   elements.planningButton.textContent = canRecoverResearch
     ? "从断点继续市场调研"
+    : needsIdentification
+    ? "开始产品识别（前置步骤）"
     : seoOnly
     ? state.researchCompleted
       ? "联网市场调研与 VOC 已完成"
       : "开始联网市场调研与 VOC"
     : "开始市场调研与视觉规划";
+  elements.planningButton.title = needsIdentification
+    ? "尚未建立商品对话，点击后将先完成产品识别，再继续市场调研与视觉规划"
+    : "";
   elements.planningSkipNotice.classList.toggle("hidden", !seoOnly);
   elements.saveResearchPrompt.disabled = busy || queueLocked;
   elements.savePlanningPrompt.disabled = busy || queueLocked;
@@ -5273,7 +5636,6 @@ function render(payload) {
     queueLocked ||
     completedAtLeast(state, "MVP4") ||
     !completedAtLeast(state, "MVP3") ||
-    !state.promptPackValid ||
     !visualReferenceReady;
   elements.imagesButton.textContent =
     seoOnly
@@ -8001,10 +8363,29 @@ function createMarketRadarCandidateCard(candidate, selectedId, busy, bagImages =
     placeholder.textContent = "需要人工上传外包图";
     media.append(placeholder);
   }
+  const titleRow = document.createElement("div");
+  titleRow.className = "radar-card-title-row";
   const title = document.createElement("h5");
   title.textContent = `${candidate.rank}. ${candidate.bagModel}${
     candidate.sizeVersion ? ` ${candidate.sizeVersion}` : ""
   }`;
+  const copyNameBtn = document.createElement("button");
+  copyNameBtn.type = "button";
+  copyNameBtn.className = "radar-copy-name";
+  copyNameBtn.title = "复制品牌包型名称";
+  copyNameBtn.textContent = "复制名称";
+  copyNameBtn.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    const fullName = [
+      candidate.brand || "",
+      candidate.bagModel || "",
+      candidate.sizeVersion || ""
+    ].filter(Boolean).join(" ");
+    const ok = await copyTextToClipboard(fullName);
+    copyNameBtn.textContent = ok ? "已复制" : "复制失败";
+    setTimeout(() => (copyNameBtn.textContent = "复制名称"), 1400);
+  });
+  titleRow.append(title, copyNameBtn);
   const chips = document.createElement("div");
   chips.className = "radar-chips";
   for (const value of [
@@ -8034,18 +8415,20 @@ function createMarketRadarCandidateCard(candidate, selectedId, busy, bagImages =
   }
   const links = document.createElement("div");
   links.className = "radar-links";
-  links.append(
-    createRadarLink(
-      looksLikeImageUrl(candidate.officialFrontImageUrl) ? "查看图片 URL" : "查看回传来源",
-      candidate.officialFrontImageUrl,
-      isHttpUrl(candidate.officialFrontImageUrl)
-    ),
-    createRadarLink(
-      "打开产品页",
-      candidate.officialProductUrl,
-      isHttpUrl(candidate.officialProductUrl)
-    )
-  );
+  const frontImage = candidate.officialFrontImageUrl || "";
+  const frontIsImage = looksLikeImageUrl(frontImage);
+  if (frontIsImage) {
+    links.append(createRadarLink("查看图片 URL", frontImage, true));
+  }
+  if (isHttpUrl(candidate.officialProductUrl)) {
+    links.append(createRadarLink("打开产品页", candidate.officialProductUrl, true));
+  }
+  else if (isHttpUrl(frontImage) && !frontIsImage) {
+    links.append(createRadarLink("查看回传来源", frontImage, true));
+  }
+  else {
+    links.append(createRadarLink("打开产品页", "", false));
+  }
   const button = document.createElement("button");
   button.className = "button secondary";
   button.textContent =
@@ -8058,7 +8441,7 @@ function createMarketRadarCandidateCard(candidate, selectedId, busy, bagImages =
   button.addEventListener("click", () => {
     void selectMarketRadarCandidate(candidate.candidateId, button);
   });
-  card.append(media, title, chips, details, links, button);
+  card.append(media, titleRow, chips, details, links, button);
   return card;
 }
 
@@ -8068,6 +8451,30 @@ function isHttpUrl(value) {
 
 function looksLikeImageUrl(value) {
   return /\.(?:jpe?g|png|webp)(?:[?#].*)?$/i.test(String(value || "").trim());
+}
+
+async function copyTextToClipboard(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  }
+  catch { /* 回退到 execCommand */ }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.append(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    return ok;
+  }
+  catch {
+    return false;
+  }
 }
 
 function isMarketRadarPrefill(insert) {
@@ -8084,6 +8491,561 @@ function createRadarLink(label, url, enabled) {
     link.rel = "noreferrer";
   }
   return link;
+}
+
+/* ── 每日市场选款设计（selection-radar 视图独立渲染） ── */
+
+function renderSelectionRadar(state, busy) {
+  const insert = state.luxuryInsert || {};
+  const candidates = insert.marketRadarCandidates || [];
+  const hasCandidates = candidates.length > 0;
+  const hasResult = Boolean(insert.marketRadarText);
+  const selectedId = insert.selectedMarketRadarCandidateId;
+  const hasSelection = Boolean(selectedId);
+
+  /* ── 结果文本（renderMarketRadarCandidates 不覆盖此项） ── */
+  if (elements.insertMarketRadarBox) {
+    elements.insertMarketRadarBox.classList.toggle("hidden", !hasResult);
+  }
+  if (elements.insertMarketRadarText) {
+    elements.insertMarketRadarText.textContent = insert.marketRadarText || "";
+  }
+
+  /* ── 候选列表 + Meta 信息条（由 renderMarketRadarCandidates 统一渲染） ── */
+  try {
+    renderMarketRadarCandidates(insert, busy, []);
+  } catch (e) {
+    console.error("[selection-radar] renderMarketRadarCandidates 出错:", e);
+  }
+
+  /* ── 运行状态提示 ── */
+  const statusEl = document.getElementById("selectionRadarStatus");
+  if (statusEl) {
+    statusEl.classList.toggle("hidden", !busy);
+    statusEl.textContent = busy ? "雷达运行中…" : "";
+  }
+
+  /* ── 导入 Listing 面板 ── */
+  const importPanel = document.getElementById("selectionRadarImportPanel");
+  const importBtn = document.getElementById("selectionImportToListingButton");
+  const gotoLink = document.getElementById("selectionGotoInsertWorkspaceLink");
+  if (!importPanel || !importBtn) return;
+
+  importPanel.classList.toggle("hidden", !hasCandidates);
+
+  if (hasCandidates && hasSelection) {
+    /* 已有选中候选 → 显示"前往工作台"链接 */
+    importBtn.classList.add("hidden");
+    gotoLink.classList.remove("hidden");
+    const selectedCandidate = candidates.find((c) => c.candidateId === selectedId);
+    const summary = document.getElementById("selectionRadarImportSummary");
+    if (summary && selectedCandidate) {
+      summary.classList.remove("hidden");
+      summary.innerHTML = `<strong>已选候选：</strong>${escapeHtml(selectedCandidate.bagModel || selectedCandidate.candidateId)}（${escapeHtml(selectedCandidate.poolTier || "")}）`;
+    }
+  } else if (hasCandidates) {
+    /* 有候选但未选 → 显示"选中并启动"按钮 */
+    importBtn.classList.remove("hidden");
+    importBtn.disabled = false;
+    importBtn.textContent = "选择一个候选后一键导入 Listing";
+    gotoLink.classList.add("hidden");
+    const summary = document.getElementById("selectionRadarImportSummary");
+    if (summary) summary.classList.add("hidden");
+  } else {
+    importBtn.classList.add("hidden");
+    gotoLink.classList.add("hidden");
+  }
+
+  /* 绑定跳转事件（幂等绑定） */
+  if (gotoLink && !gotoLink.dataset.bound) {
+    gotoLink.dataset.bound = "1";
+    gotoLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      showInsertEditor();
+    });
+  }
+  if (importBtn && !importBtn.dataset.bound) {
+    importBtn.dataset.bound = "1";
+    importBtn.addEventListener("click", () => {
+      if (!selectedId) {
+        alert("请先从上方候选列表中选择一个包型候选。");
+        return;
+      }
+      void importSelectedCandidateToListing(selectedId, importBtn);
+    });
+  }
+}
+
+/* ── 标品选品（Bob 选品研究 v0.1）独立渲染 ── */
+function renderProductSelection(state, busy) {
+  const sel = state.selection || {};
+  const candidates = Array.isArray(sel.candidates) ? sel.candidates : [];
+  const text = sel.text || "";
+  const hasCandidates = candidates.length > 0;
+  const hasResult = Boolean(text);
+  const decided = sel.decided || {};
+  const running = Boolean(sel.running);
+  const evidenceRefs = Array.isArray(sel.evidenceRefs) ? sel.evidenceRefs : [];
+
+  /* 结果文本 */
+  const box = document.getElementById("productSelectionBox");
+  const textEl = document.getElementById("productSelectionText");
+  if (box) box.classList.toggle("hidden", !hasResult);
+  if (textEl) textEl.textContent = text;
+
+  /* Meta 信息条 */
+  const meta = document.getElementById("productSelectionMeta");
+  if (meta) {
+    meta.classList.toggle("hidden", !hasResult && !hasCandidates);
+    if (hasCandidates || hasResult) {
+      const updatedAt = sel.updatedAt ? new Date(sel.updatedAt).toLocaleString() : "未生成";
+      meta.textContent = `候选 ${candidates.length} 个｜更新时间 ${updatedAt}`;
+    }
+  }
+
+  /* 候选列表 */
+  const container = document.getElementById("productSelectionCandidates");
+  if (container) {
+    container.classList.toggle("hidden", !hasCandidates);
+    if (!hasCandidates) {
+      container.replaceChildren();
+    } else {
+      container.replaceChildren(
+        ...candidates.map((candidate) => createProductSelectionCandidateCard(candidate, decided[candidate.candidate_id], running, evidenceRefs))
+      );
+    }
+  }
+
+  /* 运行状态提示 */
+  const statusEl = document.getElementById("productSelectionStatus");
+  if (statusEl) {
+    if (running) {
+      statusEl.classList.remove("hidden");
+      statusEl.style.color = "var(--blue, #0071e3)";
+      statusEl.textContent = "Bob 选品研究中…";
+    } else if (sel.error) {
+      statusEl.classList.remove("hidden");
+      statusEl.style.color = "var(--red, #d00)";
+      statusEl.textContent = `❌ ${sel.error}`;
+    } else if (hasCandidates) {
+      statusEl.classList.remove("hidden");
+      statusEl.style.color = "var(--green, #0a0)";
+      statusEl.textContent = "✅ 选品研究完成，可逐条采纳";
+    } else {
+      statusEl.classList.add("hidden");
+    }
+  }
+}
+
+function createProductSelectionCandidateCard(candidate, decided, running, evidenceRefs = []) {
+  const card = document.createElement("article");
+  card.className = "radar-card-item";
+  const candidateId = candidate.candidate_id || "";
+  const title = candidate.recommended_product_name || candidate.generic_product_name || candidateId;
+  const opportunity = candidate.one_line_opportunity || "";
+  const status = candidate.bob_recommendation_status || "";
+  const totalScore = (candidate.scoring && typeof candidate.scoring.total_score === "number") ? candidate.scoring.total_score : null;
+  const category = candidate.category || "";
+  const imageUrl = candidate.image_url || "";
+  const referenceLinks = Array.isArray(candidate.reference_product_links) ? candidate.reference_product_links : [];
+
+  /* 左侧媒体区：产品图预览（图片直链或产品页都交给后端解析主图） */
+  const media = document.createElement("div");
+  media.className = "radar-card-media";
+  if (isHttpUrl(imageUrl)) {
+    const image = document.createElement("img");
+    image.src = `/api/selection/preview-image?url=${encodeURIComponent(imageUrl)}`;
+    image.alt = title;
+    image.loading = "lazy";
+    image.referrerPolicy = "no-referrer";
+    image.addEventListener("error", () => {
+      const placeholder = document.createElement("div");
+      placeholder.className = "radar-card-placeholder";
+      placeholder.innerHTML = looksLikeImageUrl(imageUrl)
+        ? "<strong>图片直链无法预览</strong><span>请打开来源或人工上传</span>"
+        : "<strong>未能从产品页解析出主图</strong><span>请点开右侧参考链接取图</span>";
+      media.replaceChildren(placeholder);
+    });
+    media.append(image);
+  } else {
+    const placeholder = document.createElement("div");
+    placeholder.className = "radar-card-placeholder";
+    placeholder.textContent = "无产品图，请人工补充";
+    media.append(placeholder);
+  }
+
+  const titleRow = document.createElement("div");
+  titleRow.className = "radar-card-title-row";
+  const h = document.createElement("h5");
+  h.textContent = title;
+  titleRow.append(h);
+
+  const sub = document.createElement("p");
+  sub.className = "radar-card-opportunity";
+  sub.textContent = opportunity || category || "（无一句话机会描述）";
+
+  const chips = document.createElement("div");
+  chips.className = "radar-chips";
+  const chipValues = [status, totalScore !== null ? `Score ${totalScore}` : null, category]
+    .filter(Boolean);
+  for (const value of chipValues) {
+    const chip = document.createElement("span");
+    chip.textContent = value;
+    chips.append(chip);
+  }
+
+  const details = document.createElement("dl");
+  details.className = "radar-details";
+  const rows = [
+    ["目标客户", (candidate.target_customer || []).join("、")],
+    ["客户问题", (candidate.customer_problem || []).slice(0, 3).join("；")],
+    ["使用场景", (candidate.use_scenarios || []).join("、")]
+  ];
+  for (const [label, value] of rows) {
+    const dt = document.createElement("dt");
+    dt.textContent = label;
+    const dd = document.createElement("dd");
+    dd.textContent = value || "未提供";
+    details.append(dt, dd);
+  }
+
+  /* 参考产品链接 */
+  const links = document.createElement("div");
+  links.className = "radar-links";
+  if (referenceLinks.length) {
+    referenceLinks.slice(0, 3).forEach((url, index) => {
+      if (isHttpUrl(url)) {
+        links.append(createRadarLink(`参考链接 ${index + 1}`, url, true));
+      }
+    });
+  } else {
+    links.append(createRadarLink("参考产品链接", "", false));
+  }
+
+  /* 采纳动作区 */
+  const actions = document.createElement("div");
+  actions.className = "row-actions";
+  const decisions = [
+    ["approved_for_development_pool", "采纳进开发池"],
+    ["observe_pool", "观察"],
+    ["rejected", "拒绝"],
+    ["manual_review", "人工复核"],
+    ["blocked_by_risk", "风险拦截"]
+  ];
+  for (const [decision, label] of decisions) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "button secondary";
+    btn.textContent = label;
+    btn.disabled = Boolean(running) || Boolean(decided);
+    if (decided === decision) {
+      btn.classList.add("selected");
+      btn.textContent = `${label} ✓`;
+    }
+    btn.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      await adoptProductSelectionCandidate(candidateId, decision);
+    });
+    actions.append(btn);
+  }
+
+  card.append(media, titleRow, sub, chips, details, links, actions);
+
+  /* ── 新增：可折叠深度分析详情区 ── */
+  const detailPanel = createSelectionDetailPanel(candidate, evidenceRefs);
+  card.append(detailPanel);
+
+  if (decided && !decisions.some(([d]) => d === decided)) {
+    const note = document.createElement("p");
+    note.className = "radar-card-opportunity";
+    note.textContent = `已决策：${decided}`;
+    card.append(note);
+  }
+  return card;
+}
+
+/* 创建标品选品候选卡片的深度分析详情区 */
+/* 跨重渲染保持展开状态：app 每 1s 调一次 refresh() 会重建卡片 DOM，
+   用模块级 Set 记录哪些候选面板是展开的，重建时按状态重新加 is-open，避免「点开又自动收回去」。 */
+const openSelectionDetailIds = new Set();
+
+function createSelectionDetailPanel(candidate, evidenceRefs = []) {
+  const panel = document.createElement("div");
+  panel.className = "selection-detail-panel";
+  const candidateId = candidate.candidate_id || "";
+
+  /* 使用自定义按钮 + CSS 折叠，避免不同浏览器/嵌入环境对 <details> 的默认行为差异导致点不开 */
+  const summary = document.createElement("button");
+  summary.type = "button";
+  summary.className = "selection-detail-summary";
+  summary.textContent = "查看深度分析 / 客户反馈 / 来源";
+  summary.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const open = panel.classList.toggle("is-open");
+    if (candidateId) openSelectionDetailIds[open ? "add" : "delete"](candidateId);
+  });
+  panel.append(summary);
+
+  /* 若该候选面板此前处于展开态，重建后自动恢复（新 DOM 一出生即打开，不闪烁） */
+  if (candidateId && openSelectionDetailIds.has(candidateId)) {
+    panel.classList.add("is-open");
+  }
+
+  const body = document.createElement("div");
+  body.className = "selection-detail-body";
+
+  const demand = candidate.demand_assessment || {};
+  const competition = candidate.competition_assessment || {};
+  const scoring = candidate.scoring || {};
+  const recommendation = candidate.recommendation || {};
+
+  /* 1. 客户真实反馈 */
+  const feedbackItems = Array.isArray(demand.customer_feedback_items) ? demand.customer_feedback_items : [];
+  const reviewSignals = Array.isArray(demand.review_problem_signals) ? demand.review_problem_signals : [];
+  if (feedbackItems.length || reviewSignals.length) {
+    const section = createSelectionDetailSection("客户真实反馈");
+    if (feedbackItems.length) {
+      feedbackItems.forEach((item) => {
+        const row = document.createElement("div");
+        row.className = "selection-detail-feedback";
+        const quote = document.createElement("p");
+        quote.textContent = item.quote_or_summary || item.summary || "（无反馈内容）";
+        const meta = document.createElement("div");
+        meta.className = "selection-detail-feedback-meta";
+        const badges = [item.source_platform, item.sentiment]
+          .filter(Boolean)
+          .map((text) => {
+            const badge = document.createElement("span");
+            badge.className = "selection-sentiment-badge";
+            badge.textContent = text;
+            return badge;
+          });
+        meta.append(...badges);
+        if (isHttpUrl(item.source_url)) {
+          meta.append(createSelectionSourceLink("来源", item.source_url));
+        }
+        if (item.related_problem) {
+          const problem = document.createElement("span");
+          problem.className = "selection-feedback-problem";
+          problem.textContent = `对应问题：${item.related_problem}`;
+          meta.append(problem);
+        }
+        row.append(quote, meta);
+        section.append(row);
+      });
+    } else {
+      reviewSignals.forEach((signal) => {
+        section.append(createSelectionDetailItem(signal));
+      });
+    }
+    body.append(section);
+  }
+
+  /* 2. 需求信号 */
+  const needSignals = Array.isArray(demand.direct_need_signals) ? demand.direct_need_signals : [];
+  const intentSignals = Array.isArray(demand.purchase_intent_signals) ? demand.purchase_intent_signals : [];
+  if (needSignals.length || intentSignals.length) {
+    const section = createSelectionDetailSection("需求信号");
+    if (needSignals.length) {
+      const sub = createSelectionDetailSubsection("直接需求信号");
+      needSignals.forEach((s) => sub.append(createSelectionDetailItem(s)));
+      section.append(sub);
+    }
+    if (intentSignals.length) {
+      const sub = createSelectionDetailSubsection("购买意图信号");
+      intentSignals.forEach((s) => sub.append(createSelectionDetailItem(s)));
+      section.append(sub);
+    }
+    body.append(section);
+  }
+
+  /* 3. 市场深度观点与缺口 */
+  const marketGaps = Array.isArray(competition.market_gaps) ? competition.market_gaps : [];
+  if (competition.market_depth_viewpoint || marketGaps.length || competition.listing_density) {
+    const section = createSelectionDetailSection("市场深度解剖");
+    if (competition.market_depth_viewpoint) {
+      section.append(createSelectionDetailItem(competition.market_depth_viewpoint, "观点"));
+    }
+    if (competition.listing_density) {
+      section.append(createSelectionDetailItem(competition.listing_density, "listing 密度"));
+    }
+    if (marketGaps.length) {
+      const sub = createSelectionDetailSubsection("市场缺口");
+      marketGaps.forEach((gap) => sub.append(createSelectionDetailItem(gap)));
+      section.append(sub);
+    }
+    body.append(section);
+  }
+
+  /* 4. 竞品痛点与缺失功能 */
+  const competitors = Array.isArray(candidate.competitor_set) ? candidate.competitor_set : [];
+  const allComplaints = competitors.flatMap((c) => Array.isArray(c.repeated_complaints) ? c.repeated_complaints : []);
+  const allMissing = competitors.flatMap((c) => Array.isArray(c.missing_features) ? c.missing_features : []);
+  if (allComplaints.length || allMissing.length) {
+    const section = createSelectionDetailSection("竞品痛点与缺失");
+    if (allComplaints.length) {
+      const sub = createSelectionDetailSubsection("反复出现的差评");
+      [...new Set(allComplaints)].forEach((item) => sub.append(createSelectionDetailItem(item)));
+      section.append(sub);
+    }
+    if (allMissing.length) {
+      const sub = createSelectionDetailSubsection("用户期望但缺失的功能");
+      [...new Set(allMissing)].forEach((item) => sub.append(createSelectionDetailItem(item)));
+      section.append(sub);
+    }
+    body.append(section);
+  }
+
+  /* 5. 差异化机会 */
+  const diffs = Array.isArray(candidate.differentiation_opportunities) ? candidate.differentiation_opportunities : [];
+  if (diffs.length) {
+    const section = createSelectionDetailSection("差异化机会");
+    diffs.forEach((diff) => {
+      const row = document.createElement("div");
+      row.className = "selection-diff-row";
+      const title = document.createElement("strong");
+      title.textContent = diff.opportunity || "差异化机会";
+      row.append(title);
+      if (diff.customer_value) {
+        row.append(createSelectionDetailItem(diff.customer_value, "客户价值"));
+      }
+      if (Array.isArray(diff.evidence_basis) && diff.evidence_basis.length) {
+        row.append(createSelectionDetailItem(diff.evidence_basis.join("、"), "证据依据"));
+      }
+      if (diff.risk) {
+        row.append(createSelectionDetailItem(diff.risk, "风险"));
+      }
+      section.append(row);
+    });
+    body.append(section);
+  }
+
+  /* 6. 评分理由 */
+  const scoreReasoning = Array.isArray(scoring.score_reasoning) ? scoring.score_reasoning : [];
+  if (scoreReasoning.length) {
+    const section = createSelectionDetailSection("评分理由");
+    scoreReasoning.forEach((reason) => section.append(createSelectionDetailItem(reason)));
+    body.append(section);
+  }
+
+  /* 7. 推荐/观察理由 */
+  const recReasons = Array.isArray(recommendation.recommendation_reason) ? recommendation.recommendation_reason : [];
+  const observeReasons = Array.isArray(recommendation.observe_reason) ? [recommendation.observe_reason] : [];
+  if (recReasons.length || observeReasons.length || recommendation.next_gate) {
+    const section = createSelectionDetailSection("推荐与下一步");
+    recReasons.forEach((reason) => section.append(createSelectionDetailItem(reason, "推荐理由")));
+    observeReasons.forEach((reason) => section.append(createSelectionDetailItem(reason, "观察理由")));
+    if (recommendation.next_gate) {
+      section.append(createSelectionDetailItem(recommendation.next_gate, "下一验证 Gate"));
+    }
+    body.append(section);
+  }
+
+  /* 8. 证据来源链接 */
+  const candidateRefIds = Array.isArray(candidate.evidence_ref_ids) ? candidate.evidence_ref_ids : [];
+  const relevantRefs = evidenceRefs.filter((ref) => {
+    if (!ref) return false;
+    if (candidateRefIds.length && ref.evidence_ref_id && candidateRefIds.includes(ref.evidence_ref_id)) return true;
+    return false;
+  });
+  if (relevantRefs.length) {
+    const section = createSelectionDetailSection("证据来源");
+    relevantRefs.forEach((ref) => {
+      const row = document.createElement("div");
+      row.className = "selection-source-row";
+      const title = document.createElement("span");
+      title.className = "selection-source-title";
+      title.textContent = `[${ref.evidence_ref_id}] ${ref.source_title || "未命名来源"}`;
+      const platform = document.createElement("span");
+      platform.className = "selection-source-platform";
+      platform.textContent = ref.platform || ref.source_role || "";
+      row.append(title, platform);
+      if (isHttpUrl(ref.source_url)) {
+        row.append(createSelectionSourceLink("访问来源", ref.source_url));
+      }
+      section.append(row);
+    });
+    body.append(section);
+  }
+
+  panel.append(body);
+  return panel;
+}
+
+function createSelectionDetailSection(title) {
+  const section = document.createElement("div");
+  section.className = "selection-detail-section";
+  const h = document.createElement("h6");
+  h.textContent = title;
+  section.append(h);
+  return section;
+}
+
+function createSelectionDetailSubsection(title) {
+  const sub = document.createElement("div");
+  sub.className = "selection-detail-subsection";
+  const h = document.createElement("strong");
+  h.textContent = title;
+  sub.append(h);
+  return sub;
+}
+
+function createSelectionDetailItem(text, label) {
+  const item = document.createElement("p");
+  item.className = "selection-detail-item";
+  item.textContent = label ? `${label}：${text}` : text;
+  return item;
+}
+
+function createSelectionSourceLink(label, url) {
+  const link = document.createElement("a");
+  link.className = "selection-source-link";
+  link.textContent = label;
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "noreferrer";
+  return link;
+}
+
+async function adoptProductSelectionCandidate(candidateId, decision) {
+  try {
+    await request("/api/selection/adopt", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ candidateId, decision })
+    });
+    await refresh();
+  } catch (error) {
+    const errorBox = document.querySelector("#errorBox");
+    if (errorBox) {
+      errorBox.classList.remove("hidden");
+      errorBox.textContent = error.message;
+    }
+  }
+}
+
+async function importSelectedCandidateToListing(candidateId, button) {
+  button.disabled = true;
+  button.textContent = "正在导入…";
+  try {
+    await request("/api/insert/market-radar/select", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ candidateId })
+    });
+    await refreshTwice();
+    /* 导入成功后自动跳转到内胆 Listing 工作台 */
+    showInsertEditor();
+  } catch (error) {
+    const errorBox = document.querySelector("#errorBox");
+    if (errorBox) {
+      errorBox.classList.remove("hidden");
+      errorBox.textContent = error.message;
+    }
+  } finally {
+    button.disabled = false;
+    button.textContent = "选择一个候选后一键导入 Listing";
+  }
 }
 
 function renderInsertWorkflow(
@@ -8137,12 +9099,9 @@ function renderInsertWorkflow(
     : "";
   elements.notebookResultBox.classList.toggle("hidden", !insert.notebookResultText);
   elements.notebookResultText.textContent = insert.notebookResultText || "";
-  elements.insertMarketRadarBox.classList.toggle(
-    "hidden",
-    !insert.marketRadarText
-  );
-  elements.insertMarketRadarText.textContent = insert.marketRadarText || "";
-  renderMarketRadarCandidates(insert, busy, bagImages);
+  /* 注意：雷达渲染（marketRadarBox / marketRadarText / marketRadarCandidates）
+     已迁移至 renderSelectionRadar()，不再在此处重复渲染。
+     returnMarketRadarButton 保留——用户可从 Listing 工作台返回选款池。 */
   if (insert.brand && !elements.insertBrand.matches(":focus")) {
     elements.insertBrand.value = insert.brand;
   }
@@ -8247,6 +9206,7 @@ function renderInsertWorkflow(
 
   elements.insertBagInput.disabled = busy || Boolean(insert.bagFactsConfirmed);
   elements.runInsertMarketRadarButton.disabled = busy;
+  elements.importCurrentChatMarketRadarButton.disabled = busy;
   elements.runInsertMarketRadarButton.textContent =
     busy && state.stage === "INSERT_MARKET_RADAR"
       ? "正在全网搜索包型机会…"
@@ -8299,13 +9259,20 @@ function renderInsertWorkflow(
     !insert.bagFactsConfirmed ||
     (Boolean(insert.notebookResultText) &&
       variants.every((variant) => variant.insertDimensions));
-  elements.runNotebookButton.textContent =
-    insert.notebookResultText &&
-    variants.every((variant) => variant.insertDimensions)
-      ? "内胆方案已自动回填"
-      : insert.notebookResultText
-        ? "重新规划并自动回填"
-        : "使用 NotebookLM 规划内胆";
+  const allVariantsFilled = insert.notebookResultText &&
+    variants.length > 0 &&
+    variants.every((variant) => variant.insertDimensions);
+  elements.runNotebookButton.textContent = allVariantsFilled
+    ? "内胆方案已自动回填"
+    : insert.notebookResultText
+      ? "重新规划并自动回填（会重发 prompt）"
+      : "使用 NotebookLM 规划内胆";
+  // Show re-extract button when result text exists but variants are not yet filled
+  const needsReExtract = insert.notebookResultText && !allVariantsFilled;
+  elements.reExtractNotebookButton.classList.toggle("hidden", !needsReExtract);
+  elements.reExtractNotebookButton.disabled = busy;
+  // Always show import box as fallback when notebook step is active
+  elements.notebookImportBox.classList.toggle("hidden", !insert.bagFactsConfirmed);
   elements.freezeDesignButton.disabled =
     busy || !insert.notebookResultText || Boolean(insert.designFrozen);
   elements.unlockDesignButton.classList.toggle(
@@ -8344,6 +9311,11 @@ function renderInsertWorkflow(
   elements.generateInsertListingButton.textContent = insert.listingContentGenerated
     ? "内胆 Listing 文案已生成"
     : "生成内胆 Listing 文案";
+  elements.importInsertListingContentButton?.classList.toggle(
+    "hidden",
+    generated.size < 7 || Boolean(insert.listingContentGenerated)
+  );
+  elements.importInsertListingContentButton && (elements.importInsertListingContentButton.disabled = busy);
   elements.previewInsertStockSheetButton.disabled =
     busy || !insert.designFrozen;
   elements.archiveInsertButton.disabled =
@@ -8447,6 +9419,8 @@ function createLinerUploadCard(variant, images, busy) {
   const title = document.createElement("strong");
   title.textContent = `${variant.id} · ${variant.label}`;
   const image = images.find((candidate) => candidate.name === variant.linerImageName);
+
+  /* ── 主图区（原有逻辑不变） ── */
   if (image) {
     const previewWrap = document.createElement("div");
     previewWrap.className = "liner-preview";
@@ -8456,8 +9430,8 @@ function createLinerUploadCard(variant, images, busy) {
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "liner-remove-button";
-    remove.textContent = "删除";
-    remove.title = `删除 ${variant.label} 的内胆图片`;
+    remove.textContent = "删除主图";
+    remove.title = `删除 ${variant.label} 的内胆主图`;
     remove.disabled = busy;
     remove.addEventListener("click", () => {
       void removeLinerImage(variant.id, remove);
@@ -8469,6 +9443,8 @@ function createLinerUploadCard(variant, images, busy) {
     placeholder.textContent = "尚未上传对应内胆主图";
     card.append(title, placeholder);
   }
+
+  /* ── 主图上传行（文件 + URL） ── */
   const input = document.createElement("input");
   input.type = "file";
   input.accept = ".jpg,.jpeg,.png,.webp";
@@ -8480,18 +9456,111 @@ function createLinerUploadCard(variant, images, busy) {
   urlRow.className = "liner-url-row";
   const urlInput = document.createElement("input");
   urlInput.type = "url";
-  urlInput.placeholder = "粘贴图片 URL";
+  urlInput.placeholder = "粘贴主图 URL";
   urlInput.disabled = busy;
   const urlButton = document.createElement("button");
   urlButton.type = "button";
   urlButton.className = "button secondary";
-  urlButton.textContent = "导入";
+  urlButton.textContent = "导入主图";
   urlButton.disabled = busy;
   urlButton.addEventListener("click", () => {
     void uploadLinerImageUrl(variant.id, urlInput.value, urlButton);
   });
   urlRow.append(urlInput, urlButton);
   card.append(input, urlRow);
+
+  /* ══════════════════════════════════════
+     细节图区域（新增：多张参考细节图）
+     生图时这些图片会一并传给 AI 作为视觉参考，
+     防止生成的图片与实物不符（货不对板）。
+  ══════════════════════════════════════ */
+
+  const detailNames = variant.linerDetailImageNames || [];
+  const detailImages = detailNames
+    .map((name) => images.find((c) => c.name === name))
+    .filter(Boolean);
+
+  const detailSection = document.createElement("div");
+  detailSection.className = "liner-detail-section";
+
+  /* 细节图标题 + 计数 */
+  const detailHeader = document.createElement("div");
+  detailHeader.className = "liner-detail-header";
+  detailHeader.innerHTML = `<span class="liner-detail-label">📷 细节参考图</span><span class="liner-detail-count">${detailImages.length}/12</span>`;
+
+  /* 已有细节图缩略图网格 */
+  if (detailImages.length > 0) {
+    const thumbGrid = document.createElement("div");
+    thumbGrid.className = "liner-detail-grid";
+    for (const di of detailImages) {
+      const thumb = document.createElement("div");
+      thumb.className = "liner-detail-thumb";
+      const img = document.createElement("img");
+      img.src = di.thumbnailUrl;
+      img.alt = `${variant.label} 细节`;
+      img.loading = "lazy";
+
+      const delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.className = "liner-detail-remove";
+      delBtn.textContent = "×";
+      delBtn.title = "移除此细节图";
+      delBtn.disabled = busy;
+      delBtn.addEventListener("click", () => {
+        void removeLinerDetailImage(variant.id, di.name, delBtn);
+      });
+
+      thumb.append(img, delBtn);
+      thumbGrid.appendChild(thumb);
+    }
+    detailSection.append(detailHeader, thumbGrid);
+  } else {
+    detailSection.appendChild(detailHeader);
+  }
+
+  /* 细节图操作行：多文件上传 + URL 批量导入 */
+  const detailActions = document.createElement("div");
+  detailActions.className = "liner-detail-actions";
+
+  /* 多文件选择 */
+  const detailFileInput = document.createElement("input");
+  detailFileInput.type = "file";
+  detailFileInput.accept = ".jpg,.jpeg,.png,.webp";
+  detailFileInput.multiple = true;
+  detailFileInput.disabled = busy;
+  detailFileInput.setAttribute("aria-label", `为 ${variant.label} 上传细节图`);
+
+  const detailFileBtn = document.createElement("button");
+  detailFileBtn.type = "button";
+  detailFileBtn.className = "button secondary liner-detail-btn";
+  detailFileBtn.textContent = "+ 添加细节图";
+  detailFileBtn.disabled = busy;
+  detailFileBtn.addEventListener("click", () => detailFileInput.click());
+  detailFileInput.addEventListener("change", () => {
+    if (detailFileInput.files?.length) void uploadLinerDetailImages(variant.id, [...detailFileInput.files], detailFileBtn);
+    detailFileInput.value = "";
+  });
+
+  /* URL 批量输入 */
+  const detailUrlInput = document.createElement("input");
+  detailUrlInput.type = "text";
+  detailUrlInput.placeholder = "批量粘贴细节图 URL（每行一个，最多12个）";
+  detailUrlInput.disabled = busy;
+  detailUrlInput.className = "liner-detail-url-input";
+
+  const detailUrlBtn = document.createElement("button");
+  detailUrlBtn.type = "button";
+  detailUrlBtn.className = "button secondary liner-detail-btn";
+  detailUrlBtn.textContent = "URL 导入";
+  detailUrlBtn.disabled = busy;
+  detailUrlBtn.addEventListener("click", () => {
+    void uploadLinerDetailImageUrls(variant.id, detailUrlInput.value, detailUrlBtn);
+  });
+
+  detailActions.append(detailFileBtn, detailUrlInput, detailUrlBtn);
+  detailSection.appendChild(detailActions);
+  card.appendChild(detailSection);
+
   return card;
 }
 
@@ -8563,6 +9632,1282 @@ async function clearImages() {
     elements.errorBox.classList.remove("hidden");
     elements.errorBox.textContent = error.message;
   }
+}
+
+/* ===== 店小秘自动化上品（乳贴 v1.0）板板块 ===== */
+const dianxiaomiState = {
+  status: "就绪",
+  statusKind: "",
+  log: [],
+  busy: false,
+  scrollTop: 0,
+  facts: "",        // 提取/编辑后的产品事实 JSON 文本（模块级保持，防秒级刷新丢编辑）
+  uploaded: "",      // 上传图片结果信息
+  imageUrls: "",     // URL 输入内容（模块级保持）
+  uploadTab: "file", // "file" | "url"
+  previews: [],      // 已上传产品图预览列表 [{name, size, url}]
+  // SKU 规划（调研前手动填，存模块级防每秒刷新丢失）
+  skuColors: "",     // 颜色输入框内容（逗号分隔）
+  skuSizes: "One Size (One Size)", // 尺寸默认 = One Size（用户要求），逗号分隔
+  skuDefaultPrice: "",
+  skuDefaultStock: "",
+  skuDefaultWeight: "",
+  skuMatrix: null,   // 生成后的组合表 [{color,size,price,stock,weight,barcode,image,customName}]
+  skuColorImages: {},// 按颜色共用图 {color: filename}
+  skuColorCustomNames: {},// 颜色自定义名（别名）{color: 自定义名}，仅用于本系统 SKU 标签/文案
+  skuSourceLoaded: false,
+  // listing 资料就绪状态（SOP 守卫用，节流查询避免每秒刷新打爆接口）
+  factsStatus: null,       // {ready, missing, imageCount, hasVariants, variantsCount}
+  factsStatusCheckedAt: 0,
+  factsStatusLoading: false,
+  // 店小秘类目 profile（多类目：ruTie 乳贴 / xiangBao 箱包配件）
+  profiles: [],            // 从 /api/dianxiaomi/profiles 拉取
+  profileKey: "ruTie",     // 当前选中类目（模块级保持，防秒级刷新丢失）
+  profilesLoaded: false
+};
+
+// 拉取可用类目 profile（箱包配件/乳贴），用于类目切换
+async function dxLoadProfiles() {
+  if (dianxiaomiState.profilesLoaded) return;
+  try {
+    const body = await request("/api/dianxiaomi/profiles");
+    if (body && Array.isArray(body.profiles)) {
+      dianxiaomiState.profiles = body.profiles;
+      // 若当前 profileKey 不在列表中（例如首次开放箱包），保持默认 ruTie
+      if (!body.profiles.find((p) => p.key === dianxiaomiState.profileKey)) {
+        dianxiaomiState.profileKey = body.profiles[0] ? body.profiles[0].key : "ruTie";
+      }
+      dianxiaomiState.profilesLoaded = true;
+      renderDianxiaomiListing();
+    }
+  }
+  catch (e) {
+    dianxiaomiState.profiles = [];
+  }
+}
+
+function dxLogLine(text) {
+  dianxiaomiState.log.unshift(typeof text === "string" ? text : JSON.stringify(text, null, 2));
+  if (dianxiaomiState.log.length > 200) dianxiaomiState.log.length = 200;
+}
+function dxSetStatus(text, kind) {
+  dianxiaomiState.status = text;
+  dianxiaomiState.statusKind = kind || "";
+}
+function esc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/* 拉取已上传产品图列表 → 填入预览网格 */
+async function dxRefreshPreview() {
+  try {
+    const body = await request("/api/dianxiaomi/product-images");
+    dianxiaomiState.previews = (body.images || []).map((img) => ({
+      name: img.name,
+      size: img.size,
+      url: img.url
+    }));
+  } catch (_e) {
+    /* 静默失败，预览非关键路径 */
+    dianxiaomiState.previews = [];
+  }
+}
+
+/* ===== SKU 规划（调研前手动填，Step 2.5）===== */
+function applySkuDefaults() {
+  if (!dianxiaomiState.skuMatrix) return;
+  const p = dianxiaomiState.skuDefaultPrice;
+  const s = dianxiaomiState.skuDefaultStock;
+  const w = dianxiaomiState.skuDefaultWeight;
+  dianxiaomiState.skuMatrix.forEach((m) => {
+    if (!m._priceEdited) m.price = p;
+    if (!m._stockEdited) m.stock = s;
+    if (!m._weightEdited) m.weight = w;
+  });
+}
+
+function dxGenerateSkuMatrix() {
+  const colors = dianxiaomiState.skuColors.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+  const sizes = dianxiaomiState.skuSizes.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+  if (!colors.length || !sizes.length) {
+    dxSetStatus("请先填颜色和尺寸（逗号分隔）", "err");
+    dxLogLine("✗ 生成组合表失败：颜色或尺寸为空");
+    renderDianxiaomiListing();
+    return;
+  }
+  const dp = dianxiaomiState.skuDefaultPrice;
+  const ds = dianxiaomiState.skuDefaultStock;
+  const dw = dianxiaomiState.skuDefaultWeight;
+  const seen = new Set();
+  const matrix = [];
+  colors.forEach((c) => {
+    sizes.forEach((s) => {
+      const key = c + "|" + s;
+      if (seen.has(key)) return;
+      seen.add(key);
+      matrix.push({
+        color: c, size: s,
+        price: dp, stock: ds, weight: dw,
+        barcode: "", sku: "", image: dianxiaomiState.skuColorImages[c] || "",
+        customName: dianxiaomiState.skuColorCustomNames[c] || ""
+      });
+    });
+  });
+  const firstColor = {};
+  matrix.forEach((m) => {
+    if (!(m.color in firstColor)) { firstColor[m.color] = true; m.firstOfColor = true; }
+    else { m.firstOfColor = false; }
+  });
+  dianxiaomiState.skuMatrix = matrix;
+  dxSetStatus("已生成 " + matrix.length + " 个组合", "ok");
+  dxLogLine("✓ 生成组合表: " + colors.length + " 色 × " + sizes.length + " 尺寸 = " + matrix.length + " 组合");
+  renderDianxiaomiListing();
+}
+
+async function dxLoadSourceVariants() {
+  if (dianxiaomiState.busy) return;
+  dianxiaomiState.busy = true;
+  dxSetStatus("正在载入源产品变种…", "");
+  renderDianxiaomiListing();
+  try {
+    const body = await request("/api/dianxiaomi/source-variants");
+    if (body.colors && body.colors.length) dianxiaomiState.skuColors = body.colors.join(", ");
+    // 仅当用户未手动设尺寸时才用源产品尺寸覆盖（保留用户/默认的 One Size 选择）
+    if (body.sizes && body.sizes.length && !dianxiaomiState.skuSizes.trim()) dianxiaomiState.skuSizes = body.sizes.join(", ");
+    dianxiaomiState.skuSourceLoaded = true;
+    dxSetStatus("已载入源产品变种", "ok");
+    dxLogLine("✓ 载入源产品变种: 颜色=" + (body.colors || []).join("/") + " 尺寸=" + (body.sizes || []).join("/"));
+  } catch (e) {
+    dxSetStatus("载入失败: " + e.message, "err");
+    dxLogLine("✗ 载入源产品变种失败: " + e.message);
+  } finally {
+    dianxiaomiState.busy = false;
+    renderDianxiaomiListing();
+  }
+}
+
+async function dxSaveVariants() {
+  if (dianxiaomiState.busy) return;
+  if (!dianxiaomiState.skuMatrix || !dianxiaomiState.skuMatrix.length) {
+    dxSetStatus("请先生成组合表", "err");
+    renderDianxiaomiListing();
+    return;
+  }
+  dianxiaomiState.busy = true;
+  dxSetStatus("保存 SKU 规划…", "");
+  renderDianxiaomiListing();
+  try {
+    const colorImages = {};
+    dianxiaomiState.skuMatrix.forEach((m) => { if (m.firstOfColor) colorImages[m.color] = m.image; });
+    const variants = {
+      colors: dianxiaomiState.skuColors.split(/[,，]/).map((s) => s.trim()).filter(Boolean),
+      sizes: dianxiaomiState.skuSizes.split(/[,，]/).map((s) => s.trim()).filter(Boolean),
+      defaultPrice: dianxiaomiState.skuDefaultPrice,
+      defaultStock: dianxiaomiState.skuDefaultStock,
+      defaultWeight: dianxiaomiState.skuDefaultWeight,
+      colorImages,
+      colorCustomNames: dianxiaomiState.skuColorCustomNames,
+      matrix: dianxiaomiState.skuMatrix.map((m) => ({
+        color: m.color, size: m.size, price: m.price, stock: m.stock,
+        weight: m.weight, barcode: m.barcode, sku: m.sku, image: m.image,
+        customName: m.customName || dianxiaomiState.skuColorCustomNames[m.color] || ""
+      }))
+    };
+    const body = await request("/api/dianxiaomi/save-variants", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ variants })
+    });
+    dxSetStatus("SKU 规划已保存（" + variants.matrix.length + " 组合）", "ok");
+    dxLogLine("✓ SKU 规划已保存: " + (body.note || ""));
+  } catch (e) {
+    dxSetStatus("保存失败: " + e.message, "err");
+    dxLogLine("✗ 保存 SKU 规划失败: " + e.message);
+  } finally {
+    dianxiaomiState.busy = false;
+    renderDianxiaomiListing();
+  }
+}
+
+async function dxReferenceFill() {
+  if (dianxiaomiState.busy) return;
+  const input = document.getElementById("dx-tpl");
+  const id = (input && input.value && input.value.trim()) || "1005005575013300";
+  const psel = document.getElementById("dx-profile");
+  const profileKey = (psel && psel.value) || dianxiaomiState.profileKey;
+  dianxiaomiState.profileKey = profileKey;
+  dianxiaomiState.busy = true;
+  dxSetStatus("引用并填固定字段中…", "busy");
+  dxLogLine("→ POST /api/dianxiaomi/reference-fill  profile=" + profileKey + "  templateId=" + id);
+  renderDianxiaomiListing();
+  try {
+    const body = await request("/api/dianxiaomi/reference-fill", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ templateId: id, profileKey })
+    });
+    dxLogLine("✓ 引用成功 → " + (body.reference && body.reference.url ? body.reference.url : JSON.stringify(body.reference)));
+    dxLogLine("✓ 已填固定字段: " + JSON.stringify(body.filled || {}));
+    dxSetStatus("引用并填固定字段完成", "ok");
+  } catch (e) {
+    dxLogLine("✗ 失败: " + e.message);
+    dxSetStatus("失败: " + e.message, "err");
+  } finally {
+    dianxiaomiState.busy = false;
+    renderDianxiaomiListing();
+  }
+}
+
+async function dxSave() {
+  if (dianxiaomiState.busy) return;
+  dianxiaomiState.busy = true;
+  dxSetStatus("保存中（不发布）…", "busy");
+  dxLogLine("→ POST /api/dianxiaomi/save");
+  renderDianxiaomiListing();
+  try {
+    const body = await request("/api/dianxiaomi/save", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({})
+    });
+    dxLogLine("✓ 已点击保存按钮: " + (body.clicked || JSON.stringify(body)));
+    if (body.level === "err") {
+      dxLogLine("✗ 保存未通过校验: " + (body.message || ""));
+      dxSetStatus("保存失败: " + (body.message || "校验未通过"), "err");
+    } else if (body.level === "ok") {
+      dxLogLine("✓ 保存成功: " + (body.message || ""));
+      dxSetStatus("保存成功（草稿未发布）", "ok");
+    } else {
+      dxLogLine("⚠️ 已点击保存，未捕获明确结果: " + (body.message || ""));
+      dxSetStatus("已点击保存，请人工确认草稿", "busy");
+    }
+  } catch (e) {
+    dxLogLine("✗ 失败: " + e.message);
+    dxSetStatus("失败: " + e.message, "err");
+  } finally {
+    dianxiaomiState.busy = false;
+    renderDianxiaomiListing();
+  }
+}
+
+async function dxUploadImages(files) {
+  if (dianxiaomiState.busy) return;
+  if (!files || !files.length) {
+    dxSetStatus("请先选择产品图", "err");
+    renderDianxiaomiListing();
+    return;
+  }
+  dianxiaomiState.busy = true;
+  dxSetStatus("上传图片中…", "busy");
+  dxLogLine("→ POST /api/dianxiaomi/upload-images (" + files.length + " 张)");
+  renderDianxiaomiListing();
+  try {
+    const fd = new FormData();
+    for (const f of files) fd.append("images", f);
+    const body = await request("/api/dianxiaomi/upload-images", { method: "POST", body: fd });
+    dianxiaomiState.uploaded = "已上传: " + (body.saved || []).join(", ");
+    dxLogLine("✓ 上传成功: " + (body.saved || []).join(", "));
+    dxSetStatus("图片已上传，可点提取事实", "ok");
+    await dxRefreshPreview();
+  } catch (e) {
+    dxLogLine("✗ 上传失败: " + e.message);
+    dxSetStatus("上传失败: " + e.message, "err");
+  } finally {
+    dianxiaomiState.busy = false;
+    renderDianxiaomiListing();
+  }
+}
+
+async function dxUploadImageUrls(urlText) {
+  if (dianxiaomiState.busy) return;
+  const trimmed = (urlText || "").trim();
+  if (!trimmed) {
+    dxSetStatus("请输入至少一个图片 URL", "err");
+    renderDianxiaomiListing();
+    return;
+  }
+  dianxiaomiState.busy = true;
+  dxSetStatus("从 URL 下载图片中…", "busy");
+  dxLogLine("→ POST /api/dianxiaomi/upload-image-urls");
+  renderDianxiaomiListing();
+  try {
+    const body = await request("/api/dianxiaomi/upload-image-urls", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ urls: trimmed })
+    });
+    const parts = [];
+    if (body.saved && body.saved.length) parts.push("下载成功: " + body.saved.join(", "));
+    if (body.skipped && body.skipped.length) parts.push("跳过重复: " + body.skipped.join(", "));
+    if (body.rejected && body.rejected.length) parts.push("失败: " + body.rejected.join(", "));
+    dianxiaomiState.uploaded = parts.join(" | ") || "无结果";
+    dxLogLine("✓ URL 导入完成: " + (body.totalSaved || 0) + " 张成功" + (body.rejected && body.rejected.length ? ", " + body.rejected.length + " 失败" : ""));
+    dxSetStatus("URL 图片已导入，可点提取事实", "ok");
+    await dxRefreshPreview();
+  } catch (e) {
+    dxLogLine("✗ URL 导入失败: " + e.message);
+    dxSetStatus("导入失败: " + e.message, "err");
+  } finally {
+    dianxiaomiState.busy = false;
+    renderDianxiaomiListing();
+  }
+}
+
+async function dxExtractFacts() {
+  if (dianxiaomiState.busy) return;
+  dianxiaomiState.busy = true;
+  dxSetStatus("AI 提取产品事实中（需 ChatGPT 登录）…", "busy");
+  dxLogLine("→ POST /api/dianxiaomi/extract-facts");
+  renderDianxiaomiListing();
+  try {
+    const body = await request("/api/dianxiaomi/extract-facts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}"
+    });
+    dianxiaomiState.facts = JSON.stringify(body.fact, null, 2);
+    dxLogLine("✓ 提取完成" + (body.missing && body.missing.length ? " ⚠️缺失:" + body.missing.join(",") : ""));
+    dxSetStatus("事实已提取，可编辑后点③c应用", "ok");
+  } catch (e) {
+    dxLogLine("✗ 提取失败: " + e.message);
+    dxSetStatus("提取失败: " + e.message, "err");
+  } finally {
+    dianxiaomiState.busy = false;
+    renderDianxiaomiListing();
+  }
+}
+
+async function dxApplyFacts(factsText) {
+  if (dianxiaomiState.busy) return;
+  let parsed;
+  try {
+    parsed = JSON.parse(factsText || "{}");
+  } catch (e) {
+    dxSetStatus("facts JSON 解析失败: " + e.message, "err");
+    renderDianxiaomiListing();
+    return;
+  }
+  dianxiaomiState.busy = true;
+  dxSetStatus("应用事实覆盖表单中（需已引用并打开表单）…", "busy");
+  dxLogLine("→ POST /api/dianxiaomi/apply-facts");
+  renderDianxiaomiListing();
+  try {
+    const body = await request("/api/dianxiaomi/apply-facts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ facts: parsed })
+    });
+    dxLogLine("✓ 应用结果: " + JSON.stringify(body.applied || body));
+    dxSetStatus("已覆盖标题/描述（品牌/材质下一步增强）", "ok");
+  } catch (e) {
+    dxLogLine("✗ 应用失败: " + e.message);
+    dxSetStatus("应用失败: " + e.message, "err");
+  } finally {
+    dianxiaomiState.busy = false;
+    renderDianxiaomiListing();
+  }
+}
+
+async function dxCheckFactsStatus() {
+  const now = Date.now();
+  // 节流：10s 内不重复查询（render 每秒跑一次）
+  if (dianxiaomiState.factsStatusLoading) return;
+  if (now - dianxiaomiState.factsStatusCheckedAt < 10000 && dianxiaomiState.factsStatus) return;
+  dianxiaomiState.factsStatusLoading = true;
+  try {
+    const body = await request("/api/dianxiaomi/facts-status");
+    dianxiaomiState.factsStatus = body;
+    dianxiaomiState.factsStatusCheckedAt = Date.now();
+  }
+  catch (e) {
+    dianxiaomiState.factsStatus = null;
+  }
+  finally {
+    dianxiaomiState.factsStatusLoading = false;
+    renderDianxiaomiListing();
+  }
+}
+
+async function dxReferenceApply() {
+  if (dianxiaomiState.busy) return;
+  const input = document.getElementById("dx-tpl");
+  const id = (input && input.value && input.value.trim()) || "1005005575013300";
+  const psel = document.getElementById("dx-profile");
+  const profileKey = (psel && psel.value) || dianxiaomiState.profileKey;
+  dianxiaomiState.profileKey = profileKey;
+  dianxiaomiState.busy = true;
+  dxSetStatus("推荐流程：引用源产品→覆盖资料文档→保存中…", "busy");
+  dxLogLine("→ POST /api/dianxiaomi/reference-apply  profile=" + profileKey + "  templateId=" + id);
+  renderDianxiaomiListing();
+  try {
+    const body = await request("/api/dianxiaomi/reference-apply", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ templateId: id, profileKey })
+    });
+    // SOP 守卫：listing 资料未就绪，拒绝上架
+    if (body && body.step === "facts-incomplete") {
+      dxLogLine("✗ 上架被拦截: " + (body.message || ""));
+      dxSetStatus("未就绪：" + (body.message || "请先跑完 listing"), "err");
+      dianxiaomiState.busy = false;
+      renderDianxiaomiListing();
+      return;
+    }
+    const ref = body.reference || {};
+    dxLogLine("✓ 引用成功 → " + (ref.url || ""));
+    dxLogLine("✓ 固定字段: " + JSON.stringify(body.fixed || {}));
+    if (Array.isArray(body.applied)) {
+      for (const a of body.applied) {
+        const tag = a.ok ? "✓" : "⚠";
+        dxLogLine(tag + " " + (a.field || "?") + (a.value !== undefined ? " = " + a.value : "") + (a.via ? " (" + a.via + ")" : "") + (a.note ? " " + a.note : "") + (a.reason ? " reason:" + a.reason : ""));
+      }
+    }
+    const sv = body.saved || {};
+    if (sv.level === "err") {
+      dxLogLine("✗ 保存未通过校验: " + (sv.message || ""));
+      dxSetStatus("推荐流程完成，但保存失败: " + (sv.message || "校验未通过"), "err");
+    } else if (sv.level === "ok") {
+      dxLogLine("✓ 保存成功: " + (sv.message || ""));
+      dxSetStatus("推荐流程完成：草稿保存成功（未发布）", "ok");
+    } else {
+      dxLogLine("✓ 已保存草稿: " + JSON.stringify(sv));
+      dxSetStatus("推荐流程完成：草稿已保存（未发布）", "ok");
+    }
+  } catch (e) {
+    dxLogLine("✗ 失败: " + e.message);
+    dxSetStatus("失败: " + e.message, "err");
+  } finally {
+    dianxiaomiState.busy = false;
+    renderDianxiaomiListing();
+  }
+}
+
+// 从上品控制台「上架店小秘（草稿）」按钮进入：拉取当前产品资料包 → 引用模板 → 填事实 → 存草稿。
+// 复用与 dxReferenceApply 相同的后端链路，仅 facts 来源改为 GET /api/product/facts。
+async function listingApplyToDianxiaomi() {
+  if (dianxiaomiState.busy) return;
+  let factsBody;
+  try {
+    factsBody = await request("/api/product/facts");
+  }
+  catch (e) {
+    window.alert("读取产品资料包失败：" + e.message);
+    return;
+  }
+  if (!factsBody || !factsBody.ready) {
+    const miss = factsBody && Array.isArray(factsBody.missing) && factsBody.missing.length
+      ? factsBody.missing.join("、")
+      : "请先完成 Listing 并生成 product-facts.json";
+    window.alert("产品资料包尚未就绪（缺少：" + miss + "）");
+    return;
+  }
+  // 解析类目 profile：优先取上品控制台专用下拉 dx-console-profile，
+  // 其次取店小秘面板下拉 dx-profile，最后回退到模块级持久值/默认 ruTie。
+  const consolePsel = document.getElementById("dx-console-profile");
+  const panelPsel = document.getElementById("dx-profile");
+  const profileKey = (consolePsel && consolePsel.value) ||
+    (panelPsel && panelPsel.value) ||
+    dianxiaomiState.profileKey || "ruTie";
+  dianxiaomiState.profileKey = profileKey;
+  // 安全确认：展示将引用的类目 + 模板，避免误用错类目模板
+  let profiles = [];
+  try {
+    const pb = await request("/api/dianxiaomi/profiles");
+    profiles = (pb && pb.profiles) || [];
+  }
+  catch (_e) { /* 忽略，走兜底 */ }
+  const profile = profiles.find((p) => p.key === profileKey) || profiles[0];
+  const templateId = profile ? profile.templateProductId : "1005005575013300";
+  const confirmed = window.confirm(
+    "即将上架到店小秘：\n类目：" + (profile ? profile.label : profileKey) +
+    "\n模板产品ID：" + templateId +
+    "\n\n确认引用该模板并把产品资料包填入店小秘 ERP（仅保存草稿，不发布）？"
+  );
+  if (!confirmed) return;
+  // 切到店小秘视图以展示完整日志
+  switchView("agent-dianxiaomi");
+  dianxiaomiState.busy = true;
+  dxSetStatus("引用源产品→覆盖资料文档→保存中…", "busy");
+  dxLogLine("→ 上架店小秘（来自上品资料包） profile=" + profileKey + " template=" + templateId);
+  renderDianxiaomiListing();
+  try {
+    const body = await request("/api/dianxiaomi/reference-apply", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ profileKey, facts: factsBody.facts })
+    });
+    if (body && body.step === "facts-incomplete") {
+      dxLogLine("✗ 上架被拦截: " + (body.message || ""));
+      dxSetStatus("未就绪：" + (body.message || "请先跑完 listing"), "err");
+      dianxiaomiState.busy = false;
+      renderDianxiaomiListing();
+      return;
+    }
+    const ref = body.reference || {};
+    dxLogLine("✓ 引用成功 → " + (ref.url || ""));
+    dxLogLine("✓ 固定字段: " + JSON.stringify(body.fixed || {}));
+    if (Array.isArray(body.applied)) {
+      for (const a of body.applied) {
+        const tag = a.ok ? "✓" : "⚠";
+        dxLogLine(tag + " " + (a.field || "?") + (a.value !== undefined ? " = " + a.value : "") + (a.via ? " (" + a.via + ")" : "") + (a.note ? " " + a.note : "") + (a.reason ? " reason:" + a.reason : ""));
+      }
+    }
+    const sv = body.saved || {};
+    if (sv.level === "err") {
+      dxLogLine("✗ 保存未通过校验: " + (sv.message || ""));
+      dxSetStatus("推荐流程完成，但保存失败: " + (sv.message || "校验未通过"), "err");
+    }
+    else {
+      dxLogLine("✓ 已保存草稿: " + JSON.stringify(sv));
+      dxSetStatus("推荐流程完成：草稿已保存（未发布）", "ok");
+    }
+  }
+  catch (e) {
+    dxLogLine("✗ 失败: " + e.message);
+    dxSetStatus("失败: " + e.message, "err");
+  }
+  finally {
+    dianxiaomiState.busy = false;
+    renderDianxiaomiListing();
+  }
+}
+
+function renderDianxiaomiListing() {
+  const root = document.getElementById("dianxiaomi-root");
+  if (!root) return;
+  // 重建前记录焦点元素 + 光标位置（防每秒刷新丢失焦点 → 无法连续输入）
+  const active = document.activeElement;
+  const focusId = active && active.id ? active.id : null;
+  const selStart = (active && "selectionStart" in active && typeof active.selectionStart === "number") ? active.selectionStart : null;
+  const selEnd = (active && "selectionEnd" in active && typeof active.selectionEnd === "number") ? active.selectionEnd : null;
+  const prevLog = document.getElementById("dx-log");
+  dianxiaomiState.scrollTop = prevLog ? prevLog.scrollTop : 0;
+  const t = dianxiaomiState.uploadTab;
+  root.innerHTML = `
+    <div class="dx-board">
+      <!-- 顶部流程概览 -->
+      <div class="dx-overview">
+        <div class="dx-overview-icon">⚡</div>
+        <div class="dx-overview-text">
+          <b>推荐路径</b>：先在上品 listing 跑完资料 → 一键导入店小秘并上架
+          <span class="dx-overview-sub">固定：洛慈全托管 / 国内履约 / 内衣配件(乳贴)</span>
+        </div>
+      </div>
+
+      <!-- listing 资料就绪状态（SOP 守卫可视化） -->
+      ${(() => {
+        const fs = dianxiaomiState.factsStatus;
+        if (!fs) return `<div style="padding:8px 12px;border-radius:8px;font-size:12px;background:#f1f3f5;color:#5f5e5a;border:1px solid #d0d7de;margin-bottom:12px">listing 资料状态：检测中…</div>`;
+        if (fs.ready) return `<div style="padding:8px 12px;border-radius:8px;font-size:12px;background:#e6f7ed;color:#173404;border:1px solid #9adcb8;margin-bottom:12px">✓ listing 资料已就绪（主图 ${fs.imageCount} 张${fs.hasVariants ? ` / 变种 ${fs.variantsCount} 组` : ""}）→ 可直接上架</div>`;
+        return `<div style="padding:8px 12px;border-radius:8px;font-size:12px;background:#fbe9e9;color:#791f1f;border:1px solid #f3a3a3;margin-bottom:12px">✗ listing 资料未就绪（缺：${fs.missing.join("、")}）→ 请先在上品 listing 跑完资料再上架</div>`;
+      })()}
+
+      <!-- Step 1: 引用 + 执行 -->
+      <div class="dx-card dx-card-primary">
+        <div class="dx-card-header">
+          <span class="dx-step-num">1</span>
+          <span class="dx-card-title">引用 & 执行</span>
+        </div>
+        <div class="dx-card-body">
+          <div class="dx-field">
+            <label for="dx-profile">类目</label>
+            <select id="dx-profile">
+              ${(dianxiaomiState.profiles && dianxiaomiState.profiles.length) ? dianxiaomiState.profiles.map((p) => `<option value="${p.key}" ${p.key === dianxiaomiState.profileKey ? "selected" : ""}>${p.label}</option>`).join("") : `<option value="ruTie" selected>乳贴</option>`}
+            </select>
+          </div>
+          <div class="dx-field">
+            <label for="dx-tpl">引用产品 ID</label>
+            <input id="dx-tpl" value="${dianxiaomiState.profileKey === "xiangBao" ? "1005012741652735" : "1005005575013300"}" placeholder="引用模板产品ID" />
+          </div>
+          <div class="dx-btn-group">
+            <button id="dx-refapply" class="dx-btn primary" ${dianxiaomiState.busy ? "disabled" : ""}>
+              <span class="dx-btn-icon">★</span> 从 listing 导入并上架
+            </button>
+            <button id="dx-refill" class="dx-btn" ${dianxiaomiState.busy ? "disabled" : ""}>仅引用+填固定字段</button>
+            <button id="dx-save" class="dx-btn ghost" ${dianxiaomiState.busy ? "disabled" : ""}>仅保存</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: 产品资料 -->
+      <div class="dx-card">
+        <div class="dx-card-header">
+          <span class="dx-step-num">2</span>
+          <span class="dx-card-title">产品资料（图片 + AI 事实）</span>
+        </div>
+        <div class="dx-card-body">
+          <!-- 上传方式切换 -->
+          <div class="dx-tabs" role="tablist">
+            <button class="dx-tab ${t === "file" ? "active" : ""}" data-tab="file" role="tab" aria-selected="${t === "file"}">📁 本地文件</button>
+            <button class="dx-tab ${t === "url" ? "active" : ""}" data-tab="url" role="tab" aria-selected="${t === "url"}">🔗 图片 URL</button>
+          </div>
+          <!-- 文件上传面板 -->
+          <div class="dx-tab-panel ${t === "file" ? "visible" : ""}" data-panel="file">
+            <div class="dx-field">
+              <label for="dx-imgs">选择产品图（主图 / 详情，可多选）</label>
+              <div class="dx-file-wrapper">
+                <input type="file" id="dx-imgs" multiple accept="image/*" />
+                <span class="dx-file-hint">支持 JPG / PNG / WEBP，最多 12 张</span>
+              </div>
+            </div>
+            <button id="dx-upload" class="dx-btn ${dianxiaomiState.busy ? "disabled" : ""}">上传图片</button>
+          </div>
+          <!-- URL 上传面板 -->
+          <div class="dx-tab-panel ${t === "url" ? "visible" : ""}" data-panel="url">
+            <div class="dx-field">
+              <label for="dx-urls">图片 URL（每行一个，或逗号分隔）</label>
+              <textarea id="dx-urls" class="dx-url-input" rows="3" placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.png"></textarea>
+            </div>
+            <button id="dx-upload-url" class="dx-btn ${dianxiaomiState.busy ? "disabled" : ""}">从 URL 下载并导入</button>
+          </div>
+          <!-- 上传结果 + 预览网格 -->
+          <div id="dx-uploaded" class="dx-uploaded">${dianxiaomiState.uploaded}</div>
+          ${dianxiaomiState.previews.length ? `
+          <div class="dx-preview-grid" id="dx-preview-grid">
+            <div class="dx-preview-label">🖼️ 已导入产品图（${dianxiaomiState.previews.length} 张）</div>
+            <div class="dx-preview-thumbs">
+              ${dianxiaomiState.previews.map((p, i) => `
+                <div class="dx-thumb" title="${p.name} (${(p.size / 1024).toFixed(1)} KB)">
+                  <img src="${p.url}" alt="${p.name}" loading="lazy" onerror="this.parentElement.classList.add('broken')" />
+                  <span class="dx-thumb-index">#${i + 1}</span>
+                  <span class="dx-thumb-name">${p.name.length > 16 ? p.name.slice(0, 14) + "…" : p.name}</span>
+                </div>
+              `).join("")}
+            </div>
+          </div>` : ""}
+          <!-- 操作按钮行 -->
+          <div class="dx-btn-group dx-btn-group-secondary">
+            <button id="dx-extract" class="dx-btn ${dianxiaomiState.busy ? "disabled" : ""}">AI 提取事实</button>
+            <button id="dx-apply" class="dx-btn ${dianxiaomiState.facts && dianxiaomiState.facts.trim() ? "primary" : "ghost"} ${dianxiaomiState.busy ? "disabled" : ""}">${dianxiaomiState.facts && dianxiaomiState.facts.trim() ? "<span class='dx-btn-icon'>📋</span> 应用事实到表单" : "应用覆盖到表单"}</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2.5: SKU 规划（调研前手动填） -->
+      <div class="dx-card">
+        <div class="dx-card-header">
+          <span class="dx-step-num">2.5</span>
+          <span class="dx-card-title">SKU 规划（变种矩阵 + 定价）</span>
+        </div>
+        <div class="dx-card-body">
+          <div class="dx-field-row">
+            <div class="dx-field">
+              <label for="dx-sku-colors">颜色（逗号分隔）</label>
+              <input id="dx-sku-colors" placeholder="Beige, Black, Pink" />
+            </div>
+            <div class="dx-field">
+              <label for="dx-sku-sizes">尺寸（逗号分隔，默认 One Size）</label>
+              <input id="dx-sku-sizes" placeholder="One Size (One Size)" />
+            </div>
+          </div>
+          <div class="dx-btn-group dx-btn-group-secondary">
+            <button id="dx-sku-gen" class="dx-btn">生成组合表</button>
+            <button id="dx-sku-load" class="dx-btn ghost" ${dianxiaomiState.busy ? "disabled" : ""}>载入源产品变种</button>
+          </div>
+          <div class="dx-field-row">
+            <div class="dx-field">
+              <label for="dx-sku-price">默认售价</label>
+              <input id="dx-sku-price" placeholder="9.99" inputmode="decimal" />
+            </div>
+            <div class="dx-field">
+              <label for="dx-sku-stock">默认库存</label>
+              <input id="dx-sku-stock" placeholder="100" inputmode="numeric" />
+            </div>
+            <div class="dx-field">
+              <label for="dx-sku-weight">默认重量(g)</label>
+              <input id="dx-sku-weight" placeholder="30" inputmode="numeric" />
+            </div>
+          </div>
+          <div class="dx-hint-inline">填默认价/库存/重量会自动套用到所有组合，表格内可逐行单独改。图片按颜色共用（同色不同尺寸同图）。「颜色自定义名」为可选别名，仅用于本系统 SKU 标签与文案，不改变店小秘颜色属性值。</div>
+          ${(() => {
+            if (!dianxiaomiState.skuMatrix || !dianxiaomiState.skuMatrix.length) return "";
+            const previews = dianxiaomiState.previews || [];
+            const imgOpts = (sel) => `<option value="">— 不选 —</option>` + previews.map((p) => `<option value="${esc(p.name)}" ${sel === p.name ? "selected" : ""}>${esc(p.name)}</option>`).join("");
+            let t = `<table class="dx-sku-table"><thead><tr><th>颜色</th><th>颜色自定义名</th><th>尺寸</th><th>售价</th><th>库存</th><th>重量(g)</th><th>图片(按颜色)</th></tr></thead><tbody>`;
+            dianxiaomiState.skuMatrix.forEach((m, i) => {
+              t += `<tr>
+                <td>${esc(m.color)}</td>
+                <td>${m.firstOfColor ? `<input id="sku-customname-${i}" class="dx-sku-cell" value="${esc(m.customName || dianxiaomiState.skuColorCustomNames[m.color] || "")}" placeholder="可选别名" />` : `<span class="dx-sku-samecolor">↳ 同色</span>`}</td>
+                <td>${esc(m.size)}</td>
+                <td><input id="sku-price-${i}" class="dx-sku-cell" value="${esc(m.price)}" /></td>
+                <td><input id="sku-stock-${i}" class="dx-sku-cell" value="${esc(m.stock)}" /></td>
+                <td><input id="sku-weight-${i}" class="dx-sku-cell" value="${esc(m.weight)}" /></td>
+                <td>${m.firstOfColor ? `<select id="sku-img-${i}" class="dx-sku-img">${imgOpts(m.image)}</select>` : `<span class="dx-sku-samecolor">↳ 同色</span>`}</td>
+              </tr>`;
+            });
+            t += `</tbody></table>`;
+            return t;
+          })()}
+          <div class="dx-btn-group dx-btn-group-secondary">
+            <button id="dx-sku-save" class="dx-btn primary" ${dianxiaomiState.busy ? "disabled" : ""}>保存 SKU 规划</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 事实编辑区 -->
+      <div class="dx-card">
+        <div class="dx-card-header">
+          <span class="dx-card-title">📋 产品事实 JSON（可编辑）</span>
+        </div>
+        <div class="dx-card-body">
+          <textarea id="dx-facts" class="dx-facts" placeholder="提取后的产品事实 JSON 会显示在此…"></textarea>
+        </div>
+      </div>
+
+      <!-- 动态下一步指引 -->
+      ${(() => {
+        const hasImages = dianxiaomiState.previews.length > 0;
+        const hasFacts = !!(dianxiaomiState.facts && dianxiaomiState.facts.trim());
+        const isBusy = dianxiaomiState.busy;
+        if (!hasImages && !hasFacts) {
+          return `<div class="dx-next-step"><span class="dx-next-icon">①</span> <b>下一步</b>：先在上方上传产品图片（本地文件或 URL 均可），再点「AI 提取事实」</div>`;
+        }
+        if (hasImages && !hasFacts) {
+          return `<div class="dx-next-step dx-next-warn"><span class="dx-next-icon">②</span> <b>下一步</b>：已导入 ${dianxiaomiState.previews.length} 张图片 👉 点击下方 <b>「AI 提取事实」</b></div>`;
+        }
+        if (hasFacts && !isBusy) {
+          const skuNote = (dianxiaomiState.skuMatrix && dianxiaomiState.skuMatrix.length)
+            ? `你在「SKU 规划」里配的 ${dianxiaomiState.skuMatrix.length} 个组合（颜色 / 自定义名 / 每色图）会一并带入上架。`
+            : `上架前可先在「SKU 规划」配颜色 / 自定义名 / 每色图。`;
+          return `<div class="dx-next-step dx-next-go"><span class="dx-next-icon">③</span> <b>下一步</b>：事实已提取 ✅ 现在点击上方 <b>Step 1 的 ★ 一键引用并覆盖填写</b> 完成整个流程！<br/><span class="dx-next-sub">（它会自动引用源产品 → 用这份资料文档覆盖填写 → 保存草稿，一气呵成）<br/>${skuNote}</span></div>`;
+        }
+        return "";
+      })()}
+
+      <!-- 状态 + 日志 -->
+      <div class="dx-footer">
+        <div id="dx-status" class="dx-status ${dianxiaomiState.statusKind}">${dianxiaomiState.status}</div>
+        <pre id="dx-log" class="dx-log">${dianxiaomiState.log.join("\n") || "等待操作…"}</pre>
+      </div>
+
+      <p class="dx-hint">
+        前提：店小秘需已登录（Chrome CDP :9223）。<br/>
+        <b>品牌说明</b>：该品类品牌由「产品属性模板+同步品牌」派生，表单无独立 brand 输入，按模板同步。<br/>
+        <b>每色图</b>：店小秘组合表无图列，每色图以实验方式挂到「颜色(Color)」字段的「选择图片」，绑定结果以日志为准，必要时可在店小秘手动校正。
+      </p>
+    </div>`;
+  // 恢复滚动位置
+  const logEl = document.getElementById("dx-log");
+  if (logEl) logEl.scrollTop = dianxiaomiState.scrollTop;
+
+  // 绑定事件
+  document.getElementById("dx-refapply")?.addEventListener("click", () => void dxReferenceApply());
+  document.getElementById("dx-refill")?.addEventListener("click", () => void dxReferenceFill());
+  document.getElementById("dx-save")?.addEventListener("click", () => void dxSave());
+  const profSel = document.getElementById("dx-profile");
+  if (profSel) profSel.addEventListener("change", (e) => { dianxiaomiState.profileKey = e.target.value; dxLogLine("⋅ 类目已切换: " + e.target.value); });
+  const tpl = document.getElementById("dx-tpl");
+  if (tpl) tpl.addEventListener("keydown", (e) => { if (e.key === "Enter") void dxReferenceApply(); });
+  // 首次渲染拉取可用类目 profile（箱包配件/乳贴）
+  void dxLoadProfiles();
+
+  // 上传绑定
+  document.getElementById("dx-upload")?.addEventListener("click", () => void dxUploadImages(document.getElementById("dx-imgs")?.files || null));
+  document.getElementById("dx-upload-url")?.addEventListener("click", () => void dxUploadImageUrls(document.getElementById("dx-urls")?.value || ""));
+  document.getElementById("dx-extract")?.addEventListener("click", () => void dxExtractFacts());
+  const factsTa = document.getElementById("dx-facts");
+  document.getElementById("dx-apply")?.addEventListener("click", () => void dxApplyFacts(factsTa?.value || ""));
+  if (factsTa) {
+    factsTa.value = dianxiaomiState.facts;
+    factsTa.addEventListener("input", (e) => { dianxiaomiState.facts = e.target.value; });
+  }
+  const urlsTa = document.getElementById("dx-urls");
+  if (urlsTa) {
+    urlsTa.value = dianxiaomiState.imageUrls;
+    urlsTa.addEventListener("input", (e) => { dianxiaomiState.imageUrls = e.target.value; });
+  }
+
+  // 恢复焦点 + 光标位置（关键：否则每秒刷新会打断 textarea 连续输入）
+  if (focusId) {
+    const focused = document.getElementById(focusId);
+    if (focused && typeof focused.focus === "function") {
+      focused.focus();
+      if (selStart !== null && typeof focused.setSelectionRange === "function") {
+        try { focused.setSelectionRange(selStart, selEnd); } catch (_e) { /* ignore */ }
+      }
+    }
+  }
+
+  // Tab 切换绑定
+  root.querySelectorAll(".dx-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      dianxiaomiState.uploadTab = tab.dataset.tab;
+      renderDianxiaomiListing();
+    });
+  });
+
+  // SKU 规划绑定
+  const skuColorsEl = document.getElementById("dx-sku-colors");
+  if (skuColorsEl) { skuColorsEl.value = dianxiaomiState.skuColors; skuColorsEl.addEventListener("input", (e) => { dianxiaomiState.skuColors = e.target.value; }); }
+  const skuSizesEl = document.getElementById("dx-sku-sizes");
+  if (skuSizesEl) { skuSizesEl.value = dianxiaomiState.skuSizes; skuSizesEl.addEventListener("input", (e) => { dianxiaomiState.skuSizes = e.target.value; }); }
+  const skuPriceEl = document.getElementById("dx-sku-price");
+  if (skuPriceEl) { skuPriceEl.value = dianxiaomiState.skuDefaultPrice; skuPriceEl.addEventListener("input", (e) => { dianxiaomiState.skuDefaultPrice = e.target.value; applySkuDefaults(); }); }
+  const skuStockEl = document.getElementById("dx-sku-stock");
+  if (skuStockEl) { skuStockEl.value = dianxiaomiState.skuDefaultStock; skuStockEl.addEventListener("input", (e) => { dianxiaomiState.skuDefaultStock = e.target.value; applySkuDefaults(); }); }
+  const skuWeightEl = document.getElementById("dx-sku-weight");
+  if (skuWeightEl) { skuWeightEl.value = dianxiaomiState.skuDefaultWeight; skuWeightEl.addEventListener("input", (e) => { dianxiaomiState.skuDefaultWeight = e.target.value; applySkuDefaults(); }); }
+  document.getElementById("dx-sku-gen")?.addEventListener("click", () => void dxGenerateSkuMatrix());
+  document.getElementById("dx-sku-load")?.addEventListener("click", () => void dxLoadSourceVariants());
+  document.getElementById("dx-sku-save")?.addEventListener("click", () => void dxSaveVariants());
+  if (dianxiaomiState.skuMatrix) {
+    dianxiaomiState.skuMatrix.forEach((m, i) => {
+      const pe = document.getElementById("sku-price-" + i);
+      if (pe) pe.addEventListener("input", (e) => { m.price = e.target.value; m._priceEdited = true; });
+      const se = document.getElementById("sku-stock-" + i);
+      if (se) se.addEventListener("input", (e) => { m.stock = e.target.value; m._stockEdited = true; });
+      const we = document.getElementById("sku-weight-" + i);
+      if (we) we.addEventListener("input", (e) => { m.weight = e.target.value; m._weightEdited = true; });
+      const ie = document.getElementById("sku-img-" + i);
+      if (ie) ie.addEventListener("change", (e) => {
+        m.image = e.target.value;
+        dianxiaomiState.skuMatrix.forEach((o) => { if (o.color === m.color) o.image = e.target.value; });
+      });
+      const ce = document.getElementById("sku-customname-" + i);
+      if (ce) ce.addEventListener("input", (e) => {
+        m.customName = e.target.value;
+        dianxiaomiState.skuColorCustomNames[m.color] = e.target.value;
+      });
+    });
+  }
+  // 节流拉取 listing 资料就绪状态（SOP 守卫可视化）
+  dxCheckFactsStatus();
+}
+
+/* ───────────────────────── 爆款研究中心（Hit Product Research Center）───────────────────────── */
+const RESEARCH_STATIC_HTML = `
+  <div class="rc-overview">
+    <div class="rc-overview-icon">🔥</div>
+    <div class="rc-overview-text"><b>怎么用：</b>① 填来源/类目，上传主图+详情图（或贴商品 URL 自动截图）；② 填经营数据（销量/排名/评分，越全越准）；③ 点「导入爆款」；④ 在下方记录点「拆解」生成爆款因子报告。</div>
+  </div>
+  <div class="rc-discover">
+    <h3>发现源 · 找把产品带火的社媒帖/视频</h3>
+    <div class="rc-sub">输入产品词（或上传参考图供反向图搜手动用），在免费门户找强候选源 → 点「导入为爆款」直接进拆解流。定位是「候选 + 人工点选」，平台不公开传播链路，最先带火的那条仍需你眼确认。</div>
+    <div class="rc-grid">
+      <div class="rc-field full"><label>产品/关键词</label><input id="rcDiscQuery" type="text" placeholder="如 nipple cover / 隐形乳贴 / travel bag organizer"></div>
+      <div class="rc-field full"><label>参考图（可选，用于反向图搜手动上传）</label><input id="rcDiscImages" type="file" accept="image/*" multiple></div>
+    </div>
+    <div class="rc-plats" id="rcDiscPlats">
+      <span class="rc-plat on" data-plat="youtube">YouTube</span>
+      <span class="rc-plat on" data-plat="tiktok">TikTok</span>
+      <span class="rc-plat on" data-plat="meta-ads">Meta 广告库</span>
+      <span class="rc-plat on" data-plat="google-images">Google 图片</span>
+    </div>
+    <div class="rc-actions">
+      <button class="rc-btn" data-action="discover">开始发现</button>
+      <span class="rc-status" id="rcDiscStatus"></span>
+    </div>
+    <div id="rcDiscResults" class="rc-disc-results"></div>
+  </div>
+  <div class="rc-form">
+    <h3>导入爆款</h3>
+    <div class="rc-grid">
+      <div class="rc-field"><label>商品 URL（可选，自动截图）</label><input id="research-sourceUrl" type="text" placeholder="https://www.aliexpress.com/item/..."></div>
+      <div class="rc-field"><label>平台</label><select id="research-platform"><option value="aliexpress">速卖通</option><option value="1688">1688</option><option value="amazon">亚马逊</option><option value="other">其他</option></select></div>
+      <div class="rc-field"><label>类目</label><input id="research-category" type="text" placeholder="如 箱包配件 / 乳贴"></div>
+      <div class="rc-field"><label>标题（可选）</label><input id="research-title" type="text"></div>
+      <div class="rc-field"><label>品牌</label><input id="research-brand" type="text"></div>
+      <div class="rc-field"><label>价格</label><input id="research-price" type="number" step="0.01" placeholder="如 9.9"></div>
+      <div class="rc-field"><label>币种</label><input id="research-currency" type="text" placeholder="USD / CNY"></div>
+      <div class="rc-field"><label>销量</label><input id="research-salesVolume" type="number" placeholder="如 5000"></div>
+      <div class="rc-field"><label>排名</label><input id="research-salesRank" type="number" placeholder="类目排名，如 12"></div>
+      <div class="rc-field"><label>评分</label><input id="research-rating" type="number" step="0.1" placeholder="如 4.8"></div>
+      <div class="rc-field"><label>评价数</label><input id="research-reviewCount" type="number" placeholder="如 2300"></div>
+      <div class="rc-field"><label>收藏/加购数</label><input id="research-wishlistCount" type="number"></div>
+      <div class="rc-field full"><label>爆款图片（主图 + 详情图，可多选）</label><input id="research-images" type="file" accept="image/*" multiple></div>
+    </div>
+    <div class="rc-actions">
+      <button class="rc-btn" id="research-import-btn" data-action="import">导入爆款</button>
+      <span class="rc-status" id="researchStatus"></span>
+    </div>
+    <div class="rc-hint">提示：真实销量/排名平台常不直接展示，手填更准；给 URL 时系统会尝试自动截图并抓取标题/价格作为增强（失败不影响导入）。</div>
+  </div>
+    <div id="researchResults"></div>
+  <div class="rc-factors">
+    <h3>跨品爆款因子库 <span class="rc-fac-count" id="rcFacTotal"></span></h3>
+    <div class="rc-sub">把已拆解爆款的因子跨品聚合，按「出现频次 × 平均权重」排名。点维度筛选；出现越多、权重越高，越值得复制到自有 listing。</div>
+    <div class="rc-fac-dims" id="rcFacDims"></div>
+    <div id="rcFacResults" class="rc-fac-results"></div>
+  </div>
+`;
+
+let researchInited = false;
+let researchSelectedId = null;
+let researchRendering = false;
+
+function rcEscapeHtml(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+}
+function rcStatusLabel(s) {
+    return { imported: "已导入", analyzing: "拆解中", analyzed: "已拆解", analyze_failed: "失败" }[s] || s;
+}
+function rcRepLabel(s) {
+    return { copy: "可直接复制", adapt: "需微调", reference: "仅参考" }[s] || s;
+}
+function rcImgUrl(id, assetId, sha) {
+    return `/api/research/${encodeURIComponent(id)}/image/${encodeURIComponent(assetId)}?v=${(sha || "").slice(0, 8)}`;
+}
+function rcVal(id) {
+    const el = document.getElementById(id);
+    return el ? el.value.trim() : "";
+}
+function rcNum(id) {
+    const v = rcVal(id);
+    if (v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : v;
+}
+function rcStatus(msg, kind) {
+    const el = document.getElementById("researchStatus");
+    if (el) { el.textContent = msg; el.className = "rc-status " + (kind || ""); }
+}
+function safeResearchProducts() {
+    return request("/api/research/products").catch(() => []);
+}
+function rcEvidenceHtml(ev) {
+    if (!ev) return "";
+    const imgs = (ev.images || []).filter(Boolean);
+    const mets = (ev.metrics || []).filter(Boolean);
+    if (!imgs.length && !mets.length) return "";
+    const parts = [];
+    if (imgs.length) parts.push("证据图：" + imgs.join("、"));
+    if (mets.length) parts.push("数据：" + mets.join("；"));
+    return `<div class="rc-evidence">${rcEscapeHtml(parts.join(" ｜ "))}</div>`;
+}
+function rcBuildReportHtml(a) {
+    let h = "";
+    if (a.summary) h += `<div class="rc-summary">${rcEscapeHtml(a.summary)}</div>`;
+    const cb = a.categoryBenchmark || {};
+    if (cb.category || cb.visualBaseline || cb.priceBand) {
+        h += `<div class="rc-evidence">类目基准：${rcEscapeHtml([cb.category, cb.visualBaseline, cb.priceBand].filter(Boolean).join(" ｜ "))}</div>`;
+    }
+    for (const f of (a.hitFactors || [])) {
+        h += `<div class="rc-factor">
+      <div class="rc-factor-top">
+        <span class="rc-dim ${f.dimension}">${f.dimension}</span>
+        <span class="rc-factor-name">${rcEscapeHtml(f.name)}</span>
+        <span class="rc-w">权重 ${f.weight}/5</span>
+        <span class="rc-rep ${f.replicability}">${rcRepLabel(f.replicability)}</span>
+      </div>
+      ${f.note ? `<div class="rc-factor-note">${rcEscapeHtml(f.note)}</div>` : ""}
+      ${rcEvidenceHtml(f.evidence)}
+    </div>`;
+    }
+    if ((a.recommendations || []).length) {
+        h += `<div style="margin-top:10px;font-size:13px;font-weight:600;color:#0f172a">对自有 listing 的建议</div>`;
+        for (const r of a.recommendations) h += `<div class="rc-rec">${rcEscapeHtml(r)}</div>`;
+    }
+    return h;
+}
+function renderResearchResults(products) {
+    const results = document.getElementById("researchResults");
+    if (!results) return;
+    if (!products || !products.length) {
+        results.innerHTML = `<div class="rc-empty">还没有爆款记录。在上方导入第一个爆款（图片 + 经营数据），点「拆解」即可生成爆款因子报告。</div>`;
+        return;
+    }
+    let html = "";
+    for (const p of products) {
+        const sub = [p.identity && p.identity.title, p.sourcePlatform, p.category].filter(Boolean).join(" · ") || "(未命名)";
+        const thumbs = (p.images && p.images.analysis || []).slice(0, 6)
+            .map((a) => `<div class="rc-thumb"><img src="${rcImgUrl(p.id, a.assetId, a.sha256)}" loading="lazy"></div>`)
+            .join("");
+        const expanded = researchSelectedId === p.id;
+        html += `<div class="rc-card">
+      <div class="rc-card-header" data-action="view" data-id="${p.id}">
+        <div class="rc-card-title">${rcEscapeHtml(sub)}</div>
+        <span class="rc-badge ${p.status}">${rcStatusLabel(p.status)}</span>
+      </div>`;
+        if (expanded) {
+            html += `<div class="rc-card-body">`;
+            if (thumbs) html += `<div class="rc-thumbs">${thumbs}</div>`;
+            if (p.status === "analyzed" && p.analysis) html += rcBuildReportHtml(p.analysis);
+            else if (p.status === "analyzing") html += `<div class="rc-empty">拆解中…（ChatGPT 多模态分析中，约 1–3 分钟，本页会自动刷新）</div>`;
+            else if (p.status === "analyze_failed") html += `<div class="rc-empty" style="color:#dc2626">拆解失败：${rcEscapeHtml(p.error || "")}</div>`;
+            else html += `<div class="rc-empty">已导入，点「拆解」运行爆款因子分析。</div>`;
+            html += `<div class="rc-actions">
+        ${p.status !== "analyzing" ? `<button class="rc-btn" data-action="analyze" data-id="${p.id}">${p.status === "analyzed" ? "重新拆解" : "拆解"}</button>` : ""}
+        <button class="rc-btn ghost" data-action="delete" data-id="${p.id}">删除</button>
+        <button class="rc-btn ghost" data-action="close" data-id="${p.id}">收起</button>
+      </div></div>`;
+        } else {
+            html += `<div class="rc-card-body"><div class="rc-actions">
+        <button class="rc-btn" data-action="analyze" data-id="${p.id}">拆解</button>
+        <button class="rc-btn ghost" data-action="view" data-id="${p.id}">查看</button>
+        <button class="rc-btn ghost" data-action="delete" data-id="${p.id}">删除</button>
+      </div></div>`;
+        }
+        html += `</div>`;
+    }
+    results.innerHTML = html;
+}
+
+function rcFacDimLabel(d) {
+    return { visual: "视觉", data: "数据", content: "内容", price: "价格", review: "评价" }[d] || d;
+}
+let rcFactorDim = "all";
+let rcFactorRendering = false;
+function rcFacBar(share) {
+    const pct = Math.max(2, Math.round((share || 0) * 100));
+    return `<div class="rc-fac-bar"><span style="width:${pct}%"></span></div>`;
+}
+function rcFacBuildHtml(data) {
+    const total = data.total || 0;
+    if (!total) {
+        return `<div class="rc-empty">还没有可聚合的拆解报告。先在上方导入并「拆解」至少 1 个爆款，因子库会自动生成。</div>`;
+    }
+    const dims = ["all", "visual", "data", "content", "price", "review"];
+    let html = `<div class="rc-fac-dims">` +
+        dims.map((d) => `<span class="rc-fac-dim ${rcFactorDim === d ? "on" : ""}" data-dim="${d}">${d === "all" ? "全部" : rcFacDimLabel(d)}</span>`).join("") +
+        `</div>`;
+    const list = rcFactorDim === "all" ? (data.factors || []) : (data.byDimension[rcFactorDim] || []);
+    if (!list.length) {
+        html += `<div class="rc-empty">该维度暂无因子。</div>`;
+        return html;
+    }
+    for (const f of list) {
+        const ex = (f.examples || []).map((e) => `<span class="rc-fac-ex" title="${rcEscapeHtml(e.title)}">${rcEscapeHtml(e.title || "(未命名)")}</span>`).join("");
+        const mets = (f.metrics || []).slice(0, 4).map((m) => `<span class="rc-fac-m">${rcEscapeHtml(m)}</span>`).join("");
+        html += `<div class="rc-fac-card">
+      <div class="rc-fac-top">
+        <span class="rc-dim ${f.dimension}">${f.dimension}</span>
+        <span class="rc-factor-name">${rcEscapeHtml(f.name)}</span>
+        <span class="rc-w">频次 ${f.count}/${total} · 均权 ${f.avgWeight}</span>
+        <span class="rc-rep ${f.replicability}">${rcRepLabel(f.replicability)}</span>
+      </div>
+      <div class="rc-fac-share"><span class="rc-fac-pct">${Math.round(f.share * 100)}%</span>${rcFacBar(f.share)}</div>
+      ${mets ? `<div class="rc-fac-mets">${mets}</div>` : ""}
+      ${ex ? `<div class="rc-fac-exs"><span class="rc-fac-ex-label">出现在：</span>${ex}</div>` : ""}
+    </div>`;
+    }
+    return html;
+}
+async function renderResearchFactorLibrary() {
+    const root = document.getElementById("rcFacResults");
+    if (!root) return;
+    if (rcFactorRendering) return;
+    rcFactorRendering = true;
+    try {
+        const data = await request("/api/research/factors").catch(() => ({ total: 0, factors: [], byDimension: {} }));
+        root.innerHTML = rcFacBuildHtml(data);
+        const t = document.getElementById("rcFacTotal");
+        if (t) t.textContent = data.total ? `（基于 ${data.total} 个已拆解爆款）` : "";
+    }
+    catch (_e) { /* 静默，下一轮重试 */ }
+    finally { rcFactorRendering = false; }
+}
+
+async function onResearchImport() {
+    const fd = new FormData();
+    fd.append("sourceUrl", rcVal("research-sourceUrl"));
+    fd.append("platform", rcVal("research-platform"));
+    fd.append("category", rcVal("research-category"));
+    const metrics = {
+        title: rcVal("research-title"),
+        brand: rcVal("research-brand"),
+        price: rcNum("research-price"),
+        currency: rcVal("research-currency"),
+        salesVolume: rcNum("research-salesVolume"),
+        salesRank: rcNum("research-salesRank"),
+        rating: rcNum("research-rating"),
+        reviewCount: rcNum("research-reviewCount"),
+        wishlistCount: rcNum("research-wishlistCount")
+    };
+    fd.append("metrics", JSON.stringify(metrics));
+    const fileInput = document.getElementById("research-images");
+    if (fileInput) for (const f of fileInput.files) fd.append("images", f, f.name);
+    rcStatus("导入中…", "busy");
+    try {
+        await request("/api/research/import", { method: "POST", body: fd });
+        rcStatus("已导入，可在下方点「拆解」", "ok");
+        await refreshTwice();
+    }
+    catch (err) {
+        rcStatus("导入失败：" + err.message, "err");
+    }
+}
+async function onResearchAnalyze(id) {
+    try {
+        await request(`/api/research/${encodeURIComponent(id)}/analyze`, {
+            method: "POST", headers: { "content-type": "application/json" }, body: "{}"
+        });
+        rcStatus("已启动拆解…", "busy");
+        await refreshTwice();
+    }
+    catch (err) {
+        rcStatus("拆解启动失败：" + err.message, "err");
+    }
+}
+async function onResearchDelete(id) {
+    try {
+        await request(`/api/research/${encodeURIComponent(id)}`, { method: "DELETE" });
+        if (researchSelectedId === id) researchSelectedId = null;
+        await refreshTwice();
+    }
+    catch (err) {
+        rcStatus("删除失败：" + err.message, "err");
+    }
+}
+// ===== 发现源（二阶段）前端 =====
+const PLAT_LABELS = { youtube: "YouTube（按播放量）", tiktok: "TikTok 视频", "meta-ads": "Meta 广告库", "google-images": "Google 图片" };
+let rcDiscSelectedPlats = new Set(["youtube", "tiktok", "meta-ads", "google-images"]);
+let rcDiscPollTimer = null;
+
+function rcDiscStatus(msg, kind) {
+    const el = document.getElementById("rcDiscStatus");
+    if (el) { el.textContent = msg; el.className = "rc-status " + (kind || ""); }
+}
+function rcDiscShotUrl(sessionId, platform) {
+    return `/api/research/discover/${encodeURIComponent(sessionId)}/shot/${encodeURIComponent(platform)}`;
+}
+function renderDiscoverResults(sessionId, data) {
+    const box = document.getElementById("rcDiscResults");
+    if (!box) return;
+    const portals = (data.portals || []).filter((p) => (p.candidates && p.candidates.length) || p.screenshot);
+    const flat = data.candidates || [];
+    let html = "";
+    if (data.status === "running") {
+        html += `<div class="rc-empty">发现中…（正在打开门户页并抓候选，约 30–90 秒，本区会自动刷新）</div>`;
+    } else if (data.status === "failed") {
+        html += `<div class="rc-empty" style="color:#dc2626">发现失败：${rcEscapeHtml(data.error || "")}</div>`;
+    } else if (!flat.length && !portals.length) {
+        html += `<div class="rc-empty">没抓到候选。可点下方门户深链手动浏览，或换更具体的关键词。</div>`;
+    }
+    for (const p of portals) {
+        html += `<div class="rc-portal">
+      <div class="rc-portal-head"><b>${rcEscapeHtml(PLAT_LABELS[p.platform] || p.label || p.platform)}</b>
+        <a href="${rcEscapeHtml(p.url)}" target="_blank" rel="noopener">打开门户 ↗</a></div>`;
+        if (p.screenshot) html += `<img class="rc-portal-shot" src="${rcDiscShotUrl(sessionId, p.platform)}" loading="lazy">`;
+        if (p.candidates && p.candidates.length) {
+            html += `<div class="rc-cards">`;
+            for (const c of p.candidates) {
+                const meta = c.metrics && (c.metrics.info || c.metrics.views || c.metrics.likes) ? (c.metrics.info || [c.metrics.views, c.metrics.likes].filter(Boolean).join(" · ")) : "";
+                html += `<div class="rc-cand">
+          ${c.thumb ? `<img src="${rcEscapeHtml(c.thumb)}" loading="lazy" referrerpolicy="no-referrer">` : `<div style="height:140px;background:#f1f5f9"></div>`}
+          <div class="rc-cand-body">
+            <div class="rc-cand-title">${rcEscapeHtml(c.title || "(无标题)")}</div>
+            ${meta ? `<div class="rc-cand-meta">${rcEscapeHtml(meta)}</div>` : ""}
+            <a class="rc-cand-meta" href="${rcEscapeHtml(c.url)}" target="_blank" rel="noopener">查看原帖 ↗</a>
+            <button class="rc-btn" data-action="disc-import" data-url="${rcEscapeHtml(c.url)}" data-plat="${rcEscapeHtml(c.platform || p.platform)}" data-title="${rcEscapeHtml(c.title || "")}">导入为爆款</button>
+          </div>
+        </div>`;
+            }
+            html += `</div>`;
+        }
+    }
+    // 反向图搜 + 趋势门户深链（人工浏览）
+    const extra = [...(data.reversePortals || []), ...(data.trendPortals || [])];
+    if (extra.length) {
+        html += `<div class="rc-portal"><div class="rc-portal-head"><b>反向图搜 / 趋势门户（手动浏览）</b></div><div class="rc-hint">`;
+        html += extra.map((l) => `<a href="${rcEscapeHtml(l.url)}" target="_blank" rel="noopener" style="color:#2563eb;margin-right:14px">${rcEscapeHtml(l.label)} ↗</a>`).join("");
+        html += `</div></div>`;
+    }
+    box.innerHTML = html;
+}
+async function pollDiscover(sessionId) {
+    if (rcDiscPollTimer) { clearInterval(rcDiscPollTimer); rcDiscPollTimer = null; }
+    const tick = async () => {
+        let data;
+        try { data = await request(`/api/research/discover/${encodeURIComponent(sessionId)}`); }
+        catch (_e) { return; }
+        renderDiscoverResults(sessionId, data);
+        if (data.status !== "running") {
+            if (rcDiscPollTimer) { clearInterval(rcDiscPollTimer); rcDiscPollTimer = null; }
+            rcDiscStatus(data.status === "done" ? `发现完成，共 ${(data.candidates || []).length} 个候选` : "发现失败", data.status === "done" ? "ok" : "err");
+        }
+    };
+    await tick();
+    rcDiscPollTimer = window.setInterval(tick, 3000);
+}
+async function onResearchDiscover() {
+    const query = rcVal("rcDiscQuery");
+    const fileInput = document.getElementById("rcDiscImages");
+    const hasFiles = fileInput && fileInput.files.length;
+    if (!query && !hasFiles) { rcDiscStatus("请填写关键词或上传参考图", "err"); return; }
+    const fd = new FormData();
+    fd.append("query", query);
+    fd.append("platforms", JSON.stringify([...rcDiscSelectedPlats]));
+    if (fileInput) for (const f of fileInput.files) fd.append("images", f, f.name);
+    rcDiscStatus("启动发现…", "busy");
+    const box = document.getElementById("rcDiscResults");
+    if (box) box.innerHTML = `<div class="rc-empty">发现中…</div>`;
+    try {
+        const res = await request("/api/research/discover", { method: "POST", body: fd });
+        if (res && res.sessionId) await pollDiscover(res.sessionId);
+    }
+    catch (err) {
+        rcDiscStatus("发现失败：" + err.message, "err");
+    }
+}
+async function onDiscoverImport(url, platform, title) {
+    const fd = new FormData();
+    fd.append("sourceUrl", url || "");
+    fd.append("platform", platform || "other");
+    fd.append("category", rcVal("research-category"));
+    fd.append("metrics", JSON.stringify({ title: title || "" }));
+    rcDiscStatus("导入中…（将自动截图抓取）", "busy");
+    try {
+        await request("/api/research/import", { method: "POST", body: fd });
+        rcDiscStatus("已导入到下方记录，可点「拆解」", "ok");
+        await refreshTwice();
+    }
+    catch (err) {
+        rcDiscStatus("导入失败：" + err.message, "err");
+    }
+}
+
+function wireResearchStatic(root) {
+    root.addEventListener("click", async (e) => {
+        const plat = e.target.closest(".rc-plat");
+        if (plat) {
+            const p = plat.dataset.plat;
+            if (rcDiscSelectedPlats.has(p)) rcDiscSelectedPlats.delete(p);
+            else rcDiscSelectedPlats.add(p);
+            plat.classList.toggle("on");
+            return;
+        }
+        const facDim = e.target.closest(".rc-fac-dim");
+        if (facDim) {
+            rcFactorDim = facDim.dataset.dim;
+            renderResearchFactorLibrary();
+            return;
+        }
+        const t = e.target.closest("[data-action]");
+        if (!t) return;
+        const action = t.dataset.action;
+        const id = t.dataset.id;
+        if (action === "import") await onResearchImport();
+        else if (action === "discover") await onResearchDiscover();
+        else if (action === "disc-import") await onDiscoverImport(t.dataset.url, t.dataset.plat, t.dataset.title);
+        else if (action === "analyze") await onResearchAnalyze(id);
+        else if (action === "view") { researchSelectedId = researchSelectedId === id ? null : id; renderResearchResults(await safeResearchProducts()); }
+        else if (action === "close") { researchSelectedId = null; renderResearchResults(await safeResearchProducts()); }
+        else if (action === "delete") { if (window.confirm("确认删除该爆款记录？")) await onResearchDelete(id); }
+    });
+}
+async function renderResearchCenter() {
+    const root = document.getElementById("research-root");
+    if (!root) return;
+    if (activeViewName() !== "research-center") return;
+    if (!researchInited) {
+        root.innerHTML = RESEARCH_STATIC_HTML;
+        wireResearchStatic(root);
+        researchInited = true;
+    }
+    if (researchRendering) return;
+    researchRendering = true;
+    try {
+        renderResearchResults(await safeResearchProducts());
+        await renderResearchFactorLibrary();
+    }
+    catch (_err) { /* 静默，下一秒重试 */ }
+    finally { researchRendering = false; }
 }
 
 async function refresh() {
@@ -8709,6 +11054,63 @@ async function removeLinerImage(variantId, button) {
   }
 }
 
+/* ── 内胆细节图：上传 / URL导入 / 删除 ── */
+async function uploadLinerDetailImages(variantId, files, button) {
+  if (!files.length) return;
+  if (button) { button.disabled = true; button.textContent = "上传中…"; }
+  try {
+    const form = new FormData();
+    form.append("variantId", variantId);
+    for (const file of files) form.append("images", file, file.name);
+    await request("/api/insert/liner-detail-images", { method: "POST", body: form });
+    await refreshTwice();
+  } catch (error) {
+    elements.errorBox.classList.remove("hidden");
+    elements.errorBox.textContent = error.message;
+  } finally {
+    if (button) { button.disabled = false; button.textContent = "+ 添加细节图"; }
+  }
+}
+
+async function uploadLinerDetailImageUrls(variantId, rawText, button) {
+  const urls = rawText.split(/\r?\n/).map((u) => u.trim()).filter(Boolean);
+  if (!urls.length) return;
+  if (button) { button.disabled = true; button.textContent = "下载中…"; }
+  try {
+    await request("/api/insert/liner-detail-image-urls", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ variantId, urls })
+    });
+    /* 清空输入框（调用者负责 DOM 引用） */
+    if (button?.previousElementSibling?.value !== undefined) {
+      button.previousElementSibling.value = "";
+    }
+    await refreshTwice();
+  } catch (error) {
+    elements.errorBox.classList.remove("hidden");
+    elements.errorBox.textContent = error.message;
+  } finally {
+    if (button) { button.disabled = false; button.textContent = "URL 导入"; }
+  }
+}
+
+async function removeLinerDetailImage(variantId, imageName, button) {
+  if (button) button.disabled = true;
+  try {
+    await request(
+      `/api/insert/liner-detail-images/${encodeURIComponent(variantId)}/${encodeURIComponent(imageName)}`,
+      { method: "DELETE" }
+    );
+    await refresh();
+  } catch (error) {
+    elements.errorBox.classList.remove("hidden");
+    elements.errorBox.textContent = error.message;
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
 async function selectWorkflowMode(mode) {
   try {
     await request("/api/workflow-mode", {
@@ -8753,10 +11155,16 @@ async function selectMarketRadarCandidate(candidateId, button) {
       body: JSON.stringify({ candidateId })
     });
     await refreshTwice();
-    elements.insertIdentifyButton.scrollIntoView({
-      behavior: "smooth",
-      block: "center"
-    });
+    /* 若当前在 selection-radar 视图，滚动到导入面板；否则滚动到识别步骤 */
+    const importPanel = document.getElementById("selectionRadarImportPanel");
+    if (importPanel && !importPanel.classList.contains("hidden")) {
+      importPanel.scrollIntoView({ behavior: "smooth", block: "center" });
+    } else {
+      elements.insertIdentifyButton?.scrollIntoView({
+        behavior: "smooth",
+        block: "center"
+      });
+    }
   } catch (error) {
     elements.errorBox.classList.remove("hidden");
     elements.errorBox.textContent = error.message;
@@ -8774,9 +11182,13 @@ async function returnToMarketRadarPool() {
   try {
     await request("/api/insert/market-radar/return", { method: "POST" });
     await refresh();
-    elements.insertMarketRadarCandidates.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
+    /* 候选列表现在在 selection-radar 视图中，跳转过去 */
+    switchView("selection-radar");
+    requestAnimationFrame(() => {
+      elements.insertMarketRadarCandidates?.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
     });
   } catch (error) {
     elements.errorBox.classList.remove("hidden");
@@ -9304,14 +11716,342 @@ elements.goalOptions.forEach((option) => {
 elements.insertIdentifyButton.addEventListener("click", () => {
   void runAction(elements.insertIdentifyButton, "/api/insert/run/identify");
 });
+/* ── 每日市场选款雷达：统一执行入口 ──
+   供「执行每日市场选款雷达」按钮与「进入并开始每日选款」入口按钮共用。
+   options.enterView=true 时，先切到选款视图再执行（入口按钮场景）。
+
+   ⚠️ 视图锁定说明：selection-radar 面板没有对应的 .nav-item 导航元素，
+   所以 switchView 后无法通过「导航项 active → 面板 active」链路保持选中。
+   render() 在 luxury_insert 模式下会按导航项重新同步面板，导致选款面板丢失
+   active 并回落到 insert-editor。因此必须在每个 refresh/render 之后强制重设面板状态。 */
+async function startDailySelectionRadarRun(options = {}) {
+  const { enterView = false } = options;
+
+  /* ── 强制锁定到选款视图 ──
+     关键修复：之前只手动激活「面板」却没激活对应「导航项」。
+     render() 在 insert 模式下用「当前激活的导航项 dataset.view」反推面板 active，
+     下一次全局每秒 refresh 就把 selection-radar 面板 deactivate，
+     于是雷达跑完后候选数据已在 state 中、但视图被踢回别的视图，看起来像"没回传"。
+     改为用 switchView() 正确同时激活 导航项 + 面板 + 工作区 + 顶栏，
+     使 activeViewName() 稳定返回 selection-radar，全局 refresh 会保持面板激活。 */
+  const lockToSelectionRadar = () => {
+    if (activeViewName() !== "selection-radar") {
+      switchView("selection-radar");
+    }
+    elements.insertWorkspace?.classList.add("hidden");
+  };
+
+  /* 入口按钮与视图内按钮都先锁到选款视图（避免被全局 refresh 踢走） */
+  lockToSelectionRadar();
+  void enterView;
+
+  const btn = elements.runInsertMarketRadarButton;
+  const statusEl = document.getElementById("selectionRadarStatus");
+  const showStatus = (text, color = "var(--blue, #0071e3)") => {
+    if (!statusEl) return;
+    statusEl.classList.remove("hidden");
+    statusEl.style.color = color;
+    statusEl.textContent = text;
+  };
+
+  const state = latestPayload?.state || {};
+  const insert = state.luxuryInsert || {};
+
+  /* ── 安全判断：避免打断已在进行的任务 ── */
+  if (state.running) {
+    showStatus("⏳ 选款雷达正在运行中，请稍候…");
+    return;
+  }
+  /* 仅当「已选中某个候选并正导入内胆流程」时拦截，避免覆盖
+     正在被引用的候选池（runMarketRadar 会重写 marketRadarCandidates）。
+     已确认包型 / 已冻结设计属于内胆开发进度，雷达重写的是候选池、
+     不会触碰 variants/bagFacts/designFrozen，因此不应阻断独立的
+     每日选款扫描——否则做完一次内胆就永远无法再跑选款。 */
+  if (insert.selectedMarketRadarCandidateId) {
+    showStatus("ℹ️ 当前已有选中的候选正在导入内胆流程，如需重新选款请先「返回候选池」或「重置每日选款」。");
+    return;
+  }
+
+  const origText = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; btn.textContent = "正在启动雷达…"; }
+  showStatus("⏳ 正在准备选款请求…");
+
+  try {
+    /* ── 切换到奢侈包内胆模式（服务端 runMarketRadar 要求） ──
+       关键：只发 API 请求更新服务端状态，然后手动更新本地 latestPayload，
+       不调用 refresh() / 不触发 render()，避免渲染器按导航项同步时
+       把 selection-radar 面板的 active 清掉并回落到 insert-editor。 */
+    if (state.workflowMode !== "luxury_insert") {
+      await request("/api/workflow-mode", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mode: "luxury_insert" })
+      });
+      /* 手动更新本地状态，避免 refresh() 触发的视图漂移 */
+      if (latestPayload?.state) {
+        latestPayload.state.workflowMode = "luxury_insert";
+      }
+      document.body.classList.add("insert-mode");
+      lockToSelectionRadar();
+    }
+
+    /* ── 发送雷达请求 ── */
+    showStatus("🔍 雷达已启动，正在全网搜索包型机会…");
+    if (btn) btn.textContent = "雷达运行中…";
+    const radarRes = await request("/api/insert/run/market-radar", { method: "POST" });
+    lockToSelectionRadar();
+
+    /* ── 磁盘恢复命中：数据已在，直接刷新渲染，不轮询 ── */
+    if (radarRes && radarRes.recovered) {
+      showStatus("✅ 已从磁盘恢复选款候选数据");
+      await refresh();
+      lockToSelectionRadar();
+      return;
+    }
+
+    /* ── 轮询直到候选就绪（每次 refresh 后重锁视图，确保候选渲染在选款界面） ──
+       注意：不能因 running=true 就提前 return —— 雷达在后台跑数分钟，
+       必须等到 marketRadarCandidates 真正回来才算完成并渲染。 */
+    for (let attempt = 0; attempt < 240; attempt += 1) {
+      await refresh();
+      lockToSelectionRadar();
+      const s = latestPayload?.state || {};
+      const ins = s.luxuryInsert || {};
+      if (
+        (Array.isArray(ins.marketRadarCandidates) && ins.marketRadarCandidates.length > 0) ||
+        s.stage === "FAILED" ||
+        s.stage === "PAUSED"
+      ) {
+        return;
+      }
+      await wait(1000);
+    }
+    await refresh();
+    lockToSelectionRadar();
+  } catch (error) {
+    showStatus(`❌ ${error.message}`, "var(--red, #d00)");
+    elements.errorBox.classList.remove("hidden");
+    elements.errorBox.textContent = error.message;
+    lockToSelectionRadar();
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = origText; }
+  }
+}
+
+/* ── 标品选品运行：与内胆包型选品互不干扰，不切换 workflowMode ── */
+async function startProductSelectionRun() {
+  /* 强制锁定到标品选品视图（避免被全局每秒 refresh 按导航项同步踢走） */
+  const lockToProductSelection = () => {
+    if (activeViewName() !== "product-selection") {
+      switchView("product-selection");
+    }
+  };
+  lockToProductSelection();
+
+  const btn = document.getElementById("runProductSelectionButton");
+  const statusEl = document.getElementById("productSelectionStatus");
+  const showStatus = (text, color = "var(--blue, #0071e3)") => {
+    if (!statusEl) return;
+    statusEl.classList.remove("hidden");
+    statusEl.style.color = color;
+    statusEl.textContent = text;
+  };
+
+  const state = latestPayload?.state || {};
+  const sel = state.selection || {};
+
+  /* 安全判断：避免打断已在进行的任务或占用 AI 会话 */
+  if (state.running) {
+    showStatus("⏳ 当前有其它流程正在使用 AI 会话，请稍后再运行标品选品", "var(--red, #d00)");
+    return;
+  }
+  if (sel.running) {
+    showStatus("⏳ 标品选品正在运行中，请稍候…");
+    return;
+  }
+
+  const taskType = (document.getElementById("productSelectionTaskType")?.value || "").trim();
+  const categoryScope = (document.getElementById("productSelectionCategory")?.value || "").trim();
+  const marketScope = (document.getElementById("productSelectionMarket")?.value || "").trim();
+  const researchDepth = (document.getElementById("productSelectionDepth")?.value || "standard_research").trim();
+  if (!taskType || !categoryScope) {
+    showStatus("⚠️ 请选择任务类型并填写产品类目或方向", "var(--red, #d00)");
+    return;
+  }
+
+  const origText = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; btn.textContent = "正在启动…"; }
+  showStatus("⏳ 正在准备选品研究请求…");
+
+  try {
+    showStatus("🔍 Bob 选品研究已启动，正在联网搜索候选机会…");
+    if (btn) btn.textContent = "研究中…";
+    const res = await request("/api/selection/run", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ taskType, categoryScope, marketScope, researchDepth })
+    });
+    lockToProductSelection();
+
+    /* 磁盘恢复命中：数据已在，直接刷新渲染 */
+    if (res && res.recovered) {
+      showStatus("✅ 已从磁盘恢复选品研究结果");
+      await refresh();
+      lockToProductSelection();
+      return;
+    }
+
+    /* 轮询直到候选就绪（每次 refresh 后重锁视图，确保候选渲染在标品选品界面） */
+    for (let attempt = 0; attempt < 360; attempt += 1) {
+      await refresh();
+      lockToProductSelection();
+      const s = latestPayload?.state || {};
+      const cur = s.selection || {};
+      if ((Array.isArray(cur.candidates) && cur.candidates.length > 0) || cur.error) {
+        if (cur.error) showStatus(`❌ ${cur.error}`, "var(--red, #d00)");
+        else showStatus("✅ 选品研究完成，候选已呈现，可逐条采纳");
+        return;
+      }
+      await wait(1000);
+    }
+    await refresh();
+    lockToProductSelection();
+    showStatus("⏱️ 超时未完成，可查看状态或稍后从磁盘恢复");
+  } catch (error) {
+    showStatus(`❌ ${error.message}`, "var(--red, #d00)");
+    if (elements.errorBox) {
+      elements.errorBox.classList.remove("hidden");
+      elements.errorBox.textContent = error.message;
+    }
+    lockToProductSelection();
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = origText; }
+  }
+}
+
 elements.runInsertMarketRadarButton.addEventListener("click", () => {
-  void runAction(
-    elements.runInsertMarketRadarButton,
-    "/api/insert/run/market-radar"
-  );
+  void startDailySelectionRadarRun();
+});
+/* 入口按钮：点击即进入选款视图并立即开始执行今日选款任务 */
+document.getElementById("enterDailySelectionButton")?.addEventListener("click", () => {
+  void startDailySelectionRadarRun({ enterView: true });
+});
+/* ── 标品选品按钮接线（与内胆包型选品互不干扰） ── */
+document.getElementById("runProductSelectionButton")?.addEventListener("click", () => {
+  void startProductSelectionRun();
+});
+document.getElementById("resetProductSelectionButton")?.addEventListener("click", async () => {
+  try {
+    await request("/api/selection/reset", { method: "POST" });
+    await refresh();
+  } catch (error) {
+    const errorBox = document.querySelector("#errorBox");
+    if (errorBox) {
+      errorBox.classList.remove("hidden");
+      errorBox.textContent = error.message;
+    }
+  }
+});
+document.getElementById("recoverProductSelectionButton")?.addEventListener("click", async () => {
+  try {
+    await request("/api/selection/recover", { method: "POST" });
+    await refresh();
+  } catch (error) {
+    const errorBox = document.querySelector("#errorBox");
+    if (errorBox) {
+      errorBox.classList.remove("hidden");
+      errorBox.textContent = error.message;
+    }
+  }
+});
+document.getElementById("importCurrentChatButton")?.addEventListener("click", async () => {
+  const statusEl = document.getElementById("productSelectionStatus");
+  const showStatus = (text, color = "var(--blue, #0071e3)") => {
+    if (!statusEl) return;
+    statusEl.classList.remove("hidden");
+    statusEl.style.color = color;
+    statusEl.textContent = text;
+  };
+  try {
+    showStatus("⏳ 正在从当前 ChatGPT 聊天页导入 Bob 结果…");
+    const res = await request("/api/selection/import-current-chat", { method: "POST" });
+    showStatus(`✅ 已导入 ${res.count || 0} 个候选`, "var(--green, #0a0)");
+    await refresh();
+  } catch (error) {
+    showStatus(`❌ ${error.message}`, "var(--red, #d00)");
+    const errorBox = document.querySelector("#errorBox");
+    if (errorBox) {
+      errorBox.classList.remove("hidden");
+      errorBox.textContent = error.message;
+    }
+  }
 });
 elements.resetInsertMarketRadarButton.addEventListener("click", () => {
   void resetInsertMarketRadar();
+});
+/* ── 上品视图入口：进入内胆 Listing 设计 / 先去每日选款雷达 ── */
+elements.enterInsertListingButton?.addEventListener("click", () => {
+  void selectWorkflowMode("luxury_insert");
+});
+elements.gotoSelectionRadarFromEntryLink?.addEventListener("click", (event) => {
+  event.preventDefault();
+  /* 先切到 luxury_insert 模式再进 selection-radar（选款视图需要该模式） */
+  if (window.latestPayload?.state?.workflowMode !== "luxury_insert") {
+    selectWorkflowMode("luxury_insert").then(() => switchView("selection-radar"));
+  } else {
+    switchView("selection-radar");
+  }
+});
+/* 从当前 ChatGPT 对话导入市场雷达结果（已生成但网页未显示时救回） */
+elements.importCurrentChatMarketRadarButton?.addEventListener("click", async () => {
+  const btn = elements.importCurrentChatMarketRadarButton;
+  const statusEl = document.getElementById("selectionRadarStatus");
+  const origText = btn.textContent;
+  btn.disabled = true;
+  if (statusEl) { statusEl.classList.remove("hidden"); statusEl.style.color = "var(--blue)"; statusEl.textContent = "⏳ 正在从当前 ChatGPT 对话导入…"; }
+  try {
+    const res = await request("/api/insert/market-radar/import-current-chat", { method: "POST" });
+    const count = (res.state?.luxuryInsert?.marketRadarCandidates || []).length;
+    if (statusEl) { statusEl.style.color = "var(--green, #0a0)"; statusEl.textContent = `✅ 已导入 ${count} 个候选`; }
+    if (window.latestPayload?.state) {
+      window.latestPayload.state = res.state;
+    }
+    await refresh();
+    switchView("selection-radar");
+  } catch (error) {
+    if (statusEl) { statusEl.style.color = "var(--red, #d00)"; statusEl.textContent = `❌ ${error.message}`; }
+    const errorBox = document.querySelector("#errorBox");
+    if (errorBox) {
+      errorBox.classList.remove("hidden");
+      errorBox.textContent = error.message;
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = origText;
+  }
+});
+elements.recoverMarketRadarButton?.addEventListener("click", async () => {
+  const btn = elements.recoverMarketRadarButton;
+  const statusEl = document.getElementById("selectionRadarStatus");
+  const origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "恢复中…";
+  if (statusEl) { statusEl.classList.remove("hidden"); statusEl.style.color = "var(--blue)"; statusEl.textContent = "⏳ 正在从磁盘恢复选款数据…"; }
+  try {
+    const res = await request("/api/insert/market-radar/recover", { method: "POST" });
+    if (res.recovered) {
+      if (statusEl) { statusEl.style.color = "green"; statusText = `✅ 成功恢复 ${(res.state.luxuryInsert.marketRadarCandidates||[]).length} 个候选`; }
+      await refresh();
+      switchView("selection-radar");
+    } else {
+      if (statusEl) { statusEl.style.color = "var(--muted)"; statusText = "ℹ️ 无需恢复 — 数据已在内存中（或磁盘无文件可恢复）"; }
+    }
+  } catch (error) {
+    if (statusEl) { statusEl.style.color = "var(--red, #d00)"; statusEl.textContent = `❌ ${error.message}`; }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = origText;
+  }
 });
 elements.addBagVariantButton.addEventListener("click", () => {
   const count = elements.bagVariantRows.children.length + 1;
@@ -9338,6 +12078,53 @@ elements.returnMarketRadarButton.addEventListener("click", () => {
 elements.runNotebookButton.addEventListener("click", () => {
   void runAction(elements.runNotebookButton, "/api/insert/run/notebook");
 });
+elements.reExtractNotebookButton.addEventListener("click", async () => {
+  const btn = elements.reExtractNotebookButton;
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "正在从 NotebookLM 读取…";
+  try {
+    const res = await fetch("/api/insert/notebook/re-extract", { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || String(res.status));
+    refresh();
+  }
+  catch (err) {
+    alert("读取失败: " + (err instanceof Error ? err.message : err));
+    btn.textContent = orig;
+    btn.disabled = false;
+  }
+});
+elements.importNotebookButton.addEventListener("click", async () => {
+  const text = (elements.notebookImportText.value || "").trim();
+  if (!text) {
+    elements.notebookImportError.textContent = "请先粘贴内容";
+    elements.notebookImportError.classList.remove("hidden");
+    return;
+  }
+  elements.notebookImportError.classList.add("hidden");
+  const btn = elements.importNotebookButton;
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "导入中…";
+  try {
+    const res = await fetch("/api/insert/notebook/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || String(res.status));
+    elements.notebookImportText.value = "";
+    refresh();
+  }
+  catch (err) {
+    elements.notebookImportError.textContent = "导入失败: " + (err instanceof Error ? err.message : err);
+    elements.notebookImportError.classList.remove("hidden");
+    btn.textContent = orig;
+    btn.disabled = false;
+  }
+});
 elements.freezeDesignButton.addEventListener("click", () => {
   void freezeInsertDesign();
 });
@@ -9355,6 +12142,22 @@ elements.generateInsertListingButton.addEventListener("click", () => {
     elements.generateInsertListingButton,
     "/api/insert/run/listing-content"
   );
+});
+elements.importInsertListingContentButton?.addEventListener("click", async () => {
+  const btn = elements.importInsertListingContentButton;
+  const origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "导入中…";
+  try {
+    const res = await request("/api/insert/listing-content/import-current-chat", { method: "POST" });
+    showToast("已从当前 ChatGPT 对话导入内胆 Listing 文案");
+    await refresh();
+  } catch (error) {
+    showToast(`导入失败：${error.message}`, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = origText;
+  }
 });
 elements.previewInsertStockSheetButton.addEventListener("click", () => {
   void previewInsertStockSheet();
@@ -9791,6 +12594,7 @@ elements.saveInsertListingContentPrompt.addEventListener("click", () => {
 
 window.addEventListener("beforeunload", saveCurrentDailyOperatorState);
 bindListingVisualWorkflow();
+bindObjectiveInfo();
 void initializeOperators().then(() => refresh());
 void loadPrompt("research", elements.researchPrompt);
 void loadPrompt("planning", elements.planningPrompt);

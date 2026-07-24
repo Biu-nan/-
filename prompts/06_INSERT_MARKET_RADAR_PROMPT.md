@@ -712,6 +712,8 @@ P1 表示：有机会，但不应抢占第一批尺寸匹配资源。
 - `candidates` 必须覆盖第 1 部分总表中的全部 20–30 个包型线索。
 - `officialFrontImageUrl` 必须是白底正面图的直接图片 URL；如果只能找到产品页，必须把产品页写入 `officialProductUrl`，并将 `officialFrontImageUrl` 写为 `Not found / needs manual sourcing`。
 - `bagModel + sizeVersion + officialProductUrl` 必须能用于识别重复候选。
+- `officialProductUrl` 为**必填**：只要找到该包型的任意官方产品页 / 品牌商品页 / 可信零售商商品页，都必须写入此字段，不得整批留空。若确实找不到任何产品页，才写 `Not found / needs manual sourcing`。
+- 产品页（.html / 商品详情页）只能写入 `officialProductUrl`，**严禁**写入 `officialFrontImageUrl`；`officialFrontImageUrl` 只接受图片直链（.jpg / .jpeg / .png / .webp）。
 - JSON 只用于后台解析；不要省略字段，不要添加注释。
 
 ```text

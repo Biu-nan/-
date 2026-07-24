@@ -15,7 +15,19 @@ const initialState = () => ({
     provider: "chatgpt",
     imageCount: 0,
     imageNames: [],
-    updatedAt: new Date().toISOString()
+    objectiveInfo: "",
+    updatedAt: new Date().toISOString(),
+    selection: {
+        running: false,
+        stage: "IDLE",
+        input: null,
+        text: "",
+        candidates: [],
+        updatedAt: null,
+        chatUrl: null,
+        decided: {},
+        error: undefined
+    }
 });
 function normalizePostGenerationQc(value) {
     if (!value)
@@ -96,12 +108,14 @@ export class StateStore {
     async notifyObserver() {
         if (!this.updateObserver)
             return;
-        try {
-            await this.updateObserver(this.get());
-        }
-        catch (error) {
-            console.warn("Product profile observer warning:", error instanceof Error ? error.message : String(error));
-        }
+        // Fire-and-forget: do NOT await the observer. The product-profile sync
+        // runs on its own serialized queue and is best-effort. Awaiting it here
+        // would block state persistence (and any HTTP handler that calls
+        // store.update/reset) whenever that queue is slow or stuck, which hangs
+        // the client with no response. Errors are logged, never rethrown.
+        Promise.resolve()
+            .then(() => this.updateObserver(this.get()))
+            .catch((error) => console.warn("Product profile observer warning:", error instanceof Error ? error.message : String(error)));
     }
     async save() {
         await mkdir(path.dirname(STATE_FILE), { recursive: true });

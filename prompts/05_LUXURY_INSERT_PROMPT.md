@@ -83,28 +83,174 @@
 
 完整 Prompt 必须严格写入以下要求：
 
-- 参考布局：
-  `https://ae-pic-a1.aliexpress-media.com/kf/S236c7a0180304ebf840f6c9b662fcaa1G.jpg`
-- 严格复制参考图的上部主展示和下部 before-and-after 对比框逻辑。
-- 上部主展示：主推外包站立展示，对应内胆准确放入，外部呈现自然挺括状态。
-- 下部对比框：
-  - 左侧为同一外包未使用内胆时的自然软榻状态。
-  - 中间为三个向右箭头。
-  - 右侧为同一外包使用内胆后的挺括状态。
-- Before 状态只能改变可逆的软榻程度，不得改变永久结构、五金、Logo、皮革/帆布纹理。
-- 顶部标题：
-  - 仅当冻结事实允许 Waterproof 时使用：
-    "HIGH QUALITY WATERPROOF BAG INSERT"
-  - 否则必须使用：
-    "HIGH QUALITY PROTECTIVE BAG INSERT"
-- 必须保留以下固定英文文案：
-  - "TRUE SNUG FIT - PERFECT BAG SUPPORT"
-  - "CUSTOM SIZE FOR ORIGINAL BAG"
-  - "KEEP BAG STURDY, NO INDENTATION, NO COLLAPSE"
-  - "BAG SAGGED BEFORE USE"
-  - "BAG SHAPELY & FIRM AFTER USE"
-- 纯白背景、均匀专业摄影光照、真实材质、准确五金细节。
-- 1:1 square, high resolution.
+Create a premium 1:1 square e-commerce comparison image for a handbag organizer insert.
+
+Use the uploaded reference image only for the overall commercial layout logic:
+
+1. A large hero bag presentation in the upper section.
+2. A before-and-after comparison panel in the lower section.
+3. Feature icons and text positioned on the left side.
+4. A clean white luxury product photography background.
+
+CRITICAL PRODUCT REALISM REQUIREMENT:
+
+The handbag organizer insert must be placed completely inside the handbag.
+
+The organizer must never protrude above the handbag opening.
+
+The top edge of the organizer must sit approximately 3–5 cm below the handbag rim.
+
+Do not show any felt rim, organizer zipper, organizer pocket, divider, cup holder, or internal structure extending above the bag opening.
+
+The handbag opening may show only a narrow, natural interior shadow and a small amount of the original bag lining.
+
+The organizer must appear correctly sized, fully seated against the bottom of the bag, and naturally fitted inside the bag.
+
+UPPER HERO SECTION:
+
+Show the main handbag standing upright in a front-facing or very slight three-quarter view.
+
+Use an eye-level camera angle with no strong top-down perspective.
+
+The handbag should appear naturally supported, shapely, balanced, and firm after the organizer is inserted.
+
+The leather must remain soft and realistic. Do not make the handbag look inflated, overfilled, rigid, box-shaped, digitally stretched, or unnaturally symmetrical.
+
+Preserve the original handbag proportions, handles, logo position, stitching, folds, panel construction, leather grain, hardware, edge paint, and permanent structural details.
+
+The organizer itself must remain visually hidden inside the main bag.
+
+Add one small premium cutaway detail window near the lower-right area of the upper hero bag.
+
+The cutaway window should be a refined circular or rounded-rectangle inset occupying approximately 10–15% of the image.
+
+Inside the cutaway window, show the organizer correctly positioned inside the handbag:
+
+- fully below the handbag rim,
+- closely fitted to the inner side walls,
+- resting naturally on the bag bottom,
+- showing a small portion of the organizer compartments,
+- no part of the organizer protruding outside the bag.
+
+Use a thin light-gray border and a subtle connector line.
+
+Do not cover the logo, main stitching, handles, or important bag details.
+
+The cutaway must look elegant and technically informative, not like a large X-ray effect.
+
+LOWER BEFORE-AND-AFTER PANEL:
+
+Place the same handbag twice inside a thin rounded rectangular comparison frame.
+
+LEFT — BEFORE:
+
+Show the handbag without an organizer.
+
+The bag should have a natural, reversible soft sag:
+
+- slightly inward side walls,
+- mild bottom compression,
+- gentle natural leather wrinkles,
+- slightly relaxed opening.
+
+Do not damage, deform, shorten, stretch, redesign, or permanently alter the bag.
+
+Keep the same logo, handles, leather texture, stitching, hardware, dimensions, lighting, and camera angle.
+
+RIGHT — AFTER:
+
+Show the exact same handbag after the organizer is placed fully inside.
+
+The organizer must not be visible above the bag opening.
+
+The bag should appear naturally more upright, balanced, shapely, and supported:
+
+- smoother side walls,
+- reduced inward collapse,
+- more stable base,
+- cleaner overall silhouette.
+
+Do not overcorrect the shape.
+
+The bag must still look like soft, premium leather rather than a hard box.
+
+Place three clean right-facing arrows between the two bags.
+
+TEXT REQUIREMENTS:
+
+Use the following top title only when Waterproof is an approved frozen product fact:
+
+“HIGH QUALITY WATERPROOF BAG INSERT”
+
+Otherwise use:
+
+“HIGH QUALITY PROTECTIVE BAG INSERT”
+
+Keep these exact English feature texts:
+
+“TRUE SNUG FIT - PERFECT BAG SUPPORT”
+
+“CUSTOM SIZE FOR ORIGINAL BAG”
+
+“KEEP BAG STURDY,
+NO INDENTATION,
+NO COLLAPSE”
+
+Keep these exact comparison captions:
+
+“BAG SAGGED BEFORE USE”
+
+“BAG SHAPELY & FIRM AFTER USE”
+
+At the bottom, include:
+
+“Bag for reference only. Selling insert only. Not affiliated with the referenced brand.”
+
+VISUAL STYLE:
+
+Premium luxury e-commerce photography.
+
+Pure white background.
+
+Soft, evenly distributed professional studio lighting.
+
+Natural contact shadows.
+
+Realistic leather texture.
+
+Accurate stitching and hardware.
+
+Clean typography.
+
+Generous white space.
+
+Balanced visual hierarchy.
+
+Elegant, modern and commercially persuasive.
+
+No clutter.
+
+No oversized icons.
+
+No exaggerated gradients.
+
+No harsh reflections.
+
+No visible organizer above any handbag opening.
+
+No floating organizer.
+
+No oversized organizer.
+
+No incorrectly scaled internal compartments.
+
+No duplicated handles.
+
+No distorted logo.
+
+No changed bag construction.
+
+1:1 square composition, high resolution.
 
 ## Image 04｜材质与贴合细节图
 

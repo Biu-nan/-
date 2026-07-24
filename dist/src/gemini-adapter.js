@@ -3,6 +3,7 @@ import { access, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright-core";
 import { CHROME_DEBUG_PORT, CHROME_PATH, CHROME_PROFILE_DIR } from "./config.js";
+import { compressGeneratedImage } from "./image-compress.js";
 const GEMINI_URL = "https://gemini.google.com/app";
 const RESPONSE_WAIT_MS = 10 * 60_000;
 export class GeminiAdapter {
@@ -229,7 +230,7 @@ export class GeminiAdapter {
             const number = missingNumbers[index];
             if (!number)
                 break;
-            await this.saveGeneratedImage(images.nth(index), path.join(outputDirectory, `Image_${String(number).padStart(2, "0")}.png`));
+            await this.saveGeneratedImage(images.nth(index), path.join(outputDirectory, `Image_${String(number).padStart(2, "0")}.jpg`));
             recovered.add(number);
         }
         return [...recovered].sort((a, b) => a - b);
@@ -314,6 +315,10 @@ export class GeminiAdapter {
         }
         await mkdir(path.dirname(outputPath), { recursive: true });
         await writeFile(outputPath, bytes);
+        // 自动压缩：生产完图片保存本地时压到 ≤200KB（仅压缩体积，不改尺寸/内容；用户选择 jpg，透明背景填白）
+        await compressGeneratedImage(outputPath, 200).catch((e) => {
+            console.warn("[compress] 图片压缩跳过，保留原图：", e?.message || e);
+        });
     }
     async requirePage() {
         if (!this.page || this.page.isClosed()) {

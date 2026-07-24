@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>店小秘自动化上品 · 乳贴 v1.0</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --border:#e3e6 eb; --primary:#2f6fed; --text:#1f2329; --muted:#8a9099; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background:var(--bg); color:var(--text); padding:24px; }
+  .card { background:var(--card); border:1px solid #e3e6eb; border-radius:12px; padding:20px 24px; max-width:880px; margin:0 auto; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  .sub { color:var(--muted); font-size:13px; margin:0 0 18px; line-height:1.6; }
+  .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+  label { font-size:13px; color:var(--muted); }
+  input { padding:8px 10px; border:1px solid #d0d5dd; border-radius:8px; font-size:14px; width:240px; }
+  button { padding:10px 18px; border:0; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; background:var(--primary); color:#fff; }
+  button.ghost { background:#eef1f6; color:var(--text); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .status { font-size:14px; font-weight:600; margin:8px 0; }
+  .status.ok { color:#1a8a4a; } .status.err { color:#d23b3b; }
+  pre { background:#0f1115; color:#d6e2ff; padding:14px; border-radius:8px; font-size:12px; line-height:1.5; max-height:360px; overflow:auto; white-space:pre-wrap; }
+  .hint { font-size:12px; color:var(--muted); margin-top:10px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>店小秘自动化上品 · 乳贴 v1.0</h1>
+    <p class="sub">
+      速卖通半托管（Choice）模式 · 闭环：引用模板产品 → 填固定字段 → 保存草稿（<b>不发布</b>，等你确认）。<br />
+      固定字段已固化：店铺名称=<b>洛慈全托管</b>，备货类型=<b>国内履约</b>，尺码表=留空。
+    </p>
+
+    <div class="row">
+      <label for="tpl">引用产品 ID</label>
+      <input id="tpl" value="1005005575013300" />
+    </div>
+
+    <div class="row">
+      <button id="btnRefFill">① 引用并填固定字段</button>
+      <button id="btnSave" class="ghost">② 保存（不发布）</button>
+    </div>
+
+    <div id="status" class="status">就绪</div>
+    <pre id="log">等待操作…</pre>
+
+    <p class="hint">
+      需要已登录的店小秘标签页（Chrome CDP :9223）在后台运行。引用会填充创建页表单（未保存草稿可丢弃）；保存仅点「保存」按钮，不会上架/发布。
+    </p>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const logEl = $("log");
+  const setStatus = (msg, kind) => { const s = $("status"); s.textContent = msg; s.className = "status" + (kind ? " " + kind : ""); };
+  const log = (m) => { logEl.textContent = (typeof m === "string" ? m : JSON.stringify(m, null, 2)) + "\n" + logEl.textContent; };
+
+  async function postJSON(url, body) {
+    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return await r.json();
+  }
+
+  $("btnRefFill").onclick = async () => {
+    const tpl = $("tpl").value.trim();
+    $("btnRefFill").disabled = true; setStatus("引用中…");
+    log("POST /api/dianxiaomi/reference-fill  templateId=" + tpl);
+    try {
+      const j = await postJSON("/api/dianxiaomi/reference-fill", { templateId: tpl });
+      log(j);
+      if (j.ok) setStatus("① 引用并填固定字段完成 ✓", "ok");
+      else setStatus("失败：" + (j.error || "未知"), "err");
+    } catch (e) { log("ERR " + e.message); setStatus("错误：" + e.message, "err"); }
+    finally { $("btnRefFill").disabled = false; }
+  };
+
+  $("btnSave").onclick = async () => {
+    if (!confirm("确认保存为草稿？（仅保存，不会发布/上架）")) return;
+    $("btnSave").disabled = true; setStatus("保存中…");
+    log("POST /api/dianxiaomi/save");
+    try {
+      const j = await postJSON("/api/dianxiaomi/save", {});
+      log(j);
+      if (j.ok) setStatus("已点击：" + j.clicked + " ✓", "ok");
+      else setStatus("失败：" + (j.error || "未知"), "err");
+    } catch (e) { log("ERR " + e.message); setStatus("错误：" + e.message, "err"); }
+    finally { $("btnSave").disabled = false; }
+  };
+</script>
+</body>
+</html>

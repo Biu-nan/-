@@ -81,6 +81,18 @@ export class NotebookLmAdapter {
         const text = (await answers.nth(count - 1).innerText().catch(() => "")).trim();
         return text || undefined;
     }
+    async scanForMarkedAnswer(startMarker, endMarker) {
+        // Scan ALL answers from newest to oldest, return the first one containing both markers.
+        await this.open();
+        const answers = this.answers();
+        const count = await answers.count();
+        for (let i = count - 1; i >= 0; i--) {
+            const text = (await answers.nth(i).innerText().catch(() => "")).trim();
+            if (text && text.includes(startMarker) && text.includes(endMarker))
+                return text;
+        }
+        return undefined;
+    }
     async waitForAnswer(previousCount, fingerprint) {
         const deadline = Date.now() + RESPONSE_WAIT_MS;
         let stable = "";

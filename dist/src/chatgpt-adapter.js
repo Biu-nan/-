@@ -3,10 +3,16 @@ import { access, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright-core";
 import { CHATGPT_URL, CHROME_DEBUG_PORT, CHROME_PATH, CHROME_PROFILE_DIR } from "./config.js";
+import { compressGeneratedImage } from "./image-compress.js";
 const LOGIN_WAIT_MS = 15_000;
 const CHROME_START_WAIT_MS = 30_000;
 const UPLOAD_WAIT_MS = 90_000;
-const RESPONSE_WAIT_MS = 10 * 60_000;
+const RESPONSE_WAIT_MS = 22 * 60_000;
+// ① 生成停滞检测：stop 仍可见且回复文本连续此分钟数零增长 → 判定停滞并自动重发
+const STALL_DETECT_MS = 3 * 60_000;
+const MAX_STALL_RETRIES = 2;
+// ② 周期性页面健康检查：每此毫秒复查是否掉登录 / 人机验证 / 报错弹窗
+const HEALTH_CHECK_MS = 90 * 1000;
 function escapeRegex(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -42,12 +48,21 @@ export class ChatGptAdapter {
         if (!this.page || this.page.isClosed()) {
             await this.launch();
         }
-        const page = await this.requirePage();
-        const composer = this.composer(page);
-        const ready = await composer
+        let page = await this.requirePage();
+        let ready = await this.composer(page)
             .waitFor({ state: "visible", timeout: LOGIN_WAIT_MS })
             .then(() => true)
             .catch(() => false);
+        if (!ready) {
+            // 适配器可能持有了一个旧的/未登录的页面引用；尝试在所有上下文/标签中找可用的 ChatGPT 页
+            const readyPage = await this.findReadyPage();
+            if (readyPage) {
+                this.page = readyPage;
+                this.context = readyPage.context();
+                page = readyPage;
+                ready = true;
+            }
+        }
         if (ready) {
             return { ready: true, status: "ready", url: page.url() };
         }
@@ -63,6 +78,25 @@ export class ChatGptAdapter {
                 : "login_required",
             url: page.url()
         };
+    }
+    async findReadyPage() {
+        if (!this.browser || !this.browser.isConnected()) {
+            return undefined;
+        }
+        for (const context of this.browser.contexts()) {
+            for (const page of context.pages()) {
+                if (page.isClosed() || !page.url().includes("chatgpt.com")) {
+                    continue;
+                }
+                try {
+                    await this.composer(page).waitFor({ state: "visible", timeout: 3_000 });
+                    return page;
+                } catch {
+                    // 继续试下一个页面
+                }
+            }
+        }
+        return undefined;
     }
     async createBlankChat() {
         const page = await this.requirePage();
@@ -193,6 +227,7 @@ export class ChatGptAdapter {
         const page = await this.requirePage();
         const deadline = Date.now() + 8 * 60_000;
         let detectedAt;
+        let lastHealthCheck = Date.now();
         while (Date.now() < deadline) {
             const alreadySaved = await access(outputPath)
                 .then(() => true)
@@ -202,6 +237,14 @@ export class ChatGptAdapter {
             const stopVisible = await this.stopButton(page)
                 .isVisible()
                 .catch(() => false);
+            // ② 周期性页面健康检查：图片生成阶段同样可能因掉登录 / 验证而永远等不到图
+            if (Date.now() - lastHealthCheck > HEALTH_CHECK_MS) {
+                lastHealthCheck = Date.now();
+                const health = await this.quickHealthCheck().catch(() => ({ ok: true }));
+                if (!health.ok) {
+                    throw new Error(`ChatGPT 页面异常（${health.reason}${health.url ? " @ " + health.url : ""}），已停止等待图片生成。请检查登录/人机验证后点击「继续」。`);
+                }
+            }
             const generatedImages = this.generatedImages(page);
             const generatedImageCount = await generatedImages.count();
             if (!stopVisible &&
@@ -248,7 +291,7 @@ export class ChatGptAdapter {
                 continue;
             if (stopVisible && index === count - 1)
                 continue;
-            const outputPath = path.join(outputDirectory, `Image_${String(pendingImageNumber).padStart(2, "0")}.png`);
+            const outputPath = path.join(outputDirectory, `Image_${String(pendingImageNumber).padStart(2, "0")}.jpg`);
             await this.saveGeneratedImage(images.nth(imageCount - 1), outputPath);
             recovered.add(pendingImageNumber);
             pendingImageNumber = undefined;
@@ -262,7 +305,7 @@ export class ChatGptAdapter {
             const imageNumber = index + 1;
             if (recovered.has(imageNumber))
                 continue;
-            const outputPath = path.join(outputDirectory, `Image_${String(imageNumber).padStart(2, "0")}.png`);
+            const outputPath = path.join(outputDirectory, `Image_${String(imageNumber).padStart(2, "0")}.jpg`);
             await this.saveGeneratedImage(generatedImages.nth(index), outputPath);
             recovered.add(imageNumber);
         }
@@ -287,11 +330,37 @@ export class ChatGptAdapter {
     }
     async sendPromptOnce(prompt, fingerprint) {
         const page = await this.requirePage();
+        // 记录最近一次发送的 prompt，供「生成停滞自动重发」(①) 复用
+        this._lastPrompt = prompt;
         const assistantCount = await this.assistantMessages(page).count();
         const userMessages = page.locator('[data-message-author-role="user"]');
         const userCount = await userMessages.count();
         const composer = this.composer(page);
-        await composer.fill(prompt);
+        // 健壮写入：先清空输入框可能残留的历史文本（即便输入框因残留内容被撑高/移出视口，
+        // .fill() 会因无法滚入视口而 30s 超时并中断整条流程）。改用「聚焦→全选删除→insertText」
+        // 不依赖元素是否在视口中央，可彻底避免该死循环。
+        await page.evaluate(() => {
+            const el = document.querySelector('#prompt-textarea, textarea[data-testid="prompt-textarea"], [contenteditable="true"][data-lexical-editor="true"]');
+            if (!el) return;
+            el.focus();
+            const sel = window.getSelection();
+            if (!sel) return;
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }).catch(() => {});
+        await page.keyboard.press("Delete").catch(() => {});
+        await page.keyboard.press("Backspace").catch(() => {});
+        // 兜底：仍有残留则直接清空 DOM 并触发 input 事件
+        await page.evaluate(() => {
+            const el = document.querySelector('#prompt-textarea, textarea[data-testid="prompt-textarea"], [contenteditable="true"][data-lexical-editor="true"]');
+            if (el && (el.textContent || "").length > 0) {
+                el.innerHTML = "";
+                el.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+        }).catch(() => {});
+        await page.keyboard.insertText(prompt);
         const sendButton = this.sendButton(page);
         await sendButton.waitFor({ state: "visible", timeout: 15_000 });
         await sendButton.click();
@@ -319,20 +388,52 @@ export class ChatGptAdapter {
         throw new Error("无法确认 Prompt 是否发送成功。流程已停止，请检查 ChatGPT 页面后点击继续；程序不会自动重复发送。");
     }
     async recoverCompletedResponse(fingerprint) {
-        const page = await this.requirePage();
-        const stopVisible = await this.stopButton(page)
-            .isVisible()
-            .catch(() => false);
-        if (stopVisible)
-            return undefined;
-        const messages = page.locator('[data-message-author-role="user"], [data-message-author-role="assistant"]');
-        const sequence = await this.messageSequence(messages);
-        for (let index = sequence.length - 1; index >= 0; index -= 1) {
-            const message = sequence[index];
-            if (message.role !== "user" || !message.text.includes(fingerprint)) {
-                continue;
+        // 先确保 this.page 指向可用的 ChatGPT 页面
+        if (this.page && !this.page.isClosed()) {
+            const ready = await this.composer(this.page)
+                .waitFor({ state: "visible", timeout: 3_000 })
+                .then(() => true)
+                .catch(() => false);
+            if (!ready) {
+                const readyPage = await this.findReadyPage();
+                if (readyPage) {
+                    this.page = readyPage;
+                    this.context = readyPage.context();
+                }
             }
-            return this.assistantResponseAfter(sequence, index);
+        }
+        const pages = [];
+        if (this.page && !this.page.isClosed()) {
+            pages.push(this.page);
+        }
+        if (this.browser && this.browser.isConnected()) {
+            for (const context of this.browser.contexts()) {
+                for (const page of context.pages()) {
+                    if (!page.isClosed() && page.url().includes("chatgpt.com") && !pages.includes(page)) {
+                        pages.push(page);
+                    }
+                }
+            }
+        }
+        for (const page of pages) {
+            try {
+                const stopVisible = await this.stopButton(page)
+                    .isVisible()
+                    .catch(() => false);
+                if (stopVisible)
+                    continue;
+                const messages = page.locator('[data-message-author-role="user"], [data-message-author-role="assistant"]');
+                const sequence = await this.messageSequence(messages);
+                for (let index = sequence.length - 1; index >= 0; index -= 1) {
+                    const message = sequence[index];
+                    if (message.role !== "user" || !message.text.includes(fingerprint)) {
+                        continue;
+                    }
+                    return this.assistantResponseAfter(sequence, index);
+                }
+            } catch {
+                // 尝试下一个页面
+            }
         }
         return undefined;
     }
@@ -352,6 +453,13 @@ export class ChatGptAdapter {
         const startedAt = Date.now();
         let stableText = "";
         let stableSince;
+        // ① 停滞探测状态
+        let lastAssistantLen = 0;
+        let lastGrowthAt = startedAt;
+        let generationObserved = false;
+        let stallRetries = 0;
+        // ② 健康检查状态
+        let lastHealthCheck = startedAt;
         while (Date.now() - startedAt < RESPONSE_WAIT_MS) {
             const stopVisible = await this.stopButton(page)
                 .isVisible()
@@ -367,6 +475,42 @@ export class ChatGptAdapter {
                 responseText = this.assistantResponseAfter(sequence, index) ?? "";
                 break;
             }
+            if (responseText.length > 0)
+                generationObserved = true;
+            // ② 周期性页面健康检查：检测掉登录 / 人机验证 / 报错弹窗
+            if (Date.now() - lastHealthCheck > HEALTH_CHECK_MS) {
+                lastHealthCheck = Date.now();
+                const health = await this.quickHealthCheck().catch(() => ({ ok: true }));
+                if (!health.ok) {
+                    await this.clickStopSafely(page);
+                    throw new Error(`ChatGPT 页面异常（${health.reason}${health.url ? " @ " + health.url : ""}），已停止等待。请检查登录/人机验证后点击「继续」重新运行本阶段。`);
+                }
+            }
+            // ① 生成停滞检测：stop 仍可见，但回复文本长时间零增长 → 自动点停止并重发
+            if (stopVisible && generationObserved && Date.now() - lastGrowthAt > STALL_DETECT_MS) {
+                stallRetries += 1;
+                if (stallRetries > MAX_STALL_RETRIES || !this._lastPrompt) {
+                    await this.clickStopSafely(page);
+                    throw new Error(`ChatGPT 回复生成停滞（连续 ${(STALL_DETECT_MS / 60000) | 0} 分钟无新内容），已重试 ${MAX_STALL_RETRIES} 次仍无进展，本阶段失败：${fingerprint}`);
+                }
+                console.warn(`[chatgpt] 检测到生成停滞，自动点停止并重发（第 ${stallRetries} 次）：${fingerprint}`);
+                await this.clickStopSafely(page);
+                await page.waitForTimeout(2_000);
+                try {
+                    await this.sendPromptOnce(this._lastPrompt, fingerprint);
+                }
+                catch (resendError) {
+                    throw new Error(`ChatGPT 生成停滞且重发失败：${fingerprint}（${resendError?.message || resendError}）`);
+                }
+                // 重置停滞跟踪，进入新一轮等待
+                lastAssistantLen = 0;
+                lastGrowthAt = Date.now();
+                generationObserved = false;
+                stableText = "";
+                stableSince = undefined;
+                await page.waitForTimeout(1_000);
+                continue;
+            }
             if (responseText && !stopVisible) {
                 if (responseText !== stableText) {
                     stableText = responseText;
@@ -378,6 +522,11 @@ export class ChatGptAdapter {
             }
             else {
                 stableSince = undefined;
+            }
+            // 记录回复文本增长，用于停滞探测（仅 stop 可见（生成中）时累计）
+            if (stopVisible && responseText.length > lastAssistantLen) {
+                lastAssistantLen = responseText.length;
+                lastGrowthAt = Date.now();
             }
             await page.waitForTimeout(1_000);
         }
@@ -473,11 +622,62 @@ export class ChatGptAdapter {
     assistantMessages(page) {
         return page.locator('[data-message-author-role="assistant"]');
     }
+    // 安全地点 stop 按钮：不可点（已结束/不存在）时静默忽略
+    async clickStopSafely(page) {
+        try {
+            const stop = this.stopButton(page);
+            if (await stop.isVisible().catch(() => false)) {
+                await stop.click({ timeout: 5_000 });
+                await page.waitForTimeout(500);
+            }
+        }
+        catch {
+            // 忽略：stop 不可点也无妨，等待循环会继续
+        }
+    }
+    // ② 轻量页面健康检查：检测掉登录跳转 / 人机验证 / 常见报错弹窗（不阻塞正常生成）
+    async quickHealthCheck() {
+        const page = await this.requirePage();
+        const url = page.url();
+        if (!/chatgpt\.com/i.test(url)) {
+            return { ok: false, reason: "页面已跳转（可能掉登录）", url };
+        }
+        const text = await page
+            .locator("body")
+            .innerText({ timeout: 4_000 })
+            .catch(() => "");
+        if (/verify you are human|真人验证|验证您是真人|checking your browser|执行安全验证/i.test(text)) {
+            return { ok: false, reason: "人机验证", url };
+        }
+        if (/something went wrong|please try again|您已达到|rate limit|try again later|an error occurred|请求过于频繁|暂时无法使用/i.test(text)) {
+            return { ok: false, reason: "报错弹窗", url };
+        }
+        return { ok: true };
+    }
     async messageSequence(messages) {
-        return messages.evaluateAll((elements) => elements.map((element) => ({
-            role: element.getAttribute("data-message-author-role"),
-            text: element.innerText.trim()
-        })));
+        const deadline = Date.now() + 10_000;
+        let lastError;
+        while (Date.now() < deadline) {
+            try {
+                return await messages.evaluateAll((elements) => elements.map((element) => ({
+                    role: element.getAttribute("data-message-author-role"),
+                    text: element.innerText.trim()
+                })));
+            }
+            catch (error) {
+                lastError = error;
+                const message = error instanceof Error ? error.message : String(error);
+                if (message.includes("Execution context was destroyed") ||
+                    message.includes("Frame was detached") ||
+                    message.includes("Target closed") ||
+                    message.includes("Navigating")) {
+                    await new Promise((resolve) => setTimeout(resolve, 500));
+                    continue;
+                }
+                throw error;
+            }
+        }
+        throw lastError ?? new Error("无法读取 ChatGPT 消息序列");
     }
     assistantResponseAfter(sequence, userIndex) {
         const texts = sequence
@@ -516,6 +716,10 @@ export class ChatGptAdapter {
         }, metadata.src);
         await mkdir(path.dirname(outputPath), { recursive: true });
         await writeFile(outputPath, Buffer.from(imageData, "base64"));
+        // 自动压缩：生产完图片保存本地时压到 ≤200KB（仅压缩体积，不改尺寸/内容；用户选择 jpg，透明背景填白）
+        await compressGeneratedImage(outputPath, 200).catch((e) => {
+            console.warn("[compress] 图片压缩跳过，保留原图：", e?.message || e);
+        });
     }
     async clickAttachmentButton(page) {
         const buttons = [

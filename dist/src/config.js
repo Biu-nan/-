@@ -49,10 +49,13 @@ export const OUTPUT_DIR = path.join(PRODUCT_ROOT, "output");
 export const INSERT_BAG_IMAGES_DIR = path.join(PRODUCT_ROOT, "目标外包图");
 export const INSERT_LINER_IMAGES_DIR = path.join(PRODUCT_ROOT, "内胆图");
 export const INSERT_OUTPUT_DIR = path.join(PRODUCT_ROOT, "内胆output");
+export const SELECTION_DIR = path.join(PROJECT_ROOT, "selection-output");
+export const SELECTION_CANDIDATES_FILE = path.join(PROJECT_ROOT, "selection-candidates.json");
 export const PROMPTS_DIR = path.join(PROJECT_ROOT, "prompts");
 export const INSERT_PROMPT_FILE = path.join(PROMPTS_DIR, "05_LUXURY_INSERT_PROMPT.md");
 export const INSERT_MARKET_RADAR_PROMPT_FILE = path.join(PROMPTS_DIR, "06_INSERT_MARKET_RADAR_PROMPT.md");
 export const INSERT_LISTING_CONTENT_PROMPT_FILE = path.join(PROMPTS_DIR, "07_INSERT_LISTING_CONTENT_PROMPT.md");
+export const SELECTION_PROMPT_FILE = path.join(PROMPTS_DIR, "08_PRODUCT_SELECTION_PROMPT.md");
 export const INSERT_STOCK_SHEET_RECORDS_FILE = path.join(PROJECT_ROOT, "insert-stock-sheet-records.json");
 export const GOOGLE_SHEETS_WEBHOOK_CONFIG_FILE = path.join(PROJECT_ROOT, "google-sheets-webhook.json");
 export const STATE_FILE = path.join(USER_DATA_DIR, "run-state.json");
@@ -68,11 +71,198 @@ export const VISUAL_STRATEGY_COMPRESSION_PROMPT_FILE = path.join(PROMPTS_DIR, "0
 export const VISUAL_PLANNING_V2_PROMPT_FILE = path.join(PROMPTS_DIR, "07_VISUAL_PLANNING_V2_PROMPT.md");
 export const SINGLE_IMAGE_PROMPT_V2_FILE = path.join(PROMPTS_DIR, "08_SINGLE_IMAGE_PROMPT_V2.md");
 export const LISTING_IMAGE_QC_PROMPT_FILE = path.join(PROMPTS_DIR, "09_LISTING_IMAGE_QC_PROMPT.md");
+// ===== 爆款研究中心（Hit Product Research Center，2026-07-24）=====
+// 单品拆解报告的研究中心：导入爆款图+数据 → ChatGPT 多模态拆解爆款因子。
+export const HOT_PRODUCTS_FILE = path.join(HIDDEN_DATA_DIR, "hot-products.json");
+export const HOT_PRODUCTS_DIR = path.join(HIDDEN_DATA_DIR, "hot-products");
+export const HOT_PRODUCT_TEARDOWN_PROMPT_FILE = path.join(PROMPTS_DIR, "10_HOT_PRODUCT_TEARDOWN.md");
+export const HOT_PRODUCT_TEARDOWN_FINGERPRINT = "# 爆款拆解分析 Agent v0.1";
+// 发现源（二阶段）：反向图搜 + 免费门户关键词搜的截图落盘目录
+export const DISCOVER_DIR = path.join(HIDDEN_DATA_DIR, "discover-sessions");
 export const CHROME_PATH = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 export const PORT = Number(process.env.PORT ?? 3000);
 export const HOST = process.env.HOST ?? "0.0.0.0";
 export const CHATGPT_URL = "https://chatgpt.com/";
 export const NOTEBOOKLM_URL = "https://notebooklm.google.com/notebook/e8814b50-af7a-462a-be88-d267b56dbf91";
+
+// ===== 店小秘 ERP 自动化上品（乳贴 v1.0）=====
+// 店小秘「创建产品」有两条不同渠道，入口 URL 完全不同：
+//   速卖通 POP（aliexpress）      → /web/smt/add          （普通 POP 模式，模板 1005005575013300 不在此）
+//   速卖通全/半托管（Choice）     → /web/smtChoice/add     ← 托管模式，模板产品 1005005575013300 属于此渠道
+// 用户明确：模板产品是「速卖通/半托管」(托管模式)，必须走 smtChoice 入口，否则引用产品搜不到。
+export const DIANXIAOMI_URL_POP = "https://www.dianxiaomi.com/web/smt/add";
+export const DIANXIAOMI_URL_CHOICE = "https://www.dianxiaomi.com/web/smtChoice/add";
+// 当前 v1.0 使用托管模式入口
+export const DIANXIAOMI_URL = DIANXIAOMI_URL_CHOICE;
+export const DIANXIAOMI_TEMPLATE_PRODUCT_ID = "1005005575013300";
+export const PRODUCT_FACT_FILE = path.join(PROJECT_ROOT, "product-facts.json");
+export const PRODUCT_FACT_SCHEMA_FILE = path.join(PROJECT_ROOT, "schemas", "product-fact.schema.json");
+// 固定配置（托管模式 Choice 下本店既有配置；按用户 2026-07-20 确认）
+// 托管模式创建页无独立 运费/服务/属性/变种/产品模板/区域调价 表单字段：
+//  - 变体轴由产品事实（设计 SKU）决定，不固化；
+//  - 属性由产品事实（方便客户了解 + 搜索权重）决定，不固化；
+//  - 运费/服务/产品模板/区域调价 不需要固化。
+// ===== 店小秘 ERP 自动化上品（多类目 Profile，2026-07-22 重构）=====
+// 原乳贴常量（DIANXIAOMI_FIXED / DIANXIAOMI_CATEGORY / DIANXIAOMI_REQUIRED_ATTRS / ...）
+// 已收敛到 DIANXIAOMI_CATEGORY_PROFILES，乳贴=ruTie，箱包配件=xiangBao。
+// 重构原则：所有"写死"的店铺/类目/属性/物流/材质，按类目聚合到 profile，adapter 全程读 profile。
+// 旧常量仍向下兼容导出（= ruTie 的值），调用方若未传 profileKey 则默认 ruTie。
+export const DIANXIAOMI_DEFAULT_PROFILE_KEY = "ruTie";
+
+export const DIANXIAOMI_CATEGORY_PROFILES = {
+  // 乳贴（速卖通半托管 Choice，引用 1005005575013300）
+  ruTie: {
+    key: "ruTie",
+    label: "乳贴",
+    url: DIANXIAOMI_URL_CHOICE,
+    templateProductId: "1005005575013300",
+    fixed: {
+      storeName: "洛慈全托管",
+      stockType: "国内履约",
+      sizeTemplate: ""
+    },
+    category: "内衣配件（乳贴/乳垫/肩带等）(Women's Intimates Accessories)",
+    requiredAttrs: [
+      { label: "高关注化学品", id: "rc_select_12", value: "天然未处理(None)" },
+      { label: "产地（国家或地区）", id: "rc_select_13", value: "中国大陆(Origin)(Mainland China)" },
+      { label: "是否性暗示", id: "rc_select_14", value: "否(No)" },
+      { label: "颜色风格", id: "rc_select_16", value: "自然色(Natural Color)" },
+      { label: "是否暴露图片", id: "rc_select_15", value: "否(No)" }
+    ],
+    besteffortAttrs: [
+      { label: "材质(Material)", id: "rc_select_18", candidates: ["乳胶(Latex)", "PVC(PVC)"], factsKey: "material" },
+      { label: "内衣配件类型(Intimates Accessories Type)", id: "rc_select_17", candidates: ["贴身衣物配件(Intimates Accessories)", "Bra", "Intimates Accessories"] },
+      { label: "性别(Gender)", id: "rc_select_20", candidates: ["女性(Women)", "女性", "女"] }
+    ],
+    defaultMaterial: "乳胶(Latex)",
+    logistics: "普货",
+    compliance: { euResponsible: "", trResponsible: "", manufacturer: "" },
+    // 乳贴：引用自带类目属性；AI 只覆盖 品牌/材质/型号标识，变种由本系统生成
+    fillVariantSections: true,
+    factExtractFingerprint: "# 店小秘乳贴产品事实提取 Agent v0.1",
+    factExtractPrompt: `# 店小秘乳贴产品事实提取 Agent v0.1
+你正在为速卖通半托管（Choice）店小秘创建「乳贴」产品，请基于本对话上传的全部产品图片（实拍图/详情图/SKU 图/尺寸图/包装图），提取可直接填写店小秘表单的产品事实，并**只输出一个 JSON 对象**（不要用 markdown 代码块包裹，直接输出纯 JSON）。
+
+# 输出 JSON 结构（严格按此，字段名不得更改；图片无法判断的填 null 或省略）
+
+{
+  "title": {
+    "zh": "中文标题（≤128 字，含核心关键词：乳贴/胸贴/无肩带）",
+    "en": "英文标题（≤128 字，速卖通风格，含 Nipple Covers / Breast Petals 等关键词）"
+  },
+  "category": "速卖通产品分类（如 服饰配件>内衣>乳贴，或英文类目名）",
+  "mainKeyword": "产品核心搜索关键词（英文，如 Nipple Covers / Breast Petals），用于型号与内衣配件类型等关键属性",
+  "brand": "品牌名；无品牌填 NONE",
+  "material": "主要材质（如 硅胶 Silicone / 布料 Fabric），可多项用逗号分隔",
+  "origin": { "country": "产地国，如 中国大陆(Mainland China)", "province": "省份如 浙江(Zhejiang)" },
+  "keyAttributes": [
+    { "name": "属性名（如 颜色/图案/是否可洗/厚度）", "value": "属性值" }
+  ],
+  "variants": {
+    "dimensions": ["颜色", "尺码"],
+    "skus": [
+      { "combination": ["肤色", "均码"], "stock": 100, "price": 3.5, "sku": "自定SKU如 RUTIE-ST-M", "barcode": "", "weight": 0.03, "dimensionsCm": { "length": 10, "width": 10, "height": 0.3 } }
+    ]
+  },
+  "unit": "计件单位，如 piece/pieces",
+  "weight": 0.03,
+  "dimensionsCm": { "length": 10, "width": 10, "height": 1 },
+  "description": {
+    "pc": "PC 端描述（卖点+参数，纯文本，可含换行）",
+    "mobile": "无线端描述（更口语短句）"
+  },
+  "hsCode": "海关编码（不确定留空）",
+  "compliance": { "euResponsible": "", "trResponsible": "", "manufacturer": "", "customsAttribute": "" }
+}
+
+# 规则
+1. 仅提取图片中**清晰可读/可见**的信息；不确定或图片无此信息时对应字段填 null 或省略，禁止编造。
+1.1 mainKeyword 必填：用该乳贴产品的英文核心搜索词（如 Nipple Covers），将作为型号(Model Number)与内衣配件类型(Intimates Accessories Type)的填充值。
+2. 多图展示不同颜色/尺码时，在 variants.skus 列出可见组合；无法确定完整数量时 skus 只列可见项。
+3. 标题须符合速卖通搜索习惯，包含品类核心词。
+4. 不要输出 JSON 以外的任何解释文字。
+5. 本任务只提取图片事实，不联网、不生图。`
+  },
+
+  // 箱包配件（速卖通半托管 Choice，引用 1005012741652735；两个箱包店都可用，默认用 2 店）
+  // 板块分工（用户 2026-07-22 拍板）：
+  //  - AI生成后填入：标题 / 属性信息(品牌·材质·类型·产地) / 产品图片 / 营销图片 / PC端描述 / 无线端描述
+  //  - 人工填写(本系统暂不做)：变种参数 / 变种信息 / 货品信息
+  //  - 引用产品自带(直接复用，不覆盖)：其余所有板块（店铺/备货/分类/海关监管属性/计件单位/来源/欧盟责任人/品牌制造商/型号/来源地 等）
+  xiangBao: {
+    key: "xiangBao",
+    label: "箱包配件",
+    url: DIANXIAOMI_URL_CHOICE,
+    templateProductId: "1005012741652735",
+    fixed: {
+      storeName: "自营箱包全托2店",
+      stockType: "国内履约",
+      sizeTemplate: ""
+    },
+    category: "箱包配件(Bag Parts & Accessories)",
+    // 引用模式引用自带清单（引用 1005012741652735 实测）：
+    //   店铺/备货/分类/产品属性(NONE)/高关注化学品(无)/产地(中国大陆)/中国省份(浙江)/欧盟责任人/品牌制造商/型号/来源地/计件单位/海关监管属性(3)/来源URL/PC+无线描述 均已带出。
+    // AI 只覆盖以下「属性信息」区块中引用未带出的空字段（类型/材质为空；品牌/产地引用已带，facts 提供则覆盖）。
+    requiredAttrs: [
+      { label: "类型(Type)", id: "rc_select_13", value: "", factsKey: "type", aiSection: "attributes" },
+      { label: "材质(Material)", id: "rc_select_15", value: "", factsKey: "material", aiSection: "attributes" },
+      { label: "品牌(Brand Name)", id: "rc_select_11", factsKey: "brand", aiSection: "attributes", viaBrandTemplateSync: true },
+      { label: "产地（国家或地区）(Origin)", id: "rc_select_14", factsKey: "origin", aiSection: "attributes" }
+    ],
+    besteffortAttrs: [],
+    defaultMaterial: "",
+    logistics: "普货",
+    compliance: { euResponsible: "GET RICH", trResponsible: "", manufacturer: "Yiwu Sumu Arts and Crafts Co., Ltd" },
+    // 箱包：变种板块人工填写，本系统不自动生成 SKU/销售属性
+    fillVariantSections: false,
+    factExtractFingerprint: "# 店小秘箱包配件产品事实提取 Agent v0.1",
+    factExtractPrompt: `# 店小秘箱包配件产品事实提取 Agent v0.1
+
+你正在为速卖通半托管（Choice）店小秘创建「箱包配件」产品（如 钥匙扣/包挂/拉链/五金/收纳袋 等），请基于本对话上传的全部产品图片（实拍图/详情图/SKU 图/尺寸图/包装图），提取可直接填写店小秘表单的产品事实，并**只输出一个 JSON 对象**（不要用 markdown 代码块包裹，直接输出纯 JSON）。
+
+# 输出 JSON 结构（严格按此，字段名不得更改；图片无法判断的填 null 或省略）
+
+{
+  "title": {
+    "zh": "中文标题（≤128 字，含核心关键词：箱包配件/钥匙扣/包挂/背包配件）",
+    "en": "英文标题（≤128 字，速卖通风格，含 Bag Parts / Keychain / Bag Charm 等关键词）"
+  },
+  "mainKeyword": "产品核心搜索关键词（英文，如 Bag Charm / Keychain），用于型号与类型等关键属性",
+  "brand": "品牌名；无品牌填 NONE",
+  "material": "主要材质（如 合金 Alloy / 硅胶 Silicone / PU / 布料 Fabric），可多项用逗号分隔",
+  "type": "产品类型（对应店小秘「类型(Type)」下拉，如 钥匙扣 Keychain / 拉链 Zipper / 包挂 Pendant），尽量用店小秘枚举词",
+  "origin": { "country": "产地国，如 中国大陆(Mainland China)", "province": "省份如 浙江(Zhejiang)" },
+  "description": {
+    "pc": "PC 端描述（卖点+参数，纯文本，可含换行）",
+    "mobile": "无线端描述（更口语短句）"
+  },
+  "compliance": { "euResponsible": "", "trResponsible": "", "manufacturer": "", "customsAttribute": "" }
+}
+
+# 规则
+1. 仅提取图片中**清晰可读/可见**的信息；不确定或图片无此信息时对应字段填 null 或省略，禁止编造。
+1.1 mainKeyword 必填：用该箱包配件产品的英文核心搜索词（如 Bag Charm），将作为型号(Model Number)与类型(Type)的填充值。
+2. 标题须符合速卖通搜索习惯，包含品类核心词。
+3. 不要输出 JSON 以外的任何解释文字。
+4. 本任务只提取图片事实，不联网、不生图。`
+  }
+};
+
+// 便捷解析：profileKey(或 profile 对象) → profile 对象
+export function getDianxiaomiProfile(keyOrProfile) {
+  if (keyOrProfile && typeof keyOrProfile === "object") return keyOrProfile;
+  const key = keyOrProfile && DIANXIAOMI_CATEGORY_PROFILES[keyOrProfile]
+    ? keyOrProfile
+    : DIANXIAOMI_DEFAULT_PROFILE_KEY;
+  return DIANXIAOMI_CATEGORY_PROFILES[key];
+}
+
+// 向后兼容：旧常量（= ruTie 的值）
+export const DIANXIAOMI_FIXED = DIANXIAOMI_CATEGORY_PROFILES.ruTie.fixed;
+export const DIANXIAOMI_CATEGORY = DIANXIAOMI_CATEGORY_PROFILES.ruTie.category;
+export const DIANXIAOMI_REQUIRED_ATTRS = DIANXIAOMI_CATEGORY_PROFILES.ruTie.requiredAttrs;
+export const DIANXIAOMI_BESTEFFORT_ATTRS = DIANXIAOMI_CATEGORY_PROFILES.ruTie.besteffortAttrs;
+export const DIANXIAOMI_DEFAULT_MATERIAL = DIANXIAOMI_CATEGORY_PROFILES.ruTie.defaultMaterial;
 export const PRODUCT_FACT_PROMPT_FINGERPRINT = "# 产品图片事实提取";
 export const TEST_PROMPT = `${PRODUCT_FACT_PROMPT_FINGERPRINT}
 
@@ -231,8 +421,9 @@ export const STORYBOARD_GATE_PROMPT = `# STORYBOARD_GATE_PROMPT
   06 benefit_infographic
   07 gift_or_variant
   08 lifestyle_scene
-  09 emotional_scene
+  09 size_spec
   10 trust_summary
+- 09 size_spec 为「尺寸 / 规格图」：以干净信息图底客观呈现产品的长×宽×高、克重、材质、适用规格等可核实参数；可含尺子或常见物体（手机、硬币等）作为尺寸参照物；禁用任何营销话术与卖点文案，仅标注参数；允许密集参数表格（豁免 Mobile Thumbnail Gate 中 "No dense tables" 规则）。
 - 每张图必须只回答一个 buyer_question。
 - 每张图只能有一个 core_selling_point。
 - 每张图必须有一个可被画面证明的 visual_proof。
@@ -599,7 +790,7 @@ Image Number:
 
 - The visual style must follow the validated category visual baseline.
 - Preserve the most common category visual habits.
-- Use only limited optimization for color, layout, lighting, and clarity.
+- Use only limited optimization for color, base-image lighting, and clarity; the product base background and lighting must stay consistent across all 10 images (this prevents style inconsistency). Overlay typography and layout may vary per image, as long as the category visual baseline is preserved and product identity is untouched.
 - Do not copy competitor branding, logos, or product-specific design.
 - Do not invent unsupported claims.
 
@@ -638,8 +829,8 @@ Callouts:
 - "{{CALLOUT_2}}"
 - "{{CALLOUT_3}}"
 
-Typography:
-Clean sans-serif font, high contrast, mobile-readable, no tiny text, no overlapping with the product.
+Typography & Layout:
+Keep a clean sans-serif font, high contrast, mobile-readable, no tiny text, and never overlap the product. 排版布局（主标题 / 副标题 / 卖点 callout 的位置、对齐方式、信息图卡片排布）可依据每张图的内容类型在 10 张之间做差异化设计，不必强求统一构图；但必须保持品类视觉基调一致、产品主体不变，并满足 Mobile Thumbnail Gate 的字数上限与移动端可读性要求。
 
 ### Negative Prompt / Avoid
 

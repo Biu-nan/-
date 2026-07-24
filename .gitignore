@@ -29,5 +29,33 @@ nul
 .DS_Store
 Thumbs.db
 
+# ── 探档 / 调试产物（非核心代码，不入库）──
+dianxiaomi-*.json
+dianxiaomi-*.md
+reference_apply_result.json
+diag-bmode-out.json
+objective_1688.json
+fetch_listing.cjs
+inspect_chat.cjs
+fix_keychain_facts.mjs
+scripts/
+dist/src/dx_verify_detail.mjs
+dist/src/poll_runall.mjs
+
+# ── 根目录测试 / 截图 / 临时图片（非代码，不入库）──
+/etsy_test.jpg
+/panel-opened.png
+/tc_node.jpg
+/test-screenshot-home.png
+/test-screenshot-selection.png
+/1688_import/
+/tc_compress_test/
+# ── 业务输出 / 备份 / 运行态（非代码，不入库）──
+/selection-output/
+/selection-candidates.json
+/run-state.backup.json
+/当前产品.backup/
+/product-facts.json
+
 # 说明：dist/ 是本项目真正的源码（无 src/），必须入库。
 # public/、prompts/、schemas/、根配置 JSON、package.json、watchdog.js、start-* 均入库。

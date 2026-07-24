@@ -104,6 +104,7 @@
       }
     },
     "notes": { "type": "string", "maxLength": 10000 },
+    "objectiveInfo": { "type": "string", "maxLength": 2000 },
     "artifacts": {
       "type": "array",
       "items": {

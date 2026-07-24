@@ -5,7 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f5f5f7" />
     <title>一跨而境｜AI 跨境电商工作台</title>
-    <link rel="stylesheet" href="/styles.css?v=20260706-1" />
+    <link rel="stylesheet" href="/styles.css?v=20260720-3" />
+    <script>
+      // 致命错误兜底：任何未捕获错误 / Promise 拒绝都显示到页面顶部红条，避免白屏无提示
+      (function () {
+        function ensureBox(prefix) {
+          var box = document.getElementById('fatal-error-box');
+          if (!box) {
+            box = document.createElement('div');
+            box.id = 'fatal-error-box';
+            box.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:2147483647;background:#dc2626;color:#fff;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;padding:10px 14px;white-space:pre-wrap;max-height:42vh;overflow:auto;box-shadow:0 2px 8px rgba(0,0,0,.3)';
+            (document.body || document.documentElement).appendChild(box);
+            box.textContent = prefix;
+          }
+          return box;
+        }
+        window.addEventListener('error', function (e) {
+          var msg = (e && (e.message || (e.error && e.error.stack) || e.error)) || 'Unknown error';
+          var where = (e && e.filename) ? (' @ ' + String(e.filename).split('/').pop() + ':' + e.lineno + ':' + e.colno) : '';
+          ensureBox('⚠️ 页面脚本错误（请截图发我）：').textContent += '\n• ' + msg + where;
+        });
+        window.addEventListener('unhandledrejection', function (e) {
+          var r = e && e.reason;
+          var msg = (r && (r.stack || r.message)) || r || 'Unknown rejection';
+          ensureBox('⚠️ 未处理的 Promise 拒绝（请截图发我）：').textContent += '\n• ' + msg;
+        });
+      })();
+    </script>
   </head>
   <body>
     <div class="app-shell">
@@ -634,8 +660,193 @@
           </section>
 
           <section class="workflow-view" data-view-panel="agent-dianxiaomi">
-            <div class="section-heading"><div><span class="section-index">TOOL</span><h2>店小秘</h2></div><p>用于 ERP、订单和库存。</p></div>
-            <article class="panel v2-placeholder-panel"><span class="mini-label">V2.0 PLACEHOLDER</span><h3>店小秘入口后续接入</h3><p>当前仅保留工具说明，不接账号和外部 API。</p></article>
+            <div class="section-heading"><div><span class="section-index">TOOL</span><h2>店小秘 · 自动化上品（乳贴 v1.0）</h2></div><p>速卖通半托管（Choice）一键引用模板并上架草稿。</p></div>
+            <style>
+              #dianxiaomi-root .dx-board{max-width:880px}
+              #dianxiaomi-root .dx-overview{display:flex;gap:14px;align-items:flex-start;background:linear-gradient(135deg,#eef3ff 0%,#f0f4ff 100%);border:1px solid #c9d6ff;border-radius:12px;padding:16px 18px;margin-bottom:20px}
+              #dianxiaomi-root .dx-overview-icon{font-size:28px;flex-shrink:0;line-height:1}
+              #dianxiaomi-root .dx-overview-text{font-size:13.5px;color:#334155;line-height:1.55}
+              #dianxiaomi-root .dx-overview-text b{color:#1e3a5f}
+              #dianxiaomi-root .dx-overview-sub{display:block;font-size:12px;color:#64748b;margin-top:4px}
+              #dianxiaomi-root .dx-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:16px;overflow:hidden;transition:border-color .2s}
+              #dianxiaomi-root .dx-card:hover{border-color:#cbd5e1}
+              #dianxiaomi-root .dx-card-primary{border-left:4px solid #2563eb;border-radius:12px 0 0 12px}
+              #dianxiaomi-root .dx-card-header{display:flex;align-items:center;gap:10px;padding:14px 18px 0}
+              #dianxiaomi-root .dx-step-num{width:26px;height:26px;border-radius:50%;background:#2563eb;color:#fff;font-size:13px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+              #dianxiaomi-root .dx-card-title{font-size:14.5px;font-weight:600;color:#1e293b}
+              #dianxiaomi-root .dx-card-body{padding:14px 18px 18px}
+              #dianxiaomi-root .dx-field{margin-bottom:12px}
+              #dianxiaomi-root .dx-field label{display:block;font-size:12.5px;font-weight:500;color:#475569;margin-bottom:5px}
+              #dianxiaomi-root .dx-field input[type=text],#dianxiaomi-root .dx-field input[id=dx-tpl]{padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13.5px;width:100%;max-width:360px;background:#fafbfc;transition:border-color .2s,box-shadow .2s}
+              #dianxiaomi-root .dx-field input:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12);outline:none;background:#fff}
+              #dianxiaomi-root .dx-file-wrapper{position:relative}
+              #dianxiaomi-root .dx-file-wrapper input[type=file]{padding:8px 0;font-size:13px;color:#334155}
+              #dianxiaomi-root .dx-file-hint{font-size:11.5px;color:#94a3b8;margin-top:3px}
+              /* Tabs */
+              #dianxiaomi-root .dx-tabs{display:flex;gap:0;border-bottom:1px solid #e2e8f0;margin-bottom:14px}
+              #dianxiaomi-root .dx-tab{padding:9px 18px;font-size:13px;font-weight:500;color:#64748b;background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;transition:all .2s}
+              #dianxiaomi-root .dx-tab:hover{color:#334155;background:#f8fafc}
+              #dianxiaomi-root .dx-tab.active{color:#2563eb;border-bottom-color:#2563eb;font-weight:600}
+              #dianxiaomi-root .dx-tab-panel{display:none}
+              #dianxiaomi-root .dx-tab-panel.visible{display:block}
+              #dianxiaomi-root .dx-url-input{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;line-height:1.5;resize:vertical;background:#fafbfc;transition:border-color .2s,box-shadow .2s}
+              #dianxiaomi-root .dx-url-input:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12);outline:none;background:#fff}
+              /* Buttons */
+              #dianxiaomi-root .dx-btn-group{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+              #dianxiaomi-root .dx-btn-group-secondary{margin-top:14px;padding-top:14px;border-top:1px dashed #e2e8f0}
+              #dianxiaomi-root button.dx-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border:0;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:#2563eb;color:#fff;transition:all .15s;white-space:nowrap}
+              #dianxiaomi-root button.dx-btn:hover:not(:disabled){background:#1d4ed8;transform:translateY(-1px);box-shadow:0 2px 8px rgba(37,99,235,.25)}
+              #dianxiaomi-root button.dx-btn:active:not(:disabled){transform:translateY(0)}
+              #dianxiaomi-root button.dx-btn.primary{background:linear-gradient(135deg,#2563eb,#1d4ed8);box-shadow:0 2px 10px rgba(37,99,235,.28)}
+              #dianxiaomi-root button.dx-btn.primary:hover:not(:disabled){box-shadow:0 4px 16px rgba(37,99,235,.35)}
+              #dianxiaomi-root button.dx-btn-icon{font-size:15px}
+              #dianxiaomi-root button.dx-btn.ghost{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0}
+              #dianxiaomi-root button.dx-btn.ghost:hover:not(:disabled){background:#e2e8f0;color:#1e293b}
+              #dianxiaomi-root button.dx-btn:disabled{opacity:.45;cursor:not-allowed;transform:none!important;box-shadow:none!important}
+              /* Facts textarea */
+              #dianxiaomi-root textarea.dx-facts{width:100%;min-height:120px;padding:12px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:12.5px;line-height:1.55;font-family:'SF Mono',SFMono-Regular,'Cascadia Code',Consolas,monospace;background:#fafbfc;color:#334155;resize:vertical;transition:border-color .2s}
+              #dianxiaomi-root textarea.dx-facts:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.1);outline:none;background:#fff}
+              /* Uploaded result */
+              #dianxiaomi-root .dx-uploaded{font-size:12.5px;color:#059669;margin:10px 0 4px;padding:8px 12px;background:#ecfdf5;border-radius:8px;border:1px solid #a7f3d0;display:none}
+              #dianxiaomi-root .dx-uploaded:not(:empty){display:block}
+              /* Image preview grid */
+              #dianxiaomi-root .dx-preview-grid{margin:10px 0 4px}
+              #dianxiaomi-root .dx-preview-label{font-size:12.5px;color:#475569;font-weight:600;margin-bottom:8px}
+              #dianxiaomi-root .dx-preview-thumbs{display:flex;flex-wrap:wrap;gap:8px}
+              #dianxiaomi-root .dx-thumb{position:relative;width:96px;height:96px;border-radius:8px;overflow:hidden;background:#f1f5f9;border:2px solid #e2e8f0;transition:border-color .15s,transform .15s;flex-shrink:0}
+              #dianxiaomi-root .dx-thumb:hover{border-color:#3b82f6;transform:translateY(-1px);box-shadow:0 4px 12px rgba(59,130,246,.15)}
+              #dianxiaomi-root .dx-thumb.broken{background:#fee2e2;border-color:#fecaca}
+              #dianxiaomi-root .dx-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+              #dianxiaomi-root .dx-thumb-index{position:absolute;top:3px;left:3px;font-size:10px;font-weight:700;color:#fff;background:rgba(15,23,42,.65);padding:1px 5px;border-radius:4px;line-height:1.4}
+              #dianxiaomi-root .dx-thumb-name{position:absolute;bottom:0;left:0;right:0;font-size:9.5px;color:#334155;background:rgba(255,255,255,.88);padding:2px 4px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35}
+              /* SKU 规划卡片 */
+              #dianxiaomi-root .dx-field-row{display:flex;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+              #dianxiaomi-root .dx-field-row .dx-field{flex:1;min-width:140px;margin-bottom:0}
+              #dianxiaomi-root .dx-hint-inline{font-size:11.5px;color:#94a3b8;margin:2px 0 10px;line-height:1.5}
+              #dianxiaomi-root .dx-sku-table{width:100%;border-collapse:collapse;margin:6px 0 12px;font-size:12px}
+              #dianxiaomi-root .dx-sku-table th,#dianxiaomi-root .dx-sku-table td{border:1px solid #e2e8f0;padding:6px 8px;text-align:left;vertical-align:middle}
+              #dianxiaomi-root .dx-sku-table th{background:#f8fafc;color:#475569;font-weight:600}
+              #dianxiaomi-root .dx-sku-cell{width:74px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px}
+              #dianxiaomi-root .dx-sku-img{max-width:140px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px;background:#fff}
+              #dianxiaomi-root .dx-sku-samecolor{color:#94a3b8;font-size:11.5px}
+              /* Dynamic next-step guide banner */
+              #dianxiaomi-root .dx-next-step{margin:12px 0;padding:14px 18px;border-radius:10px;font-size:13.5px;line-height:1.6;border:1px solid #e2e8f0;background:#f8fafc;color:#475569}
+              #dianxiaomi-root .dx-next-warn{background:#fffbeb;border-color:#fde68a;color:#92400e}
+              #dianxiaomi-root .dx-next-go{background:#eff6ff;border-color:#bfdbfe;color:#1e40af;font-weight:500}
+              #dianxiaomi-root .dx-next-icon{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-size:13px;font-weight:700;margin-right:6px;background:#cbd5e1;color:#1e293b;vertical-align:-3px}
+              #dianxiaomi-root .dx-next-go .dx-next-icon{background:#3b82f6;color:#fff}
+              #dianxiaomi-root .dx-next-warn .dx-next-icon{background:#f59e0b;color:#fff}
+              #dianxiaomi-root .dx-next-sub{font-weight:400;font-size:12.5px;color:#64748b}
+              /* Status */
+              #dianxiaomi-root .dx-status{font-size:14px;font-weight:600;margin:0 0 8px;padding:8px 14px;border-radius:8px;display:inline-block}
+              #dianxiaomi-root .dx-status.ok{color:#059669;background:#ecfdf5;border:1px solid #a7f3d0}
+              #dianxiaomi-root .dx-status.err{color:#dc2626;background:#fef2f2;border:1px solid #fecaca}
+              #dianxiaomi-root .dx-status.busy{color:#b45309;background:#fffbeb;border:1px solid #fde68a}
+              /* Log */
+              #dianxiaomi-root pre.dx-log{background:#0f172a;color:#94a3b8;padding:16px 18px;border-radius:10px;font-size:12px;line-height:1.6;max-height:280px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:0;font-family:'SF Mono',SFMono-Regular,Consolas,monospace;border:1px solid #1e293b}
+              #dianxiaomi-root .dx-footer{margin-top:4px}
+              #dianxiaomi-root .dx-hint{font-size:12px;color:#94a3b8;margin-top:12px;line-height:1.65;padding:12px 16px;background:#f8fafc;border-radius:8px;border:1px solid #f1f5f9}
+            </style>
+            <div id="dianxiaomi-root"></div>
+          </section>
+
+          <section class="workflow-view" data-view-panel="research-center">
+            <div class="section-heading"><div><span class="section-index">RESEARCH</span><h2>爆款研究中心</h2></div><p>导入爆款图片 + 经营数据，用 ChatGPT 多模态反向拆解「为什么是爆款」。</p></div>
+            <style>
+              #research-root{max-width:960px}
+              #research-root .rc-overview{display:flex;gap:14px;align-items:flex-start;background:linear-gradient(135deg,#fff7ed 0%,#fffaf2 100%);border:1px solid #fed7aa;border-radius:12px;padding:16px 18px;margin-bottom:20px}
+              #research-root .rc-overview-icon{font-size:28px;flex-shrink:0;line-height:1}
+              #research-root .rc-overview-text{font-size:13.5px;color:#7c2d12;line-height:1.55}
+              #research-root .rc-overview-text b{color:#9a3412}
+              #research-root .rc-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:16px;overflow:hidden}
+              #research-root .rc-card-header{display:flex;align-items:center;gap:10px;padding:14px 18px;cursor:pointer}
+              #research-root .rc-card-title{font-size:14.5px;font-weight:600;color:#1e293b;flex:1;min-width:0}
+              #research-root .rc-card-sub{font-size:12px;color:#64748b}
+              #research-root .rc-badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+              #research-root .rc-badge.imported{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
+              #research-root .rc-badge.analyzing{background:#fffbeb;color:#b45309;border:1px solid #fde68a}
+              #research-root .rc-badge.analyzed{background:#ecfdf5;color:#059669;border:1px solid #a7f3d0}
+              #research-root .rc-badge.analyze_failed{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
+              #research-root .rc-card-body{padding:0 18px 18px}
+              #research-root .rc-thumbs{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 12px}
+              #research-root .rc-thumb{width:84px;height:84px;border-radius:8px;overflow:hidden;background:#f1f5f9;border:1px solid #e2e8f0}
+              #research-root .rc-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+              #research-root .rc-factor{border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:10px;background:#fafbfc}
+              #research-root .rc-factor-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+              #research-root .rc-dim{font-size:10.5px;font-weight:700;text-transform:uppercase;padding:2px 7px;border-radius:6px;background:#eef2ff;color:#4338ca}
+              #research-root .rc-dim.data{background:#ecfeff;color:#0e7490}
+              #research-root .rc-dim.content{background:#fef9c3;color:#854d0e}
+              #research-root .rc-dim.price{background:#fce7f3;color:#9d174d}
+              #research-root .rc-dim.review{background:#dcfce7;color:#15803d}
+              #research-root .rc-w{font-size:11px;color:#64748b;margin-left:auto}
+              #research-root .rc-rep{font-size:11px;font-weight:600;padding:2px 7px;border-radius:6px}
+              #research-root .rc-rep.copy{background:#dcfce7;color:#15803d}
+              #research-root .rc-rep.adapt{background:#fef9c3;color:#854d0e}
+              #research-root .rc-rep.reference{background:#e2e8f0;color:#475569}
+              #research-root .rc-factor-name{font-size:14px;font-weight:600;color:#0f172a}
+              #research-root .rc-factor-note{font-size:12.5px;color:#475569;line-height:1.55;margin-top:4px}
+              #research-root .rc-evidence{font-size:11.5px;color:#64748b;margin-top:6px;line-height:1.5}
+              #research-root .rc-summary{font-size:14px;font-weight:600;color:#0f172a;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-bottom:14px;line-height:1.6}
+              #research-root .rc-rec{font-size:13px;color:#334155;line-height:1.6;padding-left:18px;margin:4px 0}
+              #research-root .rc-empty{font-size:13px;color:#94a3b8;padding:18px 0;text-align:center}
+              #research-root .rc-form{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px 18px;margin-bottom:20px}
+              #research-root .rc-form h3{font-size:14px;margin:0 0 12px;color:#1e293b}
+              #research-root .rc-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 14px}
+              #research-root .rc-field label{display:block;font-size:12px;font-weight:500;color:#475569;margin-bottom:4px}
+              #research-root .rc-field input,#research-root .rc-field select{width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fafbfc}
+              #research-root .rc-field input:focus,#research-root .rc-field select:focus{border-color:#f97316;box-shadow:0 0 0 3px rgba(249,115,22,.12);outline:none;background:#fff}
+              #research-root .rc-field.full{grid-column:1 / -1}
+              #research-root .rc-actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+              #research-root button.rc-btn{padding:9px 18px;border:0;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:#f97316;color:#fff;transition:all .15s}
+              #research-root button.rc-btn:hover:not(:disabled){background:#ea580c}
+              #research-root button.rc-btn.ghost{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0}
+              #research-root button.rc-btn.ghost:hover:not(:disabled){background:#e2e8f0}
+              #research-root button.rc-btn:disabled{opacity:.5;cursor:not-allowed}
+              #research-root .rc-status{font-size:12.5px;font-weight:600;margin-left:12px}
+              #research-root .rc-status.ok{color:#059669}
+              #research-root .rc-status.err{color:#dc2626}
+              #research-root .rc-status.busy{color:#b45309}
+              #research-root .rc-hint{font-size:11.5px;color:#94a3b8;margin-top:8px;line-height:1.5}
+              #research-root .rc-discover{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px 18px;margin-bottom:20px}
+              #research-root .rc-discover h3{font-size:14px;margin:0 0 4px;color:#1e293b}
+              #research-root .rc-discover .rc-sub{font-size:11.5px;color:#94a3b8;margin-bottom:12px;line-height:1.5}
+              #research-root .rc-plats{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+              #research-root .rc-plat{font-size:12px;padding:5px 10px;border:1px solid #cbd5e1;border-radius:999px;cursor:pointer;background:#fafbfc;user-select:none}
+              #research-root .rc-plat.on{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
+              #research-root .rc-disc-results{margin-top:14px}
+              #research-root .rc-portal{margin-bottom:16px}
+              #research-root .rc-portal-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+              #research-root .rc-portal-head b{font-size:13.5px;color:#0f172a}
+              #research-root .rc-portal-head a{font-size:12px;color:#2563eb;text-decoration:none}
+              #research-root .rc-portal-shot{width:100%;max-width:420px;border:1px solid #e2e8f0;border-radius:8px;margin:6px 0;display:block}
+              #research-root .rc-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+              #research-root .rc-cand{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;background:#fff;display:flex;flex-direction:column}
+              #research-root .rc-cand img{width:100%;height:140px;object-fit:cover;background:#f1f5f9;display:block}
+              #research-root .rc-cand .rc-cand-body{padding:8px 10px;flex:1;display:flex;flex-direction:column;gap:6px}
+              #research-root .rc-cand .rc-cand-title{font-size:12.5px;color:#334155;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+              #research-root .rc-cand .rc-cand-meta{font-size:11px;color:#64748b}
+              #research-root .rc-cand .rc-btn{width:100%;padding:7px;font-size:12px}
+              #research-root .rc-factors{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px 18px;margin-top:20px}
+              #research-root .rc-factors h3{font-size:14px;margin:0 0 4px;color:#1e293b;display:flex;align-items:center;gap:8px}
+              #research-root .rc-fac-count{font-size:11.5px;font-weight:500;color:#94a3b8}
+              #research-root .rc-factors .rc-sub{font-size:11.5px;color:#94a3b8;margin-bottom:12px;line-height:1.5}
+              #research-root .rc-fac-dims{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+              #research-root .rc-fac-dim{font-size:12px;padding:5px 10px;border:1px solid #cbd5e1;border-radius:999px;cursor:pointer;background:#fafbfc;user-select:none}
+              #research-root .rc-fac-dim.on{background:#fff7ed;color:#c2410c;border-color:#fed7aa}
+              #research-root .rc-fac-results{display:flex;flex-direction:column;gap:10px}
+              #research-root .rc-fac-card{border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;background:#fafbfc}
+              #research-root .rc-fac-top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+              #research-root .rc-fac-share{display:flex;align-items:center;gap:8px}
+              #research-root .rc-fac-pct{font-size:12px;font-weight:700;color:#0f172a;min-width:38px}
+              #research-root .rc-fac-bar{flex:1;height:8px;background:#e2e8f0;border-radius:999px;overflow:hidden}
+              #research-root .rc-fac-bar span{display:block;height:100%;background:linear-gradient(90deg,#f97316,#fb923c)}
+              #research-root .rc-fac-mets{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+              #research-root .rc-fac-m{font-size:11px;color:#475569;background:#eef2f6;border-radius:6px;padding:2px 7px}
+              #research-root .rc-fac-exs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}
+              #research-root .rc-fac-ex-label{font-size:11px;color:#94a3b8}
+              #research-root .rc-fac-ex{font-size:11px;color:#334155;background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:2px 7px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+            </style>
+            <div id="research-root"></div>
           </section>
 
           <section class="workflow-view" data-view-panel="agent-image-tools">
@@ -686,36 +897,97 @@
               <p>这里先作为市场机会与开发候选的弱入口。本阶段只做归位，不展开完整商品机会池和开发池。</p>
             </div>
             <div class="scene-tabs" aria-label="选品场景页内入口">
-              <button type="button" class="scene-tab active">标品</button>
-              <button type="button" class="scene-tab">方向品</button>
-              <button type="button" class="scene-tab" data-home-view="selection-radar">机会雷达</button>
-              <button type="button" class="scene-tab">开发池</button>
+              <button type="button" class="scene-tab active" data-home-view="product-selection">标品选品</button>
+              <button type="button" class="scene-tab" data-home-view="selection-radar">内胆包型选品</button>
               <button type="button" class="scene-tab" data-home-view="operation-review">选品复盘</button>
             </div>
-            <div class="commerce-dashboard">
-              <article class="panel">
-                <div class="profile-card-heading">
-                  <div><span class="mini-label">OPPORTUNITY</span><h3>机会入口</h3></div>
-                </div>
-                <p class="profile-suggestion">先记录值得观察的商品方向，再决定是否转为具体 Product。完整机会池会在后续阶段展开。</p>
-              </article>
-              <article class="panel">
-                <div class="profile-card-heading">
-                  <div><span class="mini-label">INSERT RADAR</span><h3>内胆包型雷达</h3></div>
-                </div>
-                <p class="profile-suggestion">内胆包型雷达归入选品开发语境；当前保留入口说明，具体执行仍沿用现有内胆流程。</p>
-              </article>
-            </div>
+            <p class="profile-suggestion">标品选品：用 Bob v0.1 选品研究 Prompt 联网搜索候选机会，结构化交付后人工逐条采纳进入开发池；内胆包型选品：每日市场选款雷达（包型机会）。两者独立运行、互不干扰。</p>
           </section>
 
           <section class="workflow-view" data-view-panel="selection-radar">
             <div class="section-heading">
-              <div><span class="section-index">RADAR</span><h2>内胆包型雷达</h2></div>
-              <p>用于发现可开发的包型候选。本轮只完成入口归位，不新增完整机会池或开发池逻辑。</p>
+              <div><span class="section-index">RADAR</span><h2>内胆包型选品 · 每日市场选款雷达</h2></div>
+              <p>全网热销包型机会雷达、候选 P0/P1/P2 分层与官网白底正面包型图。选中候选后可一键导入内胆 Listing 工作台。这是「选品 → 内胆包型选品」子选项。</p>
             </div>
-            <div class="panel">
-              <p class="profile-suggestion">如需执行现有内胆流程，请进入“上品生产 / 产品素材”，切换到“奢侈包内胆设计”。</p>
+
+            <!-- ── 选款操作区 ── -->
+            <article class="insert-step-card radar-card selection-radar-main">
+              <div class="row-actions">
+                <button id="runInsertMarketRadarButton" class="button primary">执行每日市场选款雷达</button>
+                <button id="importCurrentChatMarketRadarButton" class="button secondary" title="当 ChatGPT 已生成答案但网页未显示时，从当前对话导入">从当前 ChatGPT 导入</button>
+                <button id="recoverMarketRadarButton" class="button secondary" title="当候选数据未显示但磁盘有文件时，尝试恢复">从磁盘恢复</button>
+                <button id="resetInsertMarketRadarButton" class="button secondary">重置每日选款</button>
+                <span id="selectionRadarStatus" class="selection-radar-status hidden"></span>
+              </div>
+              <div id="insertMarketRadarMeta" class="radar-meta hidden"></div>
+              <div id="insertMarketRadarCandidates" class="radar-candidates hidden"></div>
+              <details id="insertMarketRadarBox" class="result-box hidden">
+                <summary>查看今日开发建议</summary><pre id="insertMarketRadarText"></pre>
+              </details>
+            </article>
+
+            <!-- ── 一键导入 Listing 区 ── -->
+            <article class="selection-radar-import hidden" id="selectionRadarImportPanel">
+              <header>
+                <div>
+                  <span class="mini-label">IMPORT TO LISTING</span>
+                  <h3>导入至内胆 Listing 工作台</h3>
+                </div>
+              </header>
+              <p id="selectionRadarImportHint" class="profile-suggestion">从上方候选列表中选择一个包型，即可一键将其导入「内胆 Listing 设计」流程，开始目标外包识别与后续步骤。</p>
+              <div id="selectionRadarImportSummary" class="radar-import-summary hidden"></div>
+              <div class="row-actions">
+                <button id="selectionImportToListingButton" class="button primary" disabled>选中候选并启动 Listing 流程</button>
+                <a id="selectionGotoInsertWorkspaceLink" class="button secondary hidden" href="#">前往内胆 Listing 工作台</a>
+              </div>
+            </article>
+          </section>
+
+          <section class="workflow-view" data-view-panel="product-selection">
+            <div class="section-heading">
+              <div><span class="section-index">BOB</span><h2>标品选品（Bob 选品研究 v0.1）</h2></div>
+              <p>发送 Bob v0.1 选品研究 Prompt，联网搜索候选机会并结构化交付；你可逐条采纳进入开发池，或观察 / 拒绝 / 人工复核 / 风险拦截。不自动写入任何开发任务或 Listing。</p>
             </div>
+
+            <article class="insert-step-card radar-card selection-radar-main">
+              <div class="product-selection-form">
+                <label>任务类型 TASK_TYPE
+                  <select id="productSelectionTaskType">
+                    <option value="open_opportunity_discovery">open_opportunity_discovery（开放机会发现）</option>
+                    <option value="social_demand_discovery">social_demand_discovery（社媒需求发现）</option>
+                    <option value="specified_product_validation">specified_product_validation（指定品验证）</option>
+                    <option value="competitor_reverse_research">competitor_reverse_research（竞品逆向研究）</option>
+                    <option value="finished_sku_screening">finished_sku_screening（成品 SKU 筛选）</option>
+                    <option value="candidate_reassessment">candidate_reassessment（候选复核）</option>
+                  </select>
+                </label>
+                <label>产品类目或方向 CATEGORY_SCOPE
+                  <input id="productSelectionCategory" type="text" placeholder="如：桌面收纳 / 车载收纳 / 宠物喂食" />
+                </label>
+                <label>目标国家或地区 MARKET_SCOPE（可选，默认美国）
+                  <input id="productSelectionMarket" type="text" placeholder="如：美国 / 欧洲 / 日本" />
+                </label>
+                <label>研究深度 RESEARCH_DEPTH
+                  <select id="productSelectionDepth">
+                    <option value="quick_screening">quick_screening（快速筛选，约 5 个）</option>
+                    <option value="standard_research" selected>standard_research（标准研究，约 10 个）</option>
+                    <option value="deep_research">deep_research（深度研究，约 15 个）</option>
+                  </select>
+                </label>
+              </div>
+              <div class="row-actions" style="margin-top:12px">
+                <button id="runProductSelectionButton" class="button primary">运行 Bob 选品研究</button>
+                <button id="importCurrentChatButton" class="button secondary">从当前 ChatGPT 导入</button>
+                <button id="recoverProductSelectionButton" class="button secondary">从磁盘恢复</button>
+                <button id="resetProductSelectionButton" class="button secondary">重置</button>
+                <span id="productSelectionStatus" class="selection-radar-status hidden"></span>
+              </div>
+              <div id="productSelectionMeta" class="radar-meta hidden"></div>
+              <div id="productSelectionCandidates" class="radar-candidates hidden"></div>
+              <details id="productSelectionBox" class="result-box hidden">
+                <summary>查看完整选品研究交付</summary><pre id="productSelectionText"></pre>
+              </details>
+            </article>
           </section>
 
           <section class="workflow-view" data-view-panel="materials">
@@ -755,6 +1027,22 @@
                 ></textarea>
                 <button id="importUrlsButton" class="button secondary">导入 URL</button>
               </div>
+              <div id="objectiveInfoPanel" class="objective-info-panel">
+                <div class="objective-info-header">
+                  <div>
+                    <strong>补充客观信息</strong>
+                    <p>填写规格、材质、产地、重量、保质期等你已确认的客观参数，AI 识别商品事实时会作为参考依据。</p>
+                  </div>
+                </div>
+                <textarea
+                  id="objectiveInfoInput"
+                  placeholder="例如：\n规格：20cm × 15cm × 8cm\n材质：304 不锈钢\n产地：中国广东\n重量：320g\n保质期：24 个月"
+                  spellcheck="false"
+                ></textarea>
+                <div class="objective-info-footer">
+                  <span id="objectiveInfoStatus" class="objective-info-status"></span>
+                </div>
+              </div>
               <div class="asset-toolbar">
                 <code id="productDirectory">正在读取…</code>
                 <div class="image-summary">
@@ -771,6 +1059,15 @@
                 <div>
                   <button class="flow-secondary-action" type="button" data-flow-step="content">跳过，直接进入 Listing</button>
                   <button class="flow-primary-action" type="button" data-flow-step="planning">保存并进入市场调研</button>
+                </div>
+              </div>
+              <div id="insertListingEntryCard" class="insert-listing-entry-card hidden">
+                <span class="entry-card-kicker">LUXURY INSERT WORKFLOW</span>
+                <h3>制作内胆 Listing</h3>
+                <p>从每日选款雷达选中包型 → 目标外包识别 → 内胆方案设计 → 冻结 SKU → 生成 7 张 Listing 主图与文案。适用于毛毡内胆 / 包中包 / handbag organizer insert 品类。</p>
+                <div class="entry-card-actions">
+                  <button id="enterInsertListingButton" class="button primary" type="button">进入内胆 Listing 设计</button>
+                  <a href="#" id="gotoSelectionRadarFromEntryLink" class="text-link">先去每日选款雷达 →</a>
                 </div>
               </div>
             </div>
@@ -1852,19 +2149,6 @@
             </div>
           </div>
 
-          <article class="insert-step-card radar-card">
-            <header><span>00</span><div><h3>每日市场选款设计</h3><p>发送全网热销包型机会雷达 Prompt，搜索开发池候选、P0/P1/P2 分层和官网白底正面包型图。</p></div></header>
-            <div class="row-actions">
-              <button id="runInsertMarketRadarButton" class="button primary">执行每日市场选款雷达</button>
-              <button id="resetInsertMarketRadarButton" class="button secondary">重置每日选款</button>
-            </div>
-            <div id="insertMarketRadarMeta" class="radar-meta hidden"></div>
-            <div id="insertMarketRadarCandidates" class="radar-candidates hidden"></div>
-            <details id="insertMarketRadarBox" class="result-box hidden">
-              <summary>查看今日开发建议</summary><pre id="insertMarketRadarText"></pre>
-            </details>
-          </article>
-
           <article class="insert-step-card">
             <header><span>01</span><div><h3>目标外包识别</h3><p>上传同一包型家族的目标包图片，识别品牌、版本和公开尺寸。</p></div></header>
             <label class="upload-zone compact">
@@ -1902,8 +2186,15 @@
           </article>
 
           <article class="insert-step-card">
-            <header><span>03</span><div><h3>NotebookLM 库存匹配与开发规划</h3><p>发送唯一任务边界到“内胆尺寸库”，判断复用库存或规划新尺寸。</p></div></header>
+            <header><span>03</span><div><h3>NotebookLM 库存匹配与开发规划</h3><p>发送唯一任务边界到"内胆尺寸库"，判断复用库存或规划新尺寸。</p></div></header>
             <button id="runNotebookButton" class="button primary wide">提交 NotebookLM 规划</button>
+            <button id="reExtractNotebookButton" class="button secondary wide hidden">从 NotebookLM 重新读取</button>
+            <details id="notebookImportBox" class="result-box hidden">
+              <summary>手动粘贴 NotebookLM 结果（备用）</summary>
+              <textarea id="notebookImportText" rows="8" placeholder="将 NotebookLM 中包含 &lt;&lt;&lt;NOTEBOOK_INSERT_PLAN_START&gt;&gt;&gt; 的完整结果粘贴到这里…"></textarea>
+              <button id="importNotebookButton" class="button small">导入并回填</button>
+              <p id="notebookImportError" class="text-danger hidden"></p>
+            </details>
             <details id="notebookResultBox" class="result-box hidden">
               <summary>查看 NotebookLM 规划结果</summary><pre id="notebookResultText"></pre>
             </details>
@@ -1937,6 +2228,7 @@
             <div id="insertOutputGallery" class="output-gallery square"></div>
             <div class="row-actions">
               <button id="generateInsertListingButton" class="button primary">生成内胆 Listing 文案</button>
+              <button id="importInsertListingContentButton" class="button secondary" title="当文案已生成但未回传时，从当前 ChatGPT 对话恢复">从当前 ChatGPT 导入</button>
               <button id="previewInsertStockSheetButton" class="button secondary">写入内胆库存尺寸表</button>
               <button id="archiveInsertButton" class="button secondary">完成并归档内胆任务</button>
             </div>
@@ -2075,6 +2367,6 @@
       </div>
     </aside>
 
-    <script src="/app.js?v=20260706-1" defer></script>
+    <script src="/app.js?v=20260724-8" defer></script>
   </body>
 </html>

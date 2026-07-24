@@ -1,4 +1,4 @@
-import { access, cp, mkdir, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { ABANDONED_PRODUCTS_DIR, COMPLETED_PRODUCTS_DIR, INSERT_BAG_IMAGES_DIR, INSERT_LINER_IMAGES_DIR, INSERT_OUTPUT_DIR, OUTPUT_DIR, PRODUCT_ROOT, PRODUCT_IMAGES_DIR } from "./config.js";
 const FALLBACK_PRODUCT_NAME = "未命名产品";
@@ -64,19 +64,35 @@ export async function archiveCurrentProduct(state) {
     const archivedImages = path.join(destination, "产品图");
     const archivedOutput = path.join(destination, "output");
     await mkdir(destination, { recursive: true });
-    await cp(PRODUCT_IMAGES_DIR, archivedImages, {
-        recursive: true,
-        force: false
-    });
-    await cp(OUTPUT_DIR, archivedOutput, {
-        recursive: true,
-        force: false
-    });
+    // Atomically move the two work directories into the archive (NOT cp+rm),
+    // so the safe-delete shim can never block archiving and the workspace is cleared reliably.
+    // Using rename (already imported) also avoids the ReferenceError caused by the missing
+    // cp/rm imports after the abandonCurrentProduct refactor.
+    for (const [src, dest] of [[PRODUCT_IMAGES_DIR, archivedImages], [OUTPUT_DIR, archivedOutput]]) {
+        try {
+            await rename(src, dest);
+        }
+        catch (err) {
+            if (err && err.code === "ENOENT") {
+                await mkdir(dest, { recursive: true });
+            }
+            else {
+                throw err;
+            }
+        }
+    }
+    // 桥接产物：把 当前产品/product-facts.json 一并归档（存在才搬，避免污染归档目录）
+    const currentFacts = path.join(PRODUCT_ROOT, "product-facts.json");
+    if (await exists(currentFacts)) {
+        try {
+            await rename(currentFacts, path.join(destination, "product-facts.json"));
+        }
+        catch (err) {
+            if (err && err.code !== "ENOENT")
+                throw err;
+        }
+    }
     await writeFile(path.join(destination, "run-state.json"), `${JSON.stringify(state, null, 2)}\n`, "utf8");
-    await Promise.all([
-        rm(PRODUCT_IMAGES_DIR, { recursive: true, force: true }),
-        rm(OUTPUT_DIR, { recursive: true, force: true })
-    ]);
     await Promise.all([
         mkdir(PRODUCT_IMAGES_DIR, { recursive: true }),
         mkdir(OUTPUT_DIR, { recursive: true })
@@ -90,10 +106,9 @@ export async function abandonCurrentProduct(state) {
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     const destination = path.join(ABANDONED_PRODUCTS_DIR, `${productName}-${stamp}`);
     await mkdir(destination, { recursive: true });
-    await cp(PRODUCT_ROOT, path.join(destination, "当前产品快照"), {
-        recursive: true,
-        force: true
-    }).catch(() => undefined);
+    // Move the whole current product tree atomically via rename (NOT fs.rm),
+    // so the safe-delete shim never blocks the abandon and the workspace is cleared reliably.
+    await rename(PRODUCT_ROOT, path.join(destination, "当前产品快照"));
     await writeFile(path.join(destination, "run-state.json"), `${JSON.stringify({
         ...state,
         running: false,
@@ -102,7 +117,6 @@ export async function abandonCurrentProduct(state) {
         stage: "PAUSED",
         message: "商品已由用户遗弃"
     }, null, 2)}\n`, "utf8");
-    await rm(PRODUCT_ROOT, { recursive: true, force: true });
     await Promise.all([
         mkdir(PRODUCT_IMAGES_DIR, { recursive: true }),
         mkdir(OUTPUT_DIR, { recursive: true }),

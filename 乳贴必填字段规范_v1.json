@@ -1,0 +1,293 @@
+{
+  "generatedAt": "2026-07-21T05:43:43.858Z",
+  "source": "店小秘 Choice 半托管 / 乳贴创建页（引用 1005005575013300 后的 quoteEdit 草稿）",
+  "scannedUrl": "https://www.dianxiaomi.com/web/smtChoice/quoteEdit?id=114841450023054570",
+  "fields": [
+    {
+      "label": "店铺名称",
+      "required": true,
+      "type": "select",
+      "rcId": "rc_select_0",
+      "current": ""
+    },
+    {
+      "label": "备货类型",
+      "required": true,
+      "type": "select",
+      "rcId": "rc_select_1",
+      "current": ""
+    },
+    {
+      "label": "产品标题",
+      "required": true,
+      "type": "input",
+      "rcId": "",
+      "current": "1 Pair Sexy Metal Nipple Stickers Women Chain Edge Tassel Breast Bra Nipple Cover Self Adhesive Heart Shape Bra Nipple P"
+    },
+    {
+      "label": "产品分类",
+      "required": true,
+      "type": "select",
+      "rcId": "rc_select_2",
+      "current": ""
+    },
+    {
+      "label": "店小秘分类",
+      "required": false,
+      "type": "unknown",
+      "rcId": "",
+      "current": ""
+    },
+    {
+      "label": "来源URL",
+      "required": false,
+      "type": "input",
+      "rcId": "form_item_sourceList_0_path",
+      "current": ""
+    },
+    {
+      "label": "产品属性",
+      "required": false,
+      "type": "select",
+      "rcId": "rc_select_11",
+      "current": ""
+    },
+    {
+      "label": "品牌(Brand Name)",
+      "required": false,
+      "type": "select",
+      "rcId": "rc_select_11",
+      "current": ""
+    },
+    {
+      "label": "高关注化学品(High-concerned chemical)",
+      "required": false,
+      "type": "select",
+      "rcId": "rc_select_12",
+      "current": ""
+    },
+    {
+      "label": "型号(Model Number)",
+      "required": false,
+      "type": "input",
+      "rcId": "",
+      "current": "NPE0005"
+    },
+    {
+      "label": "产地（国家或地区）(Origin)",
+      "required": false,
+      "type": "select",
+      "rcId": "rc_select_13",
+      "current": ""
+    },
+    {
+      "label": "中国省份(CN)",
+      "required": false,
+      "type": "select",
+      "rcId": "rc_select_22",
+      "current": ""
+    },
+    {
+      "label": "是否性暗示(Sexually Suggestive)",
+      "required": false,
+      "type": "select",
+      "rcId": "rc_select_14",
+      "current": ""
+    },
+    {
+      "label": "是否暴露图片(Obscene Picture)",
+      "required": false,
+      "type": "select",
+      "rcId": "rc_select_15",
+      "current": ""
+    },
+    {
+      "label": "颜色风格(Color Style)",
+      "required": false,
+      "type": "select",
+      "rcId": "rc_select_16",
+      "current": ""
+    },
+    {
+      "label": "内衣配件类型(Intimates Accessories Type)",
+      "required": false,
+      "type": "select",
+      "rcId": "rc_select_17",
+      "current": "Breast Petals"
+    },
+    {
+      "label": "材质(Material)",
+      "required": false,
+      "type": "select",
+      "rcId": "rc_select_18",
+      "current": ""
+    },
+    {
+      "label": "产品类型(Item Type)",
+      "required": false,
+      "type": "select",
+      "rcId": "rc_select_19",
+      "current": ""
+    },
+    {
+      "label": "性别(Gender)",
+      "required": false,
+      "type": "select",
+      "rcId": "rc_select_20",
+      "current": ""
+    },
+    {
+      "label": "编织工艺(Craft of Weaving)",
+      "required": false,
+      "type": "select",
+      "rcId": "rc_select_21",
+      "current": ""
+    },
+    {
+      "label": "自定义属性",
+      "required": false,
+      "type": "unknown",
+      "rcId": "",
+      "current": ""
+    },
+    {
+      "label": "产品图片",
+      "required": true,
+      "type": "unknown",
+      "rcId": "",
+      "current": ""
+    },
+    {
+      "label": "营销图片",
+      "required": false,
+      "type": "unknown",
+      "rcId": "",
+      "current": ""
+    },
+    {
+      "label": "产品视频",
+      "required": false,
+      "type": "unknown",
+      "rcId": "",
+      "current": ""
+    },
+    {
+      "label": "发货地(Ships From)",
+      "required": false,
+      "type": "input",
+      "rcId": "",
+      "current": ""
+    },
+    {
+      "label": "尺寸(Size)",
+      "required": true,
+      "type": "input",
+      "rcId": "",
+      "current": ""
+    },
+    {
+      "label": "颜色(Color)",
+      "required": false,
+      "type": "input",
+      "rcId": "",
+      "current": ""
+    },
+    {
+      "label": "尺码表",
+      "required": false,
+      "type": "select",
+      "rcId": "rc_select_4",
+      "current": ""
+    },
+    {
+      "label": "PC端描述",
+      "required": true,
+      "type": "textarea",
+      "rcId": "",
+      "current": "<div class=\"detailmodule_text\">\n<p class=\"detail-desc-decorate-content\" style=\"font-family:OpenSans;font-size:14px;font-"
+    },
+    {
+      "label": "无线端描述",
+      "required": false,
+      "type": "textarea",
+      "rcId": "",
+      "current": "<style type=\"text/css\">p{margin-block-start: 0; margin-block-end: 0}\n</style>\n<p class=\"word-break white-space mt-10\" st"
+    },
+    {
+      "label": "计件单位",
+      "required": true,
+      "type": "select",
+      "rcId": "form_item_productUnit",
+      "current": ""
+    },
+    {
+      "label": "海关监管属性",
+      "required": true,
+      "type": "input",
+      "rcId": "",
+      "current": "3"
+    },
+    {
+      "label": "欧盟责任人",
+      "required": false,
+      "type": "select",
+      "rcId": "form_item_msrEuId",
+      "current": ""
+    },
+    {
+      "label": "土耳其责任人",
+      "required": false,
+      "type": "select",
+      "rcId": "form_item_msrTrId",
+      "current": ""
+    },
+    {
+      "label": "品牌制造商",
+      "required": false,
+      "type": "select",
+      "rcId": "form_item_manufactureId",
+      "current": ""
+    },
+    {
+      "label": "资质信息",
+      "required": false,
+      "type": "unknown",
+      "rcId": "",
+      "current": ""
+    },
+    {
+      "label": "商机品关联",
+      "required": false,
+      "type": "unknown",
+      "rcId": "",
+      "current": ""
+    }
+  ],
+  "sku": {
+    "exists": false,
+    "note": "未找到 SKU 表",
+    "salesAttrButton": false,
+    "salesInputs": [
+      {
+        "label": "颜色风格(Color Style)",
+        "id": "rc_select_16",
+        "value": ""
+      },
+      {
+        "label": "尺寸(Size)",
+        "id": "",
+        "value": ""
+      },
+      {
+        "label": "颜色(Color)",
+        "id": "",
+        "value": ""
+      },
+      {
+        "label": "尺码表",
+        "id": "rc_select_4",
+        "value": ""
+      }
+    ]
+  }
+}

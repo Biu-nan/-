@@ -11,6 +11,7 @@ import { assertPublicHost, scanProductImages } from "./image-files.js";
 const IDENTIFICATION_FINGERPRINT = "# 奢侈包内胆目标外包识别";
 const MARKET_RADAR_FINGERPRINT = "# 全网热销包型机会雷达 Agent v0.3";
 const HANDOFF_FINGERPRINT = "# 奢侈包内胆任务迁移";
+const INSERT_LISTING_CONTENT_FINGERPRINT = "# Luxury Bag Organizer Listing Content";
 const NOTEBOOK_START = "<<<NOTEBOOK_INSERT_PLAN_START>>>";
 const NOTEBOOK_END = "<<<NOTEBOOK_INSERT_PLAN_END>>>";
 const NOTEBOOK_DATA_START = "<<<NOTEBOOK_INSERT_DATA_START>>>";
@@ -151,11 +152,14 @@ export function parseMarketRadarCandidates(text) {
         const sizeVersion = String(data.sizeVersion ?? "").trim();
         const rawOfficialProductUrl = String(data.officialProductUrl ?? "").trim();
         const rawOfficialFrontImageUrl = String(data.officialFrontImageUrl ?? "").trim();
-        const officialFrontImageUrl = looksLikeImageUrl(rawOfficialFrontImageUrl)
-            ? rawOfficialFrontImageUrl
-            : "Not found / needs manual sourcing";
+        /* 保留图片字段原始值（UI 自行判断是否为图片直链）。
+           若 AI 把产品页 / 品牌页 URL 错放进图片字段，则救回到 officialProductUrl，
+           避免链接被误判为 “Not found” 而永久丢失。 */
+        const officialFrontImageUrl = rawOfficialFrontImageUrl;
         const officialProductUrl = rawOfficialProductUrl ||
-            (isHttpUrl(rawOfficialFrontImageUrl) ? rawOfficialFrontImageUrl : "");
+            (isHttpUrl(rawOfficialFrontImageUrl) && !looksLikeImageUrl(rawOfficialFrontImageUrl)
+                ? rawOfficialFrontImageUrl
+                : "");
         if (!bagModel || !brand || !bagFamily) {
             throw new Error(`市场雷达候选 ${index + 1} 缺少包型、品牌或包型家族`);
         }
@@ -228,9 +232,20 @@ export function insertGenerationReferenceImagePaths(insert, imageNumber, bagImag
         }
         return linerByName.get(variant.linerImageName);
     });
+    /* ── 收集所有相关 SKU 的细节图路径（每张都作为额外参考传给 AI） ── */
+    const detailPaths = [];
+    for (const variant of requiredVariants) {
+        const detailNames = variant.linerDetailImageNames ?? [];
+        for (const name of detailNames) {
+            const path = linerByName.get(name);
+            if (path)
+                detailPaths.push(path);
+        }
+    }
     return [
         ...bagImages.map((image) => image.path),
-        ...requiredLinerPaths
+        ...requiredLinerPaths,
+        ...detailPaths
     ];
 }
 export function parseNotebookInsertData(text, existingVariants) {
@@ -335,6 +350,16 @@ export class LuxuryInsertService {
                 throw new Error("当前商品已开始，请归档或清空后再切换业务模式");
             }
         }
+        /* 切换模式时保留选款雷达结果，仅清空当前商品进度字段 */
+        const preservedRadar = state.luxuryInsert
+            ? {
+                marketRadarCandidates: state.luxuryInsert.marketRadarCandidates,
+                marketRadarText: state.luxuryInsert.marketRadarText,
+                marketRadarUpdatedAt: state.luxuryInsert.marketRadarUpdatedAt,
+                marketRadarChatUrl: state.luxuryInsert.marketRadarChatUrl,
+                selectedMarketRadarCandidateId: state.luxuryInsert.selectedMarketRadarCandidateId
+            }
+            : undefined;
         return this.store.update({
             workflowMode: mode,
             standardWorkflowGoal: "full_listing",
@@ -348,7 +373,7 @@ export class LuxuryInsertService {
             promptPackValid: undefined,
             generatedImageNumbers: [],
             outputFiles: [],
-            luxuryInsert: undefined,
+            luxuryInsert: preservedRadar,
             message: mode === "luxury_insert"
                 ? "已切换到奢侈包内胆设计模式"
                 : "已切换到标准 Listing 模式",
@@ -411,6 +436,10 @@ export class LuxuryInsertService {
         const state = this.store.get();
         if (state.running)
             throw new Error("当前已有任务正在运行");
+        /* ── 磁盘兜底：state 丢失但磁盘有数据时自动恢复，不重复跑雷达 ── */
+        const recovered = await this.recoverMarketRadarFromDisk();
+        if (recovered)
+            return { recovered: true };
         await this.store.update({
             running: true,
             pauseRequested: false,
@@ -426,7 +455,12 @@ export class LuxuryInsertService {
             if (!readiness.ready)
                 throw new Error(`${this.providerName(state.provider)} 尚未登录`);
             await this.ai.createBlankChat();
-            await this.ai.enableWebSearch();
+            try {
+                await this.ai.enableWebSearch();
+            }
+            catch (webSearchError) {
+                console.warn("[market-radar] enableWebSearch 失败，继续发送 Prompt:", webSearchError instanceof Error ? webSearchError.message : String(webSearchError));
+            }
             const prompt = await readPrompt("insertMarketRadar");
             await this.ai.sendPromptOnce(prompt, MARKET_RADAR_FINGERPRINT);
             const text = await this.waitForMarketRadarResponse();
@@ -570,21 +604,157 @@ export class LuxuryInsertService {
     }
     async saveMarketRadarResult(text) {
         await mkdir(INSERT_OUTPUT_DIR, { recursive: true });
-        await writeFile(path.join(INSERT_OUTPUT_DIR, "00_DAILY_MARKET_RADAR.md"), `${text}\n`, "utf8");
+        /* ── 先解析候选，再原子写入状态 + 文件 ── */
+        const candidates = parseMarketRadarCandidates(text);
+        /* 写入磁盘文件 */
+        await Promise.all([
+            writeFile(path.join(INSERT_OUTPUT_DIR, "00_DAILY_MARKET_RADAR.md"), `${text}\n`, "utf8"),
+            writeFile(path.join(INSERT_OUTPUT_DIR, "00_DAILY_MARKET_RADAR_DATA.json"), `${JSON.stringify({ candidates }, null, 2)}\n`, "utf8")
+        ]);
+        /* 原子写入 run-state：不清 candidates 再恢复（避免两阶段之间被杀导致丢失） */
         await this.store.update({
             luxuryInsert: {
                 ...this.store.get().luxuryInsert,
                 marketRadarText: text,
                 marketRadarUpdatedAt: new Date().toISOString(),
                 marketRadarChatUrl: this.ai.currentUrl(),
-                marketRadarCandidates: undefined,
+                marketRadarCandidates: candidates,
                 selectedMarketRadarCandidateId: undefined,
                 marketRadarSelectionWarning: undefined
             }
         });
-        const candidates = parseMarketRadarCandidates(text);
-        await writeFile(path.join(INSERT_OUTPUT_DIR, "00_DAILY_MARKET_RADAR_DATA.json"), `${JSON.stringify({ candidates }, null, 2)}\n`, "utf8");
         return candidates;
+    }
+    /* ── 从当前 ChatGPT 页面救回市场雷达答案（已生成但流程因导航/超时而丢失时） ── */
+    async importMarketRadarFromCurrentChat() {
+        this.assertLuxuryMode();
+        const state = this.store.get();
+        if (state.running)
+            throw new Error("当前内胆流程正在运行，不能导入");
+        const readiness = await this.ai.checkReady();
+        if (!readiness.ready)
+            throw new Error(`${this.providerName(state.provider)} 尚未登录`);
+        const text = await this.ai.recoverCompletedResponse(MARKET_RADAR_FINGERPRINT);
+        if (!text)
+            throw new Error("当前 ChatGPT 会话中未找到市场雷达结果（请确认页面已包含 # 全网热销包型机会雷达 Agent v0.3 的提示及回复）");
+        const candidates = await this.saveMarketRadarResult(text);
+        return this.store.update({
+            running: false,
+            stage: "PAUSED",
+            message: "已从当前 ChatGPT 对话导入每日市场选款雷达结果",
+            error: undefined,
+            luxuryInsert: {
+                ...this.store.get().luxuryInsert,
+                marketRadarText: text,
+                marketRadarUpdatedAt: new Date().toISOString(),
+                marketRadarChatUrl: this.ai.currentUrl(),
+                marketRadarCandidates: candidates
+            }
+        });
+    }
+    /* ── 从当前 ChatGPT 页面救回内胆 Listing 文案（已生成但缺少边界导致未保存时） ── */
+    async importInsertListingContentFromCurrentChat() {
+        this.assertLuxuryMode();
+        const state = this.store.get();
+        if (state.running)
+            throw new Error("当前内胆流程正在运行，不能导入");
+        const insert = this.requireInsert();
+        if ((insert.generatedImageNumbers?.length ?? 0) < 7)
+            throw new Error("请先完成 Image 01–07");
+        const readiness = await this.ai.checkReady();
+        if (!readiness.ready)
+            throw new Error(`${this.providerName(state.provider)} 尚未登录`);
+        let text = await this.ai.recoverCompletedResponse(INSERT_LISTING_CONTENT_FINGERPRINT);
+        if (!text)
+            throw new Error("当前 ChatGPT 会话中未找到内胆 Listing 文案（请确认页面已包含 # Luxury Bag Organizer Listing Content 的提示及回复）");
+        /* 导入路径放宽边界检查：没有边界时自动包裹，避免已生成内容被丢弃 */
+        if (!text.includes(INSERT_LISTING_CONTENT_START) || !text.includes(INSERT_LISTING_CONTENT_END)) {
+            text = `${INSERT_LISTING_CONTENT_START}\n\n${text.trim()}\n\n${INSERT_LISTING_CONTENT_END}`;
+        }
+        await mkdir(INSERT_OUTPUT_DIR, { recursive: true });
+        await writeFile(path.join(INSERT_OUTPUT_DIR, "07_LISTING_CONTENT.md"), `${text}\n`, "utf8");
+        return this.store.update({
+            running: false,
+            stage: "PAUSED",
+            message: "已从当前 ChatGPT 对话导入内胆 Listing 文案",
+            error: undefined,
+            luxuryInsert: {
+                ...this.store.get().luxuryInsert,
+                listingContentText: text,
+                listingContentGenerated: true,
+                listingContentChatUrl: this.ai.currentUrl()
+            }
+        });
+    }
+    /* ── 磁盘兜底：当 run-state.json 中雷达候选丢失但从磁盘文件可恢复时，自动恢复 ── */
+    async recoverMarketRadarFromDisk() {
+        const state = this.store.get();
+        const insert = state.luxuryInsert || {};
+        /* 已有候选则无需恢复 */
+        if (Array.isArray(insert.marketRadarCandidates) && insert.marketRadarCandidates.length > 0)
+            return false;
+        const dataPath = path.join(INSERT_OUTPUT_DIR, "00_DAILY_MARKET_RADAR_DATA.json");
+        const mdPath = path.join(INSERT_OUTPUT_DIR, "00_DAILY_MARKET_RADAR.md");
+        try {
+            const [dataRaw, mdRaw] = await Promise.all([
+                readFile(dataPath, "utf8").catch(() => null),
+                readFile(mdPath, "utf8").catch(() => null)
+            ]);
+            if (!dataRaw)
+                return false;
+            const { candidates } = JSON.parse(dataRaw);
+            if (!Array.isArray(candidates) || candidates.length === 0)
+                return false;
+            await this.store.update({
+                luxuryInsert: {
+                    ...this.store.get().luxuryInsert,
+                    marketRadarText: mdRaw || (insert.marketRadarText || ""),
+                    marketRadarUpdatedAt: (insert.marketRadarUpdatedAt || new Date()).toISOString(),
+                    marketRadarCandidates: candidates
+                }
+            });
+            return true;
+        } catch {
+            return false;
+        }
+    }
+    /* ── 修复：用已落盘的原始雷达文本重新解析，补回被误丢的产品页链接（不改 candidateId，避免破坏已选状态） ── */
+    async repairMarketRadarProductUrls() {
+        const state = this.store.get();
+        const insert = state.luxuryInsert || {};
+        const text = insert.marketRadarText;
+        const existing = Array.isArray(insert.marketRadarCandidates) ? insert.marketRadarCandidates : [];
+        if (!existing.length || !text) {
+            return { repaired: 0, total: existing.length, skipped: true };
+        }
+        let fresh;
+        try {
+            fresh = parseMarketRadarCandidates(text);
+        } catch (e) {
+            return { repaired: 0, total: existing.length, error: String(e.message || e) };
+        }
+        const byKey = new Map();
+        for (const f of fresh) {
+            byKey.set(`${f.bagModel}|${f.sizeVersion}`.toLowerCase(), f);
+        }
+        let repaired = 0;
+        const updated = existing.map((c) => {
+            const key = `${c.bagModel}|${c.sizeVersion}`.toLowerCase();
+            const f = byKey.get(key);
+            if (!f)
+                return c;
+            const productUrl = c.officialProductUrl || f.officialProductUrl || "";
+            const imageUrl = c.officialFrontImageUrl || f.officialFrontImageUrl || "";
+            const changed = (!c.officialProductUrl && f.officialProductUrl) ||
+                (!c.officialFrontImageUrl && f.officialFrontImageUrl);
+            if (changed)
+                repaired++;
+            return { ...c, officialProductUrl: productUrl, officialFrontImageUrl: imageUrl };
+        });
+        await this.store.update({
+            luxuryInsert: { ...this.store.get().luxuryInsert, marketRadarCandidates: updated }
+        });
+        return { repaired, total: updated.length };
     }
     async waitForMarketRadarResponse() {
         let text = await this.ai.waitForResponseAfterPrompt(MARKET_RADAR_FINGERPRINT);
@@ -622,6 +792,7 @@ export class LuxuryInsertService {
             error: undefined,
             startedAt: new Date().toISOString(),
             luxuryInsert: {
+                ...state.luxuryInsert,
                 taskId: state.luxuryInsert?.taskId ?? this.taskId(),
                 generatedImageNumbers: [],
                 outputFiles: []
@@ -850,6 +1021,63 @@ ${IDENTIFICATION_DATA_END}
         catch (error) {
             await this.fail(error);
         }
+    }
+    async reExtractNotebookResult() {
+        this.assertLuxuryMode();
+        const insert = this.requireInsert();
+        if (!insert.bagFactsConfirmed || !insert.variants?.length) {
+            throw new Error("请先人工确认包型、版本和公开尺寸");
+        }
+        const jobFingerprint = `NOTEBOOK_JOB: ${insert.taskId}-V2`;
+        // Step 1: try fingerprint-based recover first
+        await this.ai.launch();
+        let result = await this.notebook.recover(jobFingerprint);
+        // Step 2: if recovered text lacks markers, scan all answers for the richest one
+        if (!result || !result.includes(NOTEBOOK_START) || !result.includes(NOTEBOOK_END)) {
+            result = await this.notebook.scanForMarkedAnswer(NOTEBOOK_START, NOTEBOOK_END);
+        }
+        if (!result || !result.includes(NOTEBOOK_START) || !result.includes(NOTEBOOK_END)) {
+            throw new Error(
+                "NotebookLM 当前会话未找到含标记的完整方案数据。" +
+                "请在 NotebookLM 中确认已显示 <<<NOTEBOOK_INSERT_PLAN_START>>> 开头的结果，或手动粘贴内容。"
+            );
+        }
+        const plannedVariants = parseNotebookInsertData(result, insert.variants);
+        await mkdir(INSERT_OUTPUT_DIR, { recursive: true });
+        await writeFile(path.join(INSERT_OUTPUT_DIR, "04_NOTEBOOKLM_RESULT.md"), `${result}\n`, "utf8");
+        return this.store.update({
+            stage: "INSERT_WAITING_DESIGN_FREEZE",
+            message: "NotebookLM 内胆方案已重新提取并自动回填，请核对后点击确认并冻结",
+            luxuryInsert: {
+                ...this.requireInsert(),
+                notebookInputText: insert.notebookInputText,
+                notebookResultText: result,
+                variants: plannedVariants
+            }
+        });
+    }
+    async importNotebookResultText(text) {
+        this.assertLuxuryMode();
+        const insert = this.requireInsert();
+        if (!insert.bagFactsConfirmed || !insert.variants?.length) {
+            throw new Error("请先人工确认包型、版本和公开尺寸");
+        }
+        if (!text || !text.includes(NOTEBOOK_START) || !text.includes(NOTEBOOK_END)) {
+            throw new Error("粘贴的内容缺少 NotebookLM 方案标记（<<<NOTEBOOK_INSERT_PLAN_START>>>）");
+        }
+        const plannedVariants = parseNotebookInsertData(text, insert.variants);
+        await mkdir(INSERT_OUTPUT_DIR, { recursive: true });
+        await writeFile(path.join(INSERT_OUTPUT_DIR, "04_NOTEBOOKLM_RESULT.md"), `${text}\n`, "utf8");
+        return this.store.update({
+            stage: "INSERT_WAITING_DESIGN_FREEZE",
+            message: "NotebookLM 方案已导入并自动回填，请核对后点击确认并冻结",
+            luxuryInsert: {
+                ...this.requireInsert(),
+                notebookInputText: insert.notebookInputText,
+                notebookResultText: text,
+                variants: plannedVariants
+            }
+        });
     }
     async freezeDesign(input) {
         this.assertLuxuryMode();
@@ -1133,13 +1361,16 @@ ${IDENTIFICATION_DATA_END}
         try {
             await this.ai.openChat(this.store.get().chatUrl);
             const template = await readPrompt("insertListingContent");
-            const prompt = template
-                .replaceAll("{{FROZEN_FACTS}}", this.frozenFacts(insert))
-                .replaceAll("{{CLAIMS}}", this.claimText(insert))
-                .replaceAll("{{PROMPT_PACK}}", insert.promptPackText);
-            const fingerprint = "# Luxury Bag Organizer Listing Content";
-            await this.ai.sendPromptOnce(prompt, fingerprint);
-            const text = await this.ai.waitForResponseAfterPrompt(fingerprint);
+            const prompt = [
+                INSERT_LISTING_CONTENT_FINGERPRINT,
+                template
+                    .replaceAll("{{FROZEN_FACTS}}", this.frozenFacts(insert))
+                    .replaceAll("{{CLAIMS}}", this.claimText(insert))
+                    .replaceAll("{{PROMPT_PACK}}", insert.promptPackText)
+                    .replaceAll("{{SEO_KEYWORD_REPORT}}", insert.seoKeywordReport || "（暂无 Google Ads 关键词报告，请基于已确认事实和常见 AliExpress / Amazon 搜索词生成）")
+            ].join("\n\n");
+            await this.ai.sendPromptOnce(prompt, INSERT_LISTING_CONTENT_FINGERPRINT);
+            const text = await this.ai.waitForResponseAfterPrompt(INSERT_LISTING_CONTENT_FINGERPRINT);
             if (!text.includes(INSERT_LISTING_CONTENT_START) ||
                 !text.includes(INSERT_LISTING_CONTENT_END)) {
                 throw new Error("内胆 Listing 文案缺少固定边界，流程已暂停且不会自动重发");

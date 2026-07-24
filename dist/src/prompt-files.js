@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { LISTING_CONTENT_PROMPT_FILE, INSERT_LISTING_CONTENT_PROMPT_FILE, INSERT_PROMPT_FILE, INSERT_MARKET_RADAR_PROMPT_FILE, MARKET_VISUAL_AUDIT_PROMPT_V2, MARKET_VISUAL_AUDIT_V2_PROMPT_FILE, PLANNING_PROMPT_FILE, PROMPTS_DIR, SINGLE_IMAGE_PROMPT_GENERATOR_V2, SINGLE_IMAGE_PROMPT_V2_FILE, VISUAL_PLANNING_PROMPT_V2, VISUAL_PLANNING_V2_PROMPT_FILE, VISUAL_STRATEGY_COMPRESSION_PROMPT_FILE, VISUAL_STRATEGY_COMPRESSION_PROMPT_V1, RESEARCH_PROMPT_FILE, SEO_KEYWORDS_PROMPT_FILE } from "./config.js";
+import { LISTING_CONTENT_PROMPT_FILE, INSERT_LISTING_CONTENT_PROMPT_FILE, INSERT_PROMPT_FILE, INSERT_MARKET_RADAR_PROMPT_FILE, MARKET_VISUAL_AUDIT_PROMPT_V2, MARKET_VISUAL_AUDIT_V2_PROMPT_FILE, PLANNING_PROMPT_FILE, PROMPTS_DIR, SINGLE_IMAGE_PROMPT_GENERATOR_V2, SINGLE_IMAGE_PROMPT_V2_FILE, VISUAL_PLANNING_PROMPT_V2, VISUAL_PLANNING_V2_PROMPT_FILE, VISUAL_STRATEGY_COMPRESSION_PROMPT_FILE, VISUAL_STRATEGY_COMPRESSION_PROMPT_V1, RESEARCH_PROMPT_FILE, SEO_KEYWORDS_PROMPT_FILE, SELECTION_PROMPT_FILE } from "./config.js";
 export const PROMPT_KINDS = [
     "research",
     "planning",
@@ -11,7 +11,8 @@ export const PROMPT_KINDS = [
     "marketVisualAuditV2",
     "visualStrategyCompression",
     "visualPlanningV2",
-    "singleImagePromptV2"
+    "singleImagePromptV2",
+    "productSelection"
 ];
 function promptPath(kind) {
     const paths = {
@@ -25,7 +26,8 @@ function promptPath(kind) {
         marketVisualAuditV2: MARKET_VISUAL_AUDIT_V2_PROMPT_FILE,
         visualStrategyCompression: VISUAL_STRATEGY_COMPRESSION_PROMPT_FILE,
         visualPlanningV2: VISUAL_PLANNING_V2_PROMPT_FILE,
-        singleImagePromptV2: SINGLE_IMAGE_PROMPT_V2_FILE
+        singleImagePromptV2: SINGLE_IMAGE_PROMPT_V2_FILE,
+        productSelection: SELECTION_PROMPT_FILE
     };
     return paths[kind];
 }
@@ -50,7 +52,8 @@ function promptLabel(kind) {
         marketVisualAuditV2: "市场视觉调研 v2",
         visualStrategyCompression: "视觉策略裁剪",
         visualPlanningV2: "视觉规划 v2",
-        singleImagePromptV2: "单图 Prompt v2"
+        singleImagePromptV2: "单图 Prompt v2",
+        productSelection: "选品研究 Bob"
     };
     return labels[kind];
 }

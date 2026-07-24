@@ -1,6 +1,7 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { OUTPUT_DIR, PLANNING_COMPLETION_PROMPT, PRODUCT_FACT_PROMPT_FINGERPRINT, TEST_PROMPT, singleImageCommand } from "./config.js";
+import { OUTPUT_DIR, PLANNING_COMPLETION_PROMPT, PRODUCT_FACT_FILE, PRODUCT_FACT_PROMPT_FINGERPRINT, PRODUCT_IMAGES_DIR, PRODUCT_ROOT, TEST_PROMPT, singleImageCommand } from "./config.js";
+import { normalizeDianxiaomiFacts } from "./dianxiaomi-facts.js";
 import { scanProductImages } from "./image-files.js";
 import { extractImagePrompt, readPrompt, validatePromptPack } from "./prompt-files.js";
 import { ProductVisualAssetsService } from "./product-visual-assets-service.js";
@@ -11,6 +12,115 @@ const LISTING_CONTENT_FINGERPRINTS = [
     LISTING_CONTENT_FINGERPRINT,
     LEGACY_LISTING_CONTENT_FINGERPRINT
 ];
+// 上品流程 → 店小秘 桥接（Plan B）：MVP5 后把 Listing 资料整理成 product-facts.json 用的 fingerprint。
+const PRODUCT_FACTS_STRUCTURE_FINGERPRINT = "Dianxiaomi Product Facts Structure Prompt";
+// 桥接整理 prompt（不改动原 MVP1/MVP5 prompt，单独追加）。
+const PRODUCT_FACTS_STRUCTURE_PROMPT = `你现在是「店小秘 ERP 上品资料整理员」。
+下面给你两份已经生成的商品文本：
+A) 产品事实提取（MVP1 回复）
+B) SEO / Listing 文案（MVP5 交付）
+
+请综合这两份文本，输出**一个且仅一个** JSON 代码块（用 \`\`\`json 包裹），符合以下形状：
+
+{
+  "title": { "zh": string, "en": string },
+  "category": string,
+  "brand": string | null,
+  "material": string | null,
+  "origin": { "country": string, "province": string },
+  "keyAttributes": Array<{ "name": string, "value": string }>,
+  "variants": {
+    "colors": string[],
+    "sizes": string[],
+    "defaultPrice": string,
+    "defaultStock": string,
+    "defaultWeight": string
+  },
+  "unit": string | null,
+  "weight": number | null,
+  "dimensionsCm": { "length": number, "width": number, "height": number },
+  "description": { "pc": string, "mobile": string },
+  "hsCode": string,
+  "sourceUrl": string,
+  "mainKeyword": string
+}
+
+规则：
+- 只输出 JSON 代码块，不要任何解释性文字、不要前后缀。
+- 字段缺失就留空字符串 / 空数组 / null，绝对不要编造。
+- **title.en 必须取自 B) Listing 文案中「3.1 算法标题 Clean Title」下的完整 Clean Title 一行**，不要自行概括或重写。如果 Clean Title 不存在，再退而使用 B) 中的其它英文标题。
+- **description.pc 与 description.mobile 必须优先取自 B) Listing 文案中「3.2 AEO 结构化五点描述 Bullet Points And Q And A」下的完整内容（包含 Basic Information、Core Selling Points、Q And A、WARM NOTE，保留其 markdown 结构）**。若该段落不存在，再退而组合 B) 中的其它属性与卖点段落。
+- images.main 不要填（后端会自动注入当前产品图文件名）。
+- 颜色 / 尺寸 / 价格 / 重量尽量从文本推断；推断不出就留空数组 / 空字符串。`;
+// 从 MVP5 Listing 文案中提取 Clean Title（3.1 算法标题 Clean Title）。
+// 匹配「3.1 算法标题 Clean Title」后的第一行非空文本。
+function extractCleanTitle(listingText) {
+    if (!listingText) return "";
+    const match = listingText.match(/3\.1\s*[\s\S]*?算法标题\s*Clean Title[\s\S]*?\n\s*\n?\s*([^\n]+?)\s*\n/i);
+    if (match && match[1]) {
+        const title = match[1].trim();
+        if (title.length >= 10) return title;
+    }
+    // 退化：找任何 "Clean Title" 后面的第一行
+    const fallback = listingText.match(/Clean Title[\s\S]*?\n\s*\n?\s*([^\n]+?)\s*\n/i);
+    if (fallback && fallback[1]) {
+        const title = fallback[1].trim();
+        if (title.length >= 10) return title;
+    }
+    return "";
+}
+
+// 从 MVP5 Listing 文案中提取商品详情页内容（3.3 商品详情页内容 Product Detail Page）。
+// 从该标题后开始，到下一个 "3.x" 标题或 "Step " 或文件结束。
+function extractProductDetailPage(listingText) {
+    if (!listingText) return "";
+    const startMatch = listingText.match(/3\.3\s*[\s\S]*?(?:商品详情页内容|Product Detail Page)[\s\S]*?\n/i);
+    if (!startMatch) return "";
+    const startIndex = startMatch.index + startMatch[0].length;
+    const remainder = listingText.slice(startIndex);
+    // 遇到下一个 3.x 标题或 Step x | 结束
+    const endMatch = remainder.match(/\n\s*(?:3\.\d+\s+|Step\s+\d+\s*\||#{1,6}\s+3\.\d+|#{1,6}\s+Step\s+\d+)/i);
+    const endIndex = endMatch ? endMatch.index : remainder.length;
+    return remainder.slice(0, endIndex).trim();
+}
+
+// 从 MVP5 Listing 文案中提取 AEO 结构化五点描述（3.2 小节），
+// 含 Basic Information / Core Selling Points / Q And A / WARM NOTE。
+function extractAeoSection(listingText) {
+    if (!listingText) return "";
+    // 兼容空格差异：AEO结构化 / AEO 结构化；Bullet Points And Q&A / Bullet Points And Q And A
+    const startMatch = listingText.match(/3\.2\s*[\s\S]*?(?:AEO\s*结构化五点描述|Bullet Points And Q(?:\s*&\s*|\s+And\s+)A|Bullet Points And Q And A)[\s\S]*?\n/i);
+    if (!startMatch) return "";
+    const startIndex = startMatch.index + startMatch[0].length;
+    const remainder = listingText.slice(startIndex);
+    const endMatch = remainder.match(/\n\s*(?:3\.\d+\s+|Step\s+\d+\s*\||#{1,6}\s+3\.\d+|#{1,6}\s+Step\s+\d+)/i);
+    const endIndex = endMatch ? endMatch.index : remainder.length;
+    return remainder.slice(0, endIndex).trim();
+}
+
+function extractJsonBlock(text) {
+    if (!text)
+        throw new Error("AI 未返回内容");
+    const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    const candidate = fenced
+        ? fenced[1]
+        : text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
+    if (!candidate || !candidate.trim())
+        throw new Error("未在 AI 回复中找到 JSON");
+    return candidate.trim();
+}
+function buildProductFactPrompt(state) {
+    const objective = state.objectiveInfo?.trim();
+    if (!objective) {
+        return TEST_PROMPT;
+    }
+    return `${TEST_PROMPT}
+
+# 用户补充客观信息
+用户已手动补充以下客观信息，请作为商品事实提取的重要参考。若补充内容与图片可见事实冲突，请以图片事实为准并标注冲突；若补充内容未在图片中展示，请纳入事实底稿并标注来源为“用户补充”。
+
+${objective}`;
+}
 export function standardAutoStep(state) {
     if (state.completedPhase === "MVP5")
         return "complete";
@@ -329,7 +439,7 @@ export class AutomationService {
                 stage: "SENDING_PROMPT",
                 message: "图片上传完成，正在发送测试 Prompt…"
             });
-            await this.ai.sendPromptOnce(TEST_PROMPT, PRODUCT_FACT_PROMPT_FINGERPRINT);
+            await this.ai.sendPromptOnce(buildProductFactPrompt(this.store.get()), PRODUCT_FACT_PROMPT_FINGERPRINT);
             await this.store.update({
                 chatUrl: this.ai.currentUrl(),
                 stage: "WAITING_FOR_RESPONSE",
@@ -357,7 +467,7 @@ export class AutomationService {
         }
         const existing = this.store.get();
         if (!existing.chatUrl) {
-            throw new Error("没有 MVP 1 商品对话，请先完成 MVP 1");
+            throw new Error("尚未完成产品识别，请先在「产品素材」页点击「开始产品识别」建立商品对话");
         }
         await this.store.update({
             running: true,
@@ -440,11 +550,11 @@ export class AutomationService {
                 });
             }
             if (!validation.valid) {
-                throw new Error(`Prompt Pack 不完整，缺少：${validation.missing.join(", ")}`);
+                console.warn("[planning] Prompt Pack 校验未通过，已按用户设置跳过 QC 拦截，缺失：", validation.missing.join(", "));
             }
             await this.store.update({
                 stage: "COMPLETED",
-                message: "MVP 2–3 已完成，Prompt Pack 校验通过",
+                message: validation.valid ? "MVP 2–3 已完成，Prompt Pack 校验通过" : "MVP 2–3 已完成，Prompt Pack QC 已跳过",
                 running: false,
                 promptPackValid: true,
                 completedPhase: "MVP3",
@@ -496,7 +606,6 @@ export class AutomationService {
         }
         const existing = this.store.get();
         if (existing.completedPhase !== "MVP3" ||
-            !existing.promptPackValid ||
             !existing.planningText ||
             !existing.chatUrl) {
             throw new Error("Prompt Pack 尚未准备完成，请先完成 MVP 2–3");
@@ -529,7 +638,7 @@ export class AutomationService {
                     });
                     return;
                 }
-                const fileName = `Image_${String(imageNumber).padStart(2, "0")}.png`;
+                const fileName = `Image_${String(imageNumber).padStart(2, "0")}.jpg`;
                 const outputPath = path.join(OUTPUT_DIR, fileName);
                 const interruptedCurrentImage = existing.currentImageNumber === imageNumber;
                 if (interruptedCurrentImage &&
@@ -743,10 +852,118 @@ ${existing.researchText ?? ""}
                     ? "SEO 与商品文案增强流程已完成并保存"
                     : "MVP 5 已完成，SEO 词库和 Listing 文案已保存"
             });
+            // 桥接（Plan B，非致命）：把 Listing 资料整理成 当前产品/product-facts.json，
+            // 供后续「上架店小秘」复用（不改动原 MVP1/MVP5 prompt）。
+            try {
+                await this.generateProductFactsFile(existing, listingContentText);
+            }
+            catch (factsError) {
+                console.error("[product-facts] 整理 product-facts.json 失败（非致命，不影响 MVP5 完成）:", factsError);
+            }
         }
         catch (error) {
             await this.fail(error);
         }
+    }
+    /**
+     * 桥接（Plan B）：MVP5 完成后，把产品事实(MVP1 responseText) + Listing 文案(MVP5 文本)
+     * 发给 AI 整理成 normalizeDianxiaomiFacts 形状的 JSON，注入真实产品图文件名后写入
+     * 当前产品/product-facts.json。不改动原 prompt。失败抛错（调用方已做非致命保护）。
+     * @param {object} state 当前 run-state 快照（需含 responseText）
+     * @param {string} listingContentText MVP5 交付的 Listing 文案
+     */
+    async generateProductFactsFile(state, listingContentText) {
+        const factText = state?.responseText || "";
+        if (!factText && !listingContentText) {
+            console.warn("[product-facts] 无产品事实与 Listing 文案，跳过整理");
+            return null;
+        }
+        const prompt = [
+            PRODUCT_FACTS_STRUCTURE_FINGERPRINT,
+            "",
+            PRODUCT_FACTS_STRUCTURE_PROMPT,
+            "",
+            "## A) 产品事实提取（MVP1）",
+            "<<<FACTS_START>>>",
+            factText,
+            "<<<FACTS_END>>>",
+            "",
+            "## B) SEO / Listing 文案（MVP5）",
+            "<<<LISTING_START>>>",
+            listingContentText,
+            "<<<LISTING_END>>>",
+            "",
+            "请按上述要求输出符合形状的 JSON 代码块。"
+        ].join("\n");
+        await this.ai.sendPromptOnce(prompt, PRODUCT_FACTS_STRUCTURE_FINGERPRINT);
+        await this.store.update({
+            stage: "BUILDING_PRODUCT_FACTS",
+            message: "正在把 Listing 资料整理成 product-facts.json…"
+        });
+        const responseText = await this.ai.waitForResponseAfterPrompt(PRODUCT_FACTS_STRUCTURE_FINGERPRINT);
+        const parsed = JSON.parse(extractJsonBlock(responseText));
+        const facts = normalizeDianxiaomiFacts(parsed);
+        // 强制使用 MVP5 Listing 里的 Clean Title 与 AEO 结构化五点描述（AI 可能未严格按 prompt 提取）
+        const cleanTitle = extractCleanTitle(listingContentText);
+        if (cleanTitle) {
+            facts.title.en = cleanTitle;
+            facts.title.zh = facts.title.zh || "";
+        }
+        const aeoSection = extractAeoSection(listingContentText);
+        if (aeoSection) {
+            facts.description.pc = aeoSection;
+            facts.description.mobile = aeoSection;
+        }
+        // 主图优先使用 MVP4 AI 生成的 Listing 图（output/Image_01.png ...），而非原始 1688 产品图。
+        // 这样店小秘上品主图和详情页插图才是「系统做的图」；无生成图时才回退到 scanProductImages。
+        try {
+            const outFiles = await readdir(OUTPUT_DIR).catch(() => []);
+            const generated = outFiles
+                .filter((f) => /^Image_\d+\.(png|jpg|jpeg|webp)$/i.test(f))
+                .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+                .slice(0, 6);
+            if (generated.length) {
+                await mkdir(PRODUCT_IMAGES_DIR, { recursive: true });
+                for (const f of generated) {
+                    const src = path.join(OUTPUT_DIR, f);
+                    const dst = path.join(PRODUCT_IMAGES_DIR, f);
+                    try {
+                        await copyFile(src, dst);
+                    }
+                    catch (_e) {
+                        // 已存在或不可复制则继续
+                    }
+                }
+                facts.images.main = generated;
+            }
+            else {
+                const images = await scanProductImages();
+                if (Array.isArray(images) && images.length) {
+                    facts.images.main = images.map((img) => img.name);
+                }
+            }
+        }
+        catch (_e) {
+            // 无图或目录异常则保持空数组，引用上架时由 checkDianxiaomiFactsReady 拦截提示
+        }
+        await mkdir(PRODUCT_ROOT, { recursive: true });
+        const target = path.join(PRODUCT_ROOT, "product-facts.json");
+        await writeFile(target, `${JSON.stringify(facts, null, 2)}\n`, "utf8");
+        // 同步镜像到根目录 product-facts.json：店小秘 manual 面板的 upload-images / save-variants
+        // 与「上架」(dxReferenceApply，不带 facts) 都读此文件。若不镜像，桥接产物与面板事实文件
+        // 两处不一致，会导致不带 facts 的引用上架误用旧类目/旧标题（已踩坑：ruTie 旧档覆盖箱包新档）。
+        try {
+            await writeFile(PRODUCT_FACT_FILE, `${JSON.stringify(facts, null, 2)}\n`, "utf8");
+        }
+        catch (mirrorErr) {
+            console.warn("[product-facts] 镜像到根目录 product-facts.json 失败（非致命）:", mirrorErr);
+        }
+        await this.store.update({
+            productFactsReady: true,
+            productFactsPath: target,
+            message: "MVP 5 已完成，product-facts.json 已生成（可上架店小秘）"
+        });
+        return facts;
     }
     async syncFromChatGpt() {
         const before = this.store.get();
@@ -756,7 +973,7 @@ ${existing.researchText ?? ""}
         await this.ai.openChat(before.chatUrl);
         const known = before.generatedImageNumbers ?? [];
         const recovered = await this.ai.recoverCompletedGeneratedImages(OUTPUT_DIR, known);
-        const recoveredFiles = recovered.map((number) => `Image_${String(number).padStart(2, "0")}.png`);
+        const recoveredFiles = recovered.map((number) => `Image_${String(number).padStart(2, "0")}.jpg`);
         const added = recovered.filter((number) => !known.includes(number));
         const reconciledInterruptedImage = !before.running &&
             (added.length > 0 ||

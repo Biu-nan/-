@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yikuaborder-deploy.local/schemas/product-fact.schema.json",
+  "title": "乳贴产品事实 (Dianxiaomi Product Fact)",
+  "description": "店小秘速卖通【全/半托管 Choice】创建产品所需的产品事实。由 AI 从图片提取 + 人工确认得到，用于引用模板(1005005575013300)后覆盖填写表单。字段对应 dianxiaomi-field-framework.json 的 A 类（店铺/模板/履约等 C 类配置在 DIANXIAOMI_FIXED，不从产品事实来）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "productId", "title", "category", "images", "meta"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "productId": {
+      "type": "string",
+      "description": "引用源产品ID，v1.0 固定 1005005575013300",
+      "minLength": 1
+    },
+    "title": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["zh", "en"],
+      "description": "产品标题（中/英）",
+      "properties": {
+        "zh": { "type": "string", "maxLength": 128 },
+        "en": { "type": "string", "maxLength": 128 }
+      }
+    },
+    "category": {
+      "type": "string",
+      "description": "速卖通产品分类（托管页 combobox 选择值，如 服饰配件>内衣>乳贴 或英文类目名）",
+      "minLength": 1
+    },
+    "brand": {
+      "type": ["string", "null"],
+      "description": "品牌(Brand Name)，无品牌填 NONE"
+    },
+    "material": {
+      "type": ["string", "null"],
+      "description": "材质(Material)"
+    },
+    "origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "产地（国家或地区）与省份",
+      "properties": {
+        "country": { "type": "string", "description": "产地国家，如 中国大陆(Mainland China)" },
+        "province": { "type": "string", "description": "中国省份，如 浙江(Zhejiang)" }
+      }
+    },
+    "keyAttributes": {
+      "type": "array",
+      "description": "关键属性键值对（选完产品属性模板后填写）",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "value"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "value": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "variants": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "变种维度与 SKU（对应变种模板）",
+      "properties": {
+        "dimensions": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "skus": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["combination"],
+            "properties": {
+              "combination": {
+                "type": "array",
+                "description": "维度值组合，如 [\"肤色\",\"M\"]",
+                "items": { "type": "string", "minLength": 1 }
+              },
+              "stock": { "type": "integer", "minimum": 0 },
+              "price": { "type": "number", "minimum": 0 },
+              "sku": { "type": "string", "description": "变体 SKU(variationSku)" },
+              "barcode": { "type": "string", "description": "变体条形码(variationGoodsBarcode)" },
+              "weight": { "type": ["number", "null"], "description": "变体重量(公斤, variationWeight)" },
+              "dimensionsCm": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "变体尺寸(厘米, variationLength/Width/Height)",
+                "properties": {
+                  "length": { "type": ["number", "null"], "minimum": 0 },
+                  "width": { "type": ["number", "null"], "minimum": 0 },
+                  "height": { "type": ["number", "null"], "minimum": 0 }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "images": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["main"],
+      "description": "产品图片（本地路径：相对项目根或绝对）",
+      "properties": {
+        "main": {
+          "type": "array",
+          "minItems": 1,
+          "description": "主图（店小秘最多 6 张）",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "marketing": {
+          "type": "array",
+          "description": "营销图片",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "unit": {
+      "type": "string",
+      "description": "计件单位，如 件/个(piece/pieces)"
+    },
+    "originalBox": {
+      "type": ["boolean", "null"],
+      "description": "是否原箱"
+    },
+    "weight": {
+      "type": ["number", "null"],
+      "description": "包装后重量(公斤)",
+      "minimum": 0
+    },
+    "dimensionsCm": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "包装后尺寸(厘米)",
+      "properties": {
+        "length": { "type": ["number", "null"], "minimum": 0 },
+        "width": { "type": ["number", "null"], "minimum": 0 },
+        "height": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "description": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "描述文案（PC端 / 无线端）",
+      "properties": {
+        "pc": { "type": "string" },
+        "mobile": { "type": "string" }
+      }
+    },
+    "hsCode": {
+      "type": "string",
+      "description": "海关监管属性 / HS 编码"
+    },
+    "compliance": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "合规责任人（类目要求时必填）",
+      "properties": {
+        "euResponsible": { "type": "string", "description": "欧盟责任人" },
+        "trResponsible": { "type": "string", "description": "土耳其责任人" },
+        "manufacturer": { "type": "string", "description": "品牌制造商" },
+        "customsAttribute": { "type": "string", "description": "海关监管属性（radio 选项值）" }
+      }
+    },
+    "sourceUrl": {
+      "type": "string",
+      "description": "来源URL（店小秘私有，仅本系统生效；可填源产品ID）"
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "confirmed", "createdAt", "updatedAt"],
+      "properties": {
+        "source": { "enum": ["ai_extracted", "human_edited"] },
+        "confirmed": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "note": { "type": "string", "maxLength": 2000 }
+      }
+    }
+  }
+}

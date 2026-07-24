@@ -366,6 +366,7 @@ export class ProductProfileService {
         profile.identity.category =
             this.extractField(state.responseText, "Recommended Product Category") ??
                 profile.identity.category;
+        profile.objectiveInfo = state.objectiveInfo ?? profile.objectiveInfo ?? "";
         profile.lifecycle.currentStage = this.safeStage(state.stage);
         profile.lifecycle.status = this.lifecycleStatus(state);
         profile.lifecycle.updatedAt = now;
@@ -412,6 +413,7 @@ export class ProductProfileService {
                 effective: suggested
             },
             notes: "",
+            objectiveInfo: state.objectiveInfo || "",
             artifacts: [],
             archive: { archived: false }
         };
