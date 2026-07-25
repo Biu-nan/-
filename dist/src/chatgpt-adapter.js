@@ -751,21 +751,36 @@ export class ChatGptAdapter {
         }
     }
     // ② 轻量页面健康检查：检测掉登录跳转 / 人机验证 / 常见报错弹窗（不阻塞正常生成）
+    // 注意：禁止对整页 body 做 innerText 序列化——长作图会话 DOM 极重，全量读取会触发页面卡死。
+    // 改为只查 URL + 在小范围 alert/toast 容器上做针对性检测。
     async quickHealthCheck() {
         const page = await this.requirePage();
         const url = page.url();
         if (!/chatgpt\.com/i.test(url)) {
             return { ok: false, reason: "页面已跳转（可能掉登录）", url };
         }
-        const text = await page
-            .locator("body")
-            .innerText({ timeout: 4_000 })
-            .catch(() => "");
-        if (/verify you are human|真人验证|验证您是真人|checking your browser|执行安全验证/i.test(text)) {
-            return { ok: false, reason: "人机验证", url };
-        }
-        if (/something went wrong|please try again|您已达到|rate limit|try again later|an error occurred|请求过于频繁|暂时无法使用/i.test(text)) {
-            return { ok: false, reason: "报错弹窗", url };
+        const alertSel = [
+            '[role="alert"]',
+            '[data-testid*="toast"]',
+            '[data-testid*="error"]',
+            '[data-testid="error-boundary"]',
+            'iframe[src*="captcha"]',
+            'iframe[src*="challenge"]',
+            'iframe[src*="turnstile"]'
+        ].join(", ");
+        const alertCount = await page.locator(alertSel).count().catch(() => 0);
+        if (alertCount > 0) {
+            const text = await page
+                .locator(alertSel)
+                .first()
+                .innerText({ timeout: 2_000 })
+                .catch(() => "");
+            if (/verify you are human|真人验证|验证您是真人|checking your browser|执行安全验证/i.test(text)) {
+                return { ok: false, reason: "人机验证", url };
+            }
+            if (/something went wrong|please try again|您已达到|rate limit|try again later|an error occurred|请求过于频繁|暂时无法使用/i.test(text)) {
+                return { ok: false, reason: "报错弹窗", url };
+            }
         }
         return { ok: true };
     }

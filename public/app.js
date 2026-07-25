@@ -582,6 +582,7 @@ const NAV_WORKSPACES = [
       { label: "选品", view: "selection-overview", status: "ready", isPlaceholder: false, semanticRole: "business-selection" },
       { label: "上品", view: "materials", status: "ready", isPlaceholder: false, semanticRole: "business-production" },
       { label: "店小秘上品·乳贴", view: "agent-dianxiaomi", status: "ready", isPlaceholder: false, semanticRole: "business-dianxiaomi-listing" },
+      { label: "批量上架", view: "batch-listing", status: "ready", isPlaceholder: false, semanticRole: "business-batch-listing" },
       { label: "运维", view: "operation-pool", status: "ready", isPlaceholder: false, semanticRole: "business-operation" },
       { label: "复盘", view: "operation-review", status: "ready", isPlaceholder: false, semanticRole: "business-review" }
     ]
@@ -695,7 +696,8 @@ const viewWorkspace = NAV_WORKSPACES.reduce((mapping, workspace) => {
   "selection-overview": "today",
   "selection-radar": "today",
   "product-selection": "today",
-  "agent-dianxiaomi": "business"
+  "agent-dianxiaomi": "business",
+  "batch-listing": "business"
 });
 
 const operationViews = new Set([
@@ -5310,6 +5312,8 @@ function render(payload) {
   renderProductSelection(state, busy);
   /* 店小秘自动化上品（乳贴 v1.0）板块 —— 复用每秒刷新，状态用模块级变量保持 */
   renderDianxiaomiListing();
+  /* 批量流水线上架（v1.4.0）—— 复用每秒刷新，状态用模块级变量保持 */
+  renderBatchListing();
   /* 爆款研究中心 —— 复用每秒刷新，状态用模块级变量保持 */
   renderResearchCenter();
   if (selectedArchivedProfile) {
@@ -10476,6 +10480,216 @@ function renderDianxiaomiListing() {
   }
   // 节流拉取 listing 资料就绪状态（SOP 守卫可视化）
   dxCheckFactsStatus();
+}
+
+/* ───────────────────────── 批量流水线上架（Batch Listing，v1.4.0）───────────────────────── */
+const batchListingState = { rows: [], uploaded: false, busy: false, active: false, summary: null, generated: "" };
+let batchListingSig = "";
+const BL_STATUS_LABEL = { idle: "待上架", running: "进行中", done: "成功", failed: "失败", skipped: "跳过" };
+
+function blEscapeHtml(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c]));
+}
+
+function parseBatchCsv(text) {
+  const lines = String(text || "").split(/\r?\n/).filter((l) => {
+    const t = l.trim();
+    return t !== "" && !t.startsWith("#");
+  });
+  if (!lines.length) return [];
+  const header = lines[0].split(",").map((h) => h.trim());
+  const idxName = Math.max(header.findIndex((h) => /packageName|产品包名|包名/i.test(h)), 0);
+  const idxCat = header.findIndex((h) => /category|类目/i.test(h));
+  const idxEn = header.findIndex((h) => /enabled|上架|启用/i.test(h));
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(",");
+    const name = (cols[idxName] || "").trim();
+    if (!name) continue;
+    let category = idxCat >= 0 ? (cols[idxCat] || "").trim() : "";
+    if (!category || category === "auto") category = "auto";
+    let enabled = true;
+    if (idxEn >= 0) {
+      const ev = (cols[idxEn] || "").trim().toLowerCase();
+      enabled = !(ev === "false" || ev === "0" || ev === "no");
+    }
+    rows.push({ packageName: name, category, enabled, status: "idle", progress: 0, reason: "" });
+  }
+  return rows;
+}
+
+function downloadCsv(text, filename) {
+  try {
+    const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (_e) { /* ignore */ }
+}
+
+async function batchGenerate() {
+  try {
+    const data = await request("/api/dianxiaomi/product-packages");
+    const pkgs = (data.packages || []).filter((p) => p.hasFacts);
+    const lines = ["packageName,category,enabled"];
+    for (const p of pkgs) lines.push(`${p.name},${p.category},true`);
+    const csv = lines.join("\n");
+    batchListingState.generated = csv;
+    downloadCsv(csv, "batch-listing-source.csv");
+    batchListingState.rows = parseBatchCsv(csv);
+    batchListingState.uploaded = batchListingState.rows.length > 0;
+    batchListingState.busy = false;
+    batchListingState.active = false;
+    batchListingState.summary = null;
+    renderBatchListing();
+  } catch (e) {
+    alert("生成数据源表格失败：" + (e && e.message ? e.message : e));
+  }
+}
+
+function batchOnFile(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const rows = parseBatchCsv(String(reader.result || ""));
+    batchListingState.rows = rows;
+    batchListingState.uploaded = rows.length > 0;
+    batchListingState.busy = false;
+    batchListingState.active = false;
+    batchListingState.summary = null;
+    renderBatchListing();
+  };
+  reader.readAsText(file);
+}
+
+async function batchStart() {
+  if (!batchListingState.uploaded || batchListingState.busy) return;
+  const rows = batchListingState.rows;
+  if (!rows.length) { alert("请先生成或上传数据源表格"); return; }
+  try {
+    await request("/api/dianxiaomi/batch-apply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rows: rows.map((r) => ({ packageName: r.packageName, category: r.category, enabled: r.enabled })) })
+    });
+    batchListingState.busy = true;
+    batchListingState.active = true;
+    batchListingState.summary = null;
+  } catch (e) {
+    alert("启动批量上架失败：" + (e && e.message ? e.message : e));
+  }
+}
+
+async function batchRetry() {
+  const failed = batchListingState.rows.filter((r) => r.status === "failed");
+  if (!failed.length) return;
+  try {
+    await request("/api/dianxiaomi/batch-apply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rows: failed.map((r) => ({ packageName: r.packageName, category: r.category, enabled: true })) })
+    });
+    for (const r of failed) { r.status = "idle"; r.progress = 0; r.reason = ""; }
+    batchListingState.busy = true;
+    batchListingState.active = true;
+  } catch (e) {
+    alert("重试失败：" + (e && e.message ? e.message : e));
+  }
+}
+
+async function pollBatchStatus() {
+  try {
+    const data = await request("/api/dianxiaomi/batch-status");
+    if (!data || !data.ok) return;
+    const map = new Map((data.items || []).map((it) => [it.name, it]));
+    for (const r of batchListingState.rows) {
+      const it = map.get(r.packageName);
+      if (it) { r.status = it.status; r.progress = it.progress; r.reason = it.reason || ""; }
+    }
+    if (data.summary) batchListingState.summary = data.summary;
+    if (!data.running) { batchListingState.active = false; batchListingState.busy = false; }
+  } catch (_e) { /* ignore */ }
+}
+
+function renderBatchListing() {
+  const root = document.getElementById("batch-listing-root");
+  if (!root) return;
+  if (activeViewName() !== "batch-listing") return;
+  if (batchListingState.active) void pollBatchStatus();
+  const sig = JSON.stringify(batchListingState.rows.map((r) => [r.packageName, r.category, r.enabled, r.status, r.progress, r.reason]));
+  if (sig === batchListingSig && root.dataset.rendered === "1") return;
+  batchListingSig = sig;
+  root.dataset.rendered = "1";
+  const rows = batchListingState.rows;
+  const hasFailed = rows.some((r) => r.status === "failed");
+  const enabledCount = rows.filter((r) => r.enabled !== false).length;
+  const catOpts = (val) => `
+    <option value="auto" ${val === "auto" || !val ? "selected" : ""}>自动</option>
+    <option value="ruTie" ${val === "ruTie" ? "selected" : ""}>乳贴</option>
+    <option value="xiangBao" ${val === "xiangBao" ? "selected" : ""}>箱包</option>`;
+  root.innerHTML = `
+    <div class="bl-board">
+      <div class="bl-overview">
+        <div class="bl-overview-icon">📦</div>
+        <div class="bl-overview-text">
+          <b>批量流水线上架</b>：生成或上传 CSV 数据源表格 → 点「开始批量上架」按表格顺序自动上架为草稿
+          <span class="bl-overview-sub">CSV 三列：packageName(产品包名) / category(ruTie乳贴|xiangBao箱包|留空自动) / enabled(true/false)</span>
+        </div>
+      </div>
+
+      <div class="bl-card">
+        <div class="bl-controls">
+          <button id="bl-generate" class="bl-btn ghost" ${batchListingState.busy ? "disabled" : ""}>⚙ 生成数据源表格</button>
+          <div class="bl-file-wrap">
+            <input type="file" id="bl-file" accept=".csv,text/csv" ${batchListingState.busy ? "disabled" : ""} />
+            <span class="bl-hint">选择填好的 CSV（表头 packageName,category,enabled）</span>
+          </div>
+          <button id="bl-start" class="bl-btn primary" ${(!batchListingState.uploaded || batchListingState.busy) ? "disabled" : ""}>▶ 开始批量上架</button>
+          ${hasFailed ? `<button id="bl-retry" class="bl-btn ghost" ${batchListingState.busy ? "disabled" : ""}>↻ 重试失败项</button>` : ""}
+        </div>
+        ${batchListingState.busy ? `<div class="bl-hint">批量上架进行中，进度每秒刷新…</div>` : ""}
+      </div>
+
+      ${rows.length ? `
+      <div class="bl-card">
+        <table class="bl-table">
+          <thead><tr><th>上架</th><th>产品包名</th><th>类目</th><th>状态</th><th>进度</th><th>说明</th></tr></thead>
+          <tbody>
+            ${rows.map((r) => `
+              <tr>
+                <td><input type="checkbox" class="bl-enabled" data-name="${blEscapeHtml(r.packageName)}" ${r.enabled !== false ? "checked" : ""} ${batchListingState.busy ? "disabled" : ""}/></td>
+                <td>${blEscapeHtml(r.packageName)}</td>
+                <td><select class="bl-cat" data-name="${blEscapeHtml(r.packageName)}" ${batchListingState.busy ? "disabled" : ""}>${catOpts(r.category)}</select></td>
+                <td><span class="bl-badge ${r.status || "idle"}">${BL_STATUS_LABEL[r.status] || "待上架"}</span></td>
+                <td><div class="progress"><span style="width:${Math.max(0, Math.min(100, r.progress || 0))}%"></span></div></td>
+                <td class="bl-reason">${blEscapeHtml(r.reason || "")}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+        <div class="bl-hint">共 ${rows.length} 行，本次上架 ${enabledCount} 行</div>
+      </div>` : `<div class="bl-hint">尚未导入表格。点击「生成数据源表格」自动扫描已完成产品，或选择本地 CSV 上传。</div>`}
+
+      ${(batchListingState.summary) ? `<div class="bl-summary">✅ 完成：成功 ${batchListingState.summary.success} · 失败 ${batchListingState.summary.failed} · 跳过 ${batchListingState.summary.skipped} / 共 ${batchListingState.summary.total}</div>` : ""}
+    </div>`;
+
+  document.getElementById("bl-generate")?.addEventListener("click", () => void batchGenerate());
+  document.getElementById("bl-file")?.addEventListener("change", batchOnFile);
+  document.getElementById("bl-start")?.addEventListener("click", () => void batchStart());
+  document.getElementById("bl-retry")?.addEventListener("click", () => void batchRetry());
+  root.querySelectorAll(".bl-cat").forEach((sel) => sel.addEventListener("change", (e) => {
+    const name = e.target.dataset.name;
+    const r = batchListingState.rows.find((x) => x.packageName === name);
+    if (r) { r.category = e.target.value; renderBatchListing(); }
+  }));
+  root.querySelectorAll(".bl-enabled").forEach((cb) => cb.addEventListener("change", (e) => {
+    const name = e.target.dataset.name;
+    const r = batchListingState.rows.find((x) => x.packageName === name);
+    if (r) { r.enabled = e.target.checked; renderBatchListing(); }
+  }));
 }
 
 /* ───────────────────────── 爆款研究中心（Hit Product Research Center）───────────────────────── */

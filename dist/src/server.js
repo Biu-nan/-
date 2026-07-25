@@ -1,9 +1,9 @@
 import { spawn } from "node:child_process";
-import { appendFile, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import express from "express";
 import multer from "multer";
-import { HOST, OUTPUT_DIR, INSERT_BAG_IMAGES_DIR, INSERT_LINER_IMAGES_DIR, INSERT_OUTPUT_DIR, PORT, PRODUCT_IMAGES_DIR, PRODUCT_ROOT, PROMPTS_DIR, PROJECT_ROOT, PUBLIC_DIR } from "./config.js";
+import { HOST, OUTPUT_DIR, INSERT_BAG_IMAGES_DIR, INSERT_LINER_IMAGES_DIR, INSERT_OUTPUT_DIR, PORT, PRODUCT_IMAGES_DIR, PRODUCT_ROOT, PROMPTS_DIR, PROJECT_ROOT, COMPLETED_PRODUCTS_DIR, HIDDEN_DATA_DIR, PUBLIC_DIR } from "./config.js";
 import { DIANXIAOMI_TEMPLATE_PRODUCT_ID, PRODUCT_FACT_FILE, DIANXIAOMI_CATEGORY_PROFILES, getDianxiaomiProfile } from "./config.js";
 import { normalizeDianxiaomiFacts } from "./dianxiaomi-facts.js";
 import { AutomationService } from "./automation-service.js";
@@ -3331,6 +3331,202 @@ app.get("/api/dianxiaomi/profiles", async (_request, response) => {
         response.status(500).json({ error: error instanceof Error ? error.message : String(error) });
     }
 });
+
+// ===== 批量流水线上架（v1.4.0，2026-07-25）=====
+// 复用单品上架链路（setProfile→referenceProduct→fillFixedFields→fillFromFacts→save），
+// 顺序执行、共用单 Chrome 页、失败隔离、类目分流、存草稿不发布。
+const batchRunState = {
+  running: false,
+  jobId: null,
+  startedAt: null,
+  finishedAt: null,
+  overallProgress: 0,
+  summary: null, // { success, failed, skipped, total }
+  items: {} // name -> { name, status, progress, reason, log:[] }
+};
+
+async function detectCategory(dir) {
+  try {
+    const profile = JSON.parse(await readFile(path.join(dir, "product-profile.json"), "utf8"));
+    const cat = (profile.category || profile.key || "").toString();
+    if (/乳贴|nipple|nipples/i.test(cat)) return "ruTie";
+    if (/箱包|bag|内胆|liner|insert/i.test(cat)) return "xiangBao";
+  } catch { /* ignore */ }
+  try {
+    const facts = JSON.parse(await readFile(path.join(dir, "product-facts.json"), "utf8"));
+    const cat = (facts.category || "").toString();
+    if (/乳贴|nipple|nipples/i.test(cat)) return "ruTie";
+    if (/箱包|bag|内胆|liner|insert/i.test(cat)) return "xiangBao";
+  } catch { /* ignore */ }
+  return "ruTie";
+}
+
+// 扫描 已完成产品/ 的一级子目录，供「一键生成数据源表格」辅助使用
+app.get("/api/dianxiaomi/product-packages", async (_request, response) => {
+  try {
+    const names = await readdir(COMPLETED_PRODUCTS_DIR).catch(() => []);
+    const packages = [];
+    for (const name of names) {
+      if (name.startsWith(".")) continue; // 跳过 .stfolder 等隐藏/同步标记目录
+      const dir = path.join(COMPLETED_PRODUCTS_DIR, name);
+      let isDir = false;
+      try { isDir = (await stat(dir)).isDirectory(); } catch { isDir = false; }
+      if (!isDir) continue;
+      let category = "ruTie";
+      try { category = await detectCategory(dir); } catch { /* ignore */ }
+      let hasFacts = false, imageCount = 0;
+      try { await readFile(path.join(dir, "product-facts.json"), "utf8"); hasFacts = true; } catch { /* ignore */ }
+      try {
+        const imgs = await readdir(dir);
+        imageCount = imgs.filter((f) => /\.(jpg|jpeg|png|webp)$/i.test(f)).length;
+      } catch { /* ignore */ }
+      packages.push({ name, dir, category, hasFacts, imageCount });
+    }
+    response.json({ ok: true, packages });
+  }
+  catch (error) {
+    response.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
+// 批量上架入口：接收人工填好的 rows，后台顺序执行
+app.post("/api/dianxiaomi/batch-apply", async (request, response) => {
+  try {
+    const rows = (request.body && Array.isArray(request.body.rows)) ? request.body.rows : [];
+    if (!rows.length) return response.status(400).json({ ok: false, error: "rows 为空" });
+    if (batchRunState.running) return response.status(409).json({ ok: false, error: "已有批量任务在运行" });
+    const normalized = rows.map((r) => ({
+      packageName: (r.packageName || "").toString().trim(),
+      category: (r.category || "auto").toString().trim(),
+      enabled: r.enabled === false || r.enabled === "false" || r.enabled === 0 || r.enabled === "0" ? false : true
+    })).filter((r) => r.packageName);
+    if (!normalized.length) return response.status(400).json({ ok: false, error: "无有效 packageName" });
+    batchRunState.jobId = `batch-${Date.now()}`;
+    runBackground(() => runBatchListing(normalized));
+    response.json({ ok: true, jobId: batchRunState.jobId, accepted: true });
+  }
+  catch (error) {
+    response.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
+// 进度查询：前端每秒轮询
+app.get("/api/dianxiaomi/batch-status", async (_request, response) => {
+  try {
+    const items = Object.values(batchRunState.items).map((it) => ({
+      name: it.name,
+      status: it.status,
+      progress: it.progress,
+      reason: it.reason,
+      log: it.log.slice(-50)
+    }));
+    response.json({
+      ok: true,
+      running: batchRunState.running,
+      jobId: batchRunState.jobId,
+      overallProgress: batchRunState.overallProgress,
+      summary: batchRunState.summary,
+      items
+    });
+  }
+  catch (error) {
+    response.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
+async function runBatchListing(rows) {
+  batchRunState.running = true;
+  batchRunState.jobId = `batch-${Date.now()}`;
+  batchRunState.startedAt = Date.now();
+  batchRunState.finishedAt = null;
+  batchRunState.summary = null;
+  batchRunState.items = {};
+  batchRunState.overallProgress = 0;
+  const targets = rows.filter((r) => r.enabled !== false && r.packageName);
+  const total = targets.length;
+  let success = 0, failed = 0, skipped = 0, done = 0;
+  const snapshot = async () => {
+    try {
+      await writeFile(
+        path.join(HIDDEN_DATA_DIR, "batch-listing-state.json"),
+        JSON.stringify(batchRunState, null, 2),
+        "utf8"
+      );
+    } catch { /* ignore */ }
+  };
+  for (const row of targets) {
+    const name = row.packageName;
+    const dir = path.join(COMPLETED_PRODUCTS_DIR, name);
+    const item = { name, status: "running", progress: 0, reason: "", log: [] };
+    batchRunState.items[name] = item;
+    const log = (m) => item.log.push(`[${new Date().toISOString()}] ${m}`);
+    log(`开始处理包: ${name}`);
+    // 校验包目录 + product-facts.json
+    let factsFile = null;
+    try {
+      await readFile(path.join(dir, "product-facts.json"), "utf8");
+      factsFile = path.join(dir, "product-facts.json");
+    } catch {
+      item.status = "skipped";
+      item.reason = "缺少 product-facts.json";
+      item.progress = 100;
+      skipped++; done++;
+      batchRunState.overallProgress = total ? Math.round((done / total) * 100) : 100;
+      await snapshot();
+      continue;
+    }
+    const key = (row.category && row.category !== "auto") ? row.category : await detectCategory(dir);
+    try {
+      const profile = dianxiaomiAdapter.setProfile(key);
+      log(`类目 profile: ${profile.key}`);
+      const facts = normalizeDianxiaomiFacts(JSON.parse(await readFile(factsFile, "utf8")));
+      const ready = checkDianxiaomiFactsReady(facts);
+      if (!ready.ok) {
+        item.status = "failed";
+        item.reason = "facts 不完整: " + (ready.message || "");
+        item.progress = 100;
+        failed++; done++;
+        batchRunState.overallProgress = total ? Math.round((done / total) * 100) : 100;
+        await snapshot();
+        continue;
+      }
+      dianxiaomiAdapter.setImageBaseDir(dir);
+      log("引用模板: " + profile.templateProductId);
+      await dianxiaomiAdapter.referenceProduct(profile.templateProductId);
+      item.progress = 25;
+      await dianxiaomiAdapter.fillFixedFields();
+      item.progress = 50;
+      await dianxiaomiAdapter.fillFromFacts(facts);
+      item.progress = 80;
+      const saved = await dianxiaomiAdapter.save();
+      dianxiaomiAdapter.resetImageBaseDir();
+      if (saved && saved.ok) {
+        item.status = "done";
+        item.reason = saved.url || "已存草稿";
+        item.progress = 100;
+        success++;
+      } else {
+        item.status = "failed";
+        item.reason = (saved && saved.error) || "save 返回非 ok";
+        item.progress = 100;
+        failed++;
+      }
+    } catch (e) {
+      try { dianxiaomiAdapter.resetImageBaseDir(); } catch { /* ignore */ }
+      item.status = "failed";
+      item.reason = e instanceof Error ? e.message : String(e);
+      item.progress = 100;
+      failed++;
+    }
+    done++;
+    batchRunState.overallProgress = total ? Math.round((done / total) * 100) : 100;
+    await snapshot();
+  }
+  batchRunState.running = false;
+  batchRunState.finishedAt = Date.now();
+  batchRunState.summary = { success, failed, skipped, total };
+  await snapshot();
+}
 
 app.use((error, _request, response, _next) => {
     const uploadError = error.code === "LIMIT_FILE_SIZE"

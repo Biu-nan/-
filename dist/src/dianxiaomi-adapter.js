@@ -61,6 +61,8 @@ export class DianxiaomiAdapter {
   constructor(profile) {
     this.browser = null;
     this.page = null;
+    // 图片基准目录（批量上架时切到产品包目录，单品流程恒为 PRODUCT_IMAGES_DIR）
+    this.imageBaseDir = PRODUCT_IMAGES_DIR;
     // profile 解析：可为 key 字符串 / profile 对象 / 空（默认 ruTie，向后兼容）
     this.profile = getDianxiaomiProfile(profile || DIANXIAOMI_DEFAULT_PROFILE_KEY);
   }
@@ -68,6 +70,18 @@ export class DianxiaomiAdapter {
   setProfile(profile) {
     this.profile = getDianxiaomiProfile(profile || DIANXIAOMI_DEFAULT_PROFILE_KEY);
     return this.profile;
+  }
+
+  // 批量上架：把图片基准目录切到某个产品包目录（包内相对文件名即可定位）
+  setImageBaseDir(dir) {
+    this.imageBaseDir = dir && dir.trim() ? dir : PRODUCT_IMAGES_DIR;
+    return this.imageBaseDir;
+  }
+
+  // 复原默认图片目录（单品流程 / 批量结束调用）
+  resetImageBaseDir() {
+    this.imageBaseDir = PRODUCT_IMAGES_DIR;
+    return this.imageBaseDir;
   }
 
   // 标题优先使用英文（速卖通常见且字符长），中文需 >= 15 字符才单独使用；否则回退到英文或中文。
@@ -936,7 +950,7 @@ export class DianxiaomiAdapter {
     if (facts.brand) applied.push({ field: "brand", ...(await this.trySetBrand(facts.brand)) });
     // 8) 上传产品主图（facts.images.main 为文件名，拼 PRODUCT_IMAGES_DIR）
     if (facts.images && Array.isArray(facts.images.main) && facts.images.main.length) {
-      const paths = facts.images.main.map((n) => path.join(PRODUCT_IMAGES_DIR, n));
+      const paths = facts.images.main.map((n) => path.join(this.imageBaseDir, n));
       applied.push({ field: "images", ...(await this.uploadProductImages(paths)) });
     }
     // 9) 保存草稿（点「保存」，不发布/上架）
@@ -1019,7 +1033,7 @@ export class DianxiaomiAdapter {
     }
     // 3) 产品图片（AI 生成板块）
     if (facts.images && Array.isArray(facts.images.main) && facts.images.main.length) {
-      const paths = facts.images.main.map((n) => path.join(PRODUCT_IMAGES_DIR, n));
+      const paths = facts.images.main.map((n) => path.join(this.imageBaseDir, n));
       const imgRes = await this.uploadProductImages(paths);
       applied.push({ field: "images", ...imgRes });
       // 记录已上传主图的 CDN URL，供第 5 步 PC 端描述插图使用
@@ -1027,7 +1041,7 @@ export class DianxiaomiAdapter {
     }
     // 4) 营销图片（AI 生成板块）
     if (facts.images && Array.isArray(facts.images.marketing) && facts.images.marketing.length) {
-      const paths = facts.images.marketing.map((n) => path.join(PRODUCT_IMAGES_DIR, n));
+      const paths = facts.images.marketing.map((n) => path.join(this.imageBaseDir, n));
       applied.push({ field: "marketingImages", ...(await this.uploadMarketingImages(paths)) });
     }
     // 5) PC端描述 / 无线端描述（AI 生成板块）
@@ -1094,7 +1108,7 @@ export class DianxiaomiAdapter {
     applied.push({ field: "logistics", ...(await this.fillLogisticsAttribute("普货")) });
     // 5) 产品主图（覆盖上传；产品图目录下的文件名拼 PRODUCT_IMAGES_DIR）
     if (facts.images && Array.isArray(facts.images.main) && facts.images.main.length) {
-      const paths = facts.images.main.map((n) => path.join(PRODUCT_IMAGES_DIR, n));
+      const paths = facts.images.main.map((n) => path.join(this.imageBaseDir, n));
       applied.push({ field: "images", ...(await this.uploadProductImages(paths)) });
     }
     // 5.5) 销售属性（颜色/尺寸）必填勾选：从 facts.variants 勾选分类 checkbox（点 label 触发 React onChange）。
@@ -1127,7 +1141,7 @@ export class DianxiaomiAdapter {
     const results = [];
     for (const color of keys) {
       try {
-        const local = path.join(PRODUCT_IMAGES_DIR, colorImages[color]);
+        const local = path.join(this.imageBaseDir, colorImages[color]);
         let exists = false;
         try { exists = fs.existsSync(local); } catch (_e) { /* ignore */ }
         if (!exists) { results.push({ color, ok: false, reason: "file-not-found", file: colorImages[color] }); continue; }

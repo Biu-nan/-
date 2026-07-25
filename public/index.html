@@ -750,6 +750,43 @@
             <div id="dianxiaomi-root"></div>
           </section>
 
+          <section class="workflow-view" data-view-panel="batch-listing">
+            <div class="section-heading"><div><span class="section-index">BATCH</span><h2>批量流水线上架</h2></div><p>生成或上传 CSV 数据源表格，按表格顺序自动上架为草稿，实时显示进度。</p></div>
+            <style>
+              #batch-listing-root .bl-board{max-width:960px}
+              #batch-listing-root .bl-overview{display:flex;gap:14px;align-items:flex-start;background:#eef3ff;border:1px solid #c9d6ff;border-radius:12px;padding:16px 18px;margin-bottom:20px}
+              #batch-listing-root .bl-overview-icon{font-size:28px;flex-shrink:0;line-height:1}
+              #batch-listing-root .bl-overview-text{font-size:13.5px;color:#334155;line-height:1.55}
+              #batch-listing-root .bl-overview-text b{color:#1e3a5f}
+              #batch-listing-root .bl-overview-sub{display:block;font-size:12px;color:#64748b;margin-top:4px}
+              #batch-listing-root .bl-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:16px;padding:16px 18px}
+              #batch-listing-root .bl-controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+              #batch-listing-root .bl-file-wrap{display:flex;flex-direction:column;gap:4px}
+              #batch-listing-root .bl-file-wrap input{font-size:13px;color:#334155}
+              #batch-listing-root .bl-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border:0;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:#2563eb;color:#fff;transition:all .15s}
+              #batch-listing-root .bl-btn:hover:not(:disabled){background:#1d4ed8}
+              #batch-listing-root .bl-btn.primary{background:linear-gradient(135deg,#2563eb,#1d4ed8)}
+              #batch-listing-root .bl-btn.ghost{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0}
+              #batch-listing-root .bl-btn:disabled{opacity:.45;cursor:not-allowed}
+              #batch-listing-root .bl-table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12.5px}
+              #batch-listing-root .bl-table th,#batch-listing-root .bl-table td{border:1px solid #e2e8f0;padding:8px 10px;text-align:left;vertical-align:middle}
+              #batch-listing-root .bl-table th{background:#f8fafc;color:#475569;font-weight:600}
+              #batch-listing-root .bl-badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600}
+              #batch-listing-root .bl-badge.idle{background:#f1f5f9;color:#64748b}
+              #batch-listing-root .bl-badge.running{background:#fffbeb;color:#b45309}
+              #batch-listing-root .bl-badge.done{background:#ecfdf5;color:#059669}
+              #batch-listing-root .bl-badge.failed{background:#fef2f2;color:#dc2626}
+              #batch-listing-root .bl-badge.skipped{background:#f1f5f9;color:#94a3b8}
+              #batch-listing-root .bl-cat{padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;background:#fafbfc}
+              #batch-listing-root .progress{background:#e2e8f0;border-radius:999px;height:8px;width:120px;overflow:hidden}
+              #batch-listing-root .progress>span{display:block;height:100%;background:#2563eb;transition:width .3s}
+              #batch-listing-root .bl-summary{margin-top:12px;padding:12px 16px;border-radius:8px;background:#eff6ff;border:1px solid #bfdbfe;font-size:13.5px;color:#1e40af;font-weight:500}
+              #batch-listing-root .bl-reason{font-size:11.5px;color:#64748b;max-width:260px;word-break:break-all}
+              #batch-listing-root .bl-hint{font-size:12px;color:#94a3b8;margin-top:10px;line-height:1.6}
+            </style>
+            <div id="batch-listing-root"></div>
+          </section>
+
           <section class="workflow-view" data-view-panel="research-center">
             <div class="section-heading"><div><span class="section-index">RESEARCH</span><h2>爆款研究中心</h2></div><p>导入爆款图片 + 经营数据，用 ChatGPT 多模态反向拆解「为什么是爆款」。</p></div>
             <style>
@@ -2367,6 +2404,6 @@
       </div>
     </aside>
 
-    <script src="/app.js?v=20260725-2" defer></script>
+    <script src="/app.js?v=20260725-3" defer></script>
   </body>
 </html>
