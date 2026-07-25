@@ -503,6 +503,8 @@ export class DianxiaomiAdapter {
   // 按 label 文本定位并填充 CKEditor textarea（描述等）
   async fillCkeditorByLabel(labelKeyword, value) {
     if (!value) return { ok: false, reason: "empty-value" };
+    // 用户要求：详情页行与行之间不要有空行。把连续空行/空段落压缩为单个换行。
+    value = String(value).replace(/\n\s*\n+/g, "\n").trim();
     await this.connect();
     const containerLocator = this.page.locator(".ant-form-item, [class*=form-item]").filter({ hasText: labelKeyword }).first();
     if (await containerLocator.count() === 0) return { ok: false, reason: "container-not-found:" + labelKeyword };
@@ -593,6 +595,20 @@ export class DianxiaomiAdapter {
   //   3) PC 端描述必须先于本方法完成（含插图），否则生成内容缺失。
   async clickNewEditorThenGenerateFromPc() {
     await this.connect();
+    // 先尝试清空无线端旧描述（引用模板可能带出旧内容），避免新描述与旧描述叠加
+    try {
+      await this.page.evaluate(() => {
+        const items = Array.from(document.querySelectorAll(".ant-form-item")).filter((it) => /无线端描述/.test((it.innerText || "").slice(0, 30)));
+        const item = items[0];
+        if (item) {
+          const clearBtn = Array.from(item.querySelectorAll("a, button, span, .ant-typography")).find((e) => /清空/.test(e.innerText || ""));
+          if (clearBtn) { clearBtn.click(); return true; }
+        }
+        return false;
+      });
+      await sleep(800);
+    } catch (_e) { /* 清空非致命 */ }
+
     // 读无线端是否已生成内容（ck33 实例 + 无线端 form-item 内 iframe body 任一有内容即算生成）
     const readMobile = () => this.page.evaluate(() => {
       const out = { ck33: null, ck35: null, mb: null, generated: false };
@@ -618,16 +634,19 @@ export class DianxiaomiAdapter {
     let genBtn = this.page.getByText("根据PC端描述一键生成", { exact: true }).first();
     if ((await genBtn.count()) > 0) {
       await genBtn.click({ timeout: 8000 }).catch(() => {});
-      await sleep(4000);
+      await sleep(5000);
       const v = await readMobile();
       return { ok: v.generated, ...v };
     }
 
-    // 否则先点「使用新版编辑器」切换（全局 exact:true first，不在无线 form-item 子树内）
-    const newEditorBtn = this.page.getByText("使用新版编辑器", { exact: true }).first();
+    // 否则点「使用新版编辑器」切换：优先在无线端 form-item 容器内找，失败再全局 first
+    let newEditorBtn = this.page.locator(".ant-form-item").filter({ hasText: "无线端描述" }).getByText("使用新版编辑器", { exact: true }).first();
+    if (await newEditorBtn.count() === 0) {
+      newEditorBtn = this.page.getByText("使用新版编辑器", { exact: true }).first();
+    }
     if (await newEditorBtn.count() === 0) return { ok: false, reason: "no-new-editor-btn" };
     await newEditorBtn.click({ timeout: 8000 }).catch(() => {});
-    await sleep(2500);
+    await sleep(3500);
 
     // 切换后可能已自动生成（实测点「使用新版编辑器」即触发从 PC 生成无线端，按钮随后消失）；
     // 也可能出现「根据PC端描述一键生成」按钮需再点一次。
@@ -639,7 +658,7 @@ export class DianxiaomiAdapter {
       return { ok: false, reason: "no-generate-btn-after-switch", ...afterSwitch };
     }
     await genBtn.click({ timeout: 8000 }).catch(() => {});
-    await sleep(4000);
+    await sleep(5000);
     const v = await readMobile();
     return { ok: v.generated, ...v };
   }
@@ -977,10 +996,11 @@ export class DianxiaomiAdapter {
     // 3) 标题（优先英文，确保满足店小秘 >=15 字符限制）
     const titleValue = this.resolveTitle(facts);
     if (titleValue) applied.push({ field: "title", ...(await this.fillInputByLabel("产品标题", titleValue)) });
-    // 4) 描述 PC端 / 无线端
+    // 4) 描述 PC端 / 无线端：PC 填 3.2 AEO 文案；无线端使用新版编辑器「根据PC端描述一键生成」，不再手填。
     if (facts.description) {
       if (facts.description.pc) applied.push({ field: "description.pc", ...(await this.fillCkeditorByLabel("PC端描述", facts.description.pc)) });
-      if (facts.description.mobile) applied.push({ field: "description.mobile", ...(await this.fillCkeditorByLabel("无线端描述", facts.description.mobile)) });
+      const mbRes = await this.clickNewEditorThenGenerateFromPc();
+      applied.push({ field: "description.mobile", ...mbRes });
     }
     // 5) 必填类目属性（空白页实测 option 文本，顺序尝试 id→label 定位）
     for (const a of (this.profile.requiredAttrs || DIANXIAOMI_REQUIRED_ATTRS)) {
@@ -1150,10 +1170,11 @@ export class DianxiaomiAdapter {
     // 1) 产品标题
     const refTitleValue = this.resolveTitle(facts);
     if (refTitleValue) applied.push({ field: "title", ...(await this.fillInputByLabel("产品标题", refTitleValue)) });
-    // 2) PC端描述 / 无线端描述
+    // 2) PC端描述 / 无线端描述：PC 填 3.2 AEO 文案；无线端使用新版编辑器「根据PC端描述一键生成」
     if (facts.description) {
       if (facts.description.pc) applied.push({ field: "description.pc", ...(await this.fillCkeditorByLabel("PC端描述", facts.description.pc)) });
-      if (facts.description.mobile) applied.push({ field: "description.mobile", ...(await this.fillCkeditorByLabel("无线端描述", facts.description.mobile)) });
+      const mbRes = await this.clickNewEditorThenGenerateFromPc();
+      applied.push({ field: "description.mobile", ...mbRes });
     }
     // 3) 品牌（引用后品牌为可搜索 select；先选项，失败则自定义键入）
     if (facts.brand) applied.push({ field: "brand", ...(await this.trySetBrand(facts.brand)) });
@@ -1182,7 +1203,25 @@ export class DianxiaomiAdapter {
         return p;
       }).filter(Boolean);
       if (missing.length) applied.push({ field: "images", ok: false, reason: `missing-files: ${missing.join(", ")}` });
-      if (paths.length) applied.push({ field: "images", ...(await this.uploadProductImages(paths)) });
+      if (paths.length) {
+        const imgRes = await this.uploadProductImages(paths);
+        applied.push({ field: "images", ...imgRes });
+        // 记录已上传主图 CDN URL，供后续 PC 端描述插图使用
+        if (Array.isArray(imgRes.srcs) && imgRes.srcs.length) this.lastMainSrcs = imgRes.srcs;
+      }
+    }
+    // 5.1) 描述：PC 填 3.2 AEO 文案并插图；无线端使用新版编辑器「根据PC端描述一键生成」
+    if (facts.description) {
+      if (facts.description.pc) {
+        const pcRes = await this.fillCkeditorByLabel("PC端描述", facts.description.pc);
+        applied.push({ field: "description.pc", ...pcRes });
+        if (this.lastMainSrcs && this.lastMainSrcs.length) {
+          const imgRes = await this.insertImagesIntoCkeditor("PC端描述", this.lastMainSrcs);
+          applied.push({ field: "description.pc.images", ...imgRes });
+        }
+      }
+      const mbRes = await this.clickNewEditorThenGenerateFromPc();
+      applied.push({ field: "description.mobile", ...mbRes });
     }
     // 5.5) 销售属性（颜色/尺寸）必填勾选：从 facts.variants 勾选分类 checkbox（点 label 触发 React onChange）。
     //       颜色为实操必填（靠颜色区分子 SKU）；尺寸按 facts 默认（One Size），并取消引用带出的多余尺寸。
