@@ -539,13 +539,17 @@ export class SelectionService {
     }
     async fail(error) {
         const state = this.store.get();
+        const raw = error instanceof Error ? error.message : String(error);
+        const userMessage = /frame was detached|target closed|execution context was destroyed|page closed|browser is not connected/i.test(raw)
+            ? "ChatGPT 页面连接中断（Frame detached）。请确认专用 Chrome 已启动且未崩溃，然后点击「运行 Bob 选品研究」重试。"
+            : "标品选品已暂停，修复后可重新运行";
         await this.store.update({
             selection: {
                 ...state.selection,
                 running: false,
                 stage: "IDLE",
-                message: "标品选品已暂停，修复后可重新运行",
-                error: error instanceof Error ? error.message : String(error)
+                message: userMessage,
+                error: raw
             }
         });
     }

@@ -99,35 +99,55 @@ export class ChatGptAdapter {
         return undefined;
     }
     async createBlankChat() {
-        const page = await this.requirePage();
-        await page.goto(CHATGPT_URL, {
-            waitUntil: "domcontentloaded",
-            timeout: 60_000
-        });
-        await this.composer(page).waitFor({
-            state: "visible",
-            timeout: 30_000
-        });
-        return page.url();
+        // 创建新对话需要重新导航到首页，不跳过已有 URL
+        return this.navigateWithRetry(CHATGPT_URL, () => false);
     }
     async openChat(chatUrl) {
         await this.launch();
-        const page = await this.requirePage();
         if (!chatUrl.startsWith("https://chatgpt.com/c/")) {
             throw new Error("没有可继续的商品对话 URL，请先完成 MVP 1");
         }
-        if (page.url() !== chatUrl) {
-            await page.goto(chatUrl, {
-                waitUntil: "domcontentloaded",
-                timeout: 60_000
-            });
+        return this.navigateWithRetry(chatUrl, (url) => url === chatUrl);
+    }
+    isTransientNavigationError(error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return /frame was detached|target closed|execution context was destroyed|navigating|page closed|browser is not connected/i.test(message);
+    }
+    async navigateWithRetry(targetUrl, urlMatches) {
+        const maxAttempts = 3;
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+            try {
+                let page = await this.requirePage();
+                if (!urlMatches(page.url())) {
+                    await page.goto(targetUrl, {
+                        waitUntil: "domcontentloaded",
+                        timeout: 60_000
+                    });
+                }
+                await this.composer(page).waitFor({
+                    state: "visible",
+                    timeout: 30_000
+                });
+                await page.bringToFront();
+                return page.url();
+            }
+            catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                console.warn(`[chatgpt] navigateWithRetry 第 ${attempt}/${maxAttempts} 次失败：${message}`);
+                if (attempt >= maxAttempts || !this.isTransientNavigationError(error)) {
+                    throw error;
+                }
+                // 页面/上下文可能已损坏，重置并重新连接
+                this.page = undefined;
+                this.context = undefined;
+                if (!this.browser?.isConnected()) {
+                    this.browser = undefined;
+                }
+                await this.launch();
+                await new Promise((resolve) => setTimeout(resolve, 500));
+            }
         }
-        await this.composer(page).waitFor({
-            state: "visible",
-            timeout: 30_000
-        });
-        await page.bringToFront();
-        return page.url();
+        throw new Error(`navigateWithRetry 多次重试后仍无法导航到 ${targetUrl}`);
     }
     async uploadImages(paths) {
         const page = await this.requirePage();
