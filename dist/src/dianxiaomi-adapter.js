@@ -1162,6 +1162,15 @@ export class DianxiaomiAdapter {
       applied.push(...(await this.fillAiSections(facts)));
       // 物流属性（必填，引用不携带；箱包默认普货）。弹窗选择，非致命。
       applied.push({ field: "logistics", ...(await this.fillLogisticsAttribute(this.profile.logistics || "普货")) });
+      // 销售属性：按 facts.variants 勾选颜色/尺寸（箱包以颜色区分 SKU）
+      applied.push({ field: "salesAttrs", ...(await this.fillSalesAttributes(facts)) });
+      await sleep(800);
+      // 每色自定义名称 + 每色图（仅当 facts.variants.colorMap 存在时）
+      try {
+        applied.push({ field: "colorCustom", ...(await this.fillColorCustomNamesAndImages(facts)) });
+      } catch (e) {
+        applied.push({ field: "colorCustom", ok: false, reason: e.message });
+      }
       // 合规信息（欧盟责任人/土耳其责任人/品牌制造商）
       applied.push(...(await this.fillComplianceInfo(facts)));
       return applied;
@@ -1312,6 +1321,84 @@ export class DianxiaomiAdapter {
       }
     }
     return { ok: true, attempted: results.length, results };
+  }
+
+  // 箱包类目：按 facts.variants.colorMap 为每个颜色填「自定义名称」并上传对应图片。
+  // 前提：颜色 checkbox 已由 fillSalesAttributes 勾选；本方法只操作颜色属性区下方的每色表格。
+  // 表格格式：colorMap = [{ color, customName, image }]；image 为已完成产品包目录下的图片文件名。
+  async fillColorCustomNamesAndImages(facts) {
+    const v = facts && facts.variants;
+    const colorMap = (v && Array.isArray(v.colorMap)) ? v.colorMap : [];
+    if (!colorMap.length) return { ok: true, skipped: true, reason: "no-color-map" };
+    const colorItem = this.page.locator(".ant-form-item").filter({
+      has: this.page.locator("label").filter({ hasText: /^\s*颜色\s*(\(Color\))?\s*$/i })
+    });
+    const results = [];
+    for (const { color, customName, image } of colorMap) {
+      const res = { color, customSet: false, imageUploaded: false };
+      try {
+        const row = colorItem.locator("tr").filter({ hasText: color });
+        if (customName) {
+          const input = row.locator('input[type=text], input:not([type])').first();
+          if (await input.count()) {
+            await input.scrollIntoViewIfNeeded().catch(() => {});
+            await input.click({ timeout: 3000 }).catch(() => {});
+            await input.fill(String(customName), { timeout: 5000 });
+            await input.evaluate((el) => {
+              el.dispatchEvent(new Event("input", { bubbles: true }));
+              el.dispatchEvent(new Event("change", { bubbles: true }));
+            });
+            await sleep(300);
+            res.customSet = true;
+          }
+        }
+        if (image) {
+          const local = resolveImagePath(this.imageBaseDir, image);
+          let exists = false;
+          try { exists = !!local && fs.existsSync(local); } catch { /* ignore */ }
+          if (!exists) {
+            res.imageError = "file-not-found";
+          } else {
+            const btn = row.locator("button").filter({ hasText: /选择图片|上传图片/ }).first();
+            if (await btn.count()) {
+              await btn.click({ timeout: 5000 });
+              await sleep(2200);
+              const modalFileIdx = await this.page.evaluate(() => {
+                const modals = Array.from(document.querySelectorAll(".ant-modal-content, .modal, .d-modal, [class*=modal]"));
+                const vis = modals.filter((x) => { const rect = x.getBoundingClientRect(); const cs = getComputedStyle(x); return rect.width > 0 && cs.display !== "none" && cs.visibility !== "hidden" && cs.opacity !== "0"; });
+                const m = vis.find((x) => /图片|选择|上传|图库|空间|素材/.test(x.innerText || ""));
+                if (!m) return -1;
+                const fi = m.querySelector("input[type=file]");
+                if (!fi) return -2;
+                return Array.from(document.querySelectorAll("input[type=file]")).indexOf(fi);
+              });
+              if (modalFileIdx >= 0) {
+                try {
+                  const all = await this.page.$$('input[type=file]');
+                  await all[modalFileIdx].setInputFiles(local);
+                  await sleep(3500);
+                  res.imageUploaded = true;
+                } catch (e) { res.imageError = "upload-failed:" + e.message; }
+              } else {
+                res.imageError = modalFileIdx === -2 ? "no-file-input-in-modal" : "modal-not-found";
+              }
+              await this.page.keyboard.press("Escape").catch(() => {});
+              await sleep(800);
+            } else {
+              res.imageError = "no-image-btn";
+            }
+          }
+        }
+        res.ok = res.customSet || res.imageUploaded || (!customName && !image);
+        results.push(res);
+      } catch (e) {
+        res.ok = false;
+        res.reason = e.message;
+        results.push(res);
+      }
+    }
+    const allOk = results.every((r) => r.ok !== false);
+    return { ok: allOk, attempted: results.length, results };
   }
 
   // 销售属性（颜色/尺寸）必填勾选：从 facts.variants 勾选店小秘分类 checkbox（点 label 触发 React onChange）。

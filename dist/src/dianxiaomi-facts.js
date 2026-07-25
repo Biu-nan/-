@@ -61,6 +61,9 @@ export function normalizeDianxiaomiFacts(raw) {
                 base.variants.colorImages = raw.variants.colorImages;
             if (raw.variants.colorCustomNames && typeof raw.variants.colorCustomNames === "object")
                 base.variants.colorCustomNames = raw.variants.colorCustomNames;
+            // 透传批量上架注入的箱包颜色映射（colorMap）
+            if (Array.isArray(raw.variants.colorMap))
+                base.variants.colorMap = raw.variants.colorMap.map((c) => ({ color: String(c.color || ""), customName: String(c.customName || ""), image: String(c.image || "") }));
             if (Array.isArray(raw.variants.skus)) {
                 base.variants.skus = raw.variants.skus.map((s) => ({
                     combination: Array.isArray(s.combination) ? s.combination.map(String) : [],

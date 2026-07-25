@@ -3456,6 +3456,26 @@ function parseVariantParams(str) {
   return { colors, sizes };
 }
 
+// 解析批量表格里的「变种参数」为箱包类目的颜色映射
+// 格式：店小秘颜色名[=自定义名称][=图片文件名]；多色用 ; 或换行分隔
+// 示例：古铜色=Bronze=bronze.jpg;Rose Gold=Rose Gold=rose.jpg;金=Gold=4pcs.jpg
+function parseColorMap(str) {
+  const map = [];
+  if (!str) return map;
+  const segs = String(str).split(/[;\n]+/).map((s) => s.trim()).filter(Boolean);
+  for (const seg of segs) {
+    const seg2 = seg.replace(/^颜色\s*[：:]\s*/, "");
+    if (!seg2) continue;
+    // 跳过乳贴式纯颜色列表（无 = 但含 ,）
+    if (!seg2.includes("=") && /,/.test(seg2)) continue;
+    const parts = seg2.split(/=/);
+    const color = parts[0].trim();
+    if (!color) continue;
+    map.push({ color, customName: (parts[1] || "").trim(), image: (parts[2] || "").trim() });
+  }
+  return map;
+}
+
 // 由 colors × sizes 重建 SKU 组合矩阵（用源产品已有矩阵的首行价格/库存/重量作默认，缺失则回退常量）
 function buildVariantMatrix(colors, sizes, baseMatrix) {
   const colorList = (colors && colors.length) ? colors : ["默认"];
@@ -3530,19 +3550,39 @@ async function runBatchListing(rows) {
       const facts = normalizeDianxiaomiFacts(JSON.parse(await readFile(factsFile, "utf8")));
       // 品牌覆盖（乳贴类目品牌由模板派生，仅记录意图；箱包类目可被 trySetBrand 采用）
       if (row.brand) { facts.brand = row.brand; log(`覆盖品牌: ${row.brand}`); }
-      // 变种参数覆盖：解析 颜色/尺寸 → 重建 SKU 组合矩阵（乳贴类目生效）
+      // 变种参数覆盖：乳贴解析颜色/尺寸 → 重建 SKU 组合矩阵；箱包解析颜色映射 → 勾选颜色+自定义名+每色图
       if (row.variantParams) {
         const vp = parseVariantParams(row.variantParams);
+        const cm = parseColorMap(row.variantParams);
         const baseMatrix = (facts.variants && Array.isArray(facts.variants.matrix)) ? facts.variants.matrix : [];
-        const colors = vp.colors.length ? vp.colors : (facts.variants && facts.variants.colors) || [];
-        const sizes = vp.sizes.length ? vp.sizes : (facts.variants && facts.variants.sizes) || [];
-        const matrix = buildVariantMatrix(colors, sizes, baseMatrix);
-        facts.variants = Object.assign({}, facts.variants || {}, {
-          colors, sizes, matrix, dimensions: []
-        });
         if (profile.key === "xiangBao") {
-          log(`箱包类目不自动生成 SKU，变种参数覆盖已记录但跳过（colors=${JSON.stringify(colors)} sizes=${JSON.stringify(sizes)}）`);
+          if (cm.length) {
+            const colorImages = {};
+            for (const c of cm) if (c.image) colorImages[c.color] = c.image;
+            facts.variants = Object.assign({}, facts.variants || {}, {
+              colors: cm.map((c) => c.color),
+              sizes: [],
+              matrix: [],
+              colorMap: cm,
+              colorImages
+            });
+            log(`箱包类目颜色映射覆盖: ${JSON.stringify(cm.map((c) => ({ color: c.color, custom: c.customName, img: c.image })))}`);
+          } else if (vp.colors.length || vp.sizes.length) {
+            facts.variants = Object.assign({}, facts.variants || {}, {
+              colors: vp.colors,
+              sizes: vp.sizes,
+              matrix: [],
+              dimensions: []
+            });
+            log(`箱包类目颜色勾选: colors=${JSON.stringify(vp.colors)} sizes=${JSON.stringify(vp.sizes)}`);
+          }
         } else {
+          const colors = vp.colors.length ? vp.colors : (facts.variants && facts.variants.colors) || [];
+          const sizes = vp.sizes.length ? vp.sizes : (facts.variants && facts.variants.sizes) || [];
+          const matrix = buildVariantMatrix(colors, sizes, baseMatrix);
+          facts.variants = Object.assign({}, facts.variants || {}, {
+            colors, sizes, matrix, dimensions: []
+          });
           log(`覆盖变种参数: colors=${JSON.stringify(colors)} sizes=${JSON.stringify(sizes)} matrix=${matrix.length}`);
         }
       }

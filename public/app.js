@@ -10655,7 +10655,8 @@ async function batchGenerateSource() {
 function batchDownloadTemplate() {
   downloadXlsx([
     BATCH_XLSX_HEADER.slice(),
-    ["示例产品包名(上传前请删除此行)", "", "true", "TRUE", "洛慈全托管", "FALSE", "", "TRUE", "颜色:肤色,黑色;尺寸:One Size", "FALSE", ""]
+    ["示例-乳贴(上传前请删除此行)", "", "true", "TRUE", "洛慈全托管", "FALSE", "", "TRUE", "颜色:肤色,黑色;尺寸:One Size", "FALSE", ""],
+    ["示例-箱包(上传前请删除此行)", "xiangBao", "true", "TRUE", "洛慈全托管", "TRUE", "MyBrand", "TRUE", "古铜色=Bronze=bronze.jpg;Rose Gold=Rose Gold=rose.jpg;淡金色=Light Gold=lg.jpg;巧克力色=Chocolate=white.jpg;金=Gold=4pcs.jpg", "FALSE", ""]
   ], "批量上架模板.xlsx");
 }
 
@@ -10763,7 +10764,7 @@ function renderBatchListing() {
         <div class="bl-overview-icon">📦</div>
           <div class="bl-overview-text">
             <b>批量流水线上架</b>：下载 .xlsx 数据源表格 → 在 Excel 只保留要上架的行 → 填可选自定义项 → 上传 → 开始自动上架为草稿
-            <span class="bl-overview-sub">基础列：packageName(产品包名) / category(ruTie乳贴|xiangBao箱包|留空自动) / enabled(true上架|false跳过)。可选列（填“自定义名称”即覆盖默认，无需手勾）：店铺_名称 / 品牌_名称 / 变种参数 / 备货类型_名称。变种参数格式：<code>颜色:肤色,黑色;尺寸:S,M,L</code></span>
+            <span class="bl-overview-sub">基础列：packageName(产品包名) / category(ruTie乳贴|xiangBao箱包|留空自动) / enabled(true上架|false跳过)。可选列（填“自定义名称”即覆盖默认，无需手勾）：店铺_名称 / 品牌_名称 / 变种参数 / 备货类型_名称。变种参数格式：乳贴 <code>颜色:肤色,黑色;尺寸:S,M,L</code>；箱包 <code>颜色名[=自定义名][=图片]</code>，如 <code>古铜色=Bronze=bronze.jpg;Rose Gold=Rose Gold=rose.jpg</code></span>
           </div>
         </div>
 
@@ -10779,7 +10780,7 @@ function renderBatchListing() {
             ${hasFailed ? `<button id="bl-retry" class="bl-btn ghost" ${dis}>↻ 重试失败项</button>` : ""}
           </div>
           <div class="bl-card-note">
-            <span>💡 只上传你确认要上架的行即可；原“生成”按钮现在只下载不自动填表，避免一扫所有产品。带「自定义」勾选的列：填了内容即覆盖引用模板默认值（店铺/品牌/备货类型覆盖固定字段，变种参数覆盖颜色/尺寸销售属性并重建 SKU 组合，乳贴类目生效）。</span>
+            <span>💡 只上传你确认要上架的行即可；原“生成”按钮现在只下载不自动填表，避免一扫所有产品。带「自定义」勾选的列：填了内容即覆盖引用模板默认值（店铺/品牌/备货类型覆盖固定字段；乳贴「变种参数」覆盖颜色/尺寸并重建 SKU；箱包「变种参数」按颜色名勾选，并填充每色自定义名称/图片）。</span>
           </div>
           ${busy ? `<div class="bl-hint">批量上架进行中，进度每秒刷新…</div>` : ""}
         </div>
@@ -10797,7 +10798,7 @@ function renderBatchListing() {
                 <td><select class="bl-cat" data-name="${blEscapeHtml(r.packageName)}" ${dis}>${catOpts(r.category)}</select></td>
                 ${fieldCell(r, "bl-store", "bl-store-on", "store", "storeOn", "店小秘店铺名")}
                 ${fieldCell(r, "bl-brand", "bl-brand-on", "brand", "brandOn", "品牌名")}
-                ${fieldCell(r, "bl-variant", "bl-variant-on", "variantParams", "variantOn", "颜色:..;尺寸:..")}
+                ${fieldCell(r, "bl-variant", "bl-variant-on", "variantParams", "variantOn", "乳贴/箱包格式见上方说明")}
                 ${fieldCell(r, "bl-stock", "bl-stock-on", "stockType", "stockTypeOn", "如 国内履约")}
                 <td><span class="bl-badge ${r.status || "idle"}">${BL_STATUS_LABEL[r.status] || "待上架"}</span></td>
                 <td><div class="progress"><span style="width:${Math.max(0, Math.min(100, r.progress || 0))}%"></span></div></td>
