@@ -167,36 +167,103 @@ export class ChatGptAdapter {
         ]);
     }
     async enableImageCreation() {
-        await this.selectComposerTool("创建图片", [
-            "描述图片",
-            "描述或编辑图片",
-            "Describe an image"
-        ]);
+        try {
+            await this.selectComposerTool("创建图片", [
+                "描述图片",
+                "描述或编辑图片",
+                "Describe an image",
+                "Create an image",
+                "Create image",
+                "DALL-E"
+            ], [
+                "创建图片",
+                "DALL-E",
+                "Image",
+                "Create image",
+                "Describe an image"
+            ]);
+        }
+        catch (error) {
+            console.warn(`[chatgpt] 创建图片工具未显式确认启用（${error?.message || error}）。当前 ChatGPT UI 可能已自动处于可生成图像模式，将继续发送作图 prompt。`);
+        }
     }
-    async selectComposerTool(toolName, expectedPlaceholders) {
+    async selectComposerTool(toolName, expectedPlaceholders, toolAliases = []) {
         const page = await this.requirePage();
-        const plusButton = page.locator('button[data-testid="composer-plus-btn"]');
-        await plusButton.waitFor({ state: "visible", timeout: 15_000 });
-        let toolOption = await this.findComposerToolOption(page, toolName, 300);
-        if (!toolOption) {
-            await plusButton.click();
-            toolOption = await this.findComposerToolOption(page, toolName);
+        const url = page.url();
+        // 前置检查：如果目标工具已经启用（placeholder 可见 或 已选 chip 可见），直接跳过
+        const allPlaceholderSelectors = expectedPlaceholders
+            .flatMap((placeholder) => [
+                `#prompt-textarea [data-placeholder="${placeholder}"]`,
+                `textarea[data-testid="prompt-textarea"][data-placeholder="${placeholder}"]`,
+                `[contenteditable="true"][data-placeholder="${placeholder}"]`,
+                `[contenteditable="true"] [data-placeholder="${placeholder}"]`
+            ])
+            .join(", ");
+        const alreadyEnabledByPlaceholder = await page.locator(allPlaceholderSelectors)
+            .first()
+            .isVisible()
+            .catch(() => false);
+        if (alreadyEnabledByPlaceholder) {
+            console.log(`[chatgpt] ${toolName} 已处于启用状态（placeholder 匹配），跳过工具选择`);
+            return;
+        }
+        const exactName = new RegExp(`^\\s*${escapeRegex(toolName)}\\s*$`, "i");
+        const toolChip = page
+            .locator('button, [role="button"], [aria-label], [data-testid*="tool"], [data-testid*="composer"]')
+            .filter({ hasText: exactName })
+            .first();
+        const alreadyEnabledByChip = await toolChip
+            .isVisible()
+            .catch(() => false);
+        if (alreadyEnabledByChip) {
+            console.log(`[chatgpt] ${toolName} 已处于启用状态（chip 匹配），跳过工具选择`);
+            return;
+        }
+        const plusButton = page
+            .locator('button[data-testid="composer-plus-btn"], button[aria-label*="Attach"], button[aria-label*="Upload"], button[aria-label*="工具"], button[aria-label*="Tools"], button[aria-label*="添加"]')
+            .first();
+        await plusButton.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {
+            throw new Error(`找不到 ChatGPT  composer plus 按钮，无法打开工具菜单（URL: ${url}）`);
+        });
+        let toolOption;
+        const namesToTry = [toolName, ...toolAliases];
+        for (let attempt = 0; attempt < 4; attempt += 1) {
+            // 先尝试在不打开菜单的情况下定位（菜单可能已展开）
+            for (const name of namesToTry) {
+                toolOption = await this.findComposerToolOption(page, name, attempt === 0 ? 400 : 1_000);
+                if (toolOption)
+                    break;
+            }
+            if (toolOption)
+                break;
+            // 点击 plus 按钮展开菜单；已展开时再次点击通常无害，但 prefer 只在第一次/不可见时点击
+            const menuOpen = await page.locator('[role="menu"], [role="listbox"], [data-radix-popper-content-wrapper"], [data-testid*="popover"], [data-testid*="dropdown"], [data-testid*="tool-menu"]')
+                .first()
+                .isVisible()
+                .catch(() => false);
+            if (!menuOpen || attempt === 0) {
+                await plusButton.click().catch((error) => {
+                    console.warn(`[chatgpt] 打开工具菜单点击失败（第 ${attempt + 1} 次）：${error?.message || error}`);
+                });
+            }
+            await page.waitForTimeout(300 + attempt * 200);
         }
         if (!toolOption) {
-            const menuText = await page.locator('[role="menu"], [role="listbox"], [data-radix-popper-content-wrapper"]')
+            const menuText = await page.locator('[role="menu"], [role="listbox"], [data-radix-popper-content-wrapper"], [data-testid*="popover"], [data-testid*="dropdown"], [data-testid*="tool-menu"]')
                 .first()
-                .innerText({ timeout: 1_000 })
+                .innerText({ timeout: 2_000 })
                 .catch(() => "");
-            throw new Error(`找不到 ChatGPT 工具菜单项“${toolName}”。当前菜单内容：${menuText || "未读取到菜单内容"}`);
+            throw new Error(`找不到 ChatGPT 工具菜单项“${toolName}”。当前菜单内容：${menuText || "未读取到菜单内容"} | URL: ${url}`);
         }
         const checked = (await toolOption.getAttribute("aria-checked").catch(() => null)) ??
             (await toolOption.getAttribute("aria-pressed").catch(() => null));
-        if (checked !== "true") {
-            await toolOption.click();
-        }
-        else {
+        if (checked === "true") {
+            // 菜单本身已声明该工具处于激活态，直接信任并关闭菜单，避免依赖不稳定的 placeholder/chip 检测
             await page.keyboard.press("Escape");
+            console.log(`[chatgpt] ${toolName} 菜单项 aria-checked=true，确认已启用`);
+            return;
         }
+        await toolOption.click();
         const placeholderSelector = expectedPlaceholders
             .map((placeholder) => `#prompt-textarea [data-placeholder="${placeholder}"]`)
             .join(", ");
@@ -207,39 +274,44 @@ export class ChatGptAdapter {
             .catch(() => false);
         if (placeholderVisible)
             return;
-        const exactName = new RegExp(`^\\s*${escapeRegex(toolName)}\\s*$`, "i");
-        const toolChip = page
-            .locator('button, [role="button"], [aria-label], [data-testid*="tool"], [data-testid*="composer"]')
-            .filter({ hasText: exactName })
-            .first();
         const chipVisible = await toolChip
             .waitFor({ state: "visible", timeout: 2_000 })
             .then(() => true)
             .catch(() => false);
         if (!chipVisible) {
-            throw new Error(`无法确认 ChatGPT“${toolName}”已启用`);
+            throw new Error(`无法确认 ChatGPT“${toolName}”已启用（URL: ${url}）`);
         }
     }
     async findComposerToolOption(page, toolName, timeout = 1_500) {
         const exactName = new RegExp(`^\\s*${escapeRegex(toolName)}\\s*$`, "i");
+        const containsName = new RegExp(escapeRegex(toolName), "i");
         const candidates = [
             page.getByRole("menuitemradio", { name: toolName, exact: true }),
             page.getByRole("menuitem", { name: toolName, exact: true }),
             page.getByRole("option", { name: toolName, exact: true }),
             page.getByRole("button", { name: toolName, exact: true }),
             page.getByText(toolName, { exact: true }),
-            page
-                .locator('[role="menuitemradio"], [role="menuitem"], [role="option"], button, [role="button"], div, span')
+            page.locator(`[data-testid*="tool"]:has-text("${toolName}")`).first(),
+            page.locator(`[data-testid*="composer"]:has-text("${toolName}")`).first(),
+            page.locator(`[role="menuitemradio"], [role="menuitem"], [role="option"], button, [role="button"], div, span`)
                 .filter({ hasText: exactName })
+                .first(),
+            page.locator(`[role="menuitemradio"], [role="menuitem"], [role="option"], button, [role="button"], div, span, li`)
+                .filter({ hasText: containsName })
                 .first()
         ];
         for (const candidate of candidates) {
-            const visible = await candidate
-                .waitFor({ state: "visible", timeout })
-                .then(() => true)
-                .catch(() => false);
-            if (visible)
-                return candidate;
+            try {
+                const visible = await candidate
+                    .waitFor({ state: "visible", timeout })
+                    .then(() => true)
+                    .catch(() => false);
+                if (visible)
+                    return candidate;
+            }
+            catch {
+                // 某个候选选择器本身异常时继续尝试下一个
+            }
         }
         return undefined;
     }
@@ -383,6 +455,7 @@ export class ChatGptAdapter {
         await page.keyboard.insertText(prompt);
         const sendButton = this.sendButton(page);
         await sendButton.waitFor({ state: "visible", timeout: 15_000 });
+        await this.dismissOverlays(page);
         await sendButton.click();
         const deadline = Date.now() + 30_000;
         while (Date.now() < deadline) {
@@ -633,6 +706,28 @@ export class ChatGptAdapter {
         return page
             .locator('button[data-testid="send-button"], button[aria-label="Send prompt"], button[aria-label="发送提示"]')
             .first();
+    }
+    async dismissOverlays(page) {
+        const dialog = page
+            .locator('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], [role="dialog"][aria-modal="true"]')
+            .first();
+        if (!(await dialog.isVisible().catch(() => false)))
+            return;
+        console.log("[chatgpt] 检测到模态弹窗，尝试关闭");
+        const closeBtn = dialog
+            .locator('button[aria-label="Close"], button[aria-label="关闭"], [data-testid="close-button"], button:has-text("关闭"), button:has-text("Close")')
+            .first();
+        if (await closeBtn.isVisible().catch(() => false)) {
+            await closeBtn.click().catch(() => {});
+        }
+        else {
+            await page.keyboard.press("Escape").catch(() => {});
+        }
+        await page.waitForTimeout(400);
+        if (await dialog.isVisible().catch(() => false)) {
+            await page.keyboard.press("Escape").catch(() => {});
+            await page.waitForTimeout(400);
+        }
     }
     stopButton(page) {
         return page
