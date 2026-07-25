@@ -29,6 +29,35 @@ import {
   PRODUCT_IMAGES_DIR
 } from "./config.js";
 
+// 图片文件名可能只存了 basename，且 product-facts 输出到「产品图/」或「output/」子目录，
+// 后缀也可能与 facts 中声明不同（如 .jpg 实际为 .png）。这里按 baseDir 逐级兜底。
+function resolveImagePath(baseDir, filename) {
+  if (!baseDir || !filename) return null;
+  const candidates = [];
+  const base = path.join(baseDir, filename);
+  candidates.push(base);
+  candidates.push(path.join(baseDir, "产品图", filename));
+  candidates.push(path.join(baseDir, "output", filename));
+  // 后缀互换兜底
+  const ext = path.extname(filename).toLowerCase();
+  const nameNoExt = path.basename(filename, ext);
+  if (ext === ".jpg" || ext === ".jpeg") {
+    candidates.push(path.join(baseDir, `${nameNoExt}.png`));
+    candidates.push(path.join(baseDir, "产品图", `${nameNoExt}.png`));
+    candidates.push(path.join(baseDir, "output", `${nameNoExt}.png`));
+  } else if (ext === ".png") {
+    candidates.push(path.join(baseDir, `${nameNoExt}.jpg`));
+    candidates.push(path.join(baseDir, "产品图", `${nameNoExt}.jpg`));
+    candidates.push(path.join(baseDir, "output", `${nameNoExt}.jpg`));
+  }
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) return p;
+    } catch { /* ignore */ }
+  }
+  return null;
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function clickVisibleByText(page, text, timeout = 10000) {
@@ -337,6 +366,7 @@ export class DianxiaomiAdapter {
 
   // 填写「合规信息」：欧盟责任人 / 土耳其责任人 / 品牌制造商。
   // 取值优先级：facts.compliance > profile.compliance；空值则跳过。
+  // 选择完后点击「刷新资质信息」按钮（店小秘保存前校验要求）。
   async fillComplianceInfo(facts) {
     await this.connect();
     const compliance = { ...(this.profile.compliance || {}), ...(facts?.compliance || {}) };
@@ -364,6 +394,23 @@ export class DianxiaomiAdapter {
           results.push({ field: label, ok: false, reason: e.message });
         }
       }
+    }
+    // 刷新资质信息（保存前必须点击，否则校验失败）
+    try {
+      const refreshClicked = await this.page.evaluate(() => {
+        const btn = Array.from(document.querySelectorAll("button, a, span"))
+          .find((el) => /刷新资质信息/.test((el.innerText || el.textContent || "")));
+        if (btn) { btn.click(); return true; }
+        return false;
+      });
+      if (refreshClicked) {
+        await sleep(2500);
+        results.push({ field: "刷新资质信息", ok: true });
+      } else {
+        results.push({ field: "刷新资质信息", ok: false, reason: "button-not-found" });
+      }
+    } catch (e) {
+      results.push({ field: "刷新资质信息", ok: false, reason: e.message });
     }
     return results;
   }
@@ -948,10 +995,16 @@ export class DianxiaomiAdapter {
     }
     // 7) 品牌（先选项，失败则尝试自定义键入）
     if (facts.brand) applied.push({ field: "brand", ...(await this.trySetBrand(facts.brand)) });
-    // 8) 上传产品主图（facts.images.main 为文件名，拼 PRODUCT_IMAGES_DIR）
+    // 8) 上传产品主图（facts.images.main 为文件名，拼 this.imageBaseDir；支持产品图/output子目录与png/jpg后缀兜底）
     if (facts.images && Array.isArray(facts.images.main) && facts.images.main.length) {
-      const paths = facts.images.main.map((n) => path.join(this.imageBaseDir, n));
-      applied.push({ field: "images", ...(await this.uploadProductImages(paths)) });
+      const missing = [];
+      const paths = facts.images.main.map((n) => {
+        const p = resolveImagePath(this.imageBaseDir, n);
+        if (!p) missing.push(n);
+        return p;
+      }).filter(Boolean);
+      if (missing.length) applied.push({ field: "images", ok: false, reason: `missing-files: ${missing.join(", ")}` });
+      if (paths.length) applied.push({ field: "images", ...(await this.uploadProductImages(paths)) });
     }
     // 9) 保存草稿（点「保存」，不发布/上架）
     let saved = null;
@@ -1033,16 +1086,30 @@ export class DianxiaomiAdapter {
     }
     // 3) 产品图片（AI 生成板块）
     if (facts.images && Array.isArray(facts.images.main) && facts.images.main.length) {
-      const paths = facts.images.main.map((n) => path.join(this.imageBaseDir, n));
-      const imgRes = await this.uploadProductImages(paths);
-      applied.push({ field: "images", ...imgRes });
-      // 记录已上传主图的 CDN URL，供第 5 步 PC 端描述插图使用
-      if (Array.isArray(imgRes.srcs) && imgRes.srcs.length) this.lastMainSrcs = imgRes.srcs;
+      const missing = [];
+      const paths = facts.images.main.map((n) => {
+        const p = resolveImagePath(this.imageBaseDir, n);
+        if (!p) missing.push(n);
+        return p;
+      }).filter(Boolean);
+      if (missing.length) applied.push({ field: "images", ok: false, reason: `missing-files: ${missing.join(", ")}` });
+      if (paths.length) {
+        const imgRes = await this.uploadProductImages(paths);
+        applied.push({ field: "images", ...imgRes });
+        // 记录已上传主图的 CDN URL，供第 5 步 PC 端描述插图使用
+        if (Array.isArray(imgRes.srcs) && imgRes.srcs.length) this.lastMainSrcs = imgRes.srcs;
+      }
     }
     // 4) 营销图片（AI 生成板块）
     if (facts.images && Array.isArray(facts.images.marketing) && facts.images.marketing.length) {
-      const paths = facts.images.marketing.map((n) => path.join(this.imageBaseDir, n));
-      applied.push({ field: "marketingImages", ...(await this.uploadMarketingImages(paths)) });
+      const missing = [];
+      const paths = facts.images.marketing.map((n) => {
+        const p = resolveImagePath(this.imageBaseDir, n);
+        if (!p) missing.push(n);
+        return p;
+      }).filter(Boolean);
+      if (missing.length) applied.push({ field: "marketingImages", ok: false, reason: `missing-files: ${missing.join(", ")}` });
+      if (paths.length) applied.push({ field: "marketingImages", ...(await this.uploadMarketingImages(paths)) });
     }
     // 5) PC端描述 / 无线端描述（AI 生成板块）
     if (facts.description) {
@@ -1106,10 +1173,16 @@ export class DianxiaomiAdapter {
     applied.push(...(await this.fillCategoryAttributes(facts)));
     // 4.6) 物流属性（必填，引用不携带；乳贴为布+胶 → 普货）。弹窗选择，非致命。
     applied.push({ field: "logistics", ...(await this.fillLogisticsAttribute("普货")) });
-    // 5) 产品主图（覆盖上传；产品图目录下的文件名拼 PRODUCT_IMAGES_DIR）
+    // 5) 产品主图（覆盖上传；产品图目录下的文件名拼 this.imageBaseDir，支持子目录与后缀兜底）
     if (facts.images && Array.isArray(facts.images.main) && facts.images.main.length) {
-      const paths = facts.images.main.map((n) => path.join(this.imageBaseDir, n));
-      applied.push({ field: "images", ...(await this.uploadProductImages(paths)) });
+      const missing = [];
+      const paths = facts.images.main.map((n) => {
+        const p = resolveImagePath(this.imageBaseDir, n);
+        if (!p) missing.push(n);
+        return p;
+      }).filter(Boolean);
+      if (missing.length) applied.push({ field: "images", ok: false, reason: `missing-files: ${missing.join(", ")}` });
+      if (paths.length) applied.push({ field: "images", ...(await this.uploadProductImages(paths)) });
     }
     // 5.5) 销售属性（颜色/尺寸）必填勾选：从 facts.variants 勾选分类 checkbox（点 label 触发 React onChange）。
     //       颜色为实操必填（靠颜色区分子 SKU）；尺寸按 facts 默认（One Size），并取消引用带出的多余尺寸。
@@ -1141,9 +1214,9 @@ export class DianxiaomiAdapter {
     const results = [];
     for (const color of keys) {
       try {
-        const local = path.join(this.imageBaseDir, colorImages[color]);
+        const local = resolveImagePath(this.imageBaseDir, colorImages[color]);
         let exists = false;
-        try { exists = fs.existsSync(local); } catch (_e) { /* ignore */ }
+        try { exists = !!local && fs.existsSync(local); } catch (_e) { /* ignore */ }
         if (!exists) { results.push({ color, ok: false, reason: "file-not-found", file: colorImages[color] }); continue; }
         const r = await this.page.evaluate(({ color }) => {
           const labels = Array.from(document.querySelectorAll(".ant-form-item-label label, label"));

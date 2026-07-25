@@ -3496,18 +3496,23 @@ async function runBatchListing(rows) {
       item.progress = 25;
       await dianxiaomiAdapter.fillFixedFields();
       item.progress = 50;
-      await dianxiaomiAdapter.fillFromFacts(facts);
+      const applied = await dianxiaomiAdapter.fillFromFacts(facts);
+      // 记录图片/字段应用结果到日志，方便前端排错
+      for (const a of applied) {
+        if (a.ok === false) log(`${a.field}: FAIL ${a.reason || ""}`);
+        else if (a.skipped) log(`${a.field}: SKIP ${a.reason || ""}`);
+      }
       item.progress = 80;
       const saved = await dianxiaomiAdapter.save();
       dianxiaomiAdapter.resetImageBaseDir();
-      if (saved && saved.ok) {
+      if (saved && saved.saved) {
         item.status = "done";
-        item.reason = saved.url || "已存草稿";
+        item.reason = saved.url || saved.message || "已存草稿";
         item.progress = 100;
         success++;
       } else {
         item.status = "failed";
-        item.reason = (saved && saved.error) || "save 返回非 ok";
+        item.reason = (saved && (saved.error || saved.message || JSON.stringify(saved))) || "save 返回非 ok";
         item.progress = 100;
         failed++;
       }

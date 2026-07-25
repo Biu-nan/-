@@ -10518,6 +10518,48 @@ function parseBatchCsv(text) {
   return rows;
 }
 
+function downloadXlsx(rows, filename) {
+  try {
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "上架表");
+    const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  } catch (_e) { /* ignore */ }
+}
+
+function parseBatchXlsx(arrayBuffer) {
+  const data = new Uint8Array(arrayBuffer);
+  const wb = XLSX.read(data, { type: "array" });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+  if (!aoa || !aoa.length) return [];
+  const header = (aoa[0] || []).map((h) => String(h || "").trim());
+  const idxName = Math.max(header.findIndex((h) => /packageName|产品包名|包名/i.test(h)), 0);
+  const idxCat = header.findIndex((h) => /category|类目/i.test(h));
+  const idxEn = header.findIndex((h) => /enabled|上架|启用/i.test(h));
+  const rows = [];
+  for (let i = 1; i < aoa.length; i++) {
+    const cols = aoa[i] || [];
+    const name = String(cols[idxName] || "").trim();
+    if (!name) continue;
+    let category = idxCat >= 0 ? String(cols[idxCat] || "").trim() : "";
+    if (!category || category === "auto") category = "auto";
+    let enabled = true;
+    if (idxEn >= 0) {
+      const ev = String(cols[idxEn] || "").trim().toLowerCase();
+      enabled = !(ev === "false" || ev === "0" || ev === "no" || ev === "否");
+    }
+    rows.push({ packageName: name, category, enabled, status: "idle", progress: 0, reason: "" });
+  }
+  return rows;
+}
+
 function downloadCsv(text, filename) {
   try {
     const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
@@ -10530,32 +10572,37 @@ function downloadCsv(text, filename) {
   } catch (_e) { /* ignore */ }
 }
 
-async function batchGenerate() {
+async function batchGenerateSource() {
   try {
     const data = await request("/api/dianxiaomi/product-packages");
     const pkgs = (data.packages || []).filter((p) => p.hasFacts);
-    const lines = ["packageName,category,enabled"];
-    for (const p of pkgs) lines.push(`${p.name},${p.category},true`);
-    const csv = lines.join("\n");
-    batchListingState.generated = csv;
-    downloadCsv(csv, "batch-listing-source.csv");
-    batchListingState.rows = parseBatchCsv(csv);
-    batchListingState.uploaded = batchListingState.rows.length > 0;
-    batchListingState.busy = false;
-    batchListingState.active = false;
-    batchListingState.summary = null;
-    renderBatchListing();
+    const rows = [["packageName", "category", "enabled"]];
+    for (const p of pkgs) rows.push([p.name, p.category, true]);
+    downloadXlsx(rows, "批量上架数据源.xlsx");
   } catch (e) {
-    alert("生成数据源表格失败：" + (e && e.message ? e.message : e));
+    alert("下载数据源表格失败：" + (e && e.message ? e.message : e));
   }
+}
+
+function batchDownloadTemplate() {
+  downloadXlsx([
+    ["packageName", "category", "enabled"],
+    ["产品包名A", "", "true"]
+  ], "批量上架模板.xlsx");
 }
 
 function batchOnFile(e) {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
+  const ext = (file.name.split(".").pop() || "").toLowerCase();
   const reader = new FileReader();
   reader.onload = () => {
-    const rows = parseBatchCsv(String(reader.result || ""));
+    let rows = [];
+    if (ext === "xlsx" || ext === "xls") {
+      rows = parseBatchXlsx(reader.result);
+    } else {
+      rows = parseBatchCsv(String(reader.result || ""));
+    }
     batchListingState.rows = rows;
     batchListingState.uploaded = rows.length > 0;
     batchListingState.busy = false;
@@ -10563,7 +10610,8 @@ function batchOnFile(e) {
     batchListingState.summary = null;
     renderBatchListing();
   };
-  reader.readAsText(file);
+  if (ext === "xlsx" || ext === "xls") reader.readAsArrayBuffer(file);
+  else reader.readAsText(file);
 }
 
 async function batchStart() {
@@ -10635,24 +10683,28 @@ function renderBatchListing() {
     <div class="bl-board">
       <div class="bl-overview">
         <div class="bl-overview-icon">📦</div>
-        <div class="bl-overview-text">
-          <b>批量流水线上架</b>：生成或上传 CSV 数据源表格 → 点「开始批量上架」按表格顺序自动上架为草稿
-          <span class="bl-overview-sub">CSV 三列：packageName(产品包名) / category(ruTie乳贴|xiangBao箱包|留空自动) / enabled(true/false)</span>
-        </div>
-      </div>
-
-      <div class="bl-card">
-        <div class="bl-controls">
-          <button id="bl-generate" class="bl-btn ghost" ${batchListingState.busy ? "disabled" : ""}>⚙ 生成数据源表格</button>
-          <div class="bl-file-wrap">
-            <input type="file" id="bl-file" accept=".csv,text/csv" ${batchListingState.busy ? "disabled" : ""} />
-            <span class="bl-hint">选择填好的 CSV（表头 packageName,category,enabled）</span>
+          <div class="bl-overview-text">
+            <b>批量流水线上架</b>：下载 .xlsx 数据源表格 → 在 Excel 里只保留要上架的行 → 上传 → 开始自动上架为草稿
+            <span class="bl-overview-sub">表格三列：packageName(产品包名) / category(ruTie乳贴|xiangBao箱包|留空自动) / enabled(true上架|false跳过)</span>
           </div>
-          <button id="bl-start" class="bl-btn primary" ${(!batchListingState.uploaded || batchListingState.busy) ? "disabled" : ""}>▶ 开始批量上架</button>
-          ${hasFailed ? `<button id="bl-retry" class="bl-btn ghost" ${batchListingState.busy ? "disabled" : ""}>↻ 重试失败项</button>` : ""}
         </div>
-        ${batchListingState.busy ? `<div class="bl-hint">批量上架进行中，进度每秒刷新…</div>` : ""}
-      </div>
+
+        <div class="bl-card">
+          <div class="bl-controls">
+            <button id="bl-template" class="bl-btn ghost" ${batchListingState.busy ? "disabled" : ""}>📄 下载空白模板</button>
+            <button id="bl-generate" class="bl-btn ghost" ${batchListingState.busy ? "disabled" : ""}>⚙ 下载数据源表格</button>
+            <div class="bl-file-wrap">
+              <input type="file" id="bl-file" accept=".xlsx,.xls,.csv" ${batchListingState.busy ? "disabled" : ""} />
+              <span class="bl-hint">选择填好的 .xlsx（或 .csv）</span>
+            </div>
+            <button id="bl-start" class="bl-btn primary" ${(!batchListingState.uploaded || batchListingState.busy) ? "disabled" : ""}>▶ 开始批量上架</button>
+            ${hasFailed ? `<button id="bl-retry" class="bl-btn ghost" ${batchListingState.busy ? "disabled" : ""}>↻ 重试失败项</button>` : ""}
+          </div>
+          <div class="bl-card-note">
+            <span>💡 只上传你确认要上架的行即可；原“生成”按钮现在只下载不自动填表，避免一扫所有产品。</span>
+          </div>
+          ${batchListingState.busy ? `<div class="bl-hint">批量上架进行中，进度每秒刷新…</div>` : ""}
+        </div>
 
       ${rows.length ? `
       <div class="bl-card">
@@ -10671,12 +10723,13 @@ function renderBatchListing() {
           </tbody>
         </table>
         <div class="bl-hint">共 ${rows.length} 行，本次上架 ${enabledCount} 行</div>
-      </div>` : `<div class="bl-hint">尚未导入表格。点击「生成数据源表格」自动扫描已完成产品，或选择本地 CSV 上传。</div>`}
+      </div>` : `<div class="bl-hint">尚未导入表格。点击「下载空白模板」或「下载数据源表格」，在 Excel 里只保留要上架的行后上传。</div>`}
 
       ${(batchListingState.summary) ? `<div class="bl-summary">✅ 完成：成功 ${batchListingState.summary.success} · 失败 ${batchListingState.summary.failed} · 跳过 ${batchListingState.summary.skipped} / 共 ${batchListingState.summary.total}</div>` : ""}
     </div>`;
 
-  document.getElementById("bl-generate")?.addEventListener("click", () => void batchGenerate());
+  document.getElementById("bl-template")?.addEventListener("click", () => void batchDownloadTemplate());
+  document.getElementById("bl-generate")?.addEventListener("click", () => void batchGenerateSource());
   document.getElementById("bl-file")?.addEventListener("change", batchOnFile);
   document.getElementById("bl-start")?.addEventListener("click", () => void batchStart());
   document.getElementById("bl-retry")?.addEventListener("click", () => void batchRetry());
