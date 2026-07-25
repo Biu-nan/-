@@ -3471,7 +3471,12 @@ function parseColorMap(str) {
     const parts = seg2.split(/=/);
     const color = parts[0].trim();
     if (!color) continue;
-    map.push({ color, customName: (parts[1] || "").trim(), image: (parts[2] || "").trim() });
+    // 支持简写：颜色=图片（无自定义名）；完整：颜色=自定义名=图片
+    if (parts.length === 2) {
+      map.push({ color, customName: "", image: (parts[1] || "").trim() });
+    } else {
+      map.push({ color, customName: (parts[1] || "").trim(), image: (parts[2] || "").trim() });
+    }
   }
   return map;
 }
