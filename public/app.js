@@ -10491,7 +10491,31 @@ function blEscapeHtml(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c]));
 }
 
+// 批量上架表格辅助：把"启用"列/勾选与"自定义名称"文本统一成有效值
+// 规则（用户约定）：只要自定义名称列填了内容，即视为启用并采用该内容，无需手勾。
+function blBool(v) {
+  if (typeof v === "boolean") return v;
+  const s = String(v == null ? "" : v).trim().toLowerCase();
+  return s === "true" || s === "1" || s === "是" || s === "yes";
+}
+// 计算某字段的有效值：启用勾选 OR 文本非空 → 取文本；否则空串（=不覆盖）
+function blEff(val, on) {
+  return (on === true || (val && String(val).trim())) ? String(val || "").trim() : "";
+}
+function blRowToPayload(r) {
+  return {
+    packageName: r.packageName,
+    category: r.category,
+    enabled: r.enabled !== false,
+    store: blEff(r.store, r.storeOn),
+    brand: blEff(r.brand, r.brandOn),
+    variantParams: blEff(r.variantParams, r.variantOn),
+    stockType: blEff(r.stockType, r.stockTypeOn)
+  };
+}
+
 function parseBatchCsv(text) {
+  // 简易 CSV：逗号分隔（变种参数含逗号时建议用 xlsx）。# 开头行忽略。
   const lines = String(text || "").split(/\r?\n/).filter((l) => {
     const t = l.trim();
     return t !== "" && !t.startsWith("#");
@@ -10501,6 +10525,14 @@ function parseBatchCsv(text) {
   const idxName = Math.max(header.findIndex((h) => /packageName|产品包名|包名/i.test(h)), 0);
   const idxCat = header.findIndex((h) => /category|类目/i.test(h));
   const idxEn = header.findIndex((h) => /enabled|上架|启用/i.test(h));
+  const idxStoreOn = header.findIndex((h) => /^店铺_启用$|^店铺启用$/.test(h));
+  const idxStore = header.findIndex((h) => /^店铺_名称$|^店铺名称$|^店铺$/.test(h));
+  const idxBrandOn = header.findIndex((h) => /^品牌_启用$|^品牌启用$/.test(h));
+  const idxBrand = header.findIndex((h) => /^品牌_名称$|^品牌名称$|^品牌$/.test(h));
+  const idxVarOn = header.findIndex((h) => /^变种参数_启用$|^变种参数启用$/.test(h));
+  const idxVar = header.findIndex((h) => /^变种参数$|^变种$/.test(h));
+  const idxStockOn = header.findIndex((h) => /^备货类型_启用$|^备货类型启用$/.test(h));
+  const idxStock = header.findIndex((h) => /^备货类型_名称$|^备货类型名称$|^备货类型$|^备货$/.test(h));
   const rows = [];
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(",");
@@ -10511,9 +10543,18 @@ function parseBatchCsv(text) {
     let enabled = true;
     if (idxEn >= 0) {
       const ev = (cols[idxEn] || "").trim().toLowerCase();
-      enabled = !(ev === "false" || ev === "0" || ev === "no");
+      enabled = !(ev === "false" || ev === "0" || ev === "no" || ev === "否");
     }
-    rows.push({ packageName: name, category, enabled, status: "idle", progress: 0, reason: "" });
+    const txt = (idx) => (idx >= 0 ? (cols[idx] || "").trim() : "");
+    const onf = (idx) => (idx >= 0 ? blBool(cols[idx]) : false);
+    const store = txt(idxStore), brand = txt(idxBrand), variantParams = txt(idxVar), stockType = txt(idxStock);
+    rows.push({
+      packageName: name, category, enabled, status: "idle", progress: 0, reason: "",
+      store, storeOn: onf(idxStoreOn) || !!store,
+      brand, brandOn: onf(idxBrandOn) || !!brand,
+      variantParams, variantOn: onf(idxVarOn) || !!variantParams,
+      stockType, stockTypeOn: onf(idxStockOn) || !!stockType
+    });
   }
   return rows;
 }
@@ -10540,9 +10581,18 @@ function parseBatchXlsx(arrayBuffer) {
   const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
   if (!aoa || !aoa.length) return [];
   const header = (aoa[0] || []).map((h) => String(h || "").trim());
-  const idxName = Math.max(header.findIndex((h) => /packageName|产品包名|包名/i.test(h)), 0);
-  const idxCat = header.findIndex((h) => /category|类目/i.test(h));
-  const idxEn = header.findIndex((h) => /enabled|上架|启用/i.test(h));
+  const col = (re) => header.findIndex((h) => re.test(h));
+  const idxName = Math.max(col(/packageName|产品包名|包名/i), 0);
+  const idxCat = col(/^category$|类目/i);
+  const idxEn = col(/^enabled$|上架|启用/i);
+  const idxStoreOn = col(/^店铺_启用$|^店铺启用$/);
+  const idxStore = col(/^店铺_名称$|^店铺名称$|^店铺$/);
+  const idxBrandOn = col(/^品牌_启用$|^品牌启用$/);
+  const idxBrand = col(/^品牌_名称$|^品牌名称$|^品牌$/);
+  const idxVarOn = col(/^变种参数_启用$|^变种参数启用$/);
+  const idxVar = col(/^变种参数$|^变种$/);
+  const idxStockOn = col(/^备货类型_启用$|^备货类型启用$/);
+  const idxStock = col(/^备货类型_名称$|^备货类型名称$|^备货类型$|^备货$/);
   const rows = [];
   for (let i = 1; i < aoa.length; i++) {
     const cols = aoa[i] || [];
@@ -10555,7 +10605,16 @@ function parseBatchXlsx(arrayBuffer) {
       const ev = String(cols[idxEn] || "").trim().toLowerCase();
       enabled = !(ev === "false" || ev === "0" || ev === "no" || ev === "否");
     }
-    rows.push({ packageName: name, category, enabled, status: "idle", progress: 0, reason: "" });
+    const txt = (idx) => (idx >= 0 ? String(cols[idx] || "").trim() : "");
+    const onf = (idx) => (idx >= 0 ? blBool(cols[idx]) : false);
+    const store = txt(idxStore), brand = txt(idxBrand), variantParams = txt(idxVar), stockType = txt(idxStock);
+    rows.push({
+      packageName: name, category, enabled, status: "idle", progress: 0, reason: "",
+      store, storeOn: onf(idxStoreOn) || !!store,
+      brand, brandOn: onf(idxBrandOn) || !!brand,
+      variantParams, variantOn: onf(idxVarOn) || !!variantParams,
+      stockType, stockTypeOn: onf(idxStockOn) || !!stockType
+    });
   }
   return rows;
 }
@@ -10572,12 +10631,21 @@ function downloadCsv(text, filename) {
   } catch (_e) { /* ignore */ }
 }
 
+// 批量上架表格表头（基础列 + 可选自定义列）。可选列规则：填了"自定义名称"即覆盖默认，无需手勾。
+const BATCH_XLSX_HEADER = [
+  "packageName", "category", "enabled",
+  "店铺_启用", "店铺_名称",
+  "品牌_启用", "品牌_名称",
+  "变种参数_启用", "变种参数",
+  "备货类型_启用", "备货类型_名称"
+];
+
 async function batchGenerateSource() {
   try {
     const data = await request("/api/dianxiaomi/product-packages");
     const pkgs = (data.packages || []).filter((p) => p.hasFacts);
-    const rows = [["packageName", "category", "enabled"]];
-    for (const p of pkgs) rows.push([p.name, p.category, true]);
+    const rows = [BATCH_XLSX_HEADER.slice()];
+    for (const p of pkgs) rows.push([p.name, p.category, true, "", "", "", "", "", "", "", ""]);
     downloadXlsx(rows, "批量上架数据源.xlsx");
   } catch (e) {
     alert("下载数据源表格失败：" + (e && e.message ? e.message : e));
@@ -10586,8 +10654,8 @@ async function batchGenerateSource() {
 
 function batchDownloadTemplate() {
   downloadXlsx([
-    ["packageName", "category", "enabled"],
-    ["产品包名A", "", "true"]
+    BATCH_XLSX_HEADER.slice(),
+    ["示例产品包名(上传前请删除此行)", "", "true", "TRUE", "洛慈全托管", "FALSE", "", "TRUE", "颜色:肤色,黑色;尺寸:One Size", "FALSE", ""]
   ], "批量上架模板.xlsx");
 }
 
@@ -10622,7 +10690,7 @@ async function batchStart() {
     await request("/api/dianxiaomi/batch-apply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rows: rows.map((r) => ({ packageName: r.packageName, category: r.category, enabled: r.enabled })) })
+      body: JSON.stringify({ rows: rows.map((r) => blRowToPayload(r)) })
     });
     batchListingState.busy = true;
     batchListingState.active = true;
@@ -10639,7 +10707,7 @@ async function batchRetry() {
     await request("/api/dianxiaomi/batch-apply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rows: failed.map((r) => ({ packageName: r.packageName, category: r.category, enabled: true })) })
+      body: JSON.stringify({ rows: failed.map((r) => blRowToPayload(Object.assign({}, r, { enabled: true }))) })
     });
     for (const r of failed) { r.status = "idle"; r.progress = 0; r.reason = ""; }
     batchListingState.busy = true;
@@ -10668,61 +10736,77 @@ function renderBatchListing() {
   if (!root) return;
   if (activeViewName() !== "batch-listing") return;
   if (batchListingState.active) void pollBatchStatus();
-  const sig = JSON.stringify(batchListingState.rows.map((r) => [r.packageName, r.category, r.enabled, r.status, r.progress, r.reason]));
+  const sig = JSON.stringify(batchListingState.rows.map((r) => [r.packageName, r.category, r.enabled, r.status, r.progress, r.reason, r.store, r.storeOn, r.brand, r.brandOn, r.variantParams, r.variantOn, r.stockType, r.stockTypeOn]));
   if (sig === batchListingSig && root.dataset.rendered === "1") return;
   batchListingSig = sig;
   root.dataset.rendered = "1";
   const rows = batchListingState.rows;
+  const busy = batchListingState.busy;
+  const dis = busy ? "disabled" : "";
   const hasFailed = rows.some((r) => r.status === "failed");
   const enabledCount = rows.filter((r) => r.enabled !== false).length;
   const catOpts = (val) => `
     <option value="auto" ${val === "auto" || !val ? "selected" : ""}>自动</option>
     <option value="ruTie" ${val === "ruTie" ? "selected" : ""}>乳贴</option>
     <option value="xiangBao" ${val === "xiangBao" ? "selected" : ""}>箱包</option>`;
+  // 可选自定义列单元格：checkbox("自定义") + 文本输入(自定义名称)。填值即视为启用。
+  const fieldCell = (r, textCls, onCls, textKey, onKey, ph) => `
+    <td>
+      <div class="bl-field">
+        <label class="bl-field-on"><input type="checkbox" class="${onCls}" data-name="${blEscapeHtml(r.packageName)}" ${(r[onKey] || r[textKey]) ? "checked" : ""} ${dis}/> 自定义</label>
+        <input type="text" class="${textCls}" data-name="${blEscapeHtml(r.packageName)}" value="${blEscapeHtml(r[textKey] || "")}" placeholder="${ph}" ${dis}/>
+      </div>
+    </td>`;
   root.innerHTML = `
     <div class="bl-board">
       <div class="bl-overview">
         <div class="bl-overview-icon">📦</div>
           <div class="bl-overview-text">
-            <b>批量流水线上架</b>：下载 .xlsx 数据源表格 → 在 Excel 里只保留要上架的行 → 上传 → 开始自动上架为草稿
-            <span class="bl-overview-sub">表格三列：packageName(产品包名) / category(ruTie乳贴|xiangBao箱包|留空自动) / enabled(true上架|false跳过)</span>
+            <b>批量流水线上架</b>：下载 .xlsx 数据源表格 → 在 Excel 只保留要上架的行 → 填可选自定义项 → 上传 → 开始自动上架为草稿
+            <span class="bl-overview-sub">基础列：packageName(产品包名) / category(ruTie乳贴|xiangBao箱包|留空自动) / enabled(true上架|false跳过)。可选列（填“自定义名称”即覆盖默认，无需手勾）：店铺_名称 / 品牌_名称 / 变种参数 / 备货类型_名称。变种参数格式：<code>颜色:肤色,黑色;尺寸:S,M,L</code></span>
           </div>
         </div>
 
         <div class="bl-card">
           <div class="bl-controls">
-            <button id="bl-template" class="bl-btn ghost" ${batchListingState.busy ? "disabled" : ""}>📄 下载空白模板</button>
-            <button id="bl-generate" class="bl-btn ghost" ${batchListingState.busy ? "disabled" : ""}>⚙ 下载数据源表格</button>
+            <button id="bl-template" class="bl-btn ghost" ${dis}>📄 下载空白模板</button>
+            <button id="bl-generate" class="bl-btn ghost" ${dis}>⚙ 下载数据源表格</button>
             <div class="bl-file-wrap">
-              <input type="file" id="bl-file" accept=".xlsx,.xls,.csv" ${batchListingState.busy ? "disabled" : ""} />
+              <input type="file" id="bl-file" accept=".xlsx,.xls,.csv" ${dis} />
               <span class="bl-hint">选择填好的 .xlsx（或 .csv）</span>
             </div>
-            <button id="bl-start" class="bl-btn primary" ${(!batchListingState.uploaded || batchListingState.busy) ? "disabled" : ""}>▶ 开始批量上架</button>
-            ${hasFailed ? `<button id="bl-retry" class="bl-btn ghost" ${batchListingState.busy ? "disabled" : ""}>↻ 重试失败项</button>` : ""}
+            <button id="bl-start" class="bl-btn primary" ${(!batchListingState.uploaded || busy) ? "disabled" : ""}>▶ 开始批量上架</button>
+            ${hasFailed ? `<button id="bl-retry" class="bl-btn ghost" ${dis}>↻ 重试失败项</button>` : ""}
           </div>
           <div class="bl-card-note">
-            <span>💡 只上传你确认要上架的行即可；原“生成”按钮现在只下载不自动填表，避免一扫所有产品。</span>
+            <span>💡 只上传你确认要上架的行即可；原“生成”按钮现在只下载不自动填表，避免一扫所有产品。带「自定义」勾选的列：填了内容即覆盖引用模板默认值（店铺/品牌/备货类型覆盖固定字段，变种参数覆盖颜色/尺寸销售属性并重建 SKU 组合，乳贴类目生效）。</span>
           </div>
-          ${batchListingState.busy ? `<div class="bl-hint">批量上架进行中，进度每秒刷新…</div>` : ""}
+          ${busy ? `<div class="bl-hint">批量上架进行中，进度每秒刷新…</div>` : ""}
         </div>
 
       ${rows.length ? `
       <div class="bl-card">
+        <div class="bl-table-wrap">
         <table class="bl-table">
-          <thead><tr><th>上架</th><th>产品包名</th><th>类目</th><th>状态</th><th>进度</th><th>说明</th></tr></thead>
+          <thead><tr><th>上架</th><th>产品包名</th><th>类目</th><th>店铺</th><th>品牌</th><th>变种参数</th><th>备货类型</th><th>状态</th><th>进度</th><th>说明</th></tr></thead>
           <tbody>
             ${rows.map((r) => `
               <tr>
-                <td><input type="checkbox" class="bl-enabled" data-name="${blEscapeHtml(r.packageName)}" ${r.enabled !== false ? "checked" : ""} ${batchListingState.busy ? "disabled" : ""}/></td>
+                <td><input type="checkbox" class="bl-enabled" data-name="${blEscapeHtml(r.packageName)}" ${r.enabled !== false ? "checked" : ""} ${dis}/></td>
                 <td>${blEscapeHtml(r.packageName)}</td>
-                <td><select class="bl-cat" data-name="${blEscapeHtml(r.packageName)}" ${batchListingState.busy ? "disabled" : ""}>${catOpts(r.category)}</select></td>
+                <td><select class="bl-cat" data-name="${blEscapeHtml(r.packageName)}" ${dis}>${catOpts(r.category)}</select></td>
+                ${fieldCell(r, "bl-store", "bl-store-on", "store", "storeOn", "店小秘店铺名")}
+                ${fieldCell(r, "bl-brand", "bl-brand-on", "brand", "brandOn", "品牌名")}
+                ${fieldCell(r, "bl-variant", "bl-variant-on", "variantParams", "variantOn", "颜色:..;尺寸:..")}
+                ${fieldCell(r, "bl-stock", "bl-stock-on", "stockType", "stockTypeOn", "如 国内履约")}
                 <td><span class="bl-badge ${r.status || "idle"}">${BL_STATUS_LABEL[r.status] || "待上架"}</span></td>
                 <td><div class="progress"><span style="width:${Math.max(0, Math.min(100, r.progress || 0))}%"></span></div></td>
                 <td class="bl-reason">${blEscapeHtml(r.reason || "")}</td>
               </tr>`).join("")}
           </tbody>
         </table>
-        <div class="bl-hint">共 ${rows.length} 行，本次上架 ${enabledCount} 行</div>
+        </div>
+        <div class="bl-hint">共 ${rows.length} 行，本次上架 ${enabledCount} 行。勾选「自定义」并填值即覆盖默认；直接填文本也会自动勾选。</div>
       </div>` : `<div class="bl-hint">尚未导入表格。点击「下载空白模板」或「下载数据源表格」，在 Excel 里只保留要上架的行后上传。</div>`}
 
       ${(batchListingState.summary) ? `<div class="bl-summary">✅ 完成：成功 ${batchListingState.summary.success} · 失败 ${batchListingState.summary.failed} · 跳过 ${batchListingState.summary.skipped} / 共 ${batchListingState.summary.total}</div>` : ""}
@@ -10733,6 +10817,24 @@ function renderBatchListing() {
   document.getElementById("bl-file")?.addEventListener("change", batchOnFile);
   document.getElementById("bl-start")?.addEventListener("click", () => void batchStart());
   document.getElementById("bl-retry")?.addEventListener("click", () => void batchRetry());
+  const qattr = (s) => '"' + String(s).replace(/"/g, '\\"') + '"';
+  const wireField = (textCls, onCls, textKey, onKey) => {
+    root.querySelectorAll("." + textCls).forEach((inp) => inp.addEventListener("input", (e) => {
+      const r = batchListingState.rows.find((x) => x.packageName === e.target.dataset.name);
+      if (!r) return;
+      r[textKey] = e.target.value;
+      const cb = root.querySelector("." + onCls + "[data-name=" + qattr(e.target.dataset.name) + "]");
+      if (cb) { cb.checked = !!e.target.value; r[onKey] = cb.checked; }
+    }));
+    root.querySelectorAll("." + onCls).forEach((cb) => cb.addEventListener("change", (e) => {
+      const r = batchListingState.rows.find((x) => x.packageName === e.target.dataset.name);
+      if (r) r[onKey] = e.target.checked;
+    }));
+  };
+  wireField("bl-store", "bl-store-on", "store", "storeOn");
+  wireField("bl-brand", "bl-brand-on", "brand", "brandOn");
+  wireField("bl-variant", "bl-variant-on", "variantParams", "variantOn");
+  wireField("bl-stock", "bl-stock-on", "stockType", "stockTypeOn");
   root.querySelectorAll(".bl-cat").forEach((sel) => sel.addEventListener("change", (e) => {
     const name = e.target.dataset.name;
     const r = batchListingState.rows.find((x) => x.packageName === name);

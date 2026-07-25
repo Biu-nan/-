@@ -3398,7 +3398,11 @@ app.post("/api/dianxiaomi/batch-apply", async (request, response) => {
     const normalized = rows.map((r) => ({
       packageName: (r.packageName || "").toString().trim(),
       category: (r.category || "auto").toString().trim(),
-      enabled: r.enabled === false || r.enabled === "false" || r.enabled === 0 || r.enabled === "0" ? false : true
+      enabled: r.enabled === false || r.enabled === "false" || r.enabled === 0 || r.enabled === "0" ? false : true,
+      store: (r.store || "").toString().trim(),
+      brand: (r.brand || "").toString().trim(),
+      variantParams: (r.variantParams || "").toString().trim(),
+      stockType: (r.stockType || "").toString().trim()
     })).filter((r) => r.packageName);
     if (!normalized.length) return response.status(400).json({ ok: false, error: "无有效 packageName" });
     batchRunState.jobId = `batch-${Date.now()}`;
@@ -3433,6 +3437,44 @@ app.get("/api/dianxiaomi/batch-status", async (_request, response) => {
     response.status(500).json({ error: error instanceof Error ? error.message : String(error) });
   }
 });
+
+// 解析批量表格里的「变种参数」文本 → { colors, sizes }
+// 格式：颜色:肤色,黑色;尺寸:S,M,L （属性名:值1,值2; 多个属性用 ; 分隔；颜色/尺寸映射到销售属性）
+function parseVariantParams(str) {
+  const colors = [], sizes = [];
+  if (!str) return { colors, sizes };
+  const parts = String(str).split(/[;\n]+/).map((s) => s.trim()).filter(Boolean);
+  for (const p of parts) {
+    const m = p.match(/^([^:：]+)[：:]\s*(.+)$/);
+    if (!m) continue;
+    const name = m[1].trim().toLowerCase();
+    const vals = m[2].split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+    if (/颜色|color/.test(name)) colors.push(...vals);
+    else if (/尺寸|尺码|size/.test(name)) sizes.push(...vals);
+    // 其它销售属性名暂忽略（店小秘仅 颜色/尺寸 为系统销售属性）
+  }
+  return { colors, sizes };
+}
+
+// 由 colors × sizes 重建 SKU 组合矩阵（用源产品已有矩阵的首行价格/库存/重量作默认，缺失则回退常量）
+function buildVariantMatrix(colors, sizes, baseMatrix) {
+  const colorList = (colors && colors.length) ? colors : ["默认"];
+  const sizeList = (sizes && sizes.length) ? sizes : ["One Size"];
+  const sample = (baseMatrix && baseMatrix.length) ? baseMatrix[0] : null;
+  const price = (sample && Number(sample.price) > 0) ? Number(sample.price) : 3.5;
+  const stock = (sample && Number(sample.stock) > 0) ? Number(sample.stock) : 100;
+  const weight = (sample && sample.weight != null) ? Number(sample.weight) : 0.03;
+  const matrix = [];
+  colorList.forEach((c, ci) => sizeList.forEach((s, si) => {
+    matrix.push({
+      combination: [c, s],
+      price, stock, weight,
+      sku: `SKU-${ci}${si}`,
+      barcode: ""
+    });
+  }));
+  return matrix;
+}
 
 async function runBatchListing(rows) {
   batchRunState.running = true;
@@ -3477,9 +3519,33 @@ async function runBatchListing(rows) {
     }
     const key = (row.category && row.category !== "auto") ? row.category : await detectCategory(dir);
     try {
-      const profile = dianxiaomiAdapter.setProfile(key);
+      let profile = dianxiaomiAdapter.setProfile(key);
       log(`类目 profile: ${profile.key}`);
+      // 批量自定义覆盖（来自表格的店铺/备货类型/品牌/变种参数）：克隆 profile 避免污染全局配置
+      profile = JSON.parse(JSON.stringify(profile));
+      if (row.store) { profile.fixed.storeName = row.store; log(`覆盖店铺: ${row.store}`); }
+      if (row.stockType) { profile.fixed.stockType = row.stockType; log(`覆盖备货类型: ${row.stockType}`); }
+      dianxiaomiAdapter.profile = profile;
+
       const facts = normalizeDianxiaomiFacts(JSON.parse(await readFile(factsFile, "utf8")));
+      // 品牌覆盖（乳贴类目品牌由模板派生，仅记录意图；箱包类目可被 trySetBrand 采用）
+      if (row.brand) { facts.brand = row.brand; log(`覆盖品牌: ${row.brand}`); }
+      // 变种参数覆盖：解析 颜色/尺寸 → 重建 SKU 组合矩阵（乳贴类目生效）
+      if (row.variantParams) {
+        const vp = parseVariantParams(row.variantParams);
+        const baseMatrix = (facts.variants && Array.isArray(facts.variants.matrix)) ? facts.variants.matrix : [];
+        const colors = vp.colors.length ? vp.colors : (facts.variants && facts.variants.colors) || [];
+        const sizes = vp.sizes.length ? vp.sizes : (facts.variants && facts.variants.sizes) || [];
+        const matrix = buildVariantMatrix(colors, sizes, baseMatrix);
+        facts.variants = Object.assign({}, facts.variants || {}, {
+          colors, sizes, matrix, dimensions: []
+        });
+        if (profile.key === "xiangBao") {
+          log(`箱包类目不自动生成 SKU，变种参数覆盖已记录但跳过（colors=${JSON.stringify(colors)} sizes=${JSON.stringify(sizes)}）`);
+        } else {
+          log(`覆盖变种参数: colors=${JSON.stringify(colors)} sizes=${JSON.stringify(sizes)} matrix=${matrix.length}`);
+        }
+      }
       const ready = checkDianxiaomiFactsReady(facts);
       if (!ready.ok) {
         item.status = "failed";
