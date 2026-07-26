@@ -250,7 +250,8 @@ async function runBatchListingCreate(jobId, rows, filePath, deps) {
                 workflowMode: "standard_listing",
                 standardWorkflowGoal: row.mode,
                 provider: "chatgpt",
-                objectiveInfo: objectiveParts.join("\n")
+                objectiveInfo: objectiveParts.join("\n"),
+                batchProductName: row.productName
             });
             item.progress = 10;
 

@@ -3,6 +3,9 @@ import path from "node:path";
 import { ABANDONED_PRODUCTS_DIR, COMPLETED_PRODUCTS_DIR, INSERT_BAG_IMAGES_DIR, INSERT_LINER_IMAGES_DIR, INSERT_OUTPUT_DIR, OUTPUT_DIR, PRODUCT_ROOT, PRODUCT_IMAGES_DIR } from "./config.js";
 const FALLBACK_PRODUCT_NAME = "未命名产品";
 export function extractChineseProductName(state) {
+    if (state.batchProductName) {
+        return sanitizeProductName(state.batchProductName);
+    }
     const sources = [
         state.responseText ?? "",
         state.researchText ?? "",
