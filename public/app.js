@@ -583,6 +583,7 @@ const NAV_WORKSPACES = [
       { label: "上品", view: "materials", status: "ready", isPlaceholder: false, semanticRole: "business-production" },
       { label: "店小秘上品·乳贴", view: "agent-dianxiaomi", status: "ready", isPlaceholder: false, semanticRole: "business-dianxiaomi-listing" },
       { label: "批量上架", view: "batch-listing", status: "ready", isPlaceholder: false, semanticRole: "business-batch-listing" },
+      { label: "批量上品(Listing)", view: "batch-listing-create", status: "ready", isPlaceholder: false, semanticRole: "business-batch-listing-create" },
       { label: "运维", view: "operation-pool", status: "ready", isPlaceholder: false, semanticRole: "business-operation" },
       { label: "复盘", view: "operation-review", status: "ready", isPlaceholder: false, semanticRole: "business-review" }
     ]
@@ -697,7 +698,8 @@ const viewWorkspace = NAV_WORKSPACES.reduce((mapping, workspace) => {
   "selection-radar": "today",
   "product-selection": "today",
   "agent-dianxiaomi": "business",
-  "batch-listing": "business"
+  "batch-listing": "business",
+  "batch-listing-create": "business"
 });
 
 const operationViews = new Set([
@@ -5314,6 +5316,8 @@ function render(payload) {
   renderDianxiaomiListing();
   /* 批量流水线上架（v1.4.0）—— 复用每秒刷新，状态用模块级变量保持 */
   renderBatchListing();
+  /* 批量上品 Listing 创建（v1.6.0）—— 复用每秒刷新，状态用模块级变量保持 */
+  renderBatchListingCreate();
   /* 爆款研究中心 —— 复用每秒刷新，状态用模块级变量保持 */
   renderResearchCenter();
   if (selectedArchivedProfile) {
@@ -10846,6 +10850,206 @@ function renderBatchListing() {
     const r = batchListingState.rows.find((x) => x.packageName === name);
     if (r) { r.enabled = e.target.checked; renderBatchListing(); }
   }));
+}
+
+/* ───────────────────────── 批量上品（Listing 创建）v1.6.0 ───────────────────────── */
+const batchListingCreateState = {
+  jobId: null,
+  rows: [],
+  uploaded: false,
+  busy: false,
+  active: false,
+  summary: null,
+  resultUrl: ""
+};
+let blcSig = "";
+
+const BLC_STATUS_LABEL = {
+  idle: "待处理",
+  running: "进行中",
+  done: "已完成",
+  failed: "失败",
+  skipped: "已跳过",
+  pending: "待回填"
+};
+
+function blcDownloadTemplate() {
+  const header = ["productName", "imageUrl_1", "imageUrl_2", "imageUrl_3", "imageUrls", "mode", "category", "notes"];
+  const example = ["示例产品(上传前删掉此行)", "https://example.com/img1.jpg", "https://example.com/img2.jpg", "", "https://example.com/extra.jpg;https://example.com/extra2.jpg", "full_listing", "", "可选备注"];
+  downloadXlsx([header, example], "批量上品模板.xlsx");
+}
+
+function blcParseResult(data) {
+  if (!data || !Array.isArray(data.rows)) return;
+  batchListingCreateState.rows = data.rows.map((r) => ({
+    productName: r.productName,
+    mode: r.mode || "full_listing",
+    category: r.category || "",
+    notes: r.notes || "",
+    imageCount: r.imageCount || 0,
+    status: "idle",
+    currentStage: "",
+    progress: 0,
+    outputDirectory: "",
+    artifacts: [],
+    reason: ""
+  }));
+  batchListingCreateState.jobId = data.jobId || null;
+  batchListingCreateState.uploaded = true;
+  batchListingCreateState.summary = null;
+  batchListingCreateState.resultUrl = "";
+}
+
+async function blcOnFile(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  try {
+    const form = new FormData();
+    form.append("workbook", file);
+    const response = await fetch("/api/batch-listing-create/upload", { method: "POST", body: form });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok && data.ok) {
+      blcParseResult(data);
+    } else {
+      alert("上传失败：" + (data.error || "未知错误"));
+    }
+  } catch (e) {
+    alert("上传失败：" + (e && e.message ? e.message : e));
+  }
+  renderBatchListingCreate();
+}
+
+async function blcStart() {
+  if (!batchListingCreateState.jobId) {
+    alert("请先上传表格");
+    return;
+  }
+  try {
+    await request("/api/batch-listing-create/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobId: batchListingCreateState.jobId })
+    });
+    batchListingCreateState.busy = true;
+    batchListingCreateState.active = true;
+    batchListingCreateState.summary = null;
+    batchListingCreateState.resultUrl = "";
+  } catch (e) {
+    alert("启动失败：" + (e && e.message ? e.message : e));
+  }
+}
+
+async function pollBlcStatus() {
+  try {
+    const data = await request("/api/batch-listing-create/status");
+    if (!data || !data.ok) return;
+    const byName = new Map((data.items || []).map((it) => [it.productName, it]));
+    let idx = 0;
+    for (const r of batchListingCreateState.rows) {
+      const remote = byName.get(r.productName) || data.items[idx];
+      if (remote) {
+        r.status = remote.status || r.status;
+        r.currentStage = remote.currentStage || "";
+        r.progress = typeof remote.progress === "number" ? remote.progress : r.progress;
+        r.outputDirectory = remote.outputDirectory || "";
+        r.artifacts = Array.isArray(remote.artifacts) ? remote.artifacts : [];
+        r.reason = remote.reason || "";
+      }
+      idx++;
+    }
+    if (data.summary) {
+      batchListingCreateState.summary = data.summary;
+      batchListingCreateState.active = false;
+      batchListingCreateState.busy = false;
+      if (batchListingCreateState.jobId) {
+        batchListingCreateState.resultUrl = "/api/batch-listing-create/download?jobId=" + encodeURIComponent(batchListingCreateState.jobId);
+      }
+    }
+  } catch (_e) {
+    // 轮询静默失败，下一秒重试
+  }
+}
+
+function blcEscapeHtml(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function renderBatchListingCreate() {
+  const root = document.getElementById("batch-listing-create-root");
+  if (!root) return;
+  if (activeViewName() !== "batch-listing-create") return;
+  if (batchListingCreateState.active) void pollBlcStatus();
+
+  const sig = JSON.stringify(batchListingCreateState.rows.map((r) => [
+    r.productName, r.mode, r.status, r.progress, r.currentStage, r.outputDirectory, r.reason
+  ])) + "|" + JSON.stringify(batchListingCreateState.summary) + "|" + batchListingCreateState.resultUrl;
+  if (sig === blcSig && root.dataset.rendered === "1") return;
+  blcSig = sig;
+  root.dataset.rendered = "1";
+
+  const rows = batchListingCreateState.rows;
+  const hasFailed = rows.some((r) => r.status === "failed");
+  const summary = batchListingCreateState.summary;
+
+  root.innerHTML = `
+    <div class="bl-board">
+      <div class="bl-overview">
+        <div class="bl-overview-icon">🏭</div>
+        <div class="bl-overview-text">
+          <b>批量上品（Listing）</b>：下载模板 → 填产品名 + 图片 URL + 每行模式 → 上传 → 逐行自动生成 Listing → 结果回填原表格
+          <span class="bl-overview-sub">每行独立选择：full_listing（完整 Listing，含作图）/ seo_content_only（仅 SEO 与商品文案）。处理完会在原 xlsx 追加 status / outputDirectory / artifacts 列并提供结果下载。</span>
+        </div>
+      </div>
+
+      <div class="bl-card">
+        <div class="bl-controls">
+          <button id="blc-template" class="bl-btn ghost" ${batchListingCreateState.busy ? "disabled" : ""}>📄 下载模板</button>
+          <div class="bl-file-wrap">
+            <input type="file" id="blc-file" accept=".xlsx,.xls" ${batchListingCreateState.busy ? "disabled" : ""} />
+            <span class="bl-hint">选择填好的 .xlsx（productName + imageUrl_* + mode）</span>
+          </div>
+          <button id="blc-start" class="bl-btn primary" ${(!batchListingCreateState.uploaded || batchListingCreateState.busy) ? "disabled" : ""}>▶ 开始批量上品</button>
+        </div>
+        <div class="bl-card-note">
+          <span>💡 每行 mode 填 full_listing 或 seo_content_only；full_listing 必须提供至少一张图片 URL；seo_content_only 可无图。图片 URL 须为 http/https 公网可访问链接。</span>
+        </div>
+        ${batchListingCreateState.busy ? `<div class="bl-hint">批量上品进行中，进度每秒刷新…</div>` : ""}
+      </div>
+
+      ${rows.length ? `
+      <div class="bl-card">
+        <div class="bl-table-wrap">
+          <table class="bl-table">
+            <thead><tr><th>产品名</th><th>模式</th><th>状态</th><th>阶段</th><th>进度</th><th>输出目录</th><th>产物</th><th>说明</th></tr></thead>
+            <tbody>
+              ${rows.map((r) => `
+                <tr>
+                  <td>${blcEscapeHtml(r.productName)}</td>
+                  <td>${blcEscapeHtml(r.mode)}</td>
+                  <td><span class="bl-badge ${r.status || "idle"}">${BLC_STATUS_LABEL[r.status] || "待处理"}</span></td>
+                  <td>${blcEscapeHtml(r.currentStage)}</td>
+                  <td><div class="progress"><span style="width:${Math.max(0, Math.min(100, r.progress || 0))}%"></span></div></td>
+                  <td>${blcEscapeHtml(r.outputDirectory)}</td>
+                  <td class="bl-artifacts">${blcEscapeHtml((r.artifacts || []).join("\n"))}</td>
+                  <td class="bl-reason">${blcEscapeHtml(r.reason || "")}</td>
+                </tr>`).join("")}
+            </tbody>
+          </table>
+        </div>
+        <div class="bl-hint">共 ${rows.length} 行</div>
+      </div>` : `<div class="bl-hint">尚未上传表格。点击「下载模板」后填写并上传。</div>`}
+
+      ${summary ? `<div class="bl-summary">✅ 完成：成功 ${summary.success} · 失败 ${summary.failed} · 跳过 ${summary.skipped} / 共 ${summary.total}</div>` : ""}
+      ${batchListingCreateState.resultUrl ? `<div class="bl-card"><a class="bl-btn primary" href="${batchListingCreateState.resultUrl}">⬇ 下载结果 xlsx（含状态/路径回填）</a></div>` : ""}
+    </div>`;
+
+  document.getElementById("blc-template")?.addEventListener("click", () => blcDownloadTemplate());
+  document.getElementById("blc-file")?.addEventListener("change", blcOnFile);
+  document.getElementById("blc-start")?.addEventListener("click", () => void blcStart());
 }
 
 /* ───────────────────────── 爆款研究中心（Hit Product Research Center）───────────────────────── */

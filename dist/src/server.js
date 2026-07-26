@@ -29,6 +29,7 @@ import { P0ProtocolService } from "./p0-protocol-service.js";
 import { DianxiaomiAdapter } from "./dianxiaomi-adapter.js";
 import { ResearchService } from "./research-service.js";
 import { ResearchStore } from "./research-store.js";
+import { registerBatchListingCreateRoutes } from "./batch-listing-create.js";
 
 // The WorkBuddy runtime injects a "safe-delete" shim (genie-safe-delete.cjs) that
 // intercepts fs.rm and throws SAFE_DELETE_BULK_CONFIRM_REQUIRED once the per-turn
@@ -353,6 +354,14 @@ app.use(express.json());
 app.use(express.static(PUBLIC_DIR));
 // 产品图静态文件服务（用于前端预览已上传的图片）
 app.use("/product-images", express.static(PRODUCT_IMAGES_DIR));
+registerBatchListingCreateRoutes(app, {
+    upload,
+    store,
+    standardService,
+    productProfiles,
+    runBackground,
+    getBatchRunStateRunning: () => batchRunState.running
+});
 app.get("/agent-dispatch", (_request, response) => {
     response.sendFile(path.join(PUBLIC_DIR, "index.html"));
 });

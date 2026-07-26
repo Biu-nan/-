@@ -415,29 +415,34 @@ export class AutomationService {
         });
         try {
             const images = await scanProductImages();
-            if (images.length === 0) {
+            const seoOnly = this.store.get().standardWorkflowGoal === "seo_content_only";
+            if (images.length === 0 && !seoOnly) {
                 throw new Error("产品图为空，请先选择文件夹导入图片");
             }
             await this.store.update({
                 imageCount: images.length,
                 imageNames: images.map((image) => image.name),
                 stage: "CREATING_CHAT",
-                message: `已找到 ${images.length} 张去重图片，正在新建 ${this.providerName(this.store.get().provider)} 对话…`
+                message: images.length
+                    ? `已找到 ${images.length} 张去重图片，正在新建 ${this.providerName(this.store.get().provider)} 对话…`
+                    : "seo_content_only 模式跳过图片，正在新建对话…"
             });
             const readiness = await this.ai.checkReady();
             if (!readiness.ready) {
                 throw new Error(`${this.providerName(this.store.get().provider)} 未登录或输入框不可用`);
             }
             const chatUrl = await this.ai.createBlankChat();
-            await this.store.update({
-                chatUrl,
-                stage: "UPLOADING_IMAGES",
-                message: `正在上传 ${images.length} 张产品图片…`
-            });
-            await this.ai.uploadImages(images.map((image) => image.path));
+            if (images.length > 0) {
+                await this.store.update({
+                    chatUrl,
+                    stage: "UPLOADING_IMAGES",
+                    message: `正在上传 ${images.length} 张产品图片…`
+                });
+                await this.ai.uploadImages(images.map((image) => image.path));
+            }
             await this.store.update({
                 stage: "SENDING_PROMPT",
-                message: "图片上传完成，正在发送测试 Prompt…"
+                message: images.length ? "图片上传完成，正在发送测试 Prompt…" : "正在发送测试 Prompt…"
             });
             await this.ai.sendPromptOnce(buildProductFactPrompt(this.store.get()), PRODUCT_FACT_PROMPT_FINGERPRINT);
             await this.store.update({
