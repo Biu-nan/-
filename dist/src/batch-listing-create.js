@@ -251,11 +251,11 @@ async function runBatchListingCreate(jobId, rows, filePath, deps) {
 
         try {
             if (getBatchRunStateRunning && getBatchRunStateRunning()) {
-                throw new Error("ERP 批量上架正在运行，无法同时执行批量上品");
+                throw new Error("ERP 批量上架正在运行，无法同时执行批量制作");
             }
 
             // (1) 行级隔离：重置工作区
-            await store.reset(`批量上品 第 ${i + 1}/${rows.length} 行：${row.productName}`);
+            await store.reset(`批量制作 第 ${i + 1}/${rows.length} 行：${row.productName}`);
             await clearProductImages();
             await rm(OUTPUT_DIR, { recursive: true, force: true });
             await mkdir(OUTPUT_DIR, { recursive: true });
@@ -459,7 +459,7 @@ export function registerBatchListingCreateRoutes(app, deps) {
                 return response.status(400).json({ ok: false, error: "jobId 无效或文件未上传" });
             }
             if (listingCreateRunState.running) {
-                return response.status(409).json({ ok: false, error: "已有批量上品任务正在运行" });
+                return response.status(409).json({ ok: false, error: "已有批量制作任务正在运行" });
             }
             const st = store.get();
             if (st.running || st.autoRun) {

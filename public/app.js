@@ -583,7 +583,7 @@ const NAV_WORKSPACES = [
       { label: "上品", view: "materials", status: "ready", isPlaceholder: false, semanticRole: "business-production" },
       { label: "店小秘上品·乳贴", view: "agent-dianxiaomi", status: "ready", isPlaceholder: false, semanticRole: "business-dianxiaomi-listing" },
       { label: "批量上架", view: "batch-listing", status: "ready", isPlaceholder: false, semanticRole: "business-batch-listing" },
-      { label: "批量上品(Listing)", view: "batch-listing-create", status: "ready", isPlaceholder: false, semanticRole: "business-batch-listing-create" },
+      { label: "批量制作(Listing)", view: "batch-listing-create", status: "ready", isPlaceholder: false, semanticRole: "business-batch-listing-create" },
       { label: "运维", view: "operation-pool", status: "ready", isPlaceholder: false, semanticRole: "business-operation" },
       { label: "复盘", view: "operation-review", status: "ready", isPlaceholder: false, semanticRole: "business-review" }
     ]
@@ -10896,7 +10896,7 @@ const BLC_STATUS_LABEL = {
 function blcDownloadTemplate() {
   const header = ["productName", "imageUrl_1", "imageUrl_2", "imageUrl_3", "imageUrls", "localImage_1", "localImage_2", "localImage_3", "localImages", "mode", "category", "notes"];
   const example = ["示例产品(上传前删掉此行)", "https://example.com/img1.jpg", "https://example.com/img2.jpg", "", "https://example.com/extra.jpg;https://example.com/extra2.jpg", "C:\\Users\\你的用户名\\Pictures\\a.jpg", "D:\\产品图\\b.png", "", "D:\\产品图\\c.jpg;D:\\产品图\\d.webp", "full_listing", "", "可选备注"];
-  downloadXlsx([header, example], "批量上品模板.xlsx");
+  downloadXlsx([header, example], "批量制作模板.xlsx");
 }
 
 function blcParseResult(data) {
@@ -11048,7 +11048,7 @@ function renderBatchListingCreate() {
       <div class="bl-overview">
         <div class="bl-overview-icon">🏭</div>
         <div class="bl-overview-text">
-          <b>批量上品（Listing）</b>：下载模板 → 填产品名 + 图片（URL 或本地路径）+ 每行模式 → 上传 → 逐行自动生成 Listing → 结果回填原表格
+          <b>批量制作（Listing）</b>：下载模板 → 填产品名 + 图片（URL 或本地路径）+ 每行模式 → 上传 → 逐行自动生成 Listing → 结果回填原表格
           <span class="bl-overview-sub">每行独立选择：full_listing（完整 Listing，含作图）/ seo_content_only（仅 SEO 与商品文案）。处理完会在原 xlsx 追加 status / outputDirectory / artifacts 列并提供结果下载。</span>
         </div>
       </div>
@@ -11060,12 +11060,12 @@ function renderBatchListingCreate() {
             <input type="file" id="blc-file" accept=".xlsx,.xls" ${batchListingCreateState.busy ? "disabled" : ""} />
             <span class="bl-hint">选择填好的 .xlsx（productName + imageUrl_* + mode）</span>
           </div>
-          <button id="blc-start" class="bl-btn primary" ${(!batchListingCreateState.uploaded || batchListingCreateState.busy) ? "disabled" : ""}>▶ 开始批量上品</button>
+          <button id="blc-start" class="bl-btn primary" ${(!batchListingCreateState.uploaded || batchListingCreateState.busy) ? "disabled" : ""}>▶ 开始批量制作</button>
         </div>
         <div class="bl-card-note">
           <span>💡 每行 mode 填 full_listing 或 seo_content_only；full_listing 必须提供至少一张图片（URL 或本地路径）。图片 URL 须为 http/https 公网可访问链接；本地图片填本机文件绝对路径（如 C:\Users\你\Pictures\a.jpg 或 D:\产品图\b.png），优先用 localImage_* / 本地图片 列，与 imageUrl_* 列可混用，二者都支持分号/逗号分隔多张。</span>
         </div>
-        ${batchListingCreateState.busy ? `<div class="bl-hint">批量上品进行中，进度每秒刷新…</div>` : ""}
+        ${batchListingCreateState.busy ? `<div class="bl-hint">批量制作进行中，进度每秒刷新…</div>` : ""}
       </div>
 
       ${rows.length ? `
