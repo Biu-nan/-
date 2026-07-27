@@ -389,23 +389,30 @@ async function recoverListingCreateState() {
         // 兜底：如果恢复出的状态是「所有行都跑完了但 running 标记没清掉」的 stuck 状态
         //（例如 server 重启/被杀发生在最后一行写快照之后、最终 running=false 快照之前），
         // 自动归一化为已结束，避免前端按钮永远被禁用。
-        const items = Object.values(listingCreateRunState.items);
-        const anyRunning = items.some((it) => it.status === "running");
-        if (listingCreateRunState.running && !anyRunning &&
-            (listingCreateRunState.overallProgress >= 100 || items.length > 0)) {
-            listingCreateRunState.running = false;
-            listingCreateRunState.finishedAt = listingCreateRunState.finishedAt || new Date().toISOString();
-            if (!listingCreateRunState.summary) {
-                const success = items.filter((it) => it.status === "done").length;
-                const failed = items.filter((it) => it.status === "failed").length;
-                listingCreateRunState.summary = { success, failed, skipped: 0, total: items.length };
-            }
-            await snapshotListingCreate(listingCreateRunState.jobId);
-        }
+        await normalizeStuckRunningState();
     }
     catch (error) {
         console.warn("recover listing create state failed:", error instanceof Error ? error.message : String(error));
     }
+}
+// 检查并修复 stuck 状态：running=true 但没有任何行仍在 running 中，且进度已跑完。
+// 在 recover 和 status API 中都会调用，确保 server 重启或运行中都能自愈。
+async function normalizeStuckRunningState() {
+    const items = Object.values(listingCreateRunState.items);
+    const anyRunning = items.some((it) => it.status === "running");
+    if (listingCreateRunState.running && !anyRunning &&
+        (listingCreateRunState.overallProgress >= 100 || items.length > 0)) {
+        listingCreateRunState.running = false;
+        listingCreateRunState.finishedAt = listingCreateRunState.finishedAt || new Date().toISOString();
+        if (!listingCreateRunState.summary) {
+            const success = items.filter((it) => it.status === "done").length;
+            const failed = items.filter((it) => it.status === "failed").length;
+            listingCreateRunState.summary = { success, failed, skipped: 0, total: items.length };
+        }
+        await snapshotListingCreate(listingCreateRunState.jobId);
+        return true;
+    }
+    return false;
 }
 
 export function registerBatchListingCreateRoutes(app, deps) {
@@ -413,6 +420,7 @@ export function registerBatchListingCreateRoutes(app, deps) {
 
     app.post("/api/batch-listing-create/upload", upload.single("workbook"), async (request, response) => {
         try {
+            await normalizeStuckRunningState();
             if (!request.file || !request.file.buffer) {
                 return response.status(400).json({ ok: false, error: "未上传文件" });
             }
@@ -454,6 +462,7 @@ export function registerBatchListingCreateRoutes(app, deps) {
 
     app.post("/api/batch-listing-create/start", async (request, response) => {
         try {
+            await normalizeStuckRunningState();
             const { jobId } = request.body || {};
             if (!jobId || !listingCreateRunState.filePath || listingCreateRunState.jobId !== jobId) {
                 return response.status(400).json({ ok: false, error: "jobId 无效或文件未上传" });
@@ -493,6 +502,8 @@ export function registerBatchListingCreateRoutes(app, deps) {
             if (!listingCreateRunState.jobId) {
                 await recoverListingCreateState();
             }
+            // 运行中如果发生 stuck（所有行跑完但 running 没清），自动归一化
+            await normalizeStuckRunningState();
             const items = Object.values(listingCreateRunState.items).map((it) => ({
                 productName: it.productName,
                 mode: it.mode,
