@@ -4,7 +4,7 @@ import path from "node:path";
 import express from "express";
 import multer from "multer";
 import { HOST, OUTPUT_DIR, INSERT_BAG_IMAGES_DIR, INSERT_LINER_IMAGES_DIR, INSERT_OUTPUT_DIR, PORT, PRODUCT_IMAGES_DIR, PRODUCT_ROOT, PROMPTS_DIR, PROJECT_ROOT, COMPLETED_PRODUCTS_DIR, HIDDEN_DATA_DIR, PUBLIC_DIR } from "./config.js";
-import { DIANXIAOMI_TEMPLATE_PRODUCT_ID, PRODUCT_FACT_FILE, DIANXIAOMI_CATEGORY_PROFILES, getDianxiaomiProfile } from "./config.js";
+import { DIANXIAOMI_TEMPLATE_PRODUCT_ID, PRODUCT_FACT_FILE, DIANXIAOMI_CATEGORY_PROFILES, getDianxiaomiProfile, isXiangBaoProfile } from "./config.js";
 import { normalizeDianxiaomiFacts } from "./dianxiaomi-facts.js";
 import { AutomationService } from "./automation-service.js";
 import { ChatGptAdapter } from "./chatgpt-adapter.js";
@@ -3359,12 +3359,14 @@ async function detectCategory(dir) {
     const profile = JSON.parse(await readFile(path.join(dir, "product-profile.json"), "utf8"));
     const cat = (profile.category || profile.key || "").toString();
     if (/乳贴|nipple|nipples/i.test(cat)) return "ruTie";
+    if (/折叠|folding/i.test(cat)) return "xiangBaoFold";
     if (/箱包|bag|内胆|liner|insert/i.test(cat)) return "xiangBao";
   } catch { /* ignore */ }
   try {
     const facts = JSON.parse(await readFile(path.join(dir, "product-facts.json"), "utf8"));
     const cat = (facts.category || "").toString();
     if (/乳贴|nipple|nipples/i.test(cat)) return "ruTie";
+    if (/折叠|folding/i.test(cat)) return "xiangBaoFold";
     if (/箱包|bag|内胆|liner|insert/i.test(cat)) return "xiangBao";
   } catch { /* ignore */ }
   return "ruTie";
@@ -3411,7 +3413,8 @@ app.post("/api/dianxiaomi/batch-apply", async (request, response) => {
       store: (r.store || "").toString().trim(),
       brand: (r.brand || "").toString().trim(),
       variantParams: (r.variantParams || "").toString().trim(),
-      stockType: (r.stockType || "").toString().trim()
+      stockType: (r.stockType || "").toString().trim(),
+      referenceProductId: (r.referenceProductId || "").toString().trim()
     })).filter((r) => r.packageName);
     if (!normalized.length) return response.status(400).json({ ok: false, error: "无有效 packageName" });
     batchRunState.jobId = `batch-${Date.now()}`;
@@ -3569,7 +3572,7 @@ async function runBatchListing(rows) {
         const vp = parseVariantParams(row.variantParams);
         const cm = parseColorMap(row.variantParams);
         const baseMatrix = (facts.variants && Array.isArray(facts.variants.matrix)) ? facts.variants.matrix : [];
-        if (profile.key === "xiangBao") {
+        if (isXiangBaoProfile(profile)) {
           if (cm.length) {
             const colorImages = {};
             for (const c of cm) if (c.image) colorImages[c.color] = c.image;
@@ -3611,8 +3614,10 @@ async function runBatchListing(rows) {
         continue;
       }
       dianxiaomiAdapter.setImageBaseDir(dir);
-      log("引用模板: " + profile.templateProductId);
-      await dianxiaomiAdapter.referenceProduct(profile.templateProductId);
+      // 逐行自定义「引用商品ID」覆盖：表格填了就用行级 ID，否则用类目默认模板 ID
+      const refId = (row.referenceProductId && String(row.referenceProductId).trim()) || profile.templateProductId;
+      log("引用模板: " + refId + (row.referenceProductId ? " (行级自定义)" : ""));
+      await dianxiaomiAdapter.referenceProduct(refId);
       item.progress = 25;
       await dianxiaomiAdapter.fillFixedFields();
       item.progress = 50;
@@ -3625,11 +3630,23 @@ async function runBatchListing(rows) {
       item.progress = 80;
       const saved = await dianxiaomiAdapter.save();
       dianxiaomiAdapter.resetImageBaseDir();
-      if (saved && saved.saved) {
+      // 关键修复：applied 数组里的 critical fields（主图 / PC端 / 无线端描述）任一 FAIL 即整体判 failed。
+      // 这是「店小秘后台只有占位图、没详情页」假成功的根因——之前只看 save().saved，忽略了 applied。
+      const criticalFailures = applied.filter((a) => (a.field === "images" || a.field === "description.pc" || a.field === "description.mobile") && a.ok === false);
+      const readbackIssues = (saved && Array.isArray(saved.hardIssues) && saved.hardIssues.length) ? saved.hardIssues : [];
+      const criticalFailed = criticalFailures.length > 0 || readbackIssues.length > 0;
+      if (saved && saved.saved && !criticalFailed) {
         item.status = "done";
         item.reason = saved.url || saved.message || "已存草稿";
         item.progress = 100;
         success++;
+      } else if (saved && saved.saved && criticalFailed) {
+        // save() 自报成功但读回校验或 applied 有 critical FAIL → 强制 failed，并把硬证据写进 reason
+        const failList = criticalFailures.map((a) => `${a.field}(${a.reason || "no-reason"})`).concat(readbackIssues.map((s) => `readback:${s}`));
+        item.status = "failed";
+        item.reason = `店小秘保存成功但页面实际为空: ${failList.join("; ")}`;
+        item.progress = 100;
+        failed++;
       } else {
         item.status = "failed";
         item.reason = (saved && (saved.error || saved.message || JSON.stringify(saved))) || "save 返回非 ok";

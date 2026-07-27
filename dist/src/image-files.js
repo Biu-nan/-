@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { lookup } from "node:dns/promises";
-import { mkdir, readFile, readdir, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { PRODUCT_IMAGES_DIR } from "./config.js";
 const VALID_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
@@ -104,6 +104,37 @@ export async function importProductImageUrls(rawUrls) {
         }
     }
     const result = await importImageBuffers(downloaded);
+    result.rejected.push(...rejected);
+    return result;
+}
+// 从本机文件路径导入产品图：读取本地文件并复用与 URL 下载一致的去重/安全文件名/格式校验逻辑。
+// baseDir 用于解析相对路径（默认进程工作目录）；绝对路径直接使用。
+export async function importLocalImagePaths(rawPaths, baseDir = process.cwd()) {
+    const paths = [...new Set((rawPaths || []).map((p) => String(p || "").trim()).filter(Boolean))];
+    if (paths.length === 0)
+        return { imported: [], skippedDuplicates: [], rejected: [] };
+    const buffers = [];
+    const rejected = [];
+    for (let index = 0; index < paths.length; index += 1) {
+        const raw = paths[index];
+        const abs = path.isAbsolute(raw) ? raw : path.resolve(baseDir, raw);
+        try {
+            const info = await stat(abs);
+            if (!info.isFile())
+                throw new Error("不是文件");
+            const buffer = await readFile(abs);
+            const extension = detectImageExtension(buffer);
+            if (!extension)
+                throw new Error("不是支持的 JPG/PNG/WEBP 图片");
+            if (buffer.length > MAX_IMAGE_BYTES)
+                throw new Error("图片超过大小限制");
+            buffers.push({ originalname: path.basename(raw), buffer });
+        }
+        catch {
+            rejected.push(raw);
+        }
+    }
+    const result = await importImageBuffers(buffers);
     result.rejected.push(...rejected);
     return result;
 }

@@ -245,6 +245,63 @@ export const DIANXIAOMI_CATEGORY_PROFILES = {
 2. 标题须符合速卖通搜索习惯，包含品类核心词。
 3. 不要输出 JSON 以外的任何解释文字。
 4. 本任务只提取图片事实，不联网、不生图。`
+  },
+
+  // 箱包便携折叠包（速卖通半托管 Choice，引用 1005011985916829）
+  // 复用箱包配件填写逻辑（categoryFamily=xiangBao）：变种板块人工填写，本系统只填 AI 生成板块 + 物流属性。
+  xiangBaoFold: {
+    key: "xiangBaoFold",
+    label: "箱包便携折叠包",
+    url: DIANXIAOMI_URL_CHOICE,
+    templateProductId: "1005011985916829",
+    categoryFamily: "xiangBao",
+    fixed: {
+      storeName: "自营箱包全托2店",
+      stockType: "国内履约",
+      sizeTemplate: ""
+    },
+    category: "箱包便携折叠包(Bag Parts & Accessories)",
+    requiredAttrs: [
+      { label: "类型(Type)", id: "rc_select_13", value: "", factsKey: "type", aiSection: "attributes" },
+      { label: "材质(Material)", id: "rc_select_15", value: "", factsKey: "material", aiSection: "attributes" },
+      { label: "品牌(Brand Name)", id: "rc_select_11", factsKey: "brand", aiSection: "attributes", viaBrandTemplateSync: true },
+      { label: "产地（国家或地区）(Origin)", id: "rc_select_14", factsKey: "origin", aiSection: "attributes" }
+    ],
+    besteffortAttrs: [],
+    defaultMaterial: "",
+    logistics: "普货",
+    compliance: { euResponsible: "GET RICH", trResponsible: "", manufacturer: "Yiwu Sumu Arts and Crafts Co., Ltd" },
+    fillVariantSections: false,
+    factExtractFingerprint: "# 店小秘箱包便携折叠包产品事实提取 Agent v0.1",
+    factExtractPrompt: `# 店小秘箱包便携折叠包产品事实提取 Agent v0.1
+
+你正在为速卖通半托管（Choice）店小秘创建「箱包便携折叠包」产品（如 折叠包/收纳包/便携袋 等），请基于本对话上传的全部产品图片（实拍图/详情图/SKU 图/尺寸图/包装图），提取可直接填写店小秘表单的产品事实，并**只输出一个 JSON 对象**（不要用 markdown 代码块包裹，直接输出纯 JSON）。
+
+# 输出 JSON 结构（字段名同箱包配件，不得更改；图片无法判断的填 null 或省略）
+
+{
+  "title": {
+    "zh": "中文标题（≤128 字，含核心关键词：箱包便携折叠包/折叠包/便携收纳）",
+    "en": "英文标题（≤128 字，速卖通风格，含 Foldable Bag / Packable Bag / Travel Pouch 等关键词）"
+  },
+  "mainKeyword": "产品核心搜索关键词（英文，如 Foldable Bag / Packable Pouch），用于型号与类型等关键属性",
+  "brand": "品牌名；无品牌填 NONE",
+  "material": "主要材质（如 尼龙 Nylon / 涤纶 Polyester / PU / 牛津布 Oxford），可多项用逗号分隔",
+  "type": "产品类型（对应店小秘「类型(Type)」下拉，如 折叠包 Foldable Bag / 收纳包 Storage Bag），尽量用店小秘枚举词",
+  "origin": { "country": "产地国，如 中国大陆(Mainland China)", "province": "省份如 浙江(Zhejiang)" },
+  "description": {
+    "pc": "PC 端描述（卖点+参数，纯文本，可含换行）",
+    "mobile": "无线端描述（更口语短句）"
+  },
+  "compliance": { "euResponsible": "", "trResponsible": "", "manufacturer": "", "customsAttribute": "" }
+}
+
+# 规则
+1. 仅提取图片中**清晰可读/可见**的信息；不确定或图片无此信息时对应字段填 null 或省略，禁止编造。
+1.1 mainKeyword 必填：用该产品的英文核心搜索词（如 Foldable Bag），将作为型号(Model Number)与类型(Type)的填充值。
+2. 标题须符合速卖通搜索习惯，包含品类核心词。
+3. 不要输出 JSON 以外的任何解释文字。
+4. 本任务只提取图片事实，不联网、不生图。`
   }
 };
 
@@ -255,6 +312,13 @@ export function getDianxiaomiProfile(keyOrProfile) {
     ? keyOrProfile
     : DIANXIAOMI_DEFAULT_PROFILE_KEY;
   return DIANXIAOMI_CATEGORY_PROFILES[key];
+}
+
+// 箱包系判定：箱包配件(xiangBao) 与 箱包便携折叠包(xiangBaoFold) 共用同一套填写逻辑。
+// 新增箱包子类目时，只需在 profile 上加 categoryFamily:"xiangBao"，无需改 adapter/server 分支。
+export function isXiangBaoProfile(p) {
+  if (!p) return false;
+  return p.key === "xiangBao" || p.categoryFamily === "xiangBao";
 }
 
 // 向后兼容：旧常量（= ruTie 的值）

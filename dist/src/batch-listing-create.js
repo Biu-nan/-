@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import path from "node:path";
-import { copyFile, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import {
     HIDDEN_DATA_DIR,
     OUTPUT_DIR,
@@ -9,7 +9,7 @@ import {
     PRODUCT_ROOT,
     USER_DATA_DIR
 } from "./config.js";
-import { clearProductImages, importProductImageUrls } from "./image-files.js";
+import { clearProductImages, importLocalImagePaths, importProductImageUrls } from "./image-files.js";
 import { archiveCurrentProduct } from "./product-session.js";
 
 const MAX_ROWS = 50;
@@ -53,8 +53,13 @@ function parseRows(aoa) {
     const idxCategory = col(header, /^(category|类目|类别)$/);
     const idxNotes = col(header, /^(notes|备注|说明)$/);
     const idxUrls = col(header, /^(imageUrls|图片链接|图片地址|图片URL|图片网址)$/);
+    const idxLocal = col(header, /^(localImages|本地图片|本地图|本地路径|本地文件)$/);
     const urlCols = header
         .map((h, i) => (/^imageUrl_\d+$/i.test(String(h || "")) ? i : -1))
+        .filter((i) => i >= 0)
+        .sort((a, b) => a - b);
+    const localCols = header
+        .map((h, i) => (/^localImage_\d+$/i.test(String(h || "")) ? i : -1))
         .filter((i) => i >= 0)
         .sort((a, b) => a - b);
 
@@ -86,13 +91,29 @@ function parseRows(aoa) {
             warnings.push(`第 ${i + 1} 行图片 URL 超过 ${MAX_URLS_PER_ROW} 个，已截断`);
             deduped.length = MAX_URLS_PER_ROW;
         }
+        const localPaths = [];
+        if (idxLocal >= 0) {
+            const raw = String(cols[idxLocal] || "");
+            localPaths.push(...raw.split(/[,，;；\n]/).map((s) => s.trim()).filter(Boolean));
+        }
+        for (const c of localCols) {
+            const v = String(cols[c] || "").trim();
+            if (v)
+                localPaths.push(v);
+        }
+        const dedupedLocal = [...new Set(localPaths)];
+        if (dedupedLocal.length > MAX_URLS_PER_ROW) {
+            warnings.push(`第 ${i + 1} 行本地图片超过 ${MAX_URLS_PER_ROW} 个，已截断`);
+            dedupedLocal.length = MAX_URLS_PER_ROW;
+        }
         rows.push({
             index: rows.length,
             productName,
             mode: normalizeMode(cols[idxMode]),
             category: idxCategory >= 0 ? String(cols[idxCategory] || "").trim() : "",
             notes: idxNotes >= 0 ? String(cols[idxNotes] || "").trim() : "",
-            imageUrls: deduped
+            imageUrls: deduped,
+            localImages: dedupedLocal
         });
     }
     if (rows.length > MAX_ROWS) {
@@ -255,16 +276,24 @@ async function runBatchListingCreate(jobId, rows, filePath, deps) {
             });
             item.progress = 10;
 
-            // (3) 下载图片
+            // (3) 导入图片（URL 下载 + 本地路径拷贝）
+            const jobDir = path.dirname(filePath);
+            let importedCount = 0;
+            let rejectedCount = 0;
             if (row.imageUrls.length) {
                 const dl = await downloadImageUrlsChunked(row.imageUrls);
+                importedCount += dl.imported.length;
+                rejectedCount += dl.rejected.length;
                 item.log.push(`下载图片：导入 ${dl.imported.length}，拒绝 ${dl.rejected.length}，去重跳过 ${dl.skippedDuplicates.length}`);
-                if (!dl.imported.length && row.mode !== "seo_content_only") {
-                    throw new Error("未成功下载任何产品图");
-                }
             }
-            else if (row.mode !== "seo_content_only") {
-                throw new Error("full_listing 模式必须提供至少一张图片 URL");
+            if (row.localImages.length) {
+                const lp = await importLocalImagePaths(row.localImages, jobDir);
+                importedCount += lp.imported.length;
+                rejectedCount += lp.rejected.length;
+                item.log.push(`本地图片：导入 ${lp.imported.length}，拒绝 ${lp.rejected.length}，去重跳过 ${lp.skippedDuplicates.length}`);
+            }
+            if (importedCount === 0 && row.mode !== "seo_content_only") {
+                throw new Error("未成功导入任何产品图（URL 下载失败且无有效本地图片）");
             }
             item.progress = 25;
 
@@ -318,6 +347,51 @@ async function runBatchListingCreate(jobId, rows, filePath, deps) {
     await snapshotListingCreate(jobId);
 }
 
+async function recoverListingCreateState() {
+    try {
+        const base = path.join(HIDDEN_DATA_DIR, "batch-listing-create");
+        const entries = await readdir(base, { withFileTypes: true }).catch(() => []);
+        let latestPath = null;
+        let latestMtime = 0;
+        for (const e of entries) {
+            if (!e.isDirectory())
+                continue;
+            const fp = path.join(base, e.name, "state.json");
+            try {
+                const st = await stat(fp);
+                if (st.mtimeMs > latestMtime) {
+                    latestMtime = st.mtimeMs;
+                    latestPath = fp;
+                }
+            }
+            catch {
+                // 忽略不存在或无权访问
+            }
+        }
+        if (!latestPath)
+            return;
+        const saved = JSON.parse(await readFile(latestPath, "utf8"));
+        if (!saved || !saved.jobId)
+            return;
+        // 内存中已有更新状态则不覆盖
+        if (listingCreateRunState.jobId && listingCreateRunState.startedAt &&
+            listingCreateRunState.startedAt >= saved.startedAt) {
+            return;
+        }
+        listingCreateRunState.running = saved.running || false;
+        listingCreateRunState.jobId = saved.jobId;
+        listingCreateRunState.startedAt = saved.startedAt;
+        listingCreateRunState.finishedAt = saved.finishedAt || null;
+        listingCreateRunState.overallProgress = saved.overallProgress || 0;
+        listingCreateRunState.summary = saved.summary || null;
+        listingCreateRunState.items = saved.items || {};
+        listingCreateRunState.filePath = saved.filePath || null;
+    }
+    catch (error) {
+        console.warn("recover listing create state failed:", error instanceof Error ? error.message : String(error));
+    }
+}
+
 export function registerBatchListingCreateRoutes(app, deps) {
     const { upload, store, standardService, productProfiles, runBackground, getBatchRunStateRunning } = deps;
 
@@ -350,7 +424,7 @@ export function registerBatchListingCreateRoutes(app, deps) {
                     mode: r.mode,
                     category: r.category,
                     notes: r.notes,
-                    imageCount: r.imageUrls.length
+                    imageCount: r.imageUrls.length + r.localImages.length
                 })),
                 warnings
             });
@@ -400,6 +474,9 @@ export function registerBatchListingCreateRoutes(app, deps) {
 
     app.get("/api/batch-listing-create/status", async (request, response) => {
         try {
+            if (!listingCreateRunState.jobId) {
+                await recoverListingCreateState();
+            }
             const items = Object.values(listingCreateRunState.items).map((it) => ({
                 productName: it.productName,
                 mode: it.mode,

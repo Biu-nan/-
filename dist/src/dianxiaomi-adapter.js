@@ -26,6 +26,7 @@ import {
   DIANXIAOMI_CATEGORY_PROFILES,
   DIANXIAOMI_DEFAULT_PROFILE_KEY,
   getDianxiaomiProfile,
+  isXiangBaoProfile,
   PRODUCT_IMAGES_DIR
 } from "./config.js";
 
@@ -829,10 +830,12 @@ export class DianxiaomiAdapter {
   async uploadProductImages(filePaths) {
     if (!Array.isArray(filePaths) || !filePaths.length) return { ok: false, reason: "no-files" };
     await this.connect();
-    const LOG = path.join(PRODUCT_IMAGES_DIR, "..", "upload_debug.log");
-    const ulog = (...a) => { try { fs.appendFileSync(LOG, a.map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join(" ") + "\n"); } catch { /* ignore */ } };
-    try { fs.writeFileSync(LOG, ""); } catch { /* ignore */ }
-    ulog("START upload count=", filePaths.length, filePaths.map((p) => path.basename(p)));
+    // 关键：日志写到 imageBaseDir 所在的产品包目录（始终存在），不再用全局 PRODUCT_IMAGES_DIR/../（当前产品/ 可能不存在）。
+    // 老的全局路径在 PRODUCT_IMAGES_DIR 不存在时 writeFileSync 抛错被 try/catch 吞掉，导致完全无诊断信息。
+    const LOG = path.join(this.imageBaseDir || PRODUCT_IMAGES_DIR, "..", "upload_debug.log");
+    const ulog = (...a) => { try { fs.mkdirSync(path.dirname(LOG), { recursive: true }); fs.appendFileSync(LOG, `[${new Date().toISOString()}] ` + a.map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join(" ") + "\n"); } catch { /* ignore */ } };
+    try { fs.mkdirSync(path.dirname(LOG), { recursive: true }); fs.writeFileSync(LOG, ""); } catch { /* ignore */ }
+    ulog("START upload count=", filePaths.length, "imageBaseDir=", this.imageBaseDir, filePaths.map((p) => path.basename(p)));
 
     await this.dismissModals();
     const clearedMain = await this.clearImageThumbnails(".productMainImgModule");
@@ -847,87 +850,44 @@ export class DianxiaomiAdapter {
     let okCount = 0;
     for (let i = 0; i < filePaths.length; i += 1) {
       const fp = filePaths[i];
+      if (!fp || !fs.existsSync(fp)) { ulog(`[${i}] SKIP missing file: ${fp}`); continue; }
       await this.dismissModals();
       const before = await mainCount();
 
-      // 1) 打开图片选择器
+      // 店小秘「本地图片」走原生文件选择器（Playwright filechooser）。逐张上传：
+      // 点「选择图片」→ 下拉「本地图片」→ 捕获 filechooser → setFiles([单张]) → 主图区实时追加（无需网格选择/确定）。
+      // 实测：6 张一次 setFiles 不稳定，逐张最稳；单张 setFiles 已验证 main 0→1→2… 可靠。
+      const fcPromise = this.page.waitForEvent("filechooser", { timeout: 8000 }).catch(() => null);
       const trigger = this.page.locator(".productMainImgModule button:has-text('选择图片')").first();
       if (await trigger.count()) {
         await trigger.click({ timeout: 8000 }).catch((e) => ulog(`[${i}] trigger err`, e.message.slice(0, 80)));
-        await sleep(800);
-        // 选择图片下拉菜单 → 选「本地图片」
+        await sleep(700);
         const localItem = this.page.locator(".ant-dropdown:visible .ant-dropdown-menu-item").filter({ hasText: "本地图片" }).last();
         if (await localItem.count()) {
           await localItem.click({ timeout: 5000 }).catch((e) => ulog(`[${i}] localItem err`, e.message.slice(0, 80)));
-          ulog(`[${i}] clicked 本地图片 dropdown item`);
-          await sleep(1500);
+          ulog(`[${i}] clicked 本地图片`);
         } else {
           ulog(`[${i}] no 本地图片 dropdown item`);
         }
       }
-      const picker = await this.findImagePicker();
-      ulog(`[${i}] picker=`, picker ? { cls: picker.cls, w: picker.w, h: picker.h, imgs: picker.imgs, hasLocalInput: picker.hasLocalInput, btns: picker.btns } : null);
-
-      // 2) 切到「本地图片」tab（如有）
-      if (picker) {
-        const localTab = this.page.locator(".d-tag-group-item:has-text('本地图片'), .ant-tabs-tab:has-text('本地图片')").first();
-        if (await localTab.count()) { await localTab.click({ timeout: 5000 }).catch(() => {}); await sleep(1000); ulog(`[${i}] clicked 本地图片 tab`); }
+      const fc = await fcPromise;
+      if (!fc) { ulog(`[${i}] NO filechooser captured`); continue; }
+      try {
+        await fc.setFiles([fp]);
+        ulog(`[${i}] setFiles ok: ${path.basename(fp)}`);
+      } catch (e) {
+        ulog(`[${i}] setFiles err`, e.message.slice(0, 80));
+        continue;
       }
-
-      // 3) 上传单张（选择器内的 input 优先，否则全局 #localFileUploadInp）
-      const inputSel = picker && picker.hasLocalInput ? ".productMainImgModule ~ * input[type=file], .ant-modal input[type=file], input[type=file]" : "#localFileUploadInp";
-      const input = this.page.locator(inputSel).first();
-      await input.setInputFiles([fp], { timeout: 15000 }).catch((e) => ulog(`[${i}] setInputFiles err`, e.message.slice(0, 80)));
-      await sleep(4000);
-      const picker2 = await this.findImagePicker();
-      ulog(`[${i}] after upload picker imgs=`, picker2 ? picker2.imgs : "n/a");
-
-      // 4) 在选择器网格里选中刚传的图（点 image-box / 第一个 img 的容器 / checkbox）
-      const selOk = await this.page.evaluate(() => {
-        // 与 findImagePicker 一致：先找含 本地/空间 文本的 modal，否则 fixed/absolute 覆盖层
-        const modals = Array.from(document.querySelectorAll(".ant-modal-wrap, .ant-modal, [class*=vcDialog], [class*=modal]")).filter((m) => { try { return m.getBoundingClientRect().width > 100 && m.getBoundingClientRect().height > 100; } catch { return false; } });
-        let pk = modals.find((m) => /本地图片|空间图片/.test(m.innerText || "")) || null;
-        if (!pk) {
-          const all = Array.from(document.querySelectorAll("*"));
-          let best = null, bestScore = 0;
-          for (const el of all) {
-            if (el.tagName === "BODY" || el.tagName === "HTML") continue;
-            const cs = getComputedStyle(el);
-            const r = el.getBoundingClientRect();
-            if (r.width < 200 || r.height < 150) continue;
-            const zi = parseInt(cs.zIndex || "0", 10) || 0;
-            if (!(cs.position === "fixed" || cs.position === "absolute" || zi > 500)) continue;
-            if (!/本地图片|空间图片/.test(el.innerText || "")) continue;
-            const sc = (zi > 500 ? 10 : 0) + (cs.position === "fixed" ? 5 : 0);
-            if (sc > bestScore) { bestScore = sc; best = el; }
-          }
-          pk = best;
-        }
-        if (!pk) return false;
-        const box = pk.querySelector(".image-box, [class*=image-item], [class*=img-item], li");
-        if (box) { try { box.click(); return "box"; } catch { /* ignore */ } }
-        const img = pk.querySelector("img");
-        if (img) { try { (img.closest("[class*=item], [class*=card], li") || img.parentElement).click(); return "img"; } catch { /* ignore */ } }
-        const cb = pk.querySelector("input[type=checkbox], .ant-checkbox");
-        if (cb) { try { cb.click(); return "checkbox"; } catch { /* ignore */ } }
-        return false;
-      });
-      ulog(`[${i}] select-in-picker=`, selOk);
-      await sleep(1000);
-
-      // 5) 点「确定」把选中图加入主图区
-      const okBtn = this.page.locator("button:has-text('确定'), a:has-text('确定'), button:has-text('添加到'), button:has-text('插入'), button:has-text('完成')").first();
-      if (await okBtn.count()) {
-        await okBtn.click({ timeout: 5000 }).catch((e) => ulog(`[${i}] ok err`, e.message.slice(0, 60)));
-        await sleep(2000);
-        ulog(`[${i}] clicked 确定`);
-      } else {
-        ulog(`[${i}] NO 确定 button found`);
+      // 等待主图区增加该图（店小秘上传后实时追加）
+      let added = false;
+      for (let w = 0; w < 12; w += 1) {
+        await sleep(800);
+        const after = await mainCount();
+        if (after > before) { okCount = after; added = true; ulog(`[${i}] main ${before}->${after} added`); break; }
       }
+      if (!added) ulog(`[${i}] main did NOT increase after upload (before=${before}, file=${path.basename(fp)})`);
       await this.dismissModals();
-      const after = await mainCount();
-      ulog(`[${i}] main before=${before} after=${after}`);
-      if (after > before) okCount = after;
     }
 
     const finalv = await this.page.evaluate(() => {
@@ -938,7 +898,18 @@ export class DianxiaomiAdapter {
       return { count: imgs.length, real: imgs.filter(isReal).length, srcs: imgs };
     });
     ulog("FINAL", finalv);
-    return { ok: finalv.real >= filePaths.length, uploadedCount: filePaths.length, thumbnails: finalv.count, realThumbnails: finalv.real, clearedMain, clearedVideo, srcs: finalv.srcs };
+    const realOk = finalv.real >= filePaths.length;
+    return {
+      ok: realOk,
+      // 关键：返回 reason 让 server 端 / 前端日志能看到失败原因
+      reason: realOk ? undefined : `real-thumbs-short: got ${finalv.real}/${filePaths.length} (clearedMain=${clearedMain})`,
+      uploadedCount: filePaths.length,
+      thumbnails: finalv.count,
+      realThumbnails: finalv.real,
+      clearedMain,
+      clearedVideo,
+      srcs: finalv.srcs
+    };
   }
 
   // 选类目（依赖先选店铺；选项才加载）
@@ -1202,7 +1173,7 @@ export class DianxiaomiAdapter {
   // 乳贴(ruTie)：沿用历史完整闭环（类目属性补全 + 物流 + 主图 + 销售属性 + SKU + 每色图）。
   async fillFromFacts(facts) {
     await this.connect();
-    const isXiangBao = this.profile.key === "xiangBao";
+    const isXiangBao = isXiangBaoProfile(this.profile);
     if (isXiangBao) {
       const applied = [];
       applied.push(...(await this.fillAiSections(facts)));
@@ -1927,13 +1898,60 @@ export class DianxiaomiAdapter {
     // 成功判据：捕获到成功 toast，或「无校验错误」（店小秘保存失败必弹「校验失败/请选择」错误；
     // 此前每次失败都弹出校验错误，现无错误即代表校验通过、草稿已存入「待发布」）。
     const saved = !!readback.successToast || (!readback.errorToast && !readback.errorText);
-    const level = readback.errorToast || readback.errorText ? "err" : (saved ? "ok" : "unknown");
+    // 读回校验：保存后实际页面状态（防止「无 toast + 无 error」→ 假成功）。
+    // 必查：主图区真实张数、PC端/无线端 ckeditor 实际内容长度。
+    // 引用模板自带 1 张占位图（thumbnail 计入，real 不会算它），故 realThumbnails >= 1 才算「有图」。
+    let readbackCheck = { mainReal: 0, pcLen: 0, mobileLen: 0, ok: true, reason: "" };
+    try {
+      readbackCheck = await this.page.evaluate(() => {
+        const m = document.querySelector(".productMainImgModule");
+        const imgs = m ? Array.from(m.querySelectorAll("img")) : [];
+        const realImgs = imgs.filter((i) => {
+          const s = i.getAttribute("src") || "";
+          return s.length > 60 && !/placeholder|empty|default|svg\+xml/.test(s);
+        });
+        // PC 端 ckeditor：优先 window.CKEDITOR.instances[id]，否则从 iframe 取 body 文本长度
+        const getCkLen = (id) => {
+          if (window.CKEDITOR && window.CKEDITOR.instances && window.CKEDITOR.instances[id]) {
+            return (window.CKEDITOR.instances[id].getData() || "").length;
+          }
+          return 0;
+        };
+        const pcLen = getCkLen("ckeditor1") || getCkLen("ckeditor01") || getCkLen("PC端描述") || 0;
+        const mobileLen = getCkLen("ckeditor33") || getCkLen("ckeditor3") || getCkLen("无线端描述") || 0;
+        // 退路：从表单 item 内文本里抓
+        const findText = (re) => {
+          const it = Array.from(document.querySelectorAll(".ant-form-item")).find((x) => re.test((x.innerText || "").slice(0, 30)));
+          if (!it) return 0;
+          const f = it.querySelector("iframe");
+          if (f && f.contentDocument && f.contentDocument.body) {
+            return (f.contentDocument.body.innerText || "").length;
+          }
+          return (it.innerText || "").length;
+        };
+        const pcLen2 = pcLen || findText(/PC端描述/);
+        const mobileLen2 = mobileLen || findText(/无线端描述/);
+        return { mainReal: realImgs.length, pcLen: pcLen2, mobileLen: mobileLen2 };
+      });
+    } catch (_e) {
+      readbackCheck = { mainReal: -1, pcLen: -1, mobileLen: -1 };
+    }
+    // 强制最低门槛：实际有真实主图 + PC 端文本非空 + 无线端文本非空；任一不达标即覆盖 saved=false。
+    // 允许无线端略宽容（≤30 字符视为空），因为新版编辑器弹窗偶发只生成小段，但 PC 是必有内容。
+    const hardIssues = [];
+    if (readbackCheck.mainReal < 1) hardIssues.push(`main-img-empty(${readbackCheck.mainReal})`);
+    if (readbackCheck.pcLen < 50) hardIssues.push(`pc-desc-empty(${readbackCheck.pcLen})`);
+    if (readbackCheck.mobileLen < 50) hardIssues.push(`mobile-desc-empty(${readbackCheck.mobileLen})`);
+    const finalSaved = saved && hardIssues.length === 0;
+    if (hardIssues.length) readbackCheck.reason = hardIssues.join(",");
+    readbackCheck.ok = finalSaved;
+    const level = (readback.errorToast || readback.errorText || hardIssues.length) ? "err" : (finalSaved ? "ok" : "unknown");
     const message = readback.errorToast || readback.errorText
       ? (readback.errorToast || readback.errorText)
-      : (readback.successToast || (saved ? "保存成功（无错误提示，草稿已存待发布）" : "已点击保存，未捕获提示，请人工到待发布页确认草稿"));
+      : (readback.successToast || (finalSaved ? "保存成功（无错误提示，草稿已存待发布）" : (hardIssues.length ? `读回校验失败: ${hardIssues.join(", ")}（店小秘保存成功但页面实际为空）` : "已点击保存，未捕获提示，请人工到待发布页确认草稿")));
     return {
       clicked: label,
-      saved,
+      saved: finalSaved,
       level,
       message,
       urlBefore,
@@ -1941,7 +1959,9 @@ export class DianxiaomiAdapter {
       urlChanged,
       successToast: readback.successToast || "",
       errorToast: readback.errorToast || "",
-      errorText: readback.errorText || ""
+      errorText: readback.errorText || "",
+      readback: readbackCheck,
+      hardIssues
     };
   }
 

@@ -10407,7 +10407,14 @@ function renderDianxiaomiListing() {
   document.getElementById("dx-refill")?.addEventListener("click", () => void dxReferenceFill());
   document.getElementById("dx-save")?.addEventListener("click", () => void dxSave());
   const profSel = document.getElementById("dx-profile");
-  if (profSel) profSel.addEventListener("change", (e) => { dianxiaomiState.profileKey = e.target.value; dxLogLine("⋅ 类目已切换: " + e.target.value); });
+  if (profSel) profSel.addEventListener("change", (e) => {
+    dianxiaomiState.profileKey = e.target.value;
+    dxLogLine("⋅ 类目已切换: " + e.target.value);
+    // 切类目时把「引用产品 ID」预填为该类目模板 ID（用户仍可手动改）
+    const prof = (dianxiaomiState.profiles || []).find((p) => p.key === e.target.value);
+    const tplInput = document.getElementById("dx-tpl");
+    if (tplInput && prof && prof.templateProductId) tplInput.value = prof.templateProductId;
+  });
   const tpl = document.getElementById("dx-tpl");
   if (tpl) tpl.addEventListener("keydown", (e) => { if (e.key === "Enter") void dxReferenceApply(); });
   // 首次渲染拉取可用类目 profile（箱包配件/乳贴）
@@ -10511,6 +10518,7 @@ function blRowToPayload(r) {
     packageName: r.packageName,
     category: r.category,
     enabled: r.enabled !== false,
+    referenceProductId: (r.referenceProductId && String(r.referenceProductId).trim()) || "",
     store: blEff(r.store, r.storeOn),
     brand: blEff(r.brand, r.brandOn),
     variantParams: blEff(r.variantParams, r.variantOn),
@@ -10528,6 +10536,7 @@ function parseBatchCsv(text) {
   const header = lines[0].split(",").map((h) => h.trim());
   const idxName = Math.max(header.findIndex((h) => /packageName|产品包名|包名/i.test(h)), 0);
   const idxCat = header.findIndex((h) => /category|类目/i.test(h));
+  const idxRefId = header.findIndex((h) => /引用商品ID|引用商品|引用ID|templateProductId|商品id/i.test(h));
   const idxEn = header.findIndex((h) => /enabled|上架|启用/i.test(h));
   const idxStoreOn = header.findIndex((h) => /^店铺_启用$|^店铺启用$/.test(h));
   const idxStore = header.findIndex((h) => /^店铺_名称$|^店铺名称$|^店铺$/.test(h));
@@ -10552,8 +10561,9 @@ function parseBatchCsv(text) {
     const txt = (idx) => (idx >= 0 ? (cols[idx] || "").trim() : "");
     const onf = (idx) => (idx >= 0 ? blBool(cols[idx]) : false);
     const store = txt(idxStore), brand = txt(idxBrand), variantParams = txt(idxVar), stockType = txt(idxStock);
+    const referenceProductId = txt(idxRefId);
     rows.push({
-      packageName: name, category, enabled, status: "idle", progress: 0, reason: "",
+      packageName: name, category, referenceProductId, enabled, status: "idle", progress: 0, reason: "",
       store, storeOn: onf(idxStoreOn) || !!store,
       brand, brandOn: onf(idxBrandOn) || !!brand,
       variantParams, variantOn: onf(idxVarOn) || !!variantParams,
@@ -10588,6 +10598,7 @@ function parseBatchXlsx(arrayBuffer) {
   const col = (re) => header.findIndex((h) => re.test(h));
   const idxName = Math.max(col(/packageName|产品包名|包名/i), 0);
   const idxCat = col(/^category$|类目/i);
+  const idxRefId = col(/^引用商品ID$|^引用商品$|^引用ID$|^templateProductId$|^商品id$/i);
   const idxEn = col(/^enabled$|上架|启用/i);
   const idxStoreOn = col(/^店铺_启用$|^店铺启用$/);
   const idxStore = col(/^店铺_名称$|^店铺名称$|^店铺$/);
@@ -10612,8 +10623,9 @@ function parseBatchXlsx(arrayBuffer) {
     const txt = (idx) => (idx >= 0 ? String(cols[idx] || "").trim() : "");
     const onf = (idx) => (idx >= 0 ? blBool(cols[idx]) : false);
     const store = txt(idxStore), brand = txt(idxBrand), variantParams = txt(idxVar), stockType = txt(idxStock);
+    const referenceProductId = txt(idxRefId);
     rows.push({
-      packageName: name, category, enabled, status: "idle", progress: 0, reason: "",
+      packageName: name, category, referenceProductId, enabled, status: "idle", progress: 0, reason: "",
       store, storeOn: onf(idxStoreOn) || !!store,
       brand, brandOn: onf(idxBrandOn) || !!brand,
       variantParams, variantOn: onf(idxVarOn) || !!variantParams,
@@ -10636,8 +10648,9 @@ function downloadCsv(text, filename) {
 }
 
 // 批量上架表格表头（基础列 + 可选自定义列）。可选列规则：填了"自定义名称"即覆盖默认，无需手勾。
+// 引用商品ID：逐行覆盖类目默认模板 ID；留空则用类目 profile.templateProductId。
 const BATCH_XLSX_HEADER = [
-  "packageName", "category", "enabled",
+  "packageName", "category", "引用商品ID", "enabled",
   "店铺_启用", "店铺_名称",
   "品牌_启用", "品牌_名称",
   "变种参数_启用", "变种参数",
@@ -10649,7 +10662,7 @@ async function batchGenerateSource() {
     const data = await request("/api/dianxiaomi/product-packages");
     const pkgs = (data.packages || []).filter((p) => p.hasFacts);
     const rows = [BATCH_XLSX_HEADER.slice()];
-    for (const p of pkgs) rows.push([p.name, p.category, true, "", "", "", "", "", "", "", ""]);
+    for (const p of pkgs) rows.push([p.name, p.category, "", true, "", "", "", "", "", "", "", ""]);
     downloadXlsx(rows, "批量上架数据源.xlsx");
   } catch (e) {
     alert("下载数据源表格失败：" + (e && e.message ? e.message : e));
@@ -10659,8 +10672,9 @@ async function batchGenerateSource() {
 function batchDownloadTemplate() {
   downloadXlsx([
     BATCH_XLSX_HEADER.slice(),
-    ["示例-乳贴(上传前请删除此行)", "", "true", "TRUE", "洛慈全托管", "FALSE", "", "TRUE", "颜色:肤色,黑色;尺寸:One Size", "FALSE", ""],
-    ["示例-箱包(上传前请删除此行)", "xiangBao", "true", "TRUE", "洛慈全托管", "TRUE", "MyBrand", "TRUE", "古铜色=Bronze=bronze.jpg;Rose Gold=Rose Gold=rose.jpg;淡金色=Light Gold=lg.jpg;巧克力色=Chocolate=white.jpg;金=Gold=4pcs.jpg", "FALSE", ""]
+    ["示例-乳贴(上传前请删除此行)", "", "", "true", "TRUE", "洛慈全托管", "FALSE", "", "TRUE", "颜色:肤色,黑色;尺寸:One Size", "FALSE", ""],
+    ["示例-箱包(上传前请删除此行)", "xiangBao", "", "true", "TRUE", "洛慈全托管", "TRUE", "MyBrand", "TRUE", "古铜色=Bronze=bronze.jpg;Rose Gold=Rose Gold=rose.jpg;淡金色=Light Gold=lg.jpg;巧克力色=Chocolate=white.jpg;金=Gold=4pcs.jpg", "FALSE", ""],
+    ["示例-箱包便携折叠包(上传前请删除此行)", "xiangBaoFold", "1005011985916829", "true", "TRUE", "洛慈全托管", "TRUE", "MyBrand", "TRUE", "古铜色=Bronze=bronze.jpg;Rose Gold=Rose Gold=rose.jpg;淡金色=Light Gold=lg.jpg;巧克力色=Chocolate=white.jpg;金=Gold=4pcs.jpg", "FALSE", ""]
   ], "批量上架模板.xlsx");
 }
 
@@ -10753,7 +10767,8 @@ function renderBatchListing() {
   const catOpts = (val) => `
     <option value="auto" ${val === "auto" || !val ? "selected" : ""}>自动</option>
     <option value="ruTie" ${val === "ruTie" ? "selected" : ""}>乳贴</option>
-    <option value="xiangBao" ${val === "xiangBao" ? "selected" : ""}>箱包</option>`;
+    <option value="xiangBao" ${val === "xiangBao" ? "selected" : ""}>箱包</option>
+    <option value="xiangBaoFold" ${val === "xiangBaoFold" ? "selected" : ""}>箱包便携折叠包</option>`;
   // 可选自定义列单元格：checkbox("自定义") + 文本输入(自定义名称)。填值即视为启用。
   const fieldCell = (r, textCls, onCls, textKey, onKey, ph) => `
     <td>
@@ -10793,13 +10808,14 @@ function renderBatchListing() {
       <div class="bl-card">
         <div class="bl-table-wrap">
         <table class="bl-table">
-          <thead><tr><th>上架</th><th>产品包名</th><th>类目</th><th>店铺</th><th>品牌</th><th>变种参数</th><th>备货类型</th><th>状态</th><th>进度</th><th>说明</th></tr></thead>
+          <thead><tr><th>上架</th><th>产品包名</th><th>类目</th><th>引用商品ID</th><th>店铺</th><th>品牌</th><th>变种参数</th><th>备货类型</th><th>状态</th><th>进度</th><th>说明</th></tr></thead>
           <tbody>
             ${rows.map((r) => `
               <tr>
                 <td><input type="checkbox" class="bl-enabled" data-name="${blEscapeHtml(r.packageName)}" ${r.enabled !== false ? "checked" : ""} ${dis}/></td>
                 <td>${blEscapeHtml(r.packageName)}</td>
                 <td><select class="bl-cat" data-name="${blEscapeHtml(r.packageName)}" ${dis}>${catOpts(r.category)}</select></td>
+                <td><input type="text" class="bl-refid" data-name="${blEscapeHtml(r.packageName)}" value="${blEscapeHtml(r.referenceProductId || "")}" placeholder="留空用类目默认" ${dis}/></td>
                 ${fieldCell(r, "bl-store", "bl-store-on", "store", "storeOn", "店小秘店铺名")}
                 ${fieldCell(r, "bl-brand", "bl-brand-on", "brand", "brandOn", "品牌名")}
                 ${fieldCell(r, "bl-variant", "bl-variant-on", "variantParams", "variantOn", "乳贴/箱包格式见上方说明")}
@@ -10840,6 +10856,10 @@ function renderBatchListing() {
   wireField("bl-brand", "bl-brand-on", "brand", "brandOn");
   wireField("bl-variant", "bl-variant-on", "variantParams", "variantOn");
   wireField("bl-stock", "bl-stock-on", "stockType", "stockTypeOn");
+  root.querySelectorAll(".bl-refid").forEach((inp) => inp.addEventListener("input", (e) => {
+    const r = batchListingState.rows.find((x) => x.packageName === e.target.dataset.name);
+    if (r) r.referenceProductId = e.target.value.trim();
+  }));
   root.querySelectorAll(".bl-cat").forEach((sel) => sel.addEventListener("change", (e) => {
     const name = e.target.dataset.name;
     const r = batchListingState.rows.find((x) => x.packageName === name);
@@ -10874,8 +10894,8 @@ const BLC_STATUS_LABEL = {
 };
 
 function blcDownloadTemplate() {
-  const header = ["productName", "imageUrl_1", "imageUrl_2", "imageUrl_3", "imageUrls", "mode", "category", "notes"];
-  const example = ["示例产品(上传前删掉此行)", "https://example.com/img1.jpg", "https://example.com/img2.jpg", "", "https://example.com/extra.jpg;https://example.com/extra2.jpg", "full_listing", "", "可选备注"];
+  const header = ["productName", "imageUrl_1", "imageUrl_2", "imageUrl_3", "imageUrls", "localImage_1", "localImage_2", "localImage_3", "localImages", "mode", "category", "notes"];
+  const example = ["示例产品(上传前删掉此行)", "https://example.com/img1.jpg", "https://example.com/img2.jpg", "", "https://example.com/extra.jpg;https://example.com/extra2.jpg", "C:\\Users\\你的用户名\\Pictures\\a.jpg", "D:\\产品图\\b.png", "", "D:\\产品图\\c.jpg;D:\\产品图\\d.webp", "full_listing", "", "可选备注"];
   downloadXlsx([header, example], "批量上品模板.xlsx");
 }
 
@@ -10943,6 +10963,33 @@ async function pollBlcStatus() {
   try {
     const data = await request("/api/batch-listing-create/status");
     if (!data || !data.ok) return;
+
+    // 恢复模式：刷新页面后前端状态为空，但后端可能保存了最近任务
+    if (batchListingCreateState.rows.length === 0 && data.items && data.items.length > 0) {
+      batchListingCreateState.rows = data.items.map((it) => ({
+        productName: it.productName,
+        mode: it.mode || "full_listing",
+        category: "",
+        notes: "",
+        imageCount: 0,
+        status: it.status || "idle",
+        currentStage: it.currentStage || "",
+        progress: typeof it.progress === "number" ? it.progress : 0,
+        outputDirectory: it.outputDirectory || "",
+        artifacts: Array.isArray(it.artifacts) ? it.artifacts : [],
+        reason: it.reason || ""
+      }));
+      batchListingCreateState.jobId = data.jobId || batchListingCreateState.jobId;
+      batchListingCreateState.uploaded = true;
+      batchListingCreateState.busy = data.running || false;
+      batchListingCreateState.active = data.running || false;
+      batchListingCreateState.summary = data.summary || null;
+      if (batchListingCreateState.summary && batchListingCreateState.jobId) {
+        batchListingCreateState.resultUrl = "/api/batch-listing-create/download?jobId=" + encodeURIComponent(batchListingCreateState.jobId);
+      }
+      return;
+    }
+
     const byName = new Map((data.items || []).map((it) => [it.productName, it]));
     let idx = 0;
     for (const r of batchListingCreateState.rows) {
@@ -10982,7 +11029,8 @@ function renderBatchListingCreate() {
   const root = document.getElementById("batch-listing-create-root");
   if (!root) return;
   if (activeViewName() !== "batch-listing-create") return;
-  if (batchListingCreateState.active) void pollBlcStatus();
+  // 页面刷新后状态会清空：只要没有行数据或任务仍在跑，就主动拉后端恢复
+  if (batchListingCreateState.rows.length === 0 || batchListingCreateState.active) void pollBlcStatus();
 
   const sig = JSON.stringify(batchListingCreateState.rows.map((r) => [
     r.productName, r.mode, r.status, r.progress, r.currentStage, r.outputDirectory, r.reason
@@ -11000,7 +11048,7 @@ function renderBatchListingCreate() {
       <div class="bl-overview">
         <div class="bl-overview-icon">🏭</div>
         <div class="bl-overview-text">
-          <b>批量上品（Listing）</b>：下载模板 → 填产品名 + 图片 URL + 每行模式 → 上传 → 逐行自动生成 Listing → 结果回填原表格
+          <b>批量上品（Listing）</b>：下载模板 → 填产品名 + 图片（URL 或本地路径）+ 每行模式 → 上传 → 逐行自动生成 Listing → 结果回填原表格
           <span class="bl-overview-sub">每行独立选择：full_listing（完整 Listing，含作图）/ seo_content_only（仅 SEO 与商品文案）。处理完会在原 xlsx 追加 status / outputDirectory / artifacts 列并提供结果下载。</span>
         </div>
       </div>
@@ -11015,7 +11063,7 @@ function renderBatchListingCreate() {
           <button id="blc-start" class="bl-btn primary" ${(!batchListingCreateState.uploaded || batchListingCreateState.busy) ? "disabled" : ""}>▶ 开始批量上品</button>
         </div>
         <div class="bl-card-note">
-          <span>💡 每行 mode 填 full_listing 或 seo_content_only；full_listing 必须提供至少一张图片 URL；seo_content_only 可无图。图片 URL 须为 http/https 公网可访问链接。</span>
+          <span>💡 每行 mode 填 full_listing 或 seo_content_only；full_listing 必须提供至少一张图片（URL 或本地路径）。图片 URL 须为 http/https 公网可访问链接；本地图片填本机文件绝对路径（如 C:\Users\你\Pictures\a.jpg 或 D:\产品图\b.png），优先用 localImage_* / 本地图片 列，与 imageUrl_* 列可混用，二者都支持分号/逗号分隔多张。</span>
         </div>
         ${batchListingCreateState.busy ? `<div class="bl-hint">批量上品进行中，进度每秒刷新…</div>` : ""}
       </div>
