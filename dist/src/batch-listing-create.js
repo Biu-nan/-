@@ -386,6 +386,22 @@ async function recoverListingCreateState() {
         listingCreateRunState.summary = saved.summary || null;
         listingCreateRunState.items = saved.items || {};
         listingCreateRunState.filePath = saved.filePath || null;
+        // 兜底：如果恢复出的状态是「所有行都跑完了但 running 标记没清掉」的 stuck 状态
+        //（例如 server 重启/被杀发生在最后一行写快照之后、最终 running=false 快照之前），
+        // 自动归一化为已结束，避免前端按钮永远被禁用。
+        const items = Object.values(listingCreateRunState.items);
+        const anyRunning = items.some((it) => it.status === "running");
+        if (listingCreateRunState.running && !anyRunning &&
+            (listingCreateRunState.overallProgress >= 100 || items.length > 0)) {
+            listingCreateRunState.running = false;
+            listingCreateRunState.finishedAt = listingCreateRunState.finishedAt || new Date().toISOString();
+            if (!listingCreateRunState.summary) {
+                const success = items.filter((it) => it.status === "done").length;
+                const failed = items.filter((it) => it.status === "failed").length;
+                listingCreateRunState.summary = { success, failed, skipped: 0, total: items.length };
+            }
+            await snapshotListingCreate(listingCreateRunState.jobId);
+        }
     }
     catch (error) {
         console.warn("recover listing create state failed:", error instanceof Error ? error.message : String(error));
