@@ -13,6 +13,8 @@
 
 import path from "node:path";
 import fs from "node:fs";
+import { spawn } from "node:child_process";
+import net from "node:net";
 import { chromium } from "playwright-core";
 import {
   CHROME_DEBUG_PORT,
@@ -61,6 +63,55 @@ function resolveImagePath(baseDir, filename) {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// 检查本地端口是否可连
+function isPortReachable(port, host = "127.0.0.1", timeout = 1500) {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    socket.setTimeout(timeout);
+    socket.once("connect", () => { socket.destroy(); resolve(true); });
+    socket.once("timeout", () => { socket.destroy(); resolve(false); });
+    socket.once("error", () => { socket.destroy(); resolve(false); });
+    socket.connect(port, host);
+  });
+}
+
+// 按需启动 Chrome（CDP 未监听时）
+async function ensureChrome(debugPort = CHROME_DEBUG_PORT) {
+  if (await isPortReachable(debugPort)) return true;
+  const chromePath = process.env.CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe";
+  try {
+    if (!fs.existsSync(chromePath)) {
+      // 尝试常见备用路径
+      const fallbacks = [
+        "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
+        "C:/Users/User/AppData/Local/Google/Chrome/Application/chrome.exe",
+        "C:/Program Files/Google/Chrome/Application/chrome.exe"
+      ];
+      let found = chromePath;
+      for (const p of fallbacks) { if (fs.existsSync(p)) { found = p; break; } }
+      if (!fs.existsSync(found)) return false;
+    }
+    const userDataDir = path.join(process.cwd(), ".chrome-profile");
+    const proc = spawn(chromePath, [
+      `--remote-debugging-port=${debugPort}`,
+      `--user-data-dir=${userDataDir}`,
+      "--no-first-run",
+      "--no-default-browser-check",
+      "--start-maximized",
+      "https://www.dianxiaomi.com/"
+    ], { detached: true, stdio: "ignore" });
+    proc.unref();
+    // 等待 CDP 可用（最多 15s）
+    for (let i = 0; i < 30; i += 1) {
+      await sleep(500);
+      if (await isPortReachable(debugPort)) return true;
+    }
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
 
 async function clickVisibleByText(page, text, timeout = 10000) {
   /* 点击第一个可见的包含指定文字的元素；优先用 Dropdown 精确选择器 */
@@ -134,6 +185,10 @@ export class DianxiaomiAdapter {
     } catch { /* ignore */ }
     this.browser = null;
     this.page = null;
+
+    // CDP 未监听时自动启动 Chrome（避免用户手动启动）
+    const chromeReady = await ensureChrome(CHROME_DEBUG_PORT);
+    if (!chromeReady) throw new Error(`Chrome CDP 端口 ${CHROME_DEBUG_PORT} 未监听，且自动启动失败。请手动启动 Chrome：--remote-debugging-port=${CHROME_DEBUG_PORT}`);
 
     this.browser = await chromium.connectOverCDP(`http://127.0.0.1:${CHROME_DEBUG_PORT}`);
 
@@ -2157,12 +2212,22 @@ export class DianxiaomiAdapter {
       }
     }
 
-    // 3) 保存并进入下一步
+    // 3) 保存并进入下一步。店小秘可能在当前页跳转，也可能新开标签页进入编辑表单，
+    //    故同时监听 new page 事件，确保 this.page 指向真正的编辑页。
+    const context = page.context();
+    const newPagePromise = context.waitForEvent("page", { timeout: 8000 }).catch(() => null);
     await clickVisibleByText(page, "保存，下一步", 8000);
-    await page.waitForLoadState("networkidle").catch(() => {});
-    await sleep(3000);
+    const newPage = await newPagePromise;
+    if (newPage && !newPage.isClosed()) {
+      this.page = newPage;
+      await this.page.waitForLoadState("networkidle").catch(() => {});
+      await sleep(1500);
+    } else {
+      await page.waitForLoadState("networkidle").catch(() => {});
+      await sleep(3000);
+    }
 
-    return { ok: true, url: page.url(), mapped, state };
+    return { ok: true, url: this.page.url(), mapped, state };
   }
 
   // 探索：dump 采集箱列表页结构（搜索框 / 表头 / 编辑按钮 / 所有按钮文案），
