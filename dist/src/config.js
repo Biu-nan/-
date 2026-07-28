@@ -92,6 +92,8 @@ export const NOTEBOOKLM_URL = "https://notebooklm.google.com/notebook/e8814b50-a
 // 用户明确：模板产品是「速卖通/半托管」(托管模式)，必须走 smtChoice 入口，否则引用产品搜不到。
 export const DIANXIAOMI_URL_POP = "https://www.dianxiaomi.com/web/smt/add";
 export const DIANXIAOMI_URL_CHOICE = "https://www.dianxiaomi.com/web/smtChoice/add";
+// 速卖通全托管「采集箱」草稿列表页（采集箱批量上架：搜标题→点编辑→填 facts→保存不发布）。
+export const DIANXIAOMI_URL_CHOICE_DRAFT = "https://www.dianxiaomi.com/web/smtChoice/draft";
 // 当前 v1.0 使用托管模式入口
 export const DIANXIAOMI_URL = DIANXIAOMI_URL_CHOICE;
 export const DIANXIAOMI_TEMPLATE_PRODUCT_ID = "1005005575013300";

@@ -3450,6 +3450,104 @@ app.get("/api/dianxiaomi/batch-status", async (_request, response) => {
   }
 });
 
+// ===== 采集箱批量上架：路由（v 新路径，2026-07-28）=====
+
+// 生成「采集批量上架模板」：扫描 已完成产品/ 中含 product-facts.json 的包，
+// 按 detectCategory 判定类目，取 facts.title 作为预填「搜索标题」。可选 body.category 过滤类目。
+app.post("/api/dianxiaomi/collect-batch-generate", async (request, response) => {
+  try {
+    const onlyCat = (request.body && request.body.category) ? String(request.body.category).trim() : "";
+    const names = await readdir(COMPLETED_PRODUCTS_DIR).catch(() => []);
+    const rows = [];
+    for (const name of names) {
+      if (name.startsWith(".")) continue;
+      const dir = path.join(COMPLETED_PRODUCTS_DIR, name);
+      let isDir = false;
+      try { isDir = (await stat(dir)).isDirectory(); } catch { isDir = false; }
+      if (!isDir) continue;
+      let facts = null;
+      try { facts = JSON.parse(await readFile(path.join(dir, "product-facts.json"), "utf8")); } catch { /* 无 facts 跳过 */ }
+      if (!facts) continue;
+      let category = "ruTie";
+      try { category = await detectCategory(dir); } catch { /* ignore */ }
+      if (onlyCat && category !== onlyCat) continue;
+      const title = (facts.title && (facts.title.en || facts.title.zh)) || "";
+      rows.push({
+        packageName: name,
+        category,
+        searchTitle: title,
+        factsPath: dir,
+        enabled: true,
+        status: "idle",
+        progress: 0,
+        reason: ""
+      });
+    }
+    response.json({ ok: true, rows, count: rows.length });
+  }
+  catch (error) {
+    response.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
+// 采集箱批量上架入口：接收人工核对过的 rows（搜索标题/类目/包名），后台顺序执行。
+app.post("/api/dianxiaomi/collect-batch-apply", async (request, response) => {
+  try {
+    const rows = (request.body && Array.isArray(request.body.rows)) ? request.body.rows : [];
+    if (!rows.length) return response.status(400).json({ ok: false, error: "rows 为空" });
+    if (collectBatchRunState.running) return response.status(409).json({ ok: false, error: "已有采集箱批量任务在运行" });
+    const normalized = rows.map((r) => ({
+      packageName: (r.packageName || "").toString().trim(),
+      category: (r.category || "auto").toString().trim(),
+      searchTitle: (r.searchTitle || r.packageName || "").toString().trim(),
+      enabled: r.enabled === false || r.enabled === "false" || r.enabled === 0 || r.enabled === "0" ? false : true,
+      factsPath: (r.factsPath || "").toString().trim()
+    })).filter((r) => r.packageName);
+    if (!normalized.length) return response.status(400).json({ ok: false, error: "无有效 packageName" });
+    collectBatchRunState.jobId = `collect-${Date.now()}`;
+    runBackground(() => runCollectBatchListing(normalized));
+    response.json({ ok: true, jobId: collectBatchRunState.jobId, accepted: true });
+  }
+  catch (error) {
+    response.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
+// 采集箱批量进度查询（前端每秒轮询）
+app.get("/api/dianxiaomi/collect-batch-status", async (_request, response) => {
+  try {
+    const items = Object.values(collectBatchRunState.items).map((it) => ({
+      name: it.name,
+      status: it.status,
+      progress: it.progress,
+      reason: it.reason,
+      log: it.log.slice(-50)
+    }));
+    response.json({
+      ok: true,
+      running: collectBatchRunState.running,
+      jobId: collectBatchRunState.jobId,
+      overallProgress: collectBatchRunState.overallProgress,
+      summary: collectBatchRunState.summary,
+      items
+    });
+  }
+  catch (error) {
+    response.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
+// 探索采集箱：dump 列表页 DOM 结构，便于校准导航选择器（需 Chrome+店小秘已登录）。
+app.post("/api/dianxiaomi/collect-explore", async (_request, response) => {
+  try {
+    const dump = await dianxiaomiAdapter.exploreCollectBox();
+    response.json({ ok: true, dump });
+  }
+  catch (error) {
+    response.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
 // 解析批量表格里的「变种参数」文本 → { colors, sizes }
 // 格式：颜色:肤色,黑色;尺寸:S,M,L （属性名:值1,值2; 多个属性用 ; 分隔；颜色/尺寸映射到销售属性）
 function parseVariantParams(str) {
@@ -3511,6 +3609,127 @@ function buildVariantMatrix(colors, sizes, baseMatrix) {
     });
   }));
   return matrix;
+}
+
+// ===== 采集箱批量上架（v 新路径，2026-07-28）=====
+// 与「引用上架」平行：不引用模板，而是打开速卖通全托管采集箱 → 搜标题 → 点编辑 →
+// 用 product-facts 填（保留采集箱自带源图）→ 保存不发布。复用 fillFromFacts(collectMode=true) + save()。
+const collectBatchRunState = {
+  running: false,
+  jobId: null,
+  startedAt: null,
+  finishedAt: null,
+  overallProgress: 0,
+  summary: null,
+  items: {}
+};
+
+async function runCollectBatchListing(rows) {
+  collectBatchRunState.running = true;
+  collectBatchRunState.jobId = `collect-${Date.now()}`;
+  collectBatchRunState.startedAt = Date.now();
+  collectBatchRunState.finishedAt = null;
+  collectBatchRunState.summary = null;
+  collectBatchRunState.items = {};
+  collectBatchRunState.overallProgress = 0;
+  const targets = rows.filter((r) => r.enabled !== false && r.packageName);
+  const total = targets.length;
+  let success = 0, failed = 0, skipped = 0, done = 0;
+  const snapshot = async () => {
+    try {
+      await writeFile(
+        path.join(HIDDEN_DATA_DIR, "collect-batch-state.json"),
+        JSON.stringify(collectBatchRunState, null, 2),
+        "utf8"
+      );
+    } catch { /* ignore */ }
+  };
+  for (const row of targets) {
+    const name = row.packageName;
+    const dir = path.join(COMPLETED_PRODUCTS_DIR, name);
+    const item = { name, status: "running", progress: 0, reason: "", log: [] };
+    collectBatchRunState.items[name] = item;
+    const log = (m) => item.log.push(`[${new Date().toISOString()}] ${m}`);
+    log(`采集箱上架: ${name} | 搜索标题: ${row.searchTitle}`);
+    // 校验包目录 + product-facts.json
+    let factsFile = null;
+    try {
+      await readFile(path.join(dir, "product-facts.json"), "utf8");
+      factsFile = path.join(dir, "product-facts.json");
+    } catch {
+      item.status = "skipped";
+      item.reason = "缺少 product-facts.json";
+      item.progress = 100;
+      skipped++; done++;
+      collectBatchRunState.overallProgress = total ? Math.round((done / total) * 100) : 100;
+      await snapshot();
+      continue;
+    }
+    const key = (row.category && row.category !== "auto") ? row.category : await detectCategory(dir);
+    try {
+      const profile = dianxiaomiAdapter.setProfile(key);
+      log(`类目 profile: ${profile.key}`);
+      const facts = normalizeDianxiaomiFacts(JSON.parse(await readFile(factsFile, "utf8")));
+      const ready = checkDianxiaomiFactsReady(facts);
+      if (!ready.ok) {
+        item.status = "failed";
+        item.reason = "facts 不完整: " + (ready.message || "");
+        item.progress = 100;
+        failed++; done++;
+        collectBatchRunState.overallProgress = total ? Math.round((done / total) * 100) : 100;
+        await snapshot();
+        continue;
+      }
+      // 导航：采集箱 → 搜标题 → 点编辑
+      await dianxiaomiAdapter.openCollectBox();
+      item.progress = 15;
+      await dianxiaomiAdapter.searchCollectBox(row.searchTitle);
+      item.progress = 30;
+      await dianxiaomiAdapter.openCollectDraftByTitle(row.searchTitle);
+      item.progress = 45;
+      // 采集箱草稿已带固定字段（店铺/备货/分类等），不调用 fillFixedFields，只填 facts 文字/属性/描述。
+      const applied = await dianxiaomiAdapter.fillFromFacts(facts, { collectMode: true });
+      for (const a of applied) {
+        if (a.ok === false) log(`${a.field}: FAIL ${a.reason || ""}`);
+        else if (a.skipped) log(`${a.field}: SKIP ${a.reason || ""}`);
+      }
+      item.progress = 80;
+      const saved = await dianxiaomiAdapter.save();
+      // 关键校验：描述类 critical fields 任一 FAIL / 读回校验失败 → 整行判 failed（与引用模式一致）
+      const criticalFailures = applied.filter((a) => (a.field === "description.pc" || a.field === "description.mobile") && a.ok === false);
+      const readbackIssues = (saved && Array.isArray(saved.hardIssues) && saved.hardIssues.length) ? saved.hardIssues : [];
+      const criticalFailed = criticalFailures.length > 0 || readbackIssues.length > 0;
+      if (saved && saved.saved && !criticalFailed) {
+        item.status = "done";
+        item.reason = saved.url || saved.message || "已存草稿(采集箱，未发布)";
+        item.progress = 100;
+        success++;
+      } else if (saved && saved.saved && criticalFailed) {
+        const failList = criticalFailures.map((a) => `${a.field}(${a.reason || "no-reason"})`).concat(readbackIssues.map((s) => `readback:${s}`));
+        item.status = "failed";
+        item.reason = `店小秘保存成功但页面实际为空: ${failList.join("; ")}`;
+        item.progress = 100;
+        failed++;
+      } else {
+        item.status = "failed";
+        item.reason = (saved && (saved.error || saved.message || JSON.stringify(saved))) || "save 返回非 ok";
+        item.progress = 100;
+        failed++;
+      }
+    } catch (e) {
+      item.status = "failed";
+      item.reason = e instanceof Error ? e.message : String(e);
+      item.progress = 100;
+      failed++;
+    }
+    done++;
+    collectBatchRunState.overallProgress = total ? Math.round((done / total) * 100) : 100;
+    await snapshot();
+  }
+  collectBatchRunState.running = false;
+  collectBatchRunState.finishedAt = Date.now();
+  collectBatchRunState.summary = { success, failed, skipped, total };
+  await snapshot();
 }
 
 async function runBatchListing(rows) {

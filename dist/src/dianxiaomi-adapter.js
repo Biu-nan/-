@@ -25,6 +25,7 @@ import {
   DIANXIAOMI_DEFAULT_MATERIAL,
   DIANXIAOMI_CATEGORY_PROFILES,
   DIANXIAOMI_DEFAULT_PROFILE_KEY,
+  DIANXIAOMI_URL_CHOICE_DRAFT,
   getDianxiaomiProfile,
   isXiangBaoProfile,
   PRODUCT_IMAGES_DIR
@@ -1084,8 +1085,9 @@ export class DianxiaomiAdapter {
   // 按 profile 的 aiSections 配置，填「AI 生成板块」：标题/属性信息/产品图片/营销图片/PC+无线描述。
   // 引用自带板块（店铺/备货/分类/海关/计件单位/来源/欧盟责任人/品牌制造商/型号/来源地 等）一律不触碰。
   // 仅覆盖引用未带出的空属性（类型/材质/品牌/产地），已带出且 facts 无值则保留。
-  async fillAiSections(facts) {
+  async fillAiSections(facts, options = {}) {
     await this.connect();
+    const collectMode = !!(options && options.collectMode);
     const applied = [];
     const p = this.profile;
     const aiAttrs = (p.requiredAttrs || []).filter((a) => a.aiSection === "attributes");
@@ -1121,8 +1123,8 @@ export class DianxiaomiAdapter {
         applied.push({ field: "attr:" + a.label, ...(await this.fillInputByLabel(a.label, fv)) });
       }
     }
-    // 3) 产品图片（AI 生成板块）
-    if (facts.images && Array.isArray(facts.images.main) && facts.images.main.length) {
+    // 3) 产品图片（AI 生成板块）。采集箱模式跳过：保留采集箱自带源图。
+    if (!collectMode && facts.images && Array.isArray(facts.images.main) && facts.images.main.length) {
       const missing = [];
       const paths = facts.images.main.map((n) => {
         const p = resolveImagePath(this.imageBaseDir, n);
@@ -1137,8 +1139,8 @@ export class DianxiaomiAdapter {
         if (Array.isArray(imgRes.srcs) && imgRes.srcs.length) this.lastMainSrcs = imgRes.srcs;
       }
     }
-    // 4) 营销图片（AI 生成板块）
-    if (facts.images && Array.isArray(facts.images.marketing) && facts.images.marketing.length) {
+    // 4) 营销图片（AI 生成板块）。采集箱模式跳过。
+    if (!collectMode && facts.images && Array.isArray(facts.images.marketing) && facts.images.marketing.length) {
       const missing = [];
       const paths = facts.images.marketing.map((n) => {
         const p = resolveImagePath(this.imageBaseDir, n);
@@ -1171,22 +1173,26 @@ export class DianxiaomiAdapter {
   // 前提：已 referenceProduct(id) 引用源产品，表单已带出 类目 + 类目属性 + 品牌/材质/SKU 骨架（乳贴）。
   // 箱包(xiangBao)：只填「AI 生成板块」(fillAiSections) + 物流属性；变种板块人工填写，本系统不触。
   // 乳贴(ruTie)：沿用历史完整闭环（类目属性补全 + 物流 + 主图 + 销售属性 + SKU + 每色图）。
-  async fillFromFacts(facts) {
+  async fillFromFacts(facts, options = {}) {
     await this.connect();
+    // 采集箱模式：保留采集箱自带源图，只填文字/属性/描述/合规，跳过一切图片上传。
+    const collectMode = !!(options && options.collectMode);
     const isXiangBao = isXiangBaoProfile(this.profile);
     if (isXiangBao) {
       const applied = [];
-      applied.push(...(await this.fillAiSections(facts)));
+      applied.push(...(await this.fillAiSections(facts, { collectMode })));
       // 物流属性（必填，引用不携带；箱包默认普货）。弹窗选择，非致命。
       applied.push({ field: "logistics", ...(await this.fillLogisticsAttribute(this.profile.logistics || "普货")) });
       // 销售属性：按 facts.variants 勾选颜色/尺寸（箱包以颜色区分 SKU）
       applied.push({ field: "salesAttrs", ...(await this.fillSalesAttributes(facts)) });
       await sleep(800);
-      // 每色自定义名称 + 每色图（仅当 facts.variants.colorMap 存在时）
-      try {
-        applied.push({ field: "colorCustom", ...(await this.fillColorCustomNamesAndImages(facts)) });
-      } catch (e) {
-        applied.push({ field: "colorCustom", ok: false, reason: e.message });
+      // 每色自定义名称 + 每色图（仅当 facts.variants.colorMap 存在时）。采集箱模式跳过（不覆盖源图）。
+      if (!collectMode) {
+        try {
+          applied.push({ field: "colorCustom", ...(await this.fillColorCustomNamesAndImages(facts)) });
+        } catch (e) {
+          applied.push({ field: "colorCustom", ok: false, reason: e.message });
+        }
       }
       // 合规信息（欧盟责任人/土耳其责任人/品牌制造商）
       applied.push(...(await this.fillComplianceInfo(facts)));
@@ -1220,8 +1226,9 @@ export class DianxiaomiAdapter {
     applied.push(...(await this.fillCategoryAttributes(facts)));
     // 4.6) 物流属性（必填，引用不携带；乳贴为布+胶 → 普货）。弹窗选择，非致命。
     applied.push({ field: "logistics", ...(await this.fillLogisticsAttribute("普货")) });
-    // 5) 产品主图（覆盖上传；产品图目录下的文件名拼 this.imageBaseDir，支持子目录与后缀兜底）
-    if (facts.images && Array.isArray(facts.images.main) && facts.images.main.length) {
+    // 5) 产品主图（覆盖上传；产品图目录下的文件名拼 this.imageBaseDir，支持子目录与后缀兜底）。
+    //    采集箱模式跳过：保留采集箱自带源图，不覆盖主图与每色图。
+    if (!collectMode && facts.images && Array.isArray(facts.images.main) && facts.images.main.length) {
       const missing = [];
       const paths = facts.images.main.map((n) => {
         const p = resolveImagePath(this.imageBaseDir, n);
@@ -1256,12 +1263,15 @@ export class DianxiaomiAdapter {
     const skuResult = await this.fillSkus(facts);
     if (skuResult) applied.push({ field: "sku", ...skuResult });
     // 6.5) 每色图绑定（实验性，非致命：组合表无图列，每色图只能挂到「颜色(Color)」字段的「选择图片」）
-    try {
-      const colorImg = await this.fillColorImages(facts);
-      applied.push({ field: "colorImages", ...colorImg });
-    }
-    catch (e) {
-      applied.push({ field: "colorImages", ok: false, reason: e.message });
+    //      采集箱模式跳过（保留源图）。
+    if (!collectMode) {
+      try {
+        const colorImg = await this.fillColorImages(facts);
+        applied.push({ field: "colorImages", ...colorImg });
+      }
+      catch (e) {
+        applied.push({ field: "colorImages", ok: false, reason: e.message });
+      }
     }
     // 7) 合规信息（欧盟责任人/土耳其责任人/品牌制造商）
     applied.push(...(await this.fillComplianceInfo(facts)));
@@ -1970,6 +1980,109 @@ export class DianxiaomiAdapter {
     if (this.browser) { await this.browser.close().catch(() => {}); }
     this.browser = null;
     this.page = null;
+  }
+
+  // ───────────────────────── 采集箱批量上架（v 新路径） ─────────────────────────
+  // 路径：打开「速卖通全托管采集箱」草稿列表 → 搜标题 → 点编辑 → 填 facts（保留源图）→ 保存不发布。
+  // 采集箱编辑表单与 smtChoice/add 同源组件，fillFromFacts 复用；本段只负责「列表页导航 + 行定位」。
+
+  // 打开采集箱草稿列表页（smtChoice/draft）。
+  async openCollectBox() {
+    await this.connect();
+    const url = DIANXIAOMI_URL_CHOICE_DRAFT;
+    await this.page.goto(url, { waitUntil: "domcontentloaded" });
+    await this.page.waitForLoadState("networkidle").catch(() => {});
+    await sleep(2000);
+    return { ok: true, url: this.page.url() };
+  }
+
+  // 在采集箱列表页的搜索框输入标题并触发搜索。
+  async searchCollectBox(title) {
+    await this.connect();
+    if (!title || !title.trim()) throw new Error("采集箱搜索：标题为空");
+    const sel = await this.page.evaluate(() => {
+      const inputs = Array.from(document.querySelectorAll("input")).filter((i) => i.offsetParent !== null && i.type === "text");
+      // 优先 placeholder 含 搜索/标题/关键词/查询
+      const byPh = inputs.find((i) => /搜索|标题|关键词|查询/i.test(i.getAttribute("placeholder") || ""));
+      if (byPh) return byPh.id ? "#" + byPh.id : `input[placeholder="${byPh.getAttribute("placeholder")}"]`;
+      // 回退：列表页顶部第一个可见 text input（排除 ant-select 内部搜索框）
+      const fb = inputs.find((i) => !/ant-select|rc_select/i.test(i.className || ""));
+      if (fb) return fb.id ? "#" + fb.id : (fb.getAttribute("placeholder") ? `input[placeholder="${fb.getAttribute("placeholder")}"]` : ".__collect_search_fallback__");
+      return null;
+    });
+    if (!sel) throw new Error("采集箱：找不到搜索输入框");
+    let box = this.page.locator(sel).first();
+    if (sel === ".__collect_search_fallback__") {
+      box = this.page.locator("input[type=text]").filter({ hasNot: this.page.locator("[class*=ant-select]") }).first();
+    }
+    await box.click({ timeout: 5000 }).catch(() => {});
+    try {
+      await box.fill(title, { timeout: 5000 });
+    } catch {
+      await box.click({ timeout: 5000 });
+      await this.page.keyboard.type(title, { delay: 30 });
+    }
+    await sleep(500);
+    // 触发搜索：先回车，再尝试点「搜索」按钮（二者择一）
+    await this.page.keyboard.press("Enter").catch(() => {});
+    await clickVisibleByText(this.page, "搜索", 4000).catch(() => {});
+    await sleep(2500);
+    await this.page.waitForSelector("table", { timeout: 8000 }).catch(() => {});
+    await sleep(800);
+    return { ok: true };
+  }
+
+  // 在搜索结果中定位含标题的行并点击其「编辑」按钮。返回编辑表单 URL。
+  // 匹配策略：行内任意单元格文字包含/被包含于搜索标题即视为候选；完全相等 > 前缀相等 > 包含，取最高分。
+  async openCollectDraftByTitle(title) {
+    await this.connect();
+    const found = await this.page.evaluate((t) => {
+      const norm = (s) => (s || "").replace(/\s+/g, "").trim().toLowerCase();
+      const tn = norm(t);
+      const rows = Array.from(document.querySelectorAll("tr")).filter((r) => r.querySelector("td"));
+      let best = null, bestScore = 0;
+      for (const r of rows) {
+        const cells = Array.from(r.querySelectorAll("td"));
+        const hit = cells.find((td) => {
+          const ct = norm(td.innerText);
+          return ct.includes(tn) || tn.includes(ct);
+        });
+        if (!hit) continue;
+        const btns = Array.from(r.querySelectorAll("button, a")).filter((b) => /编辑/.test(b.innerText || ""));
+        if (!btns.length) continue;
+        const cellText = norm(hit.innerText);
+        const score = cellText === tn ? 3 : (cellText.startsWith(tn) ? 2 : 1);
+        if (score > bestScore) { bestScore = score; best = btns[0]; }
+      }
+      if (!best) return { ok: false };
+      best.click();
+      return { ok: true, score: bestScore };
+    }, title);
+    if (!found.ok) throw new Error(`采集箱：搜索结果中未找到含标题「${title}」的行 / 编辑按钮`);
+    // 等待编辑表单加载（SPA 跳转到 quoteEdit 或整页加载）
+    await this.page.waitForLoadState("networkidle").catch(() => {});
+    await sleep(4000);
+    return { ok: true, url: this.page.url(), score: found.score };
+  }
+
+  // 探索：dump 采集箱列表页结构（搜索框 / 表头 / 编辑按钮 / 所有按钮文案），
+  // 供前端「探索采集箱」按钮调用，便于在真实 Chrome+店小秘登录后校准导航选择器。
+  async exploreCollectBox() {
+    await this.openCollectBox();
+    const dump = await this.page.evaluate(() => {
+      const visInputs = Array.from(document.querySelectorAll("input")).filter((i) => i.offsetParent !== null);
+      return {
+        url: location.href,
+        title: document.title,
+        inputs: visInputs.map((i) => ({ type: i.type, placeholder: i.getAttribute("placeholder") || "", id: i.id, name: i.name, cls: (i.className || "").slice(0, 60) })),
+        tableHeaders: (() => { const t = document.querySelector("table"); return t ? Array.from(t.querySelectorAll("th, thead td")).map((th) => (th.innerText || "").trim()) : []; })(),
+        rowCount: document.querySelectorAll("tbody tr, .ant-table-row").length,
+        editButtons: Array.from(document.querySelectorAll("button, a")).filter((b) => /编辑/.test(b.innerText || "")).slice(0, 8).map((b) => ({ tag: b.tagName, text: (b.innerText || "").trim().slice(0, 24), cls: (b.className || "").slice(0, 60) })),
+        allButtonTexts: Array.from(new Set(Array.from(document.querySelectorAll("button, a")).map((b) => (b.innerText || "").trim()))).filter(Boolean).slice(0, 60),
+        hasSearchArea: !!document.querySelector(".ant-input-search, .ant-input-affix-wrapper, [class*=search], input[placeholder*=搜索], input[placeholder*=标题]")
+      };
+    });
+    return dump;
   }
 
   // 检查当前连接是否可用（供外部诊断）
