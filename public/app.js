@@ -10765,24 +10765,27 @@ function collectRowToPayload(r) {
     category: r.category,
     searchTitle: r.searchTitle || r.packageName,
     enabled: r.enabled !== false,
-    factsPath: r.factsPath || ""
+    factsPath: r.factsPath || "",
+    variantThemeMap: r.variantThemeMap || ""
   };
 }
 
-// 采集箱模式 CSV/XLSX 解析：列 搜索标题 / 类目 / 产品包名（兼容 引用模式 的 packageName 列）。
+// 采集箱模式 CSV/XLSX 解析：列 搜索标题 / 类目 / 变种主题映射 / 产品包名（兼容 引用模式 的 packageName 列）。
 function collectRowFromCols(cols, header) {
   const col = (re) => header.findIndex((h) => re.test(h));
   const idxTitle = Math.max(col(/搜索标题|标题|searchTitle|title/i), 0);
   const idxName = col(/产品包名|包名|packageName|name/i);
   const idxCat = col(/^类目$|category|category$/i);
+  const idxMap = col(/变种主题映射|variantThemeMap|theme\s*map/i);
   const name = (idxName >= 0 ? (cols[idxName] || "") : "").trim() || (cols[idxTitle] || "").trim();
   if (!name) return null;
   let category = idxCat >= 0 ? String(cols[idxCat] || "").trim() : "";
   if (!category || category === "auto") category = "auto";
+  const variantThemeMap = idxMap >= 0 ? String(cols[idxMap] || "").trim() : "";
   let enabled = true;
   const idxEn = col(/^enabled$|上架|启用/i);
   if (idxEn >= 0) { const ev = String(cols[idxEn] || "").trim().toLowerCase(); enabled = !(ev === "false" || ev === "0" || ev === "no" || ev === "否"); }
-  return { packageName: name, category, searchTitle: (cols[idxTitle] || name).trim(), enabled, status: "idle", progress: 0, reason: "", factsPath: "" };
+  return { packageName: name, category, searchTitle: (cols[idxTitle] || name).trim(), variantThemeMap, enabled, status: "idle", progress: 0, reason: "", factsPath: "" };
 }
 
 // 采集箱模式文件解析：读取 CSV/XLSX 每行，映射到 collect 形状（搜索标题/类目/产品包名）。
@@ -10819,11 +10822,11 @@ function parseCollectXlsx(arrayBuffer) {
 }
 
 function collectDownloadTemplate() {
-  const header = ["搜索标题", "类目", "产品包名", "enabled"];
+  const header = ["搜索标题", "类目", "变种主题映射", "产品包名", "enabled"];
   downloadXlsx([
     header,
-    ["采集箱里该链接的真实标题", "xiangBaoFold", "已完成产品里的包名", "true"],
-    ["示例-幸运草手机挂链", "xiangBao", "幸运草手机挂链", "true"]
+    ["采集箱里该链接的真实标题", "xiangBaoFold", "颜色:Color;型号:Size", "已完成产品里的包名", "true"],
+    ["示例-幸运草手机挂链", "xiangBao", "", "幸运草手机挂链", "true"]
   ], "采集箱上架模板.xlsx");
 }
 
@@ -10831,7 +10834,7 @@ async function collectGenerateSource() {
   try {
     const data = await request("/api/dianxiaomi/collect-batch-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
     if (!data || !data.ok) { alert("生成采集模板失败：" + (data && data.error ? data.error : "未知错误")); return; }
-    const rows = (data.rows || []).map((r) => ({ packageName: r.packageName, category: r.category, searchTitle: r.searchTitle || "", enabled: r.enabled !== false, status: "idle", progress: 0, reason: "", factsPath: r.factsPath || "" }));
+    const rows = (data.rows || []).map((r) => ({ packageName: r.packageName, category: r.category, searchTitle: r.searchTitle || "", variantThemeMap: r.variantThemeMap || "", enabled: r.enabled !== false, status: "idle", progress: 0, reason: "", factsPath: r.factsPath || "" }));
     if (!rows.length) { alert("没有含 product-facts.json 的已完成产品包，无法生成采集模板。"); return; }
     batchListingState.rows = rows;
     batchListingState.uploaded = true;
@@ -11005,13 +11008,14 @@ function renderBatchListing() {
         <div class="bl-card">
           <div class="bl-table-wrap">
           <table class="bl-table">
-            <thead><tr><th>上架</th><th>搜索标题（采集箱里的标题）</th><th>类目</th><th>产品包名</th><th>状态</th><th>进度</th><th>说明</th></tr></thead>
+            <thead><tr><th>上架</th><th>搜索标题（采集箱里的标题）</th><th>类目</th><th>变种主题映射</th><th>产品包名</th><th>状态</th><th>进度</th><th>说明</th></tr></thead>
             <tbody>
               ${rows.map((r) => `
                 <tr>
                   <td><input type="checkbox" class="bl-enabled" data-name="${blEscapeHtml(r.packageName)}" ${r.enabled !== false ? "checked" : ""} ${dis}/></td>
                   <td><input type="text" class="bl-searchtitle" data-name="${blEscapeHtml(r.packageName)}" value="${blEscapeHtml(r.searchTitle || "")}" placeholder="采集箱里的标题" ${dis}/></td>
                   <td><input type="text" class="bl-cat" data-name="${blEscapeHtml(r.packageName)}" value="${blEscapeHtml(r.category || "")}" placeholder="xiangBaoFold / 箱包便携折叠包 / 精准类目" ${dis}/></td>
+                  <td><input type="text" class="bl-variantmap" data-name="${blEscapeHtml(r.packageName)}" value="${blEscapeHtml(r.variantThemeMap || "")}" placeholder="颜色:Color;型号:Size" ${dis}/></td>
                   <td>${blEscapeHtml(r.packageName)}</td>
                   <td><span class="bl-badge ${r.status || "idle"}">${BL_STATUS_LABEL[r.status] || "待上架"}</span></td>
                   <td><div class="progress"><span style="width:${Math.max(0, Math.min(100, r.progress || 0))}%"></span></div></td>
@@ -11020,7 +11024,7 @@ function renderBatchListing() {
             </tbody>
           </table>
           </div>
-          <div class="bl-hint">共 ${rows.length} 行，本次上架 ${enabledCount} 行。每行「搜索标题」可在 Excel/此表直接改成采集箱里的真实标题；「类目」为自由文本，填对应店小秘精准类目（如 xiangBaoFold / 箱包便携折叠包），可手填任意精准类目，运行时以此为准。</div>
+          <div class="bl-hint">共 ${rows.length} 行，本次上架 ${enabledCount} 行。「搜索标题」改采集箱真实标题；「类目」为自由文本，以店小秘精准类目为准；「变种主题映射」可覆盖默认（颜色→Color / 尺寸尺码型号→Size），格式：颜色:Color;型号:Size。</div>
         </div>` : `<div class="bl-hint">尚未生成/导入表格。点击「生成采集模板」自动扫描 已完成产品/，或上传填好的 .xlsx / .csv（列：搜索标题 / 类目 / 产品包名）。</div>`}
       `}
 
@@ -11080,6 +11084,12 @@ function renderBatchListing() {
     const name = e.target.dataset.name;
     const r = batchListingState.rows.find((x) => x.packageName === name);
     if (r) r.category = e.target.value.trim();
+  }));
+  // 采集箱模式：变种主题映射可手填覆盖
+  root.querySelectorAll(".bl-variantmap").forEach((inp) => inp.addEventListener("input", (e) => {
+    const name = e.target.dataset.name;
+    const r = batchListingState.rows.find((x) => x.packageName === name);
+    if (r) r.variantThemeMap = e.target.value.trim();
   }));
   root.querySelectorAll(".bl-enabled").forEach((cb) => cb.addEventListener("change", (e) => {
     const name = e.target.dataset.name;

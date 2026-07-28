@@ -3508,7 +3508,8 @@ app.post("/api/dianxiaomi/collect-batch-apply", async (request, response) => {
       category: (r.category || "auto").toString().trim(),
       searchTitle: (r.searchTitle || r.packageName || "").toString().trim(),
       enabled: r.enabled === false || r.enabled === "false" || r.enabled === 0 || r.enabled === "0" ? false : true,
-      factsPath: (r.factsPath || "").toString().trim()
+      factsPath: (r.factsPath || "").toString().trim(),
+      variantThemeMap: (r.variantThemeMap || "").toString().trim()
     })).filter((r) => r.packageName);
     if (!normalized.length) return response.status(400).json({ ok: false, error: "无有效 packageName" });
     collectBatchRunState.jobId = `collect-${Date.now()}`;
@@ -3554,6 +3555,22 @@ app.post("/api/dianxiaomi/collect-explore", async (_request, response) => {
     response.status(500).json({ error: error instanceof Error ? error.message : String(error) });
   }
 });
+
+// 解析表格/行数据里的「变种主题映射」文本 → { "颜色": "Color", "型号": "Size" }
+// 格式：1688主题:速卖通主题;…  支持中英文冒号、分号/换行分隔。空串返回 {}。
+function parseVariantThemeMap(str) {
+  const map = {};
+  if (!str) return map;
+  const parts = String(str).split(/[;\n]+/).map((s) => s.trim()).filter(Boolean);
+  for (const p of parts) {
+    const m = p.match(/^([^:：]+)[：:]\s*(.+)$/);
+    if (!m) continue;
+    const src = m[1].trim();
+    const dst = m[2].trim();
+    if (src && dst) map[src] = dst;
+  }
+  return map;
+}
 
 // 解析批量表格里的「变种参数」文本 → { colors, sizes }
 // 格式：颜色:肤色,黑色;尺寸:S,M,L （属性名:值1,值2; 多个属性用 ; 分隔；颜色/尺寸映射到销售属性）
@@ -3679,12 +3696,16 @@ async function runCollectBatchListing(rows) {
         profile = dianxiaomiAdapter.setProfile(key);
       } else {
         // 表格手填的精准类目（非预设 profile key）：复用默认 profile 结构，仅覆盖 category 标签，
-        // 让分类映射页按该精准字符串选类目；variantThemeMap 置空（不映射变种主题）。
+        // 让分类映射页按该精准字符串选类目。变种主题映射回退到通用默认（颜色->Color / 尺寸尺码型号->Size），
+        // 避免映射页因未选主题而无法保存；如需覆盖可在表格提供 variantThemeMap 列。
         profile = JSON.parse(JSON.stringify(getDianxiaomiProfile(key)));
         profile.key = key;
         profile.category = key;
         profile.label = key;
-        profile.variantThemeMap = {};
+        const userVariantMap = parseVariantThemeMap(row.variantThemeMap);
+        profile.variantThemeMap = Object.keys(userVariantMap).length > 0
+          ? userVariantMap
+          : { "颜色": "Color", "尺寸": "Size", "尺码": "Size", "型号": "Size" };
         dianxiaomiAdapter.profile = profile;
       }
       log(`类目 profile: ${profile.key}`);
