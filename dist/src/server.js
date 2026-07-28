@@ -3355,21 +3355,28 @@ const batchRunState = {
 };
 
 async function detectCategory(dir) {
+  let cat = "";
   try {
     const profile = JSON.parse(await readFile(path.join(dir, "product-profile.json"), "utf8"));
-    const cat = (profile.category || profile.key || "").toString();
-    if (/乳贴|nipple|nipples/i.test(cat)) return "ruTie";
-    if (/折叠|folding/i.test(cat)) return "xiangBaoFold";
-    if (/箱包|bag|内胆|liner|insert/i.test(cat)) return "xiangBao";
+    cat = (profile.category || profile.key || "").toString();
   } catch { /* ignore */ }
-  try {
-    const facts = JSON.parse(await readFile(path.join(dir, "product-facts.json"), "utf8"));
-    const cat = (facts.category || "").toString();
-    if (/乳贴|nipple|nipples/i.test(cat)) return "ruTie";
-    if (/折叠|folding/i.test(cat)) return "xiangBaoFold";
-    if (/箱包|bag|内胆|liner|insert/i.test(cat)) return "xiangBao";
-  } catch { /* ignore */ }
-  return "ruTie";
+  if (!cat) {
+    try {
+      const facts = JSON.parse(await readFile(path.join(dir, "product-facts.json"), "utf8"));
+      cat = (facts.category || facts.categoryKey || "").toString();
+    } catch { /* ignore */ }
+  }
+  if (!cat) return "auto";
+  // 已知 profile 直接映射
+  if (/乳贴|nipple|nipples/i.test(cat)) return "ruTie";
+  if (/折叠|folding|foldable/i.test(cat)) return "xiangBaoFold";
+  if (/(箱包配件|bag\s*parts|内胆|liner|insert)/i.test(cat)) return "xiangBao";
+  // 钥匙扣/钥匙链/Bag Charm/Keychain/解压玩具：不属于现有 profile，返回原始精准类目串，
+  // 由用户在表格内手填对应店小秘类目（避免 "bag" 误匹配成箱包）。
+  if (/钥匙扣|钥匙链|keychain|charm|解压玩具|fidget/i.test(cat)) return cat;
+  // 含 bag 但不属于「箱包配件」的（如 Bag Charm）也回退到原始串，避免误判为箱包
+  if (/bag/i.test(cat)) return cat;
+  return cat;
 }
 
 // 扫描 已完成产品/ 的一级子目录，供「一键生成数据源表格」辅助使用
@@ -3667,7 +3674,19 @@ async function runCollectBatchListing(rows) {
     }
     const key = (row.category && row.category !== "auto") ? row.category : await detectCategory(dir);
     try {
-      const profile = dianxiaomiAdapter.setProfile(key);
+      let profile;
+      if (DIANXIAOMI_CATEGORY_PROFILES[key]) {
+        profile = dianxiaomiAdapter.setProfile(key);
+      } else {
+        // 表格手填的精准类目（非预设 profile key）：复用默认 profile 结构，仅覆盖 category 标签，
+        // 让分类映射页按该精准字符串选类目；variantThemeMap 置空（不映射变种主题）。
+        profile = JSON.parse(JSON.stringify(getDianxiaomiProfile(key)));
+        profile.key = key;
+        profile.category = key;
+        profile.label = key;
+        profile.variantThemeMap = {};
+        dianxiaomiAdapter.profile = profile;
+      }
       log(`类目 profile: ${profile.key}`);
       const facts = normalizeDianxiaomiFacts(JSON.parse(await readFile(factsFile, "utf8")));
       const ready = checkDianxiaomiFactsReady(facts);

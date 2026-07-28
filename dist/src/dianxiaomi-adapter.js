@@ -2075,20 +2075,37 @@ export class DianxiaomiAdapter {
 
     const detect = async () => page.evaluate(() => {
       const bodyText = document.body ? (document.body.innerText || "") : "";
-      const hasSaveNext = !!Array.from(document.querySelectorAll("button")).find((b) => /保存，下一步|保存下一步/.test(b.innerText || ""));
+      const buttons = Array.from(document.querySelectorAll("button"));
+      const hasSaveNext = !!buttons.find((b) => /保存，下一步|保存下一步/.test(b.innerText || ""));
       const hasCategorySelect = !!Array.from(document.querySelectorAll(".ant-select-selection-placeholder")).find((el) => /请选择分类/.test(el.innerText || ""));
       const hasVariantTable = /1688变种主题/.test(bodyText) && /对应速卖通/.test(bodyText);
+      // 2026-07-28 新增：点「编辑」后先弹出的提示弹窗（两个按钮：编辑分类 / 跳过，去编辑产品）
+      const hasEditCategoryBtn = !!buttons.find((b) => /编辑分类/.test(b.innerText || ""));
+      const hasSkipToEditBtn = !!buttons.find((b) => /跳过，?去编辑产品|跳过/.test(b.innerText || ""));
+      const hasPromptProgress = /选择产品.*编辑分类.*编辑产品.*保存/.test(bodyText.replace(/\s+/g, ""));
       return {
         isCategoryPage: hasSaveNext && (hasCategorySelect || hasVariantTable),
+        isCategoryPrompt: hasEditCategoryBtn && hasSkipToEditBtn && hasPromptProgress,
         hasSaveNext,
         hasCategorySelect,
         hasVariantTable,
+        hasEditCategoryBtn,
+        hasSkipToEditBtn,
         url: location.href,
         title: document.title
       };
     });
 
-    const state = await detect();
+    let state = await detect();
+
+    // 步骤 A：处理「编辑分类」提示弹窗
+    if (state.isCategoryPrompt) {
+      await clickVisibleByText(page, "编辑分类", 8000);
+      await page.waitForLoadState("networkidle").catch(() => {});
+      await sleep(2500);
+      state = await detect();
+    }
+
     if (!state.isCategoryPage) {
       return { ok: true, skipped: true, reason: "not-category-page", state };
     }

@@ -10905,11 +10905,8 @@ function renderBatchListing() {
   const dis = busy ? "disabled" : "";
   const hasFailed = rows.some((r) => r.status === "failed");
   const enabledCount = rows.filter((r) => r.enabled !== false).length;
-  const catOpts = (val) => `
-    <option value="auto" ${val === "auto" || !val ? "selected" : ""}>自动</option>
-    <option value="ruTie" ${val === "ruTie" ? "selected" : ""}>乳贴</option>
-    <option value="xiangBao" ${val === "xiangBao" ? "selected" : ""}>箱包</option>
-    <option value="xiangBaoFold" ${val === "xiangBaoFold" ? "selected" : ""}>箱包便携折叠包</option>`;
+  // 采集箱模式「类目」为自由文本输入：用户手填对应店小秘精准类目（profile key 或精确类目串），
+  // 运行时以该值为基准选类目（见 server.js runCollectBatchListing）。
   // 可选自定义列单元格：checkbox("自定义") + 文本输入(自定义名称)。填值即视为启用。
   const fieldCell = (r, textCls, onCls, textKey, onKey, ph) => `
     <td>
@@ -11014,7 +11011,7 @@ function renderBatchListing() {
                 <tr>
                   <td><input type="checkbox" class="bl-enabled" data-name="${blEscapeHtml(r.packageName)}" ${r.enabled !== false ? "checked" : ""} ${dis}/></td>
                   <td><input type="text" class="bl-searchtitle" data-name="${blEscapeHtml(r.packageName)}" value="${blEscapeHtml(r.searchTitle || "")}" placeholder="采集箱里的标题" ${dis}/></td>
-                  <td><select class="bl-cat" data-name="${blEscapeHtml(r.packageName)}" ${dis}>${catOpts(r.category)}</select></td>
+                  <td><input type="text" class="bl-cat" data-name="${blEscapeHtml(r.packageName)}" value="${blEscapeHtml(r.category || "")}" placeholder="xiangBaoFold / 箱包便携折叠包 / 精准类目" ${dis}/></td>
                   <td>${blEscapeHtml(r.packageName)}</td>
                   <td><span class="bl-badge ${r.status || "idle"}">${BL_STATUS_LABEL[r.status] || "待上架"}</span></td>
                   <td><div class="progress"><span style="width:${Math.max(0, Math.min(100, r.progress || 0))}%"></span></div></td>
@@ -11023,7 +11020,7 @@ function renderBatchListing() {
             </tbody>
           </table>
           </div>
-          <div class="bl-hint">共 ${rows.length} 行，本次上架 ${enabledCount} 行。每行「搜索标题」可在 Excel/此表直接改成采集箱里的真实标题。</div>
+          <div class="bl-hint">共 ${rows.length} 行，本次上架 ${enabledCount} 行。每行「搜索标题」可在 Excel/此表直接改成采集箱里的真实标题；「类目」为自由文本，填对应店小秘精准类目（如 xiangBaoFold / 箱包便携折叠包），可手填任意精准类目，运行时以此为准。</div>
         </div>` : `<div class="bl-hint">尚未生成/导入表格。点击「生成采集模板」自动扫描 已完成产品/，或上传填好的 .xlsx / .csv（列：搜索标题 / 类目 / 产品包名）。</div>`}
       `}
 
@@ -11078,10 +11075,11 @@ function renderBatchListing() {
     const r = batchListingState.rows.find((x) => x.packageName === e.target.dataset.name);
     if (r) r.searchTitle = e.target.value.trim();
   }));
-  root.querySelectorAll(".bl-cat").forEach((sel) => sel.addEventListener("change", (e) => {
+  // 采集箱模式：类目为自由文本，输入即更新（不重渲染，避免输入框失焦）
+  root.querySelectorAll(".bl-cat").forEach((inp) => inp.addEventListener("input", (e) => {
     const name = e.target.dataset.name;
     const r = batchListingState.rows.find((x) => x.packageName === name);
-    if (r) { r.category = e.target.value; renderBatchListing(); }
+    if (r) r.category = e.target.value.trim();
   }));
   root.querySelectorAll(".bl-enabled").forEach((cb) => cb.addEventListener("change", (e) => {
     const name = e.target.dataset.name;
