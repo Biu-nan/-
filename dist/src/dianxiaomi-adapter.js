@@ -2089,6 +2089,7 @@ export class DianxiaomiAdapter {
 
   // 在搜索结果中定位含标题的行并点击其「编辑」按钮。返回编辑表单 URL。
   // 匹配策略：行内任意单元格文字包含/被包含于搜索标题即视为候选；完全相等 > 前缀相等 > 包含，取最高分。
+  // 店小秘点击「编辑」后可能在新标签页打开映射/编辑页，故先监听 new page 再点击。
   async openCollectDraftByTitle(title) {
     await this.connect();
     const found = await this.page.evaluate((t) => {
@@ -2110,13 +2111,31 @@ export class DianxiaomiAdapter {
         if (score > bestScore) { bestScore = score; best = btns[0]; }
       }
       if (!best) return { ok: false };
-      best.click();
-      return { ok: true, score: bestScore };
+      // 不在这里点击，由外部监听 new page 后再点
+      return { ok: true, score: bestScore, selector: best.id ? `#${best.id}` : null, text: best.innerText.trim().slice(0, 24) };
     }, title);
     if (!found.ok) throw new Error(`采集箱：搜索结果中未找到含标题「${title}」的行 / 编辑按钮`);
-    // 等待编辑表单加载（SPA 跳转到 quoteEdit 或整页加载）
+
+    // 监听可能的新标签页
+    const context = this.page.context();
+    const newPagePromise = context.waitForEvent("page", { timeout: 8000 }).catch(() => null);
+
+    // 执行点击
+    if (found.selector) {
+      await this.page.locator(found.selector).first().click({ timeout: 5000 }).catch(() => {});
+    }
+    // 兜底：按行内文本再点一次（若 selector 失效或已点但无新页面）
+    await clickVisibleByText(this.page, "编辑", 4000).catch(() => {});
+
     await this.page.waitForLoadState("networkidle").catch(() => {});
     await sleep(4000);
+
+    const newPage = await newPagePromise;
+    if (newPage && !newPage.isClosed()) {
+      this.page = newPage;
+      await this.page.waitForLoadState("networkidle").catch(() => {});
+      await sleep(1500);
+    }
     return { ok: true, url: this.page.url(), score: found.score };
   }
 
