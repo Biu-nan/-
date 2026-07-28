@@ -79,10 +79,10 @@ function parseRows(aoa) {
         const urls = [];
         if (idxUrls >= 0) {
             const raw = String(cols[idxUrls] || "");
-            urls.push(...raw.split(/[,，;；\n]/).map((s) => s.trim()).filter(Boolean));
+            urls.push(...raw.split(/[,，;；\n]/).map((s) => s.trim().replace(/^["']|["']$/g, "")).filter(Boolean));
         }
         for (const c of urlCols) {
-            const v = String(cols[c] || "").trim();
+            const v = String(cols[c] || "").trim().replace(/^["']|["']$/g, "");
             if (v)
                 urls.push(v);
         }
@@ -94,10 +94,10 @@ function parseRows(aoa) {
         const localPaths = [];
         if (idxLocal >= 0) {
             const raw = String(cols[idxLocal] || "");
-            localPaths.push(...raw.split(/[,，;；\n]/).map((s) => s.trim()).filter(Boolean));
+            localPaths.push(...raw.split(/[,，;；\n]/).map((s) => s.trim().replace(/^["']|["']$/g, "")).filter(Boolean));
         }
         for (const c of localCols) {
-            const v = String(cols[c] || "").trim();
+            const v = String(cols[c] || "").trim().replace(/^["']|["']$/g, "");
             if (v)
                 localPaths.push(v);
         }
@@ -421,6 +421,9 @@ export function registerBatchListingCreateRoutes(app, deps) {
     app.post("/api/batch-listing-create/upload", upload.single("workbook"), async (request, response) => {
         try {
             await normalizeStuckRunningState();
+            if (listingCreateRunState.running) {
+                return response.status(409).json({ ok: false, error: "批量制作正在运行，请等待当前任务完成后再上传新文件" });
+            }
             if (!request.file || !request.file.buffer) {
                 return response.status(400).json({ ok: false, error: "未上传文件" });
             }

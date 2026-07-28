@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { OUTPUT_DIR, PLANNING_COMPLETION_PROMPT, PRODUCT_FACT_FILE, PRODUCT_FACT_PROMPT_FINGERPRINT, PRODUCT_IMAGES_DIR, PRODUCT_ROOT, TEST_PROMPT, singleImageCommand } from "./config.js";
 import { normalizeDianxiaomiFacts } from "./dianxiaomi-facts.js";
@@ -921,6 +921,8 @@ ${existing.researchText ?? ""}
         }
         // 主图优先使用 MVP4 AI 生成的 Listing 图（output/Image_01.png ...），而非原始 1688 产品图。
         // 这样店小秘上品主图和详情页插图才是「系统做的图」；无生成图时才回退到 scanProductImages。
+        // 标准布局：生成图只在 output/，**不**复制到 产品图/。店小秘端通过 resolveImagePath(baseDir, filename)
+        // 自动在 output/ 与 产品图/ 之间兜底查找（.png/.jpg 后缀互换），所以源图与生成图天然隔离。
         try {
             const outFiles = await readdir(OUTPUT_DIR).catch(() => []);
             const generated = outFiles
@@ -928,17 +930,6 @@ ${existing.researchText ?? ""}
                 .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
                 .slice(0, 6);
             if (generated.length) {
-                await mkdir(PRODUCT_IMAGES_DIR, { recursive: true });
-                for (const f of generated) {
-                    const src = path.join(OUTPUT_DIR, f);
-                    const dst = path.join(PRODUCT_IMAGES_DIR, f);
-                    try {
-                        await copyFile(src, dst);
-                    }
-                    catch (_e) {
-                        // 已存在或不可复制则继续
-                    }
-                }
                 facts.images.main = generated;
             }
             else {

@@ -3478,7 +3478,7 @@ app.post("/api/dianxiaomi/collect-batch-generate", async (request, response) => 
       let category = "ruTie";
       try { category = await detectCategory(dir); } catch { /* ignore */ }
       if (onlyCat && category !== onlyCat) continue;
-      const title = (facts.title && (facts.title.en || facts.title.zh)) || "";
+      const title = (facts.title && (facts.title.zh || facts.title.en)) || "";
       rows.push({
         packageName: name,
         category,
@@ -3731,6 +3731,9 @@ async function runCollectBatchListing(rows) {
       const catRes = await dianxiaomiAdapter.fillCollectDraftCategory(facts);
       if (catRes.mapped && catRes.mapped.length) log(`分类映射: ${catRes.mapped.map((m) => `${m.theme}->${m.target}`).join(", ")}`);
       log(`映射页结果: url=${catRes.url || "(unknown)"}, ok=${catRes.ok}, skipped=${catRes.skipped || false}, reason=${catRes.reason || ""}`);
+      if (catRes.reason === "not-category-page") {
+        throw new Error(`分类映射页未出现，当前页面: ${catRes.state && catRes.state.url ? catRes.state.url : "unknown"}。可能原因：1) 搜索标题未定位到正确行；2) 编辑未打开新标签页；3) 页面结构变化。`);
+      }
       item.progress = 55;
       // 采集箱草稿已带固定字段（店铺/备货/分类等），不调用 fillFixedFields，只填 facts 文字/属性/描述。
       const applied = await dianxiaomiAdapter.fillFromFacts(facts, { collectMode: true });

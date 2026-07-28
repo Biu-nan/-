@@ -110,7 +110,7 @@ export async function importProductImageUrls(rawUrls) {
 // 从本机文件路径导入产品图：读取本地文件并复用与 URL 下载一致的去重/安全文件名/格式校验逻辑。
 // baseDir 用于解析相对路径（默认进程工作目录）；绝对路径直接使用。
 export async function importLocalImagePaths(rawPaths, baseDir = process.cwd()) {
-    const paths = [...new Set((rawPaths || []).map((p) => String(p || "").trim()).filter(Boolean))];
+    const paths = [...new Set((rawPaths || []).map((p) => String(p || "").trim().replace(/^["']|["']$/g, "")).filter(Boolean))];
     if (paths.length === 0)
         return { imported: [], skippedDuplicates: [], rejected: [] };
     const buffers = [];

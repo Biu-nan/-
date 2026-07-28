@@ -177,12 +177,48 @@ export class DianxiaomiAdapter {
   }
 
   async connect() {
-    // 策略：每次都重新连接 CDP，避免缓存过期引用导致 "Target has been closed"
-    // CDP connectOverCDP 耗时仅 ~50ms，对用户点击操作可忽略不计
+    // 复用策略：优先复用已有连接与当前页面，避免每次重连导致「复用第一个店小秘标签页」的不确定性。
+    // 仅当连接不存在/已断开时才重连（重连时在 browser 级注册一次 dialog 自动接受处理器）。
+    // 关键修复：以前每次 connect 都重连 + 选「第一个店小秘标签页」，导致采集箱批量流程里
+    // 编辑分类/保存下一步打开的新标签页变成「第一个」，后续步骤在错页面上操作、弹窗不可见。
+    const selectPage = () => {
+      let page = null;
+      // 1) 优先复用当前 this.page（仍存活且为店小秘页）
+      if (this.page && !this.page.isClosed()) {
+        try { const u = this.page.url(); if (u.includes("dianxiaomi.com")) page = this.page; } catch { /* detached */ }
+      }
+      // 2) 否则挑第一个店小秘页
+      if (!page) {
+        for (const ctx of this.browser.contexts()) {
+          for (const p of ctx.pages()) {
+            if (!p.isClosed() && p.url().includes("dianxiaomi.com")) { page = p; break; }
+          }
+          if (page) break;
+        }
+      }
+      return page;
+    };
+
+    // 轻量健康检查：browser 对象存在且 contexts() 不抛异常即视为存活
+    let healthy = false;
     try {
-      // 先尝试优雅关闭旧连接（忽略错误，可能已死）
-      if (this.browser) { await this.browser.close().catch(() => {}); }
-    } catch { /* ignore */ }
+      if (this.browser && typeof this.browser.contexts === "function" && this.browser.contexts()) {
+        healthy = true;
+      }
+    } catch { healthy = false; }
+
+    if (healthy) {
+      const p = selectPage();
+      if (p) { this.page = p; return this.page; }
+      // 无可用店小秘页，开新页
+      try {
+        this.page = await this.browser.contexts()[0].newPage();
+        return this.page;
+      } catch { /* 落到重连 */ }
+    }
+
+    // 重连
+    try { if (this.browser) await this.browser.close().catch(() => {}); } catch { /* ignore */ }
     this.browser = null;
     this.page = null;
 
@@ -190,30 +226,47 @@ export class DianxiaomiAdapter {
     const chromeReady = await ensureChrome(CHROME_DEBUG_PORT);
     if (!chromeReady) throw new Error(`Chrome CDP 端口 ${CHROME_DEBUG_PORT} 未监听，且自动启动失败。请手动启动 Chrome：--remote-debugging-port=${CHROME_DEBUG_PORT}`);
 
-    this.browser = await chromium.connectOverCDP(`http://127.0.0.1:${CHROME_DEBUG_PORT}`);
+    // connectOverCDP 协议握手偶发卡死（浏览器目标多/某标签 DOM 过大时），加超时 + 重试自愈。
+    let connected = false;
+    let lastConnErr = null;
+    for (let attempt = 1; attempt <= 3 && !connected; attempt += 1) {
+      try {
+        if (this.browser) { await this.browser.close().catch(() => {}); this.browser = null; }
+        this.browser = await chromium.connectOverCDP(`http://127.0.0.1:${CHROME_DEBUG_PORT}`, { timeout: 60000 });
+        connected = true;
+      } catch (e) {
+        lastConnErr = e;
+        if (this.browser) { await this.browser.close().catch(() => {}); this.browser = null; }
+        await sleep(2000);
+      }
+    }
+    if (!connected) throw new Error(`Chrome CDP 连接失败（已重试 3 次）：${lastConnErr && lastConnErr.message}`);
 
     // 自动接受任何 JS 对话框（confirm/alert/beforeunload）。
-    // 重要：只注册在 browser 级别一次！page 级别也注册会导致同一对话框被 accept 两次，
-    // 第二次抛 "No dialog is showing"。browser 级 handler 覆盖其下所有 context/page。
+    // 只注册在 browser 级别一次（重连时）。browser 级 handler 覆盖其下所有 context/page。
     const _handle = async (d) => {
       try { await d.accept(); } catch { /* 对话框已消失或被内置处理，忽略 */ }
     };
     this.browser.on("dialog", _handle);
 
-    // 查找已有的店小秘标签页（复用，避免重复开新标签）
+    const p = selectPage();
+    if (p) { this.page = p; return this.page; }
+    this.page = await this.browser.contexts()[0].newPage();
+    return this.page;
+  }
+
+  // 关闭除 this.page 外的所有店小秘标签页，避免多标签导致 connect 复用错乱 / 弹窗落在错页面。
+  async _closeExtraDianxiaomiTabs() {
+    if (!this.browser) return;
     for (const ctx of this.browser.contexts()) {
       for (const p of ctx.pages()) {
-        if (!this.page && !p.isClosed() && p.url().includes("dianxiaomi.com")) {
-          this.page = p;
-        }
+        if (p === this.page) continue;
+        try {
+          const u = p.url();
+          if (u && u.includes("dianxiaomi.com")) await p.close();
+        } catch { /* ignore */ }
       }
     }
-
-    // 没有找到则新建页面
-    if (!this.page || this.page.isClosed()) {
-      this.page = await this.browser.contexts()[0].newPage();
-    }
-    return this.page;
   }
 
   async openCreatePage() {
@@ -510,7 +563,18 @@ export class DianxiaomiAdapter {
     const contains = opt.filter({ hasText: value });
     if (await exact.count()) await exact.first().click({ timeout: 5000 });
     else if (await contains.count()) await contains.first().click({ timeout: 5000 });
-    else { await this.page.mouse.click(5, 5).catch(() => {}); return { ok: false, reason: "option-not-found:" + value }; }
+    else {
+      // 兜底：选第一个可用项（任意合法值优于留空，用于草稿兜底）
+      const firstOpt = opt.first();
+      if (await firstOpt.count()) {
+        const chosen = (await firstOpt.innerText().catch(() => "")).trim();
+        await firstOpt.click({ timeout: 5000 });
+        await sleep(400);
+        return { ok: true, label: labelKeyword, value: chosen, fallback: true };
+      }
+      await this.page.mouse.click(5, 5).catch(() => {});
+      return { ok: false, reason: "option-not-found:" + value };
+    }
     await sleep(400);
     return { ok: true, label: labelKeyword, value };
   }
@@ -670,10 +734,12 @@ export class DianxiaomiAdapter {
       return true;
     };
 
-    // 「根据PC端描述一键生成」按钮定位（只存在于弹窗内）
+    // 「根据PC端描述一键生成」按钮定位（只存在于弹窗内）。
+    // 关键：该控件是 <span class="link">根据PC端描述一键生成</span> 叶子节点。
+    // 旧的 `button, a, span, div` 模糊匹配会命中「包含该文字的最外层容器 div」（整个弹窗），
+    // 点击被该容器拦截而无效（generated 永远 = false）。故必须精确取 span.link 叶子。
     const genBtnLocator = () => this.page
-      .locator("button, a, span, div")
-      .filter({ hasText: /根据PC端描述.*一键生成|一键生成.*PC端描述|根据PC端描述一键生成|PC端描述.*生成/ })
+      .locator('span.link:has-text("根据PC端描述一键生成"), span:has-text("根据PC端描述一键生成"), a:has-text("根据PC端描述一键生成"), button:has-text("根据PC端描述一键生成")')
       .first();
 
     // 找到包含某按钮的可视 modal/drawer/dialog（退路：直接以按钮为根）
@@ -684,6 +750,16 @@ export class DianxiaomiAdapter {
       }
       return btn;
     };
+
+    // 关闭上一轮中断可能残留的「新版编辑器」弹窗（否则 genBtn 会命中旧弹窗里的按钮，导致生成失败/错填）
+    const staleModal = this.page.locator(".ant-modal.smt-new-editor").first();
+    if (await staleModal.count() > 0 && await staleModal.isVisible().catch(() => false)) {
+      step("closing stale new-editor modal");
+      const xBtn = staleModal.locator(".ant-modal-close, .smt-new-editor-close, [class*=close]").first();
+      if (await xBtn.count() > 0) await xBtn.click({ timeout: 5000 }).catch(() => {});
+      await this.page.keyboard.press("Escape").catch(() => {});
+      await sleep(800);
+    }
 
     // 若生成按钮已存在（弹窗已开），直接进入生成步骤
     let genBtn = await genBtnLocator();
@@ -744,7 +820,18 @@ export class DianxiaomiAdapter {
     await sleep(2000);
 
     // 6) 验证弹窗已关闭且无线端字段有内容
-    const closed = (await genBtnLocator()).count() === 0;
+    let closed = (await genBtnLocator()).count() === 0;
+    // 兜底强制关闭弹窗：无线端描述用「新版模块编辑器」，店小秘不依赖其内容为保存前提
+    // （save 读回已不校验 mobile），故无论是否生成成功都强制关窗，避免残留 modal 拦截
+    // 后续字段点击（如备货类型下拉被 ant-modal-wrap 拦截导致 option-not-found）。
+    if (!closed) {
+      step("force-closing new-editor modal");
+      const x2 = modal.locator(".ant-modal-close, .ant-drawer-close, .smt-new-editor-close, [class*=close]").first();
+      if (await x2.count() > 0) await x2.click({ timeout: 5000, force: true }).catch(() => {});
+      await this.page.keyboard.press("Escape").catch(() => {});
+      await sleep(1200);
+      closed = (await genBtnLocator()).count() === 0;
+    }
     const mobileHasContent = await this.page.evaluate(() => {
       const i33 = window.CKEDITOR && window.CKEDITOR.instances["ckeditor33"];
       if (i33 && (i33.getData() || "").length > 50) return true;
@@ -1216,10 +1303,15 @@ export class DianxiaomiAdapter {
           applied.push({ field: "description.pc.images", ...imgRes });
         }
       }
-      // 5.2 无线端描述：不手填文案，改用「使用新版编辑器 → 根据PC端描述一键生成」。
-      //      PC 必须先于无线完成（5.1 已完成），否则一键生成拿不到 PC 内容。
-      const mbRes = await this.clickNewEditorThenGenerateFromPc();
-      applied.push({ field: "description.mobile", ...mbRes });
+      // 5.2 无线端描述：采集箱模式跳过「新版编辑器」弹窗——该弹窗关闭不可靠时会残留并拦截后续
+      //      必填字段（如备货类型下拉被 ant-modal-wrap 拦截致 option-not-found）。无线端内容非保存必填项
+      //      （save 读回已不校验 mobile），留空即可存草稿。引用模式仍走一键生成。
+      if (!collectMode) {
+        const mbRes = await this.clickNewEditorThenGenerateFromPc();
+        applied.push({ field: "description.mobile", ...mbRes });
+      } else {
+        applied.push({ field: "description.mobile", ok: true, skipped: true, reason: "collect-mode-skip" });
+      }
     }
     return applied;
   }
@@ -1236,6 +1328,8 @@ export class DianxiaomiAdapter {
     if (isXiangBao) {
       const applied = [];
       applied.push(...(await this.fillAiSections(facts, { collectMode })));
+      // 备货类型（必填，采集箱草稿不预填）。非致命：填不上由 save 读回暴露。
+      applied.push({ field: "stockingType", ...(await this.fillStockingType(this.profile.stockingType || "国内履约")) });
       // 物流属性（必填，引用不携带；箱包默认普货）。弹窗选择，非致命。
       applied.push({ field: "logistics", ...(await this.fillLogisticsAttribute(this.profile.logistics || "普货")) });
       // 销售属性：按 facts.variants 勾选颜色/尺寸（箱包以颜色区分 SKU）
@@ -1251,6 +1345,38 @@ export class DianxiaomiAdapter {
       }
       // 合规信息（欧盟责任人/土耳其责任人/品牌制造商）
       applied.push(...(await this.fillComplianceInfo(facts)));
+      // 采集箱兜底：facts 缺必填项时填默认值，确保能存草稿（颜色变种 + 产品属性通用兜底）。
+      if (collectMode) {
+        try {
+          const vd = await this.ensureDefaultVariantColor();
+          applied.push({ field: "variantDefault", ...vd });
+        } catch (e) { applied.push({ field: "variantDefault", ok: false, reason: e.message }); }
+        try {
+          const pattr = await this.fillProductAttributes(facts);
+          for (const f of (pattr.fields || [])) applied.push({ field: "attr:" + f.field, ...f });
+        } catch (e) { applied.push({ field: "attr", ok: false, reason: e.message }); }
+        // 迭代自动兜底：保存 → 读校验错误 → 逐个填默认值 → 再保存，直到无错或达到轮次上限。
+        let saved = false;
+        for (let round = 1; round <= 3 && !saved; round += 1) {
+          const sv = await this.save();
+          applied.push({ field: "save", round, saved: sv.saved, level: sv.level, message: sv.message, errorText: sv.errorText || "" });
+          if (sv.saved) { saved = true; break; }
+          const errs = await this.readValidationErrors();
+          if (!errs.length) break;
+          const handled = new Set();
+          for (const e of errs) {
+            const lbl = e.label;
+            if (!lbl || handled.has(lbl)) continue;
+            handled.add(lbl);
+            const core = lbl.replace(/[（(].*?[)）]/g, "").trim();
+            try {
+              const r = await this.fillFieldDefaultByLabel(core || lbl);
+              applied.push({ field: "autofix:" + (core || lbl), ...r });
+            } catch (ex) { applied.push({ field: "autofix:" + (core || lbl), ok: false, reason: ex.message }); }
+          }
+          await sleep(900);
+        }
+      }
       return applied;
     }
     const applied = [];
@@ -1632,6 +1758,159 @@ export class DianxiaomiAdapter {
     return applied;
   }
 
+  // 备货类型（速卖通 Choice 半托管必填）：国内履约 / 海外备货。店小秘用 Ant Select。
+  // 采集箱编辑草稿默认不预填，需手动选择；否则保存报「请选择备货类型」。
+  // 非致命：找不到字段/选项只记日志，不中断整体流程（缺它店小秘会拒绝保存，由 save 读回暴露）。
+  async fillStockingType(defaultValue = "国内履约") {
+    await this.connect();
+    try {
+      const item = this.page.locator(".ant-form-item").filter({
+        has: this.page.locator(".ant-form-item-label label, label").filter({ hasText: /备货类型/ })
+      }).first();
+      if (await item.count() === 0) return { ok: false, reason: "field-not-found" };
+      const sel = item.locator(".ant-select").first();
+      if (await sel.count() === 0) return { ok: false, reason: "select-not-found" };
+      // 该 Select 点击常被遮挡，用 force 打开下拉
+      await sel.click({ timeout: 5000, force: true }).catch(() => {});
+      await sleep(1200);
+      const candidates = Array.from(new Set([defaultValue, "国内履约", "海外备货"].filter(Boolean)));
+      let clicked = false;
+      for (const c of candidates) {
+        const opt = this.page.locator(".ant-select-dropdown:visible .ant-select-item-option-content, .ant-select-dropdown:visible .ant-select-item-option").filter({ hasText: c }).first();
+        if (await opt.count() > 0 && await opt.isVisible().catch(() => false)) {
+          await opt.click({ timeout: 5000 }).catch(() => {});
+          clicked = true;
+          break;
+        }
+      }
+      if (!clicked) { await this.page.keyboard.press("Escape").catch(() => {}); return { ok: false, reason: "option-not-found" }; }
+      await sleep(600);
+      return { ok: true, value: defaultValue };
+    } catch (e) {
+      return { ok: false, reason: e.message };
+    }
+  }
+
+  // 切到锚点 tab（基本信息/属性信息/变种参数/变种信息…）。店小秘编辑表单是 tab 结构，
+  // 不同必填项分布在不同 tab，填之前先确保对应 tab 激活。
+  async clickAnchorTab(name) {
+    await this.connect();
+    const tab = this.page.locator("a, div, span, li").filter({ hasText: new RegExp(`^\\s*${name}\\s*$`) }).first();
+    if (await tab.count() > 0) { await tab.click({ timeout: 5000 }).catch(() => {}); await sleep(1300); return true; }
+    return false;
+  }
+
+  // 产品属性兜底（采集箱模式必填项常为空）：通用填充「产品属性」控件内所有空 Ant-Select / 空 input。
+  // 这些在「产品属性」控件点开后才渲染（required-attrs 初始为空），故先点开控件。
+  // 策略：每个空 select 优先选 NONE/None/无/否/default 类兜底项，否则选第一个可用项；
+  // 空 input（重量/型号等）填安全默认值。覆盖 品牌/类型/材质/高关注化学品/产地/来源地/重量/型号 等任意类目属性。
+  async fillProductAttributes(facts) {
+    await this.connect();
+    const result = { ok: true, fields: [] };
+    const pickDefaultOption = async (selLocator) => {
+      await selLocator.click({ force: true, timeout: 6000 }).catch(() => {});
+      await sleep(1500);
+      const allOpts = this.page.locator(".ant-select-dropdown:visible .ant-select-item-option-content");
+      const n = await allOpts.count();
+      let chosen = null;
+      if (n > 0) {
+        // 优先 NONE/None/无/否/default
+        const preferred = this.page.locator(".ant-select-dropdown:visible .ant-select-item-option-content")
+          .filter({ hasText: /NONE|None|无|否|default/i }).first();
+        const target = (await preferred.count() > 0) ? preferred : allOpts.first();
+        chosen = (await target.innerText()).trim();
+        await target.click({ timeout: 6000 }).catch(() => {});
+      }
+      await sleep(400);
+      await this.page.keyboard.press("Escape").catch(() => {});
+      await sleep(400);
+      return chosen;
+    };
+
+    try {
+      await this.clickAnchorTab("属性信息").catch(() => {});
+      const ctrl = this.page.locator(".product-attrs, .attr-gray-container").first();
+      if (await ctrl.count() > 0) await ctrl.click({ timeout: 5000 }).catch(() => {});
+      await sleep(2000);
+    } catch (_) {}
+
+    const rows = await this.page.locator(".product-attrs .ant-form-item, .attr-gray-container .ant-form-item, .required-attrs .ant-form-item").all();
+    for (const row of rows) {
+      const label = (await row.locator(".ant-form-item-label label, label").first().innerText().catch(() => "")).trim();
+      if (!label) continue;
+      // 已经填了值的 select 跳过（如 品牌 已 NONE）
+      const sel = row.locator(".ant-select").first();
+      const selCount = await sel.count();
+      if (selCount > 0) {
+        const cur = await sel.locator(".ant-select-selection-item, .ant-select-selection-item-content").first().innerText().catch(() => "");
+        if (cur && cur.trim()) { result.fields.push({ field: label, ok: true, skipped: true, value: cur.trim() }); continue; }
+        try {
+          const chosen = await pickDefaultOption(sel);
+          if (chosen) result.fields.push({ field: label, ok: true, value: chosen });
+          else { result.fields.push({ field: label, ok: false, reason: "no-option" }); result.ok = false; }
+        } catch (e) { result.fields.push({ field: label, ok: false, reason: e.message }); result.ok = false; }
+        await sleep(500);
+      } else {
+        // 非 select：尝试填 input（重量/型号等）
+        const inp = row.locator("input:not([type=hidden]), textarea").first();
+        if (await inp.count() > 0) {
+          const cur = await inp.inputValue().catch(() => "");
+          if (cur && cur.trim()) { result.fields.push({ field: label, ok: true, skipped: true, value: cur.trim() }); continue; }
+          const def = /重量|weight/i.test(label) ? "0.1" : (/型号|model/i.test(label) ? "通用" : "无");
+          try {
+            await inp.click({ timeout: 4000 }).catch(() => {});
+            await inp.fill(def, { timeout: 4000 }).catch(() => {});
+            await sleep(400);
+            result.fields.push({ field: label, ok: true, value: def });
+          } catch (e) { result.fields.push({ field: label, ok: false, reason: e.message }); result.ok = false; }
+        }
+      }
+    }
+    return result;
+  }
+
+  // 变种颜色兜底（采集箱模式 facts 缺 colors 时）：勾选 颜色(Color) 组里第一个未勾选的颜色，
+  // 避免「请选择必选变种属性」。优先 checkbox 包裹，否则直接点颜色 chip。
+  async ensureDefaultVariantColor() {
+    await this.connect();
+    try {
+      await this.clickAnchorTab("变种参数").catch(() => {});
+      const item = this.page.locator(".ant-form-item").filter({
+        has: this.page.locator(".ant-form-item-label label, label").filter({ hasText: /^颜色\s*\(Color\)\s*$/i })
+      }).first();
+      if (await item.count() === 0) return { ok: false, reason: "color-group-not-found" };
+      await item.scrollIntoViewIfNeeded().catch(() => {});
+      await sleep(700);
+      let wraps = await item.locator(".ant-checkbox-wrapper, label:has(input[type=checkbox])").all();
+      let clicked = null;
+      for (const wrap of wraps) {
+        const input = wrap.locator("input[type=checkbox]").first();
+        const checked = await input.isChecked().catch(() => false);
+        if (!checked) {
+          const txt = (await wrap.innerText().catch(() => "")).trim();
+          await wrap.click({ timeout: 5000 }).catch(() => {});
+          await sleep(700);
+          clicked = txt || "checked";
+          break;
+        }
+      }
+      if (!clicked) {
+        const chip = await item.evaluate(() => {
+          const block = document.querySelector(".sku-attrs-container");
+          if (!block) return null;
+          const cb = Array.from(block.children).find(c => /颜色\(Color\)/.test(c.innerText || ""));
+          if (!cb) return null;
+          const c = Array.from(cb.querySelectorAll("span, div, a, label")).find(el => { const t = (el.innerText || "").trim(); return /\(/.test(t) && el.children.length === 0 && t.length < 40 && !/^颜色/.test(t); });
+          if (c) { c.click(); return (c.innerText || "").trim(); }
+          return null;
+        }).catch(() => null);
+        if (chip) { clicked = chip; await sleep(700); }
+      }
+      if (!clicked) return { ok: true, skipped: true, reason: "all-checked-or-no-chip" };
+      return { ok: true, value: clicked };
+    } catch (e) { return { ok: false, reason: e.message }; }
+  }
+
   // 物流属性（必填项，引用不会携带；乳贴=布+胶 → 选「普货」）。
   // UI：字段带编辑图标（icon_edit2 link），点击打开「修改物流属性」弹窗（选项为 ant-checkbox-wrapper），勾选后点确定。
   // 非致命：找不到编辑图标/选项/确定按钮只记日志，不中断整体流程。
@@ -1960,9 +2239,15 @@ export class DianxiaomiAdapter {
     }
     const urlAfter = readback.url || this.page.url();
     const urlChanged = urlBefore !== urlAfter;
-    // 成功判据：捕获到成功 toast，或「无校验错误」（店小秘保存失败必弹「校验失败/请选择」错误；
-    // 此前每次失败都弹出校验错误，现无错误即代表校验通过、草稿已存入「待发布」）。
-    const saved = !!readback.successToast || (!readback.errorToast && !readback.errorText);
+    // 店小秘自身结果判定：
+    //  - 明确失败：捕获到校验错误文本（如「请选择备货类型」「产品信息中有错误」）→ 直接判失败；
+    //  - 明确成功：捕获到成功 toast → 信任店小秘；
+    //  - 含糊（无 toast 无错误）：才用下方读回硬校验兜底。
+    // 关键修复：无线端描述是「新版模块编辑器」，内容以模块形式存在，ckeditor33 恒为空，
+    // 旧逻辑会据此误判 mobile-desc-empty 把店小秘已成功的保存翻转为失败。故店小秘明确成功时不再被子读回否决。
+    const shopFailed = !!(readback.errorToast || readback.errorText);
+    const shopOk = !!readback.successToast;
+    const saved = !shopFailed && (shopOk || (!readback.errorToast && !readback.errorText));
     // 读回校验：保存后实际页面状态（防止「无 toast + 无 error」→ 假成功）。
     // 必查：主图区真实张数、PC端/无线端 ckeditor 实际内容长度。
     // 引用模板自带 1 张占位图（thumbnail 计入，real 不会算它），故 realThumbnails >= 1 才算「有图」。
@@ -2001,13 +2286,15 @@ export class DianxiaomiAdapter {
     } catch (_e) {
       readbackCheck = { mainReal: -1, pcLen: -1, mobileLen: -1 };
     }
-    // 强制最低门槛：实际有真实主图 + PC 端文本非空 + 无线端文本非空；任一不达标即覆盖 saved=false。
-    // 允许无线端略宽容（≤30 字符视为空），因为新版编辑器弹窗偶发只生成小段，但 PC 是必有内容。
+    // 强制最低门槛（仅当店小秘结果含糊时用于兜底判失败）：实际有真实主图 + PC 端文本非空。
+    // 无线端描述用「新版模块编辑器」，ckeditor33 恒空，故不再把 mobile 空视为失败（避免 false-negative）。
     const hardIssues = [];
     if (readbackCheck.mainReal < 1) hardIssues.push(`main-img-empty(${readbackCheck.mainReal})`);
     if (readbackCheck.pcLen < 50) hardIssues.push(`pc-desc-empty(${readbackCheck.pcLen})`);
-    if (readbackCheck.mobileLen < 50) hardIssues.push(`mobile-desc-empty(${readbackCheck.mobileLen})`);
-    const finalSaved = saved && hardIssues.length === 0;
+    let finalSaved;
+    if (shopFailed) finalSaved = false;
+    else if (shopOk) finalSaved = true;
+    else finalSaved = (hardIssues.length === 0);
     if (hardIssues.length) readbackCheck.reason = hardIssues.join(",");
     readbackCheck.ok = finalSaved;
     const level = (readback.errorToast || readback.errorText || hardIssues.length) ? "err" : (finalSaved ? "ok" : "unknown");
@@ -2030,6 +2317,101 @@ export class DianxiaomiAdapter {
     };
   }
 
+  // 读取当前编辑表单上所有字段级校验错误，返回 [{label, hint}]。
+  // label=出错的 .ant-form-item 的 label（无则空）；hint=错误短语。用于保存失败后的迭代自动兜底。
+  async readValidationErrors() {
+    await this.connect();
+    return await this.page.evaluate(() => {
+      const clean = (s) => (s || "").replace(/\s+/g, " ").trim();
+      const errs = [];
+      for (const e of document.querySelectorAll(".ant-form-item-explain-error")) {
+        const t = clean(e.innerText);
+        if (t) errs.push({ label: "", hint: t });
+      }
+      for (const it of document.querySelectorAll(".ant-form-item")) {
+        const t = clean(it.innerText);
+        if (/请选择|必填|不能为空|校验失败|不完整|至少选择一项/.test(t)) {
+          const label = clean(it.querySelector(".ant-form-item-label label, label")?.innerText);
+          if (label) errs.push({ label, hint: t.slice(0, 50) });
+        }
+      }
+      for (const el of document.querySelectorAll(".ant-modal-body, .d-modal-body")) {
+        const t = clean(el.innerText);
+        if (/校验失败|保存失败|请完善|必填项|不完整/.test(t)) errs.push({ label: "", hint: t.slice(0, 80) });
+      }
+      return errs;
+    });
+  }
+
+  // 按 label 关键词定位字段并填一个安全默认值（用于保存失败后的迭代兜底）：
+  //  - Ant-Select → 选 NONE/None/无/否/default 或第一个选项；
+  //  - 复选框组（颜色必选等）→ 勾选第一个未勾选；
+  //  - input → 填安全默认（重量=0.1 / 型号=通用 / 其他=无）。
+  // 已知分布在不同 tab 的字段会先切到对应 tab。返回 {ok, value/skipped/reason}。
+  async fillFieldDefaultByLabel(label) {
+    await this.connect();
+    const TAB_HINTS = {
+      "尺码表": "基本信息", "海关监管属性": "基本信息", "计件单位": "基本信息",
+      "欧盟责任人": "合规信息", "土耳其责任人": "合规信息", "品牌制造商": "合规信息",
+      "颜色": "变种参数",
+    };
+    const core = String(label || "").replace(/[（(].*?[)）]/g, "").trim();
+    for (const [kw, tab] of Object.entries(TAB_HINTS)) {
+      if (core.includes(kw)) { await this.clickAnchorTab(tab).catch(() => {}); await sleep(900); break; }
+    }
+    // 1) 产品属性控件内的 attr（XPath 锚定 attr-label）
+    let item = this.page.locator(`xpath=//span[contains(@class,'attr-label') and contains(.,'${core}')]/ancestor::div[contains(@class,'ant-form-item')]`).first();
+    if (await item.count() === 0) {
+      // 2) 普通 form-item by label 文本
+      item = this.page.locator(".ant-form-item").filter({ has: this.page.locator(".ant-form-item-label label, label").filter({ hasText: core }) }).first();
+    }
+    if (await item.count() === 0) return { ok: false, reason: "field-not-found:" + label };
+    const sel = item.locator(".ant-select").first();
+    if (await sel.count() > 0) {
+      const cur = await sel.locator(".ant-select-selection-item, .ant-select-selection-item-content").first().innerText().catch(() => "");
+      if (cur && cur.trim()) return { ok: true, skipped: true, value: cur.trim() };
+      await sel.click({ force: true, timeout: 6000 }).catch(() => {});
+      await sleep(1400);
+      const allOpts = this.page.locator(".ant-select-dropdown:visible .ant-select-item-option-content");
+      if (await allOpts.count() > 0) {
+        const preferred = this.page.locator(".ant-select-dropdown:visible .ant-select-item-option-content").filter({ hasText: /NONE|None|无|否|default/i }).first();
+        const target = (await preferred.count() > 0) ? preferred : allOpts.first();
+        const chosen = (await target.innerText()).trim();
+        await target.click({ timeout: 6000 }).catch(() => {});
+        await sleep(400);
+        await this.page.keyboard.press("Escape").catch(() => {});
+        await sleep(400);
+        return { ok: true, value: chosen };
+      }
+      await this.page.keyboard.press("Escape").catch(() => {});
+      return { ok: false, reason: "no-option" };
+    }
+    const cb = item.locator(".ant-checkbox-wrapper").first();
+    if (await cb.count() > 0) {
+      const wraps = await item.locator(".ant-checkbox-wrapper, label:has(input[type=checkbox])").all();
+      for (const wrap of wraps) {
+        const input = wrap.locator("input[type=checkbox]").first();
+        if (!(await input.isChecked().catch(() => false))) {
+          await wrap.click({ timeout: 5000, force: true }).catch(() => {});
+          await sleep(500);
+          return { ok: true, value: (await wrap.innerText().catch(() => "")).trim() };
+        }
+      }
+      return { ok: true, skipped: true, reason: "all-checked" };
+    }
+    const inp = item.locator("input:not([type=hidden]), textarea").first();
+    if (await inp.count() > 0) {
+      const cur = await inp.inputValue().catch(() => "");
+      if (cur && cur.trim()) return { ok: true, skipped: true, value: cur.trim() };
+      const def = /重量|weight/i.test(core) ? "0.1" : (/型号|model/i.test(core) ? "通用" : "无");
+      await inp.click({ timeout: 4000 }).catch(() => {});
+      await inp.fill(def, { timeout: 4000 }).catch(() => {});
+      await sleep(400);
+      return { ok: true, value: def };
+    }
+    return { ok: false, reason: "no-fillable-control" };
+  }
+
   async close() {
     // 关闭 CDP 连接释放资源（下次 connect() 会重新连接）
     if (this.browser) { await this.browser.close().catch(() => {}); }
@@ -2044,6 +2426,9 @@ export class DianxiaomiAdapter {
   // 打开采集箱草稿列表页（smtChoice/draft）。
   async openCollectBox() {
     await this.connect();
+    // 清理：关闭除 this.page 外的所有店小秘标签页，确保每行都在干净单一标签上从采集箱草稿列表开始，
+    // 避免上一行「编辑分类/保存下一步」留下的 /web/smtChoice/edit 标签被 connect 误选为「第一个页」。
+    await this._closeExtraDianxiaomiTabs().catch(() => {});
     const url = DIANXIAOMI_URL_CHOICE_DRAFT;
     await this.page.goto(url, { waitUntil: "domcontentloaded" });
     await this.page.waitForLoadState("networkidle").catch(() => {});
@@ -2057,10 +2442,13 @@ export class DianxiaomiAdapter {
     if (!title || !title.trim()) throw new Error("采集箱搜索：标题为空");
     const sel = await this.page.evaluate(() => {
       const inputs = Array.from(document.querySelectorAll("input")).filter((i) => i.offsetParent !== null && i.type === "text");
-      // 优先 placeholder 含 搜索/标题/关键词/查询
+      // 1) 店小秘采集箱标题搜索框有稳定 name="tableSearchInput"，优先命中
+      const byName = inputs.find((i) => i.name === "tableSearchInput");
+      if (byName) return 'input[name="tableSearchInput"]';
+      // 2) placeholder 含 搜索/标题/关键词/查询
       const byPh = inputs.find((i) => /搜索|标题|关键词|查询/i.test(i.getAttribute("placeholder") || ""));
       if (byPh) return byPh.id ? "#" + byPh.id : `input[placeholder="${byPh.getAttribute("placeholder")}"]`;
-      // 回退：列表页顶部第一个可见 text input（排除 ant-select 内部搜索框）
+      // 3) 回退：列表页顶部第一个可见 text input（排除 ant-select 内部搜索框）
       const fb = inputs.find((i) => !/ant-select|rc_select/i.test(i.className || ""));
       if (fb) return fb.id ? "#" + fb.id : (fb.getAttribute("placeholder") ? `input[placeholder="${fb.getAttribute("placeholder")}"]` : ".__collect_search_fallback__");
       return null;
@@ -2071,6 +2459,7 @@ export class DianxiaomiAdapter {
       box = this.page.locator("input[type=text]").filter({ hasNot: this.page.locator("[class*=ant-select]") }).first();
     }
     await box.click({ timeout: 5000 }).catch(() => {});
+    await box.fill("", { timeout: 5000 }).catch(() => {});
     try {
       await box.fill(title, { timeout: 5000 });
     } catch {
@@ -2081,110 +2470,213 @@ export class DianxiaomiAdapter {
     // 触发搜索：先回车，再尝试点「搜索」按钮（二者择一）
     await this.page.keyboard.press("Enter").catch(() => {});
     await clickVisibleByText(this.page, "搜索", 4000).catch(() => {});
-    await sleep(2500);
-    await this.page.waitForSelector("table", { timeout: 8000 }).catch(() => {});
-    await sleep(800);
+    // 等待表格重新加载（店小秘用 vxe-table，通过行数变化或 loading 消失判断）
+    await this.page.waitForFunction(
+      () => document.querySelectorAll("tbody tr, .vxe-table--body-wrapper tr").length > 0 && !document.querySelector(".vxe-table--loading"),
+      { timeout: 15000 }
+    ).catch(() => {});
+    await sleep(1500);
     return { ok: true };
   }
 
-  // 在搜索结果中定位含标题的行并点击其「编辑」按钮。返回编辑表单 URL。
-  // 匹配策略：行内任意单元格文字包含/被包含于搜索标题即视为候选；完全相等 > 前缀相等 > 包含，取最高分。
-  // 店小秘点击「编辑」后可能在新标签页打开映射/编辑页，故先监听 new page 再点击。
+  // 在搜索结果中定位含标题的行并点击其「编辑」按钮。
+  // 店小秘采集箱点「编辑」后会在当前页弹出提示框（编辑分类 / 跳过，去编辑产品），
+  // 不是直接新开标签页，故本函数只负责定位并点击，后续由 fillCollectDraftCategory 处理弹窗。
   async openCollectDraftByTitle(title) {
     await this.connect();
+
     const found = await this.page.evaluate((t) => {
       const norm = (s) => (s || "").replace(/\s+/g, "").trim().toLowerCase();
-      const tn = norm(t);
+      const keywords = (s) => norm(s).split(/[^\u4e00-\u9fa5a-z0-9]+/).filter(Boolean);
+      const tk = keywords(t);
       const rows = Array.from(document.querySelectorAll("tr")).filter((r) => r.querySelector("td"));
-      let best = null, bestScore = 0;
+      let bestRowText = "", bestScore = 0;
       for (const r of rows) {
         const cells = Array.from(r.querySelectorAll("td"));
-        const hit = cells.find((td) => {
+        // 优先取看起来是标题的单元格（文本较长），否则取整行文本
+        const titleCells = cells.filter((td) => (td.innerText || "").length > 8);
+        const candidates = titleCells.length ? titleCells : cells;
+        let rowScore = 0;
+        let rowTitle = "";
+        for (const td of candidates) {
           const ct = norm(td.innerText);
-          return ct.includes(tn) || tn.includes(ct);
-        });
-        if (!hit) continue;
+          const ck = keywords(td.innerText);
+          let score = 0;
+          if (ct && (ct === norm(t) || ct.includes(norm(t)) || norm(t).includes(ct))) {
+            score = Math.max(score, ct === norm(t) ? 4 : (ct.includes(norm(t)) ? 3 : 2));
+          }
+          // 关键词交集比例（中文/英文词）
+          const inter = ck.filter((w) => tk.includes(w)).length;
+          if (tk.length && inter) {
+            const ratio = inter / Math.max(tk.length, ck.length);
+            score = Math.max(score, ratio * 2);
+          }
+          if (score > rowScore) { rowScore = score; rowTitle = (td.innerText || "").trim(); }
+        }
+        if (rowScore < 0.3) continue;
         const btns = Array.from(r.querySelectorAll("button, a")).filter((b) => /编辑/.test(b.innerText || ""));
         if (!btns.length) continue;
-        const cellText = norm(hit.innerText);
-        const score = cellText === tn ? 3 : (cellText.startsWith(tn) ? 2 : 1);
-        if (score > bestScore) { bestScore = score; best = btns[0]; }
+        if (rowScore > bestScore) { bestScore = rowScore; bestRowText = rowTitle; }
       }
-      if (!best) return { ok: false };
-      // 不在这里点击，由外部监听 new page 后再点
-      return { ok: true, score: bestScore, selector: best.id ? `#${best.id}` : null, text: best.innerText.trim().slice(0, 24) };
+      if (!bestRowText) return { ok: false };
+      return { ok: true, score: bestScore, rowTitle: bestRowText.slice(0, 80) };
     }, title);
-    if (!found.ok) throw new Error(`采集箱：搜索结果中未找到含标题「${title}」的行 / 编辑按钮`);
 
-    // 监听可能的新标签页
-    const context = this.page.context();
-    const newPagePromise = context.waitForEvent("page", { timeout: 8000 }).catch(() => null);
-
-    // 执行点击
-    if (found.selector) {
-      await this.page.locator(found.selector).first().click({ timeout: 5000 }).catch(() => {});
+    if (!found.ok) {
+      throw new Error(`采集箱：搜索结果中未找到含标题「${title}」的行 / 编辑按钮，请把表格「搜索标题」改成采集箱里的真实标题`);
     }
-    // 兜底：按行内文本再点一次（若 selector 失效或已点但无新页面）
-    await clickVisibleByText(this.page, "编辑", 4000).catch(() => {});
-
-    await this.page.waitForLoadState("networkidle").catch(() => {});
-    await sleep(4000);
-
-    const newPage = await newPagePromise;
-    if (newPage && !newPage.isClosed()) {
-      this.page = newPage;
-      await this.page.waitForLoadState("networkidle").catch(() => {});
-      await sleep(1500);
+    if (found.score < 0.5) {
+      throw new Error(`采集箱：标题「${title}」与搜索结果匹配度过低(score=${found.score.toFixed(2)})，请核对表格「搜索标题」`);
     }
-    return { ok: true, url: this.page.url(), score: found.score };
+
+    // 用 Playwright 真实点击行内「编辑」按钮（Vue/Ant 需要真实鼠标事件）。
+    // 点击后店小秘可能：① 新开「编辑」标签页（最常见）；② 本页弹「编辑分类/跳过」modal；③ 本页直接跳编辑表单。
+    // 由于浏览器原生 window.open 的新标签不一定触发 Playwright 的 page 事件，这里改为【轮询 browser 所有 page】
+    // 检测是否出现新的 /web/smtChoice/edit 标签（用 page 对象身份而非 URL 判定，因为同商品 edit 标签 URL 相同）。
+    let targetPage = null;
+    let modalOnCurrent = false;
+    let samePageEdit = false;
+    let lastErr = "";
+    const isEditNow = async (p) => p.evaluate(() => /(产品标题|商品标题|quoteEdit|productEdit)/.test((document.body && document.body.innerText) || "") || /quoteEdit|productEdit/.test(location.href)).catch(() => false);
+    const listPages = () => this.browser.contexts().flatMap((c) => c.pages().filter((p) => !p.isClosed()));
+    const findEditBtn = async () => {
+      const h = await this.page.evaluateHandle((t) => {
+        const norm = (s) => (s || "").replace(/\s+/g, "").trim().toLowerCase();
+        const tn = norm(t);
+        const rows = Array.from(document.querySelectorAll("tr")).filter((r) => r.querySelector("td"));
+        for (const r of rows) {
+          if (!r.innerText || !norm(r.innerText).includes(tn)) continue;
+          const btns = Array.from(r.querySelectorAll("button, a")).filter((b) => {
+            const bt = (b.innerText || "").trim();
+            return bt === "编辑" || /编辑产品|编辑草稿/.test(bt) || (/编辑/.test(bt) && !/编辑分类|编辑映射|编辑类目/.test(bt));
+          });
+          if (btns.length) return btns[0];
+        }
+        return null;
+      }, title);
+      return h.asElement();
+    };
+    // 清理上一轮残留的 edit 标签（避免累积导致 connect 卡死）
+    for (const p of listPages()) { if (p !== this.page && /web\/smtChoice\/edit/.test(p.url())) { await p.close().catch(() => {}); } }
+    await sleep(600);
+    for (let attempt = 1; attempt <= 3 && !targetPage && !modalOnCurrent && !samePageEdit; attempt += 1) {
+      const beforeAttempt = new Set(listPages());
+      // 若上一轮残留 modal 仍开着，先关掉再点（否则再点编辑可能被 modal 遮挡）。
+      const staleModal = await this.page.$(".ant-modal").catch(() => null);
+      if (staleModal) { await this.page.keyboard.press("Escape").catch(() => {}); await sleep(400); }
+      const editBtn = await findEditBtn();
+      if (!editBtn) { lastErr = "edit-btn-not-found"; await sleep(800); continue; }
+      await editBtn.scrollIntoViewIfNeeded().catch(() => {});
+      await editBtn.click({ timeout: 8000, force: true }).catch(async (e) => {
+        lastErr = String(e && e.message || e);
+        // 兜底：页面内第一个精确「编辑」按钮
+        await this.page.locator("button, a").filter({ hasText: /^编辑$/ }).first().click({ timeout: 5000, force: true }).catch((e2) => { lastErr = String(e2 && e2.message || e2); });
+      });
+      // 轮询检测新标签 / modal / 本页跳编辑表单（最多 ~14s）
+      let detected = false;
+      for (let i = 0; i < 28 && !detected; i += 1) {
+        const pages = listPages();
+        const newEdit = pages.find((p) => /web\/smtChoice\/edit/.test(p.url()) && !beforeAttempt.has(p) && !p.isClosed());
+        if (newEdit) { targetPage = newEdit; this.page = newEdit; detected = true; break; }
+        if (await this.page.$(".ant-modal").catch(() => null)) { modalOnCurrent = true; detected = true; break; }
+        if (await isEditNow(this.page)) { samePageEdit = true; detected = true; break; }
+        await sleep(500);
+      }
+      if (!detected) {
+        // 关闭本次误开的新标签，避免跨重试累积
+        for (const p of listPages()) { if (p !== this.page && !beforeAttempt.has(p) && /web\/smtChoice\/edit/.test(p.url())) { await p.close().catch(() => {}); } }
+      } else break;
+    }
+    if (!targetPage && !modalOnCurrent && !samePageEdit) {
+      throw new Error(`采集箱：点击「编辑」后未出现新标签页/提示弹窗/编辑页（已重试 3 次）。lastErr=${lastErr || "(无)"}。可能：1) 搜索标题未定位到正确行；2) 编辑按钮被遮挡/页面结构变化；3) 上一轮残留弹窗未清除。`);
+    }
+    await sleep(2000);
+
+    return { ok: true, url: this.page.url(), score: found.score, mode: targetPage ? "new-tab" : (modalOnCurrent ? "modal" : "same-page") };
   }
 
   // 采集箱「编辑」后可能出现的「分类/变种主题映射」中间页处理。
-  // 店小秘在点击编辑后，会先进入分类选择 + 1688变种主题→速卖通/半托管变种主题映射页，
-  // 必须完成这步并点「保存，下一步」才能进入真正的商品编辑表单。
+  // 流程：列表页点编辑 → 提示弹窗（编辑分类 / 跳过）→ 分类映射页（选类目 + 1688→SMT 主题映射）→ 保存下一步 → 编辑表单。
+  // 本函数负责从弹窗/映射页一路处理到编辑表单，并确保 this.page 指向编辑表单页。
   async fillCollectDraftCategory(facts) {
     await this.connect();
-    const page = this.page;
+    let page = this.page;
     const profile = this.profile;
 
-    const detect = async () => page.evaluate(() => {
+    const detect = async (p) => p.evaluate(() => {
       const bodyText = document.body ? (document.body.innerText || "") : "";
       const buttons = Array.from(document.querySelectorAll("button"));
       const hasSaveNext = !!buttons.find((b) => /保存，下一步|保存下一步/.test(b.innerText || ""));
       const hasCategorySelect = !!Array.from(document.querySelectorAll(".ant-select-selection-placeholder")).find((el) => /请选择分类/.test(el.innerText || ""));
       const hasVariantTable = /1688变种主题/.test(bodyText) && /对应速卖通/.test(bodyText);
-      // 2026-07-28 新增：点「编辑」后先弹出的提示弹窗（两个按钮：编辑分类 / 跳过，去编辑产品）
-      const hasEditCategoryBtn = !!buttons.find((b) => /编辑分类/.test(b.innerText || ""));
-      const hasSkipToEditBtn = !!buttons.find((b) => /跳过，?去编辑产品|跳过/.test(b.innerText || ""));
+      // 提示弹窗（两个按钮：编辑分类 / 跳过，去编辑产品）
+      const hasEditCategoryBtn = !!buttons.find((b) => /^编辑分类$/.test((b.innerText || "").trim()));
+      const hasSkipToEditBtn = !!buttons.find((b) => /跳过，?去编辑产品/.test(b.innerText || ""));
       const hasPromptProgress = /选择产品.*编辑分类.*编辑产品.*保存/.test(bodyText.replace(/\s+/g, ""));
+      // 是否已经直接进到编辑表单页
+      const isEditPage = /(产品标题|商品标题|quoteEdit|productEdit)/.test(bodyText) || /quoteEdit|productEdit/.test(location.href);
       return {
         isCategoryPage: hasSaveNext && (hasCategorySelect || hasVariantTable),
         isCategoryPrompt: hasEditCategoryBtn && hasSkipToEditBtn && hasPromptProgress,
-        hasSaveNext,
-        hasCategorySelect,
-        hasVariantTable,
-        hasEditCategoryBtn,
-        hasSkipToEditBtn,
+        isEditPage,
         url: location.href,
         title: document.title
       };
     });
 
-    let state = await detect();
+    // 辅助：等待并获取真实页面（过滤 about:blank）
+    const awaitRealPage = async (promise, timeoutMs = 10000) => {
+      const start = Date.now();
+      let p = await promise;
+      if (!p) return null;
+      while (Date.now() - start < timeoutMs) {
+        if (!p.isClosed()) {
+          try {
+            const url = p.url();
+            if (url && url !== "about:blank" && !url.startsWith("about:blank")) return p;
+          } catch {}
+        }
+        await sleep(200);
+      }
+      return p.isClosed() ? null : p;
+    };
 
-    // 步骤 A：处理「编辑分类」提示弹窗
+    // 1) 等待弹窗或映射页或编辑页出现（最多 10 秒）
+    let state = null;
+    for (let i = 0; i < 40; i++) {
+      state = await detect(page);
+      if (state.isEditPage || state.isCategoryPage || state.isCategoryPrompt) break;
+      await sleep(250);
+    }
+
+    if (state.isEditPage) {
+      return { ok: true, skipped: true, reason: "already-edit-page", state };
+    }
+
+    // 2) 处理提示弹窗：点「编辑分类」
     if (state.isCategoryPrompt) {
-      await clickVisibleByText(page, "编辑分类", 8000);
+      const context = page.context();
+      const newPagePromise = context.waitForEvent("page", { timeout: 10000 }).catch(() => null);
+      await page.locator(".ant-modal button").filter({ hasText: "编辑分类" }).first().click({ timeout: 5000 }).catch(() => {
+        return clickVisibleByText(page, "编辑分类", 5000);
+      });
+      // 等待页面变化：可能是当前页导航，也可能是新标签页
+      let newPage = await awaitRealPage(newPagePromise, 8000);
+      if (newPage && !newPage.isClosed()) {
+        page = newPage;
+        this.page = newPage;
+      }
       await page.waitForLoadState("networkidle").catch(() => {});
       await sleep(2500);
-      state = await detect();
+      state = await detect(page);
+      if (state.isEditPage) return { ok: true, skipped: true, reason: "already-edit-page", state };
     }
 
     if (!state.isCategoryPage) {
       return { ok: true, skipped: true, reason: "not-category-page", state };
     }
 
-    // 1) 选类目（如果还没选）
+    // 3) 映射页：选类目
     const categoryName = profile.category;
     if (categoryName) {
       const categorySelect = page.locator(".ant-select", {
@@ -2192,7 +2684,7 @@ export class DianxiaomiAdapter {
       }).first();
       if (await categorySelect.count() > 0 && await categorySelect.isVisible().catch(() => false)) {
         await categorySelect.click();
-        await sleep(600);
+        await sleep(800);
         let option = page.locator(".ant-select-item-option-content").filter({ hasText: categoryName }).first();
         if (await option.count() === 0) {
           const shortName = categoryName.split(/[（(]/)[0].trim();
@@ -2200,53 +2692,59 @@ export class DianxiaomiAdapter {
         }
         if (await option.count() > 0) await option.click();
         else await page.mouse.click(5, 5);
-        await sleep(500);
+        await sleep(600);
       }
     }
 
-    // 2) 变种主题映射：按 profile.variantThemeMap 把 1688 主题映射到 SMT/半托管主题
+    // 4) 映射页：变种主题映射（非阻塞；失败只记录，不影响保存）
     const variantThemeMap = profile.variantThemeMap || {};
     const mapped = [];
     if (Object.keys(variantThemeMap).length > 0) {
       const rows = page.locator("table tbody tr");
       const rowCount = await rows.count();
       for (let i = 0; i < rowCount; i++) {
-        const row = rows.nth(i);
-        const firstCell = row.locator("td").first();
-        const themeText = (await firstCell.innerText().catch(() => "")).trim();
-        const target = variantThemeMap[themeText];
-        if (!target) continue;
-        const select = row.locator(".ant-select").first();
-        if (await select.count() === 0 || !(await select.isVisible().catch(() => false))) continue;
-        await select.click();
-        await sleep(400);
-        const option = page.locator(".ant-select-item-option-content").filter({ hasText: target }).first();
-        if (await option.count() > 0) {
-          await option.click();
-          mapped.push({ theme: themeText, target });
-        } else {
-          await page.mouse.click(5, 5);
+        try {
+          const row = rows.nth(i);
+          const firstCell = row.locator("td").first();
+          const themeText = (await firstCell.innerText().catch(() => "")).trim();
+          const target = variantThemeMap[themeText];
+          if (!target) continue;
+          const select = row.locator(".ant-select").first();
+          if (await select.count() === 0 || !(await select.isVisible().catch(() => false))) continue;
+          await select.click();
+          await sleep(600);
+          // 在浮层下拉框里找选项
+          const option = page.locator(".ant-select-dropdown:visible .ant-select-item-option-content").filter({ hasText: target }).first();
+          if (await option.count() > 0 && await option.isVisible().catch(() => false)) {
+            await option.click();
+            mapped.push({ theme: themeText, target });
+          } else {
+            // 兜底：按 ESC 关闭下拉框，不阻塞
+            await page.keyboard.press("Escape").catch(() => {});
+          }
+          await sleep(300);
+        } catch (e) {
+          // 单个主题映射失败不阻塞整体保存
+          await page.keyboard.press("Escape").catch(() => {});
         }
-        await sleep(300);
       }
     }
 
-    // 3) 保存并进入下一步。店小秘可能在当前页跳转，也可能新开标签页进入编辑表单，
-    //    故同时监听 new page 事件，确保 this.page 指向真正的编辑页。
+    // 5) 保存并进入下一步
     const context = page.context();
-    const newPagePromise = context.waitForEvent("page", { timeout: 8000 }).catch(() => null);
-    await clickVisibleByText(page, "保存，下一步", 8000);
-    const newPage = await newPagePromise;
+    const newPagePromise = context.waitForEvent("page", { timeout: 10000 }).catch(() => null);
+    await page.locator("button").filter({ hasText: /保存，下一步|保存下一步/ }).first().click({ timeout: 8000 }).catch(() => {
+      return clickVisibleByText(page, "保存，下一步", 8000);
+    });
+    let newPage = await awaitRealPage(newPagePromise, 8000);
     if (newPage && !newPage.isClosed()) {
+      page = newPage;
       this.page = newPage;
-      await this.page.waitForLoadState("networkidle").catch(() => {});
-      await sleep(1500);
-    } else {
-      await page.waitForLoadState("networkidle").catch(() => {});
-      await sleep(3000);
     }
+    await page.waitForLoadState("networkidle").catch(() => {});
+    await sleep(3000);
 
-    return { ok: true, url: this.page.url(), mapped, state };
+    return { ok: true, url: page.url(), mapped, state };
   }
 
   // 探索：dump 采集箱列表页结构（搜索框 / 表头 / 编辑按钮 / 所有按钮文案），
