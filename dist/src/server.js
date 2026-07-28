@@ -3744,7 +3744,8 @@ async function runCollectBatchListing(rows) {
       item.progress = 80;
       const saved = await dianxiaomiAdapter.save();
       // 关键校验：描述类 critical fields 任一 FAIL / 读回校验失败 → 整行判 failed（与引用模式一致）
-      const criticalFailures = applied.filter((a) => (a.field === "description.pc" || a.field === "description.mobile") && a.ok === false);
+      // 采集箱模式只保留 PC 描述，无线端描述故意不填，因此不将 description.mobile 视为失败。
+      const criticalFailures = applied.filter((a) => a.field === "description.pc" && a.ok === false);
       const readbackIssues = (saved && Array.isArray(saved.hardIssues) && saved.hardIssues.length) ? saved.hardIssues : [];
       const criticalFailed = criticalFailures.length > 0 || readbackIssues.length > 0;
       if (saved && saved.saved && !criticalFailed) {

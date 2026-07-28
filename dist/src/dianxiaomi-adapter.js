@@ -2348,6 +2348,7 @@ export class DianxiaomiAdapter {
   //  - 复选框组（颜色必选等）→ 勾选第一个未勾选；
   //  - input → 填安全默认（重量=0.1 / 型号=通用 / 其他=无）。
   // 已知分布在不同 tab 的字段会先切到对应 tab。返回 {ok, value/skipped/reason}。
+  // 用户明确可跳过的字段（缺下拉选项时也不报失败）：尺码表、土耳其责任人、来源地。
   async fillFieldDefaultByLabel(label) {
     await this.connect();
     const TAB_HINTS = {
@@ -2356,6 +2357,8 @@ export class DianxiaomiAdapter {
       "颜色": "变种参数",
     };
     const core = String(label || "").replace(/[（(].*?[)）]/g, "").trim();
+    const USER_SKIP_FIELDS = ["尺码表", "土耳其责任人", "来源地"];
+    const isUserSkip = USER_SKIP_FIELDS.some((kw) => core.includes(kw));
     for (const [kw, tab] of Object.entries(TAB_HINTS)) {
       if (core.includes(kw)) { await this.clickAnchorTab(tab).catch(() => {}); await sleep(900); break; }
     }
@@ -2384,6 +2387,7 @@ export class DianxiaomiAdapter {
         return { ok: true, value: chosen };
       }
       await this.page.keyboard.press("Escape").catch(() => {});
+      if (isUserSkip) return { ok: true, skipped: true, reason: "user-skip-no-option" };
       return { ok: false, reason: "no-option" };
     }
     const cb = item.locator(".ant-checkbox-wrapper").first();
