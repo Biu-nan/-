@@ -10818,6 +10818,15 @@ function parseCollectXlsx(arrayBuffer) {
   return rows;
 }
 
+function collectDownloadTemplate() {
+  const header = ["搜索标题", "类目", "产品包名", "enabled"];
+  downloadXlsx([
+    header,
+    ["采集箱里该链接的真实标题", "xiangBaoFold", "已完成产品里的包名", "true"],
+    ["示例-幸运草手机挂链", "xiangBao", "幸运草手机挂链", "true"]
+  ], "采集箱上架模板.xlsx");
+}
+
 async function collectGenerateSource() {
   try {
     const data = await request("/api/dianxiaomi/collect-batch-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
@@ -10978,6 +10987,7 @@ function renderBatchListing() {
 
         <div class="bl-card">
           <div class="bl-controls">
+            <button id="bl-template" class="bl-btn ghost" ${dis}>📄 下载空白模板</button>
             <button id="bl-generate" class="bl-btn ghost" ${dis}>⚙ 生成采集模板</button>
             <div class="bl-file-wrap">
               <input type="file" id="bl-file" accept=".xlsx,.xls,.csv" ${dis} />
@@ -10988,7 +10998,7 @@ function renderBatchListing() {
             ${hasFailed ? `<button id="bl-retry" class="bl-btn ghost" ${dis}>↻ 重试失败项</button>` : ""}
           </div>
           <div class="bl-card-note">
-            <span>💡 先「生成采集模板」自动扫描 已完成产品/ 里含 product-facts.json 的包；逐行核对「搜索标题」就是采集箱里的标题（不一致就改），再点开始。「探索采集箱」会在你开着 Chrome+店小秘登录时 dump 列表页结构，用于校准导航选择器。</span>
+            <span>💡 「下载空白模板」先看列名；「生成采集模板」自动扫描 已完成产品/ 里含 product-facts.json 的包并直接载入表格；逐行核对「搜索标题」就是采集箱里的标题（不一致就改），再点开始。「探索采集箱」会在你开着 Chrome+店小秘登录时 dump 列表页结构，用于校准导航选择器。</span>
           </div>
           ${busy ? `<div class="bl-hint">采集箱上架进行中，进度每秒刷新…</div>` : ""}
           ${(batchListingState.explore) ? `<pre class="bl-explore">${blEscapeHtml(batchListingState.explore)}</pre>` : ""}
@@ -11035,7 +11045,7 @@ function renderBatchListing() {
     renderBatchListing();
   }));
 
-  document.getElementById("bl-template")?.addEventListener("click", () => void batchDownloadTemplate());
+  document.getElementById("bl-template")?.addEventListener("click", () => void (mode === "collect" ? collectDownloadTemplate() : batchDownloadTemplate()));
   document.getElementById("bl-generate")?.addEventListener("click", () => void (mode === "collect" ? collectGenerateSource() : batchGenerateSource()));
   document.getElementById("bl-file")?.addEventListener("change", batchOnFile);
   document.getElementById("bl-start")?.addEventListener("click", () => void (mode === "collect" ? collectStart() : batchStart()));
