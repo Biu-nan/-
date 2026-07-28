@@ -3687,6 +3687,10 @@ async function runCollectBatchListing(rows) {
       item.progress = 30;
       await dianxiaomiAdapter.openCollectDraftByTitle(row.searchTitle);
       item.progress = 45;
+      // 处理采集箱编辑前的「分类/变种主题映射」中间页（选类目 + 颜色->Color + 保存下一步）
+      const catRes = await dianxiaomiAdapter.fillCollectDraftCategory(facts);
+      if (catRes.mapped && catRes.mapped.length) log(`分类映射: ${catRes.mapped.map((m) => `${m.theme}->${m.target}`).join(", ")}`);
+      item.progress = 55;
       // 采集箱草稿已带固定字段（店铺/备货/分类等），不调用 fillFixedFields，只填 facts 文字/属性/描述。
       const applied = await dianxiaomiAdapter.fillFromFacts(facts, { collectMode: true });
       for (const a of applied) {

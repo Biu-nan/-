@@ -2065,6 +2065,89 @@ export class DianxiaomiAdapter {
     return { ok: true, url: this.page.url(), score: found.score };
   }
 
+  // 采集箱「编辑」后可能出现的「分类/变种主题映射」中间页处理。
+  // 店小秘在点击编辑后，会先进入分类选择 + 1688变种主题→速卖通/半托管变种主题映射页，
+  // 必须完成这步并点「保存，下一步」才能进入真正的商品编辑表单。
+  async fillCollectDraftCategory(facts) {
+    await this.connect();
+    const page = this.page;
+    const profile = this.profile;
+
+    const detect = async () => page.evaluate(() => {
+      const bodyText = document.body ? (document.body.innerText || "") : "";
+      const hasSaveNext = !!Array.from(document.querySelectorAll("button")).find((b) => /保存，下一步|保存下一步/.test(b.innerText || ""));
+      const hasCategorySelect = !!Array.from(document.querySelectorAll(".ant-select-selection-placeholder")).find((el) => /请选择分类/.test(el.innerText || ""));
+      const hasVariantTable = /1688变种主题/.test(bodyText) && /对应速卖通/.test(bodyText);
+      return {
+        isCategoryPage: hasSaveNext && (hasCategorySelect || hasVariantTable),
+        hasSaveNext,
+        hasCategorySelect,
+        hasVariantTable,
+        url: location.href,
+        title: document.title
+      };
+    });
+
+    const state = await detect();
+    if (!state.isCategoryPage) {
+      return { ok: true, skipped: true, reason: "not-category-page", state };
+    }
+
+    // 1) 选类目（如果还没选）
+    const categoryName = profile.category;
+    if (categoryName) {
+      const categorySelect = page.locator(".ant-select", {
+        has: page.locator(".ant-select-selection-placeholder", { hasText: "请选择分类" })
+      }).first();
+      if (await categorySelect.count() > 0 && await categorySelect.isVisible().catch(() => false)) {
+        await categorySelect.click();
+        await sleep(600);
+        let option = page.locator(".ant-select-item-option-content").filter({ hasText: categoryName }).first();
+        if (await option.count() === 0) {
+          const shortName = categoryName.split(/[（(]/)[0].trim();
+          option = page.locator(".ant-select-item-option-content").filter({ hasText: shortName }).first();
+        }
+        if (await option.count() > 0) await option.click();
+        else await page.mouse.click(5, 5);
+        await sleep(500);
+      }
+    }
+
+    // 2) 变种主题映射：按 profile.variantThemeMap 把 1688 主题映射到 SMT/半托管主题
+    const variantThemeMap = profile.variantThemeMap || {};
+    const mapped = [];
+    if (Object.keys(variantThemeMap).length > 0) {
+      const rows = page.locator("table tbody tr");
+      const rowCount = await rows.count();
+      for (let i = 0; i < rowCount; i++) {
+        const row = rows.nth(i);
+        const firstCell = row.locator("td").first();
+        const themeText = (await firstCell.innerText().catch(() => "")).trim();
+        const target = variantThemeMap[themeText];
+        if (!target) continue;
+        const select = row.locator(".ant-select").first();
+        if (await select.count() === 0 || !(await select.isVisible().catch(() => false))) continue;
+        await select.click();
+        await sleep(400);
+        const option = page.locator(".ant-select-item-option-content").filter({ hasText: target }).first();
+        if (await option.count() > 0) {
+          await option.click();
+          mapped.push({ theme: themeText, target });
+        } else {
+          await page.mouse.click(5, 5);
+        }
+        await sleep(300);
+      }
+    }
+
+    // 3) 保存并进入下一步
+    await clickVisibleByText(page, "保存，下一步", 8000);
+    await page.waitForLoadState("networkidle").catch(() => {});
+    await sleep(3000);
+
+    return { ok: true, url: page.url(), mapped, state };
+  }
+
   // 探索：dump 采集箱列表页结构（搜索框 / 表头 / 编辑按钮 / 所有按钮文案），
   // 供前端「探索采集箱」按钮调用，便于在真实 Chrome+店小秘登录后校准导航选择器。
   async exploreCollectBox() {

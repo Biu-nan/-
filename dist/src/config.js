@@ -124,6 +124,7 @@ export const DIANXIAOMI_CATEGORY_PROFILES = {
       sizeTemplate: ""
     },
     category: "内衣配件（乳贴/乳垫/肩带等）(Women's Intimates Accessories)",
+    variantThemeMap: { "颜色": "Color", "尺码": "Size", "尺寸": "Size" },
     requiredAttrs: [
       { label: "高关注化学品", id: "rc_select_12", value: "天然未处理(None)" },
       { label: "产地（国家或地区）", id: "rc_select_13", value: "中国大陆(Origin)(Mainland China)" },
@@ -202,6 +203,7 @@ export const DIANXIAOMI_CATEGORY_PROFILES = {
       sizeTemplate: ""
     },
     category: "箱包配件(Bag Parts & Accessories)",
+    variantThemeMap: { "颜色": "Color", "尺寸": "Size", "尺码": "Size", "型号": "Size" },
     // 引用模式引用自带清单（引用 1005012741652735 实测）：
     //   店铺/备货/分类/产品属性(NONE)/高关注化学品(无)/产地(中国大陆)/中国省份(浙江)/欧盟责任人/品牌制造商/型号/来源地/计件单位/海关监管属性(3)/来源URL/PC+无线描述 均已带出。
     // AI 只覆盖以下「属性信息」区块中引用未带出的空字段（类型/材质为空；品牌/产地引用已带，facts 提供则覆盖）。
@@ -263,6 +265,7 @@ export const DIANXIAOMI_CATEGORY_PROFILES = {
       sizeTemplate: ""
     },
     category: "箱包便携折叠包(Bag Parts & Accessories)",
+    variantThemeMap: { "颜色": "Color", "尺寸": "Size", "尺码": "Size", "型号": "Size" },
     requiredAttrs: [
       { label: "类型(Type)", id: "rc_select_13", value: "", factsKey: "type", aiSection: "attributes" },
       { label: "材质(Material)", id: "rc_select_15", value: "", factsKey: "material", aiSection: "attributes" },
