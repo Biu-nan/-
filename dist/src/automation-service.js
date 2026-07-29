@@ -316,6 +316,7 @@ export class AutomationService {
                     await this.store.update({
                         stage: "COMPLETED",
                         running: false,
+                        autoRun: false,
                         error: undefined,
                         interruptedStage: undefined,
                         message: seoOnly

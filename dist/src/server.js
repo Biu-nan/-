@@ -754,7 +754,17 @@ app.get("/api/connectors/feishu/status", async (_request, response) => {
         note: "Feishu v0.1 只接收 webhook 并写入 command_inbox / event_log。"
     });
 });
+// 自愈标志：autoRun 残留仅自愈一次，避免每秒轮询都写盘
+let _autoRunHealed = false;
+
 app.get("/api/status", async (_request, response) => {
+    // 自愈：进程曾被 watchdog 误杀导致收尾 finally 未执行，残留 autoRun:true
+    // 会挡住所有新任务入口（批量/队列/内胆）。running 为空时自动复位。
+    const _heal = store.get();
+    if (_heal.autoRun && !_heal.running && !_autoRunHealed) {
+        _autoRunHealed = true;
+        try { await store.update({ autoRun: false }); } catch (_) {}
+    }
     const images = await scanProductImages();
     const currentProductId = await visualAssetsService.currentProductId();
     const productVisualAssets = currentProductId

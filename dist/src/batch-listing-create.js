@@ -721,6 +721,11 @@ export function registerBatchListingCreateRoutes(app, deps) {
 
     app.post("/api/batch-listing-create/start", async (request, response) => {
         try {
+            // 防御性清理：残留 autoRun（曾被 watchdog 误杀导致）会挡住新任务
+            const _st0 = store.get();
+            if (_st0.autoRun && !_st0.running) {
+                await store.update({ autoRun: false }).catch(() => {});
+            }
             await normalizeStuckRunningState();
             const { jobId } = request.body || {};
             if (!jobId || !listingCreateRunState.filePath || listingCreateRunState.jobId !== jobId) {
@@ -758,6 +763,10 @@ export function registerBatchListingCreateRoutes(app, deps) {
 
     app.post("/api/batch-listing-create/retry", async (request, response) => {
         try {
+            const _st0 = store.get();
+            if (_st0.autoRun && !_st0.running) {
+                await store.update({ autoRun: false }).catch(() => {});
+            }
             if (!listingCreateRunState.jobId) {
                 await recoverListingCreateState();
             }
