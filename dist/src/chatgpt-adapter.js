@@ -689,6 +689,8 @@ export class ChatGptAdapter {
     async waitForResponseAfterPrompt(fingerprint) {
         const page = await this.requirePage();
         const startedAt = Date.now();
+        // 生成中心跳状态：供 /api/status 实时回报「ChatGPT 正在生成」（前台据此显示已等待秒数，消除「要刷新才更新」的错觉）
+        this._waiting = { fingerprint, startedAt, lastTickAt: startedAt };
         let stableText = "";
         let stableSince;
         // ① 停滞探测状态
@@ -702,6 +704,7 @@ export class ChatGptAdapter {
         let lastTextCheck = 0;
         const TEXT_POLL_MS = 25_000;
         while (Date.now() - startedAt < RESPONSE_WAIT_MS) {
+            if (this._waiting) this._waiting.lastTickAt = Date.now();
             const stopVisible = await this.stopButton(page)
                 .isVisible()
                 .catch(() => false);
@@ -767,6 +770,7 @@ export class ChatGptAdapter {
                     stableSince = Date.now();
                 }
                 else if (stableSince && Date.now() - stableSince >= 3_000) {
+                    this._waiting = null;
                     return responseText;
                 }
             }
@@ -783,8 +787,20 @@ export class ChatGptAdapter {
             lastResponseText = responseText;
             await page.waitForTimeout(2_000);
         }
+        this._waiting = null;
         throw new Error(`等待已发送 Prompt 的回复超时：${fingerprint}`);
     }
+    getWaitingState() {
+        if (!this._waiting) return null;
+        return {
+            active: true,
+            fingerprint: this._waiting.fingerprint,
+            startedAt: this._waiting.startedAt,
+            lastTickAt: this._waiting.lastTickAt,
+            elapsedMs: Date.now() - this._waiting.startedAt
+        };
+    }
+
     async waitForResponse(previousAssistantCount) {
         const page = await this.requirePage();
         const startedAt = Date.now();

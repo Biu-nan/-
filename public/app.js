@@ -482,6 +482,7 @@ let lastBagVariantSignature;
 let lastDesignVariantSignature;
 let lastLinerUploadSignature;
 let latestPayload;
+let latestChatgptWaiting = null;
 let insertProfileVisible = false;
 let selectedArchivedProfile;
 let selectedOperationProductId;
@@ -2549,7 +2550,8 @@ const progressByStage = {
 };
 
 async function request(url, options = {}) {
-  const response = await fetch(url, options);
+  const opts = { cache: "no-store", ...options };
+  const response = await fetch(url, opts);
   const body = await response.json();
   if (!response.ok) throw new Error(body.error || "请求失败");
   return body;
@@ -4656,9 +4658,14 @@ function renderProductionConsole(state, availableImages, busy, queueLocked) {
       : seoOnly && state?.researchCompleted
         ? "调研完成"
         : (phaseLabels[state?.completedPhase] || (busy ? "运行中" : "待开始"));
+  const genWaiting = latestChatgptWaiting && latestChatgptWaiting.active;
+  const waitedSec = genWaiting ? Math.floor((Date.now() - latestChatgptWaiting.startedAt) / 1000) : 0;
   metrics.innerHTML =
     `<article><strong>${hasImages ? availableImages.length : 0}</strong><span>产品素材</span></article>` +
     `<article><strong>${escapeHtml(phaseText)}</strong><span>当前阶段</span></article>` +
+    (genWaiting
+      ? `<article style="border-color:#16a34a"><strong style="color:#16a34a">生成中 ${waitedSec}s</strong><span>ChatGPT 实时</span></article>`
+      : "") +
     `<article><strong>${seoOnly ? "已跳过" : `${generatedCount}/10`}</strong><span>${seoOnly ? "图片生成" : "生成图片"}</span></article>`;
 
   /* ── 进度条 ── */
@@ -5267,6 +5274,7 @@ function bindObjectiveInfo() {
 
 function render(payload) {
   latestPayload = payload;
+  latestChatgptWaiting = payload.chatgptWaiting || null;
   const {
     state,
     systemAwake,
@@ -11314,6 +11322,18 @@ function renderBatchListingCreate() {
   // 页面刷新后状态会清空：只要没有行数据或任务仍在跑，就主动拉后端恢复
   if (batchListingCreateState.rows.length === 0 || batchListingCreateState.active) void pollBlcStatus();
 
+  // 实时显示 ChatGPT 生成中心跳（不被 sig 短路阻断，每秒跳动）
+  const hint = root.querySelector("#blcChatgptHint");
+  if (hint) {
+    if (latestChatgptWaiting && latestChatgptWaiting.active) {
+      const ws = Math.floor((Date.now() - latestChatgptWaiting.startedAt) / 1000);
+      hint.textContent = `ChatGPT 生成中…（已等待 ${ws}s）`;
+      hint.style.display = "block";
+    } else {
+      hint.style.display = "none";
+    }
+  }
+
   const sig = JSON.stringify(batchListingCreateState.rows.map((r) => [
     r.productName, r.mode, r.status, r.progress, r.currentStage, r.outputDirectory, r.reason
   ])) + "|" + JSON.stringify(batchListingCreateState.summary) + "|" + batchListingCreateState.resultUrl;
@@ -11326,6 +11346,7 @@ function renderBatchListingCreate() {
   const summary = batchListingCreateState.summary;
 
   root.innerHTML = `
+    <div id="blcChatgptHint" style="display:none;margin:8px 0;padding:8px 12px;border-radius:8px;background:#ecfdf5;color:#16a34a;font-weight:600"></div>
     <div class="bl-board">
       <div class="bl-overview">
         <div class="bl-overview-icon">🏭</div>

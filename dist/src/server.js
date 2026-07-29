@@ -795,7 +795,11 @@ app.get("/api/status", async (_request, response) => {
         insertBagImages: insertBagImages.map(imageStatus),
         insertLinerImages: insertLinerImages.map(imageStatus),
         insertOutputFiles: await insertOutputFileStatus(),
-        contentFiles: await contentFileStatus()
+        contentFiles: await contentFileStatus(),
+        // 实时回报 ChatGPT 生成中心跳（供前端显示「生成中（已等待 Xs）」，消除进度不实时感）
+        chatgptWaiting: (typeof adapters !== "undefined" && adapters && adapters.chatgpt && typeof adapters.chatgpt.getWaitingState === "function")
+            ? adapters.chatgpt.getWaitingState()
+            : null
     });
 });
 app.put("/api/state/objective-info", async (request, response) => {
