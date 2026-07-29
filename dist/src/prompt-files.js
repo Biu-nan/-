@@ -96,6 +96,7 @@ export function validatePromptPack(text) {
 }
 export function validateNumberedPromptPack(text, count) {
     const missing = [];
+    const short = [];
     for (let index = 1; index <= count; index += 1) {
         const number = String(index).padStart(2, "0");
         for (const boundary of ["START", "END"]) {
@@ -103,8 +104,39 @@ export function validateNumberedPromptPack(text, count) {
             if (!text.includes(marker))
                 missing.push(marker);
         }
+        // 同时校验标记之间有真实 prompt 内容（防止只输出空标记/大纲占位）
+        const start = `<<<IMAGE_${number}_PROMPT_START>>>`;
+        const end = `<<<IMAGE_${number}_PROMPT_END>>>`;
+        const startIndex = text.indexOf(start);
+        const endIndex = text.indexOf(end, startIndex + start.length);
+        if (startIndex !== -1 && endIndex !== -1) {
+            const body = text.slice(startIndex + start.length, endIndex).trim();
+            // 真实生图 Prompt 至少有占位 description；低于阈值视为空壳
+            if (body.length < 50)
+                short.push(number);
+        }
     }
-    return { valid: missing.length === 0, missing };
+    const ok = missing.length === 0 && short.length === 0;
+    return { valid: ok, missing, short };
+}
+// 判定 captured planning 是否只是「分段预告 / 大纲」而非真实内容
+export function isOutlineOnlyPlanningText(text) {
+    if (!text)
+        return false;
+    const outlineSignals = [
+        /第\s*1\s*\/\s*3/i,
+        /第\s*1\s*部分/i,
+        /现在开始输出第\s*1/i,
+        /将分\s*\d+\s*次/i,
+        /由于该任务包含完整\s*A\s*\+\s*B\s*\+\s*C/i,
+        /单次回复长度会超过输出限制/i
+    ];
+    const hasOutlineSignal = outlineSignals.some((re) => re.test(text));
+    if (!hasOutlineSignal)
+        return false;
+    // 即便被判定有大纲信号，只要 20 个 marker 都齐全且内容充足，也算完整
+    const { valid } = validateNumberedPromptPack(text, 10);
+    return !valid;
 }
 export function extractImagePrompt(text, imageNumber) {
     return extractNumberedImagePrompt(text, imageNumber, 10);

@@ -3,7 +3,7 @@ import path from "node:path";
 import { OUTPUT_DIR, PLANNING_COMPLETION_PROMPT, PRODUCT_FACT_FILE, PRODUCT_FACT_PROMPT_FINGERPRINT, PRODUCT_IMAGES_DIR, PRODUCT_ROOT, TEST_PROMPT, singleImageCommand } from "./config.js";
 import { normalizeDianxiaomiFacts } from "./dianxiaomi-facts.js";
 import { scanProductImages } from "./image-files.js";
-import { extractImagePrompt, readPrompt, validatePromptPack } from "./prompt-files.js";
+import { extractImagePrompt, isOutlineOnlyPlanningText, readPrompt, validatePromptPack } from "./prompt-files.js";
 import { ProductVisualAssetsService } from "./product-visual-assets-service.js";
 const SEO_KEYWORDS_FINGERPRINT = "Google Ads SEO Keyword Research Prompt";
 const LISTING_CONTENT_FINGERPRINT = "AliExpress Listing Commercial Delivery Prompt";
@@ -524,44 +524,27 @@ export class AutomationService {
             });
             let validation = validatePromptPack(planningText);
             if (!validation.valid) {
-                const recoveredCompletion = await this.ai.recoverCompletedResponse("视觉规划自动补全指令");
-                if (recoveredCompletion) {
-                    planningText = recoveredCompletion;
-                }
-                else if (await this.ai.hasUserPrompt("视觉规划自动补全指令")) {
-                    await this.store.update({
-                        stage: "WAITING_FOR_PLANNING",
-                        message: "自动补全指令已发送，正在从断点等待完整 Prompt Pack…"
-                    });
-                    planningText = await this.ai.waitForResponseAfterPrompt("视觉规划自动补全指令");
-                }
-                else {
-                    await this.store.update({
-                        stage: "SENDING_PLANNING",
-                        message: "检测到 ChatGPT 停在信息确认，正在自动要求其基于图片和调研完成规划…"
-                    });
-                    await this.ai.sendPromptOnce(PLANNING_COMPLETION_PROMPT, "视觉规划自动补全指令");
-                    await this.store.update({
-                        stage: "WAITING_FOR_PLANNING",
-                        message: "自动补全指令已发送，正在等待完整 Prompt Pack…"
-                    });
-                    planningText = await this.ai.waitForResponseAfterPrompt("视觉规划自动补全指令");
-                }
+                // 自动补全：检测「大纲/分段预告」型半截回复，多轮「继续」直到 20 个 marker 全齐且内容充足
+                const recovered = await this.autoCompletePlanningText(planningText);
+                planningText = recovered.text;
                 validation = validatePromptPack(planningText);
                 await this.store.update({
                     planningText,
                     stage: "VALIDATING_PROMPT_PACK",
-                    message: "正在校验自动补全后的 Image 01–10 Prompt 标记…"
+                    message: validation.valid
+                        ? "自动续写成功，正在校验 Image 01–10 Prompt 标记…"
+                        : `自动续写后仍缺失部分 Prompt（缺 ${validation.missing.length} 标记 / ${validation.short.length} 空壳），请检查 ChatGPT 会话或手动继续`
                 });
             }
             if (!validation.valid) {
-                console.warn("[planning] Prompt Pack 校验未通过，已按用户设置跳过 QC 拦截，缺失：", validation.missing.join(", "));
+                console.warn("[planning] Prompt Pack 校验未通过，缺失：", validation.missing.join(", "), "内容不足：", validation.short?.join(", ") || "无");
             }
             await this.store.update({
                 stage: "COMPLETED",
-                message: validation.valid ? "MVP 2–3 已完成，Prompt Pack 校验通过" : "MVP 2–3 已完成，Prompt Pack QC 已跳过",
+                message: validation.valid ? "MVP 2–3 已完成，Prompt Pack 校验通过" : "MVP 2–3 已完成，Prompt Pack 校验未通过（仍按用户设置放行，请在 MVP4 前确认内容完整）",
                 running: false,
-                promptPackValid: true,
+                // 不再强制写死 true：真实反映校验结果，MVP4 会据其兜底修复
+                promptPackValid: Boolean(validation.valid),
                 completedPhase: "MVP3",
                 error: undefined,
                 interruptedStage: undefined,
@@ -683,7 +666,33 @@ export class AutomationService {
                     });
                     continue;
                 }
-                const imagePrompt = extractImagePrompt(existing.planningText, imageNumber);
+                let imagePrompt;
+                try {
+                    imagePrompt = extractImagePrompt(existing.planningText, imageNumber);
+                }
+                catch (extractError) {
+                    const planningNow = this.store.get().planningText || existing.planningText || "";
+                    const looksBroken = isOutlineOnlyPlanningText(planningNow) ||
+                        !validatePromptPack(planningNow).valid;
+                    if (!looksBroken) {
+                        throw extractError;
+                    }
+                    await this.store.update({
+                        stage: "VALIDATING_PROMPT_PACK",
+                        message: `Image ${imageNumber} Prompt 提取失败，检测到规划文本不完整，正在自动回退修复…`
+                    });
+                    const recovered = await this.autoCompletePlanningText(planningNow);
+                    if (!recovered.valid) {
+                        throw extractError;
+                    }
+                    existing.planningText = recovered.text;
+                    await this.store.update({
+                        planningText: recovered.text,
+                        promptPackValid: true,
+                        message: `规划文本已自动补全，继续生成 Image ${imageNumber}…`
+                    });
+                    imagePrompt = extractImagePrompt(recovered.text, imageNumber);
+                }
                 await this.store.update({
                     stage: "GENERATING_IMAGES",
                     currentImageNumber: imageNumber,
@@ -1004,6 +1013,49 @@ ${existing.researchText ?? ""}
                     ? `状态同步完成，后台已保存 ${recovered.length}/10 张图片；请点击继续 MVP 4`
                     : `已检查 ${this.providerName(before.provider)}，后台当前已保存 ${recovered.length}/10 张图片`
         });
+    }
+    // 把「大纲 / 分段预告」型半截规划自动补全为完整规划。
+    // 多轮发送续写指令，直到 20 个 marker 全齐且每个 prompt 内容充足。
+    async autoCompletePlanningText(initialText) {
+        const MAX_ROUNDS = 3;
+        let text = initialText || (await this.readFullPlanningText());
+        for (let round = 0; round < MAX_ROUNDS; round += 1) {
+            const v = validatePromptPack(text, 10);
+            if (v.valid)
+                return { text, valid: true, rounds: round };
+            // 不是大纲/分段预告（例如产品信息缺失等），无法靠续写修复
+            if (!isOutlineOnlyPlanningText(text))
+                return { text, valid: v.valid, rounds: round };
+            const fp = round === 0 ? "视觉规划自动补全指令" : `规划续写${round}`;
+            const continuation = round === 0
+                ? PLANNING_COMPLETION_PROMPT
+                : "请继续从上一个未完成的 Image 编号开始，严格按照 <<<IMAGE_XX_PROMPT_START>>>…<<<IMAGE_XX_PROMPT_END>>> 固定边界，把剩余的完整生图 Prompt 一次性输出完毕；严禁再次只输出大纲或分段预告。";
+            await this.store.update({
+                stage: "SENDING_PLANNING",
+                message: `检测到规划仅输出大纲/分段预告，正在自动续写（第 ${round + 1}/${MAX_ROUNDS} 轮）…`
+            });
+            await this.ai.sendPromptOnce(continuation, fp);
+            await this.store.update({
+                stage: "WAITING_FOR_PLANNING",
+                message: `规划续写指令已发送，正在等待完整 Prompt Pack（第 ${round + 1}/${MAX_ROUNDS} 轮）…`
+            });
+            await this.ai.waitForResponseAfterPrompt(fp);
+            // 重读全量（锚定在规划 prompt，拼接其后所有 assistant 回复）
+            text = await this.readFullPlanningText();
+        }
+        return { text, valid: validatePromptPack(text, 10).valid, rounds: MAX_ROUNDS };
+    }
+    // 锚定在规划 prompt（指纹 "Single Image Prompt Pack"），拼接其后所有 assistant 回复
+    async readFullPlanningText() {
+        try {
+            const full = await this.ai.recoverCompletedResponse("Single Image Prompt Pack");
+            if (full)
+                return full;
+        }
+        catch {
+            // 忽略 CDP 读取异常，回退到已存 planningText
+        }
+        return this.store.get().planningText || "";
     }
     async fail(error) {
         const message = error instanceof Error ? error.message : String(error);

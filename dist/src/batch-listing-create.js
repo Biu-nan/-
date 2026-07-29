@@ -180,7 +180,8 @@ async function snapshotListingCreate(jobId) {
 }
 
 async function writeBatchListingCreateResults(filePath, resultsByIndex, rowCount) {
-    const wb = XLSX.readFile(filePath);
+    const buf = await readFile(filePath);
+    const wb = XLSX.read(buf, { type: "buffer" });
     const ws = wb.Sheets[wb.SheetNames[0]];
     const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
     const header = aoa[0] || [];
@@ -208,7 +209,8 @@ async function writeBatchListingCreateResults(filePath, resultsByIndex, rowCount
     catch {
         // 备份失败不影响主流程
     }
-    XLSX.writeFile(wb, filePath);
+    const outBuf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    await writeFile(filePath, outBuf);
 }
 
 async function runBatchListingCreate(jobId, rows, filePath, deps) {

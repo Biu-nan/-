@@ -621,7 +621,9 @@ export class ChatGptAdapter {
                 lastAssistantLen = responseText.length;
                 lastGrowthAt = Date.now();
             }
-            await page.waitForTimeout(1_000);
+            // 轮询从 1s 放宽到 2s：配合 messageSequence 轻量化，减少主线程占用，
+            // 既能实时感知回复完成（秒级），又显著降低 ChatGPT 页面卡顿。
+            await page.waitForTimeout(2_000);
         }
         throw new Error(`等待已发送 Prompt 的回复超时：${fingerprint}`);
     }
@@ -650,7 +652,7 @@ export class ChatGptAdapter {
             else {
                 stableSince = undefined;
             }
-            await page.waitForTimeout(1_000);
+            await page.waitForTimeout(2_000);
         }
         throw new Error("等待 ChatGPT 回复超时（10 分钟）");
     }
@@ -678,6 +680,14 @@ export class ChatGptAdapter {
             "--no-first-run",
             "--no-default-browser-check",
             "--start-maximized",
+            // 性能优化：降低 GPU/后台网络/扩展对主线程的争抢，缓解长对话卡顿
+            "--disable-gpu",
+            "--disable-extensions",
+            "--disable-background-networking",
+            "--disable-features=Translate,BackForwardCache,OptimizationHints",
+            "--disable-background-timer-throttling",
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
             CHATGPT_URL
         ], {
             detached: true,
@@ -789,10 +799,16 @@ export class ChatGptAdapter {
         let lastError;
         while (Date.now() < deadline) {
             try {
-                return await messages.evaluateAll((elements) => elements.map((element) => ({
-                    role: element.getAttribute("data-message-author-role"),
-                    text: element.innerText.trim()
-                })));
+                return await messages.evaluateAll((elements) => {
+                    // 只处理最后 20 条消息即可：fingerprint 匹配与最新回复都在最近区域，
+                    // 跳过早期长历史可少序列化几十 KB 文本。
+                    // 用 textContent 替代 innerText：避免强制同步布局（长对话重排极慢），提速明显。
+                    const els = elements.slice(-20);
+                    return els.map((element) => ({
+                        role: element.getAttribute("data-message-author-role"),
+                        text: (element.textContent || "").trim()
+                    }));
+                });
             }
             catch (error) {
                 lastError = error;
