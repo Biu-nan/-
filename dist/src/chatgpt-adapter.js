@@ -427,7 +427,11 @@ export class ChatGptAdapter {
         const reasonTarget = (CHATGPT_REASONING || "中").toString().trim(); // 低 / 中 / 高
         try {
             const url = page.url();
-            if (this._ensuredModelUrl === url && this._ensuredModelOk) {
+            // 用对话 ID（URL path 末段 /c/<uuid> 或 temporary-chat）判重，而非完整 URL：
+            // ChatGPT 对话 URL 常带变化的 query/hash，用完整 URL 判重会失效 → 每次发送都重弹模型菜单（左面板跳动）。
+            const convId = (url.match(/\/c\/([a-z0-9-]+)/i) || [])[1]
+                || (/\/temporary-chat/i.test(url) ? "temporary" : (url || "default"));
+            if (this._ensuredModelConv === convId && this._ensuredModelOk) {
                 return;
             }
             // 推理档位/模型的触发器：composer 里 class 含 __composer-pill 的可点击元素
@@ -477,9 +481,9 @@ export class ChatGptAdapter {
             await page.keyboard.press("Escape").catch(() => {});
             await page.waitForTimeout(200);
 
-            this._ensuredModelUrl = url;
+            this._ensuredModelConv = convId;
             this._ensuredModelOk = true;
-            console.log(`[chatgpt] 已对齐模型=${modelTarget} 推理=${reasonTarget}`);
+            console.log(`[chatgpt] 已对齐模型=${modelTarget} 推理=${reasonTarget}（对话 ${convId}）`);
         }
         catch (e) {
             console.warn("[chatgpt] 设置模型/推理档位失败（非致命，继续发送）：", e?.message || e);
@@ -694,20 +698,32 @@ export class ChatGptAdapter {
         let stallRetries = 0;
         // ② 健康检查状态
         let lastHealthCheck = startedAt;
+        let lastResponseText = "";
+        let lastTextCheck = 0;
+        const TEXT_POLL_MS = 25_000;
         while (Date.now() - startedAt < RESPONSE_WAIT_MS) {
             const stopVisible = await this.stopButton(page)
                 .isVisible()
                 .catch(() => false);
-            const messages = page.locator('[data-message-author-role="user"], [data-message-author-role="assistant"]');
-            const sequence = await this.messageSequence(messages);
+            // 性能优化：生成中（stop 可见）时降低文本读取频率（每 TEXT_POLL_MS 仅一次），
+            // 避免长对话每 2s 全量序列化文本导致主线程持续繁忙、ChatGPT 左侧栏抖动/页面卡死。
+            // 仅当生成疑似结束（stop 不可见）或到点时才读取一次消息文本。
             let responseText = "";
-            for (let index = sequence.length - 1; index >= 0; index -= 1) {
-                const message = sequence[index];
-                if (message.role !== "user" || !message.text.includes(fingerprint)) {
-                    continue;
+            if (!stopVisible || Date.now() - lastTextCheck > TEXT_POLL_MS) {
+                lastTextCheck = Date.now();
+                const messages = page.locator('[data-message-author-role="user"], [data-message-author-role="assistant"]');
+                const sequence = await this.messageSequence(messages);
+                for (let index = sequence.length - 1; index >= 0; index -= 1) {
+                    const message = sequence[index];
+                    if (message.role !== "user" || !message.text.includes(fingerprint)) {
+                        continue;
+                    }
+                    responseText = this.assistantResponseAfter(sequence, index) ?? "";
+                    break;
                 }
-                responseText = this.assistantResponseAfter(sequence, index) ?? "";
-                break;
+            }
+            else {
+                responseText = lastResponseText;
             }
             if (responseText.length > 0)
                 generationObserved = true;
@@ -762,8 +778,9 @@ export class ChatGptAdapter {
                 lastAssistantLen = responseText.length;
                 lastGrowthAt = Date.now();
             }
-            // 轮询从 1s 放宽到 2s：配合 messageSequence 轻量化，减少主线程占用，
+            // 轮询从 1s 放宽到 2s：配合 messageSequence 轻量化 + 生成中跳文本读取，减少主线程占用，
             // 既能实时感知回复完成（秒级），又显著降低 ChatGPT 页面卡顿。
+            lastResponseText = responseText;
             await page.waitForTimeout(2_000);
         }
         throw new Error(`等待已发送 Prompt 的回复超时：${fingerprint}`);
