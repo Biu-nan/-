@@ -249,6 +249,7 @@ async function runBatchListingCreate(jobId, rows, filePath, deps) {
     };
 
     try {
+        for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const item = {
             productName: row.productName,
@@ -359,6 +360,7 @@ async function runBatchListingCreate(jobId, rows, filePath, deps) {
         resultsByIndex[i] = result;
         listingCreateRunState.overallProgress = Math.round((i + 1) / rows.length * 100);
         await snapshotListingCreate(jobId);
+        }
     }
     finally {
         await finishRun();
