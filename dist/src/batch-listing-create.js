@@ -228,8 +228,27 @@ async function runBatchListingCreate(jobId, rows, filePath, deps) {
     const resultsByIndex = {};
     let success = 0;
     let failed = 0;
+    // finally 兜底：无论中途如何退出（崩溃/未捕获异常），都归一化 running=false 与 summary，
+    // 避免「所有行跑完但 running 没清」的 stuck 状态让剩余行永远 pending。
+    const finishRun = async () => {
+        try {
+            await writeBatchListingCreateResults(filePath, resultsByIndex, rows.length);
+        }
+        catch (error) {
+            console.warn("writeBatchListingCreateResults failed:", error instanceof Error ? error.message : String(error));
+        }
+        listingCreateRunState.running = false;
+        listingCreateRunState.finishedAt = listingCreateRunState.finishedAt || new Date().toISOString();
+        if (!listingCreateRunState.summary) {
+            listingCreateRunState.summary = { success, failed, skipped: 0, total: rows.length };
+        }
+        try {
+            await snapshotListingCreate(jobId);
+        }
+        catch {}
+    };
 
-    for (let i = 0; i < rows.length; i++) {
+    try {
         const row = rows[i];
         const item = {
             productName: row.productName,
@@ -341,12 +360,220 @@ async function runBatchListingCreate(jobId, rows, filePath, deps) {
         listingCreateRunState.overallProgress = Math.round((i + 1) / rows.length * 100);
         await snapshotListingCreate(jobId);
     }
+    finally {
+        await finishRun();
+    }
+}
 
-    await writeBatchListingCreateResults(filePath, resultsByIndex, rows.length);
+async function runBatchListingCreateRetry(jobId, filePath, deps) {
+    const { store, standardService, productProfiles, getBatchRunStateRunning } = deps;
+    if (getBatchRunStateRunning && getBatchRunStateRunning()) {
+        throw new Error("ERP 批量上架正在运行，无法同时执行批量制作");
+    }
+    const st = store.get();
+    if (st.running || st.autoRun) {
+        throw new Error("单品流程正在运行，请先暂停或结束单品任务");
+    }
+
+    // 找出当前 failed 项对应的原行号；done 项不重跑
+    const failedIndices = Object.entries(listingCreateRunState.items)
+        .filter(([, it]) => it.status === "failed")
+        .map(([k]) => Number(k))
+        .filter((n) => Number.isFinite(n) && n >= 0)
+        .sort((a, b) => a - b);
+    if (!failedIndices.length) {
+        throw new Error("当前没有失败项可重试");
+    }
+
+    // 重读原 xlsx 拿到完整 row 列表（不依赖内存中残缺状态）
+    const buf = await readFile(filePath);
+    const wb = XLSX.read(buf, { type: "array" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+    const { rows } = parseRows(aoa);
+
+    listingCreateRunState.startedAt = listingCreateRunState.startedAt || new Date().toISOString();
+    listingCreateRunState.finishedAt = null;
+    listingCreateRunState.summary = null;
+
+    const resultsByIndex = {};
+    let success = 0;
+    let failed = 0;
+    let processed = 0;
+
+    for (const i of failedIndices) {
+        const row = rows[i];
+        if (!row) continue;
+        const item = listingCreateRunState.items[String(i)] || {
+            productName: row.productName,
+            mode: row.mode
+        };
+        item.status = "running";
+        item.currentStage = "RETRY_INIT";
+        item.progress = 0;
+        item.outputDirectory = "";
+        item.artifacts = [];
+        item.reason = "";
+        item.log = Array.isArray(item.log) ? item.log : [];
+        item.log.push("↻ 触发重试");
+        listingCreateRunState.items[String(i)] = item;
+
+        const result = {
+            status: "failed",
+            currentStage: "",
+            outputDirectory: "",
+            artifacts: [],
+            reason: ""
+        };
+
+        try {
+            await store.reset(`批量制作 重试 第 ${i + 1} 行：${row.productName}`);
+            await clearProductImages();
+            await rm(OUTPUT_DIR, { recursive: true, force: true });
+            await mkdir(OUTPUT_DIR, { recursive: true });
+            await rm(PRODUCT_PROFILE_FILE, { force: true });
+
+            const objectiveParts = [`产品名：${row.productName}`];
+            if (row.category) objectiveParts.push(`类目：${row.category}`);
+            if (row.notes) objectiveParts.push(`补充信息：${row.notes}`);
+            await store.update({
+                workflowMode: "standard_listing",
+                standardWorkflowGoal: row.mode,
+                provider: "chatgpt",
+                objectiveInfo: objectiveParts.join("\n"),
+                batchProductName: row.productName
+            });
+            item.progress = 10;
+
+            const jobDir = path.dirname(filePath);
+            let importedCount = 0;
+            let rejectedCount = 0;
+            if (row.imageUrls?.length) {
+                const dl = await importProductImageUrls(row.imageUrls);
+                importedCount += dl.imported.length;
+                rejectedCount += dl.rejected.length;
+                item.log.push(`重试下载图片：导入 ${dl.imported.length}，拒绝 ${dl.rejected.length}`);
+            }
+            if (row.localImages?.length) {
+                const lp = await importLocalImagePaths(row.localImages, jobDir);
+                importedCount += lp.imported.length;
+                rejectedCount += lp.rejected.length;
+                item.log.push(`重试本地图片：导入 ${lp.imported.length}，拒绝 ${lp.rejected.length}`);
+            }
+            if (importedCount === 0 && row.mode !== "seo_content_only") {
+                throw new Error("未成功导入任何产品图（URL 下载失败且无有效本地图片）");
+            }
+            item.progress = 25;
+
+            await standardService.runAll();
+            const stAfter = store.get();
+            item.currentStage = stAfter.stage;
+
+            if (stAfter.stage === "COMPLETED" && stAfter.completedPhase === "MVP5") {
+                const archiveDir = await archiveCurrentProduct(stAfter);
+                await productProfiles.archiveCurrent(archiveDir).catch(() => { });
+                result.status = "done";
+                result.currentStage = "COMPLETED";
+                result.outputDirectory = path.relative(USER_DATA_DIR, archiveDir);
+                result.artifacts = await scanArchiveArtifacts(archiveDir);
+                item.status = "done";
+                success += 1;
+            }
+            else {
+                result.status = "failed";
+                result.currentStage = stAfter.stage;
+                result.reason = stAfter.error || `流程未正常完成，stage=${stAfter.stage}`;
+                item.status = "failed";
+                failed += 1;
+            }
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            result.status = "failed";
+            result.reason = message;
+            result.currentStage = store.get().stage;
+            item.status = "failed";
+            item.currentStage = result.currentStage;
+            item.log.push(`重试错误：${message}`);
+            failed += 1;
+        }
+
+        item.progress = 100;
+        item.outputDirectory = result.outputDirectory;
+        item.artifacts = result.artifacts;
+        item.reason = result.reason;
+        resultsByIndex[i] = result;
+        processed += 1;
+        listingCreateRunState.overallProgress = Math.round(((rows.length - failedIndices.length + processed) / rows.length) * 100);
+        await snapshotListingCreate(jobId);
+    }
+
+    // 把这次重试写回结果 xlsx 的对应行
+    try {
+        await mergeBatchListingCreateResults(filePath, resultsByIndex);
+    }
+    catch (error) {
+        console.warn("merge retry results failed:", error instanceof Error ? error.message : String(error));
+    }
+
     listingCreateRunState.running = false;
-    listingCreateRunState.finishedAt = new Date().toISOString();
-    listingCreateRunState.summary = { success, failed, skipped: 0, total: rows.length };
+    listingCreateRunState.finishedAt = listingCreateRunState.finishedAt || new Date().toISOString();
+    listingCreateRunState.summary = listingCreateRunState.summary || { success, failed, skipped: 0, total: rows.length };
     await snapshotListingCreate(jobId);
+}
+
+async function mergeBatchListingCreateResults(filePath, resultsByIndex) {
+    const buf = await readFile(filePath);
+    const wb = XLSX.read(buf, { type: "buffer" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+    const header = aoa[0] || [];
+    let statusIdx = header.findIndex((h) => /^(status|状态)$/i.test(String(h || "").trim()));
+    let stageIdx = header.findIndex((h) => /^(currentStage|当前阶段|阶段)$/i.test(String(h || "").trim()));
+    let outIdx = header.findIndex((h) => /^(outputDirectory|输出目录)$/i.test(String(h || "").trim()));
+    let artIdx = header.findIndex((h) => /^(artifacts|产物)$/i.test(String(h || "").trim()));
+    let reasonIdx = header.findIndex((h) => /^(reason|失败原因)$/i.test(String(h || "").trim()));
+    if (statusIdx < 0) {
+        header.push("status");
+        statusIdx = header.length - 1;
+    }
+    if (stageIdx < 0) {
+        header.push("currentStage");
+        stageIdx = header.length - 1;
+    }
+    if (outIdx < 0) {
+        header.push("outputDirectory");
+        outIdx = header.length - 1;
+    }
+    if (artIdx < 0) {
+        header.push("artifacts");
+        artIdx = header.length - 1;
+    }
+    if (reasonIdx < 0) {
+        header.push("reason");
+        reasonIdx = header.length - 1;
+    }
+    aoa[0] = header;
+    while (aoa.length < header.length) aoa.push([]);
+    for (const [k, r] of Object.entries(resultsByIndex)) {
+        const rowIdx = Number(k) + 1;
+        while (aoa.length < rowIdx + 1) aoa.push([]);
+        const row = aoa[rowIdx] || [];
+        row[statusIdx] = r.status;
+        row[stageIdx] = r.currentStage || "";
+        row[outIdx] = r.outputDirectory || "";
+        row[artIdx] = (r.artifacts || []).join("\n");
+        row[reasonIdx] = r.reason || "";
+        aoa[rowIdx] = row;
+    }
+    const newWs = XLSX.utils.aoa_to_sheet(aoa);
+    wb.Sheets[wb.SheetNames[0]] = newWs;
+    while (wb.SheetNames.length > 1) {
+        const lastName = wb.SheetNames.pop();
+        delete wb.Sheets[lastName];
+    }
+    const outBuf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    await writeFile(filePath, outBuf);
 }
 
 async function recoverListingCreateState() {
@@ -387,7 +614,21 @@ async function recoverListingCreateState() {
         listingCreateRunState.overallProgress = saved.overallProgress || 0;
         listingCreateRunState.summary = saved.summary || null;
         listingCreateRunState.items = saved.items || {};
-        listingCreateRunState.filePath = saved.filePath || null;
+        // 兜底：如果 state.json 没存 filePath，从同目录反查 input.xlsx
+        if (saved.filePath) {
+            listingCreateRunState.filePath = saved.filePath;
+        }
+        else {
+            const dir = path.dirname(latestPath);
+            const candidate = path.join(dir, "input.xlsx");
+            try {
+                await stat(candidate);
+                listingCreateRunState.filePath = candidate;
+            }
+            catch {
+                listingCreateRunState.filePath = null;
+            }
+        }
         // 兜底：如果恢复出的状态是「所有行都跑完了但 running 标记没清掉」的 stuck 状态
         //（例如 server 重启/被杀发生在最后一行写快照之后、最终 running=false 快照之前），
         // 自动归一化为已结束，避免前端按钮永远被禁用。
@@ -497,6 +738,57 @@ export function registerBatchListingCreateRoutes(app, deps) {
         }
         catch (error) {
             console.error("batch-listing-create start error:", error);
+            const message = error instanceof Error ? error.message : String(error);
+            return response.status(500).json({ ok: false, error: message });
+        }
+    });
+
+    app.post("/api/batch-listing-create/retry", async (request, response) => {
+        try {
+            if (!listingCreateRunState.jobId) {
+                await recoverListingCreateState();
+            }
+            await normalizeStuckRunningState();
+            const { jobId } = request.body || {};
+            if (!jobId || !listingCreateRunState.filePath || listingCreateRunState.jobId !== jobId) {
+                return response.status(400).json({ ok: false, error: "jobId 无效或文件未上传" });
+            }
+            if (listingCreateRunState.running) {
+                return response.status(409).json({ ok: false, error: "已有批量制作任务正在运行，请先等待完成" });
+            }
+            const st = store.get();
+            if (st.running || st.autoRun) {
+                return response.status(409).json({ ok: false, error: "单品流程正在运行，请先暂停或结束" });
+            }
+            if (getBatchRunStateRunning && getBatchRunStateRunning()) {
+                return response.status(409).json({ ok: false, error: "ERP 批量上架正在运行" });
+            }
+            // 检查有没有可重试的失败项
+            const failedItems = Object.values(listingCreateRunState.items).filter((it) => it.status === "failed");
+            if (!failedItems.length) {
+                return response.status(400).json({ ok: false, error: "当前没有失败项可重试" });
+            }
+            listingCreateRunState.running = true;
+            runBackground(() => runBatchListingCreateRetry(jobId, listingCreateRunState.filePath, deps).catch((error) => {
+                console.error("batch-listing-create retry error:", error);
+                listingCreateRunState.running = false;
+                listingCreateRunState.summary = listingCreateRunState.summary || {
+                    success: 0,
+                    failed: failedItems.length,
+                    skipped: 0,
+                    total: failedItems.length
+                };
+                snapshotListingCreate(jobId).catch(() => {});
+            }));
+            return response.json({
+                ok: true,
+                jobId,
+                accepted: true,
+                retryCount: failedItems.length
+            });
+        }
+        catch (error) {
+            console.error("batch-listing-create retry error:", error);
             const message = error instanceof Error ? error.message : String(error);
             return response.status(500).json({ ok: false, error: message });
         }

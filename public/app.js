@@ -11185,6 +11185,38 @@ async function blcStart() {
   }
 }
 
+async function blcRetry() {
+  if (!batchListingCreateState.jobId) {
+    alert("请先上传表格");
+    return;
+  }
+  if (batchListingCreateState.busy) {
+    alert("批量制作正在进行中");
+    return;
+  }
+  const failed = (batchListingCreateState.rows || []).filter((r) => r.status === "failed");
+  if (!failed.length) {
+    alert("当前没有失败项可重试");
+    return;
+  }
+  if (!window.confirm(`将对 ${failed.length} 个失败项重新执行 Listing 生成（已完成项保留）。继续？`)) {
+    return;
+  }
+  try {
+    await request("/api/batch-listing-create/retry", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobId: batchListingCreateState.jobId })
+    });
+    batchListingCreateState.busy = true;
+    batchListingCreateState.active = true;
+    batchListingCreateState.summary = null;
+    batchListingCreateState.resultUrl = "";
+  } catch (e) {
+    alert("重试失败：" + (e && e.message ? e.message : e));
+  }
+}
+
 async function pollBlcStatus() {
   try {
     const data = await request("/api/batch-listing-create/status");
@@ -11287,6 +11319,7 @@ function renderBatchListingCreate() {
             <span class="bl-hint">选择填好的 .xlsx（productName + imageUrl_* + mode）</span>
           </div>
           <button id="blc-start" class="bl-btn primary" ${(!batchListingCreateState.uploaded || batchListingCreateState.busy) ? "disabled" : ""}>▶ 开始批量制作</button>
+          <button id="blc-retry" class="bl-btn ghost" ${(!hasFailed || batchListingCreateState.busy) ? "disabled" : ""} title="仅重跑失败项，已完成项保留">↻ 重试失败项</button>
         </div>
         <div class="bl-card-note">
           <span>💡 每行 mode 填 full_listing 或 seo_content_only；full_listing 必须提供至少一张图片（URL 或本地路径）。图片 URL 须为 http/https 公网可访问链接；本地图片填本机文件绝对路径（如 C:\Users\你\Pictures\a.jpg 或 D:\产品图\b.png），优先用 localImage_* / 本地图片 列，与 imageUrl_* 列可混用，二者都支持分号/逗号分隔多张。</span>
@@ -11324,6 +11357,7 @@ function renderBatchListingCreate() {
   document.getElementById("blc-template")?.addEventListener("click", () => blcDownloadTemplate());
   document.getElementById("blc-file")?.addEventListener("change", blcOnFile);
   document.getElementById("blc-start")?.addEventListener("click", () => void blcStart());
+  document.getElementById("blc-retry")?.addEventListener("click", () => void blcRetry());
 }
 
 /* ───────────────────────── 爆款研究中心（Hit Product Research Center）───────────────────────── */

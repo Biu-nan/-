@@ -422,63 +422,93 @@ export class ChatGptAdapter {
     }
     async sendPromptOnce(prompt, fingerprint) {
         const page = await this.requirePage();
+        // 发送前先做健康检查：掉登录 / 人机验证 / 报错弹窗都会让 send 静默失败
+        const preHealth = await this.quickHealthCheck().catch(() => ({ ok: true }));
+        if (!preHealth.ok) {
+            throw new Error(`ChatGPT 页面异常（${preHealth.reason}${preHealth.url ? " @ " + preHealth.url : ""}），未发送 Prompt。请检查登录/人机验证后点「重试失败项」。`);
+        }
         // 记录最近一次发送的 prompt，供「生成停滞自动重发」(①) 复用
         this._lastPrompt = prompt;
-        const assistantCount = await this.assistantMessages(page).count();
-        const userMessages = page.locator('[data-message-author-role="user"]');
-        const userCount = await userMessages.count();
-        const composer = this.composer(page);
-        // 健壮写入：先清空输入框可能残留的历史文本（即便输入框因残留内容被撑高/移出视口，
-        // .fill() 会因无法滚入视口而 30s 超时并中断整条流程）。改用「聚焦→全选删除→insertText」
-        // 不依赖元素是否在视口中央，可彻底避免该死循环。
-        await page.evaluate(() => {
-            const el = document.querySelector('#prompt-textarea, textarea[data-testid="prompt-textarea"], [contenteditable="true"][data-lexical-editor="true"]');
-            if (!el) return;
-            el.focus();
-            const sel = window.getSelection();
-            if (!sel) return;
-            const range = document.createRange();
-            range.selectNodeContents(el);
-            sel.removeAllRanges();
-            sel.addRange(range);
-        }).catch(() => {});
-        await page.keyboard.press("Delete").catch(() => {});
-        await page.keyboard.press("Backspace").catch(() => {});
-        // 兜底：仍有残留则直接清空 DOM 并触发 input 事件
-        await page.evaluate(() => {
-            const el = document.querySelector('#prompt-textarea, textarea[data-testid="prompt-textarea"], [contenteditable="true"][data-lexical-editor="true"]');
-            if (el && (el.textContent || "").length > 0) {
-                el.innerHTML = "";
-                el.dispatchEvent(new Event("input", { bubbles: true }));
+
+        const attemptOnce = async () => {
+            const assistantCount = await this.assistantMessages(page).count();
+            const userMessages = page.locator('[data-message-author-role="user"]');
+            const userCount = await userMessages.count();
+            // 健壮写入：先清空输入框可能残留的历史文本
+            await page.evaluate(() => {
+                const el = document.querySelector('#prompt-textarea, textarea[data-testid="prompt-textarea"], [contenteditable="true"][data-lexical-editor="true"]');
+                if (!el) return;
+                el.focus();
+                const sel = window.getSelection();
+                if (!sel) return;
+                const range = document.createRange();
+                range.selectNodeContents(el);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }).catch(() => {});
+            await page.keyboard.press("Delete").catch(() => {});
+            await page.keyboard.press("Backspace").catch(() => {});
+            await page.evaluate(() => {
+                const el = document.querySelector('#prompt-textarea, textarea[data-testid="prompt-textarea"], [contenteditable="true"][data-lexical-editor="true"]');
+                if (el && (el.textContent || "").length > 0) {
+                    el.innerHTML = "";
+                    el.dispatchEvent(new Event("input", { bubbles: true }));
+                }
+            }).catch(() => {});
+            await page.keyboard.insertText(prompt);
+            const sendButton = this.sendButton(page);
+            await sendButton.waitFor({ state: "visible", timeout: 15_000 });
+            await this.dismissOverlays(page);
+            await sendButton.click();
+            // 延长到 45s（30s 太短，长 Prompt 经常误判）
+            const deadline = Date.now() + 45_000;
+            while (Date.now() < deadline) {
+                const nextUserCount = await userMessages.count();
+                const nextAssistantCount = await this.assistantMessages(page).count();
+                const stopVisible = await this.stopButton(page)
+                    .isVisible()
+                    .catch(() => false);
+                const latestUserMatches = nextUserCount > userCount &&
+                    (await userMessages
+                        .nth(nextUserCount - 1)
+                        .innerText()
+                        .then((text) => text.includes(fingerprint))
+                        .catch(() => false));
+                if (nextUserCount > userCount ||
+                    nextAssistantCount > assistantCount ||
+                    stopVisible ||
+                    latestUserMatches) {
+                    return assistantCount;
+                }
+                await page.waitForTimeout(500);
             }
-        }).catch(() => {});
-        await page.keyboard.insertText(prompt);
-        const sendButton = this.sendButton(page);
-        await sendButton.waitFor({ state: "visible", timeout: 15_000 });
-        await this.dismissOverlays(page);
-        await sendButton.click();
-        const deadline = Date.now() + 30_000;
-        while (Date.now() < deadline) {
-            const nextUserCount = await userMessages.count();
-            const nextAssistantCount = await this.assistantMessages(page).count();
-            const stopVisible = await this.stopButton(page)
-                .isVisible()
-                .catch(() => false);
-            const latestUserMatches = nextUserCount > userCount &&
-                (await userMessages
-                    .nth(nextUserCount - 1)
-                    .innerText()
-                    .then((text) => text.includes(fingerprint))
-                    .catch(() => false));
-            if (nextUserCount > userCount ||
-                nextAssistantCount > assistantCount ||
-                stopVisible ||
-                latestUserMatches) {
-                return assistantCount;
-            }
-            await page.waitForTimeout(500);
+            throw new Error("timeout");
+        };
+
+        // 最多尝试 2 次：第 1 次失败先 dismissOverlays + 健康检查，再试 1 次
+        try {
+            return await attemptOnce();
         }
-        throw new Error("无法确认 Prompt 是否发送成功。流程已停止，请检查 ChatGPT 页面后点击继续；程序不会自动重复发送。");
+        catch (error) {
+            if (error.message !== "timeout") {
+                throw error;
+            }
+            // 重试前清理：弹窗 + 健康检查 + 再次清空 composer
+            await this.dismissOverlays(page).catch(() => {});
+            const retryHealth = await this.quickHealthCheck().catch(() => ({ ok: true }));
+            if (!retryHealth.ok) {
+                throw new Error(`ChatGPT 页面异常（${retryHealth.reason}${retryHealth.url ? " @ " + retryHealth.url : ""}），重试未执行。请检查后点「重试失败项」。`);
+            }
+            try {
+                return await attemptOnce();
+            }
+            catch (retryError) {
+                if (retryError.message !== "timeout") {
+                    throw retryError;
+                }
+                throw new Error("无法确认 Prompt 是否发送成功（已自动重试 1 次仍超时）。请检查 ChatGPT 页面后，在批量制作页点「↻ 重试失败项」；单品流程在工作台点「继续」即可。");
+            }
+        }
     }
     async recoverCompletedResponse(fingerprint) {
         // 先确保 this.page 指向可用的 ChatGPT 页面
