@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { access, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright-core";
-import { CHATGPT_URL, CHROME_DEBUG_PORT, CHROME_PATH, CHROME_PROFILE_DIR } from "./config.js";
+import { CHATGPT_URL, CHATGPT_MODEL, CHATGPT_REASONING, CHROME_DEBUG_PORT, CHROME_PATH, CHROME_PROFILE_DIR } from "./config.js";
 import { compressGeneratedImage } from "./image-compress.js";
 const LOGIN_WAIT_MS = 15_000;
 const CHROME_START_WAIT_MS = 30_000;
@@ -420,8 +420,119 @@ export class ChatGptAdapter {
         await this.saveGeneratedImage(images.nth(count - 1), outputPath);
         return true;
     }
+    // 确保 ChatGPT 当前对话使用指定模型 + 推理档位（非致命，UI 变动时仅告警）
+    // 同一对话（URL 不变）只对齐一次，避免每次发送都反复开菜单
+    async ensureChatGptModelAndReasoning(page) {
+        const modelTarget = (CHATGPT_MODEL || "GPT-5.6 Sol").toString().trim();
+        const reasonTarget = (CHATGPT_REASONING || "中").toString().trim(); // 低 / 中 / 高
+        try {
+            const url = page.url();
+            if (this._ensuredModelUrl === url && this._ensuredModelOk) {
+                return;
+            }
+            // 推理档位/模型的触发器：composer 里 class 含 __composer-pill 的可点击元素
+            const pillInfo = await page.evaluate(() => {
+                const pills = Array.from(document.querySelectorAll('button, [role="button"]'));
+                for (const p of pills) {
+                    const cls = (p.className || "").toString();
+                    if (!cls.includes("__composer-pill"))
+                        continue;
+                    const t = (p.textContent || "").trim();
+                    if (["低", "中", "高"].includes(t) || /gpt|智能极速|auto/i.test(t)) {
+                        return { text: t, hasPopup: p.getAttribute("aria-haspopup") || "" };
+                    }
+                }
+                return null;
+            });
+            if (!pillInfo) {
+                console.warn("[chatgpt] 未找到 composer 模型/推理 pill，跳过模型设置（不影响发送）");
+                return;
+            }
+            const pill = page.locator('button.__composer-pill, [role="button"].__composer-pill').first();
+
+            // 1) 推理档位：当前不是目标才改
+            if (pillInfo.text !== reasonTarget) {
+                await pill.click({ timeout: 5000 }).catch(() => {});
+                await page.waitForTimeout(400);
+                const clicked = await this._clickChatGptMenuItem(page, reasonTarget, ["menuitemradio", "menuitem"]);
+                await page.keyboard.press("Escape").catch(() => {});
+                await page.waitForTimeout(200);
+                if (!clicked)
+                    console.warn(`[chatgpt] 推理档位「${reasonTarget}」未找到，跳过`);
+            }
+
+            // 2) 模型：打开模型子菜单后选择目标模型（已选中则跳过）
+            await pill.click({ timeout: 5000 }).catch(() => {});
+            await page.waitForTimeout(400);
+            const opened = await this._clickChatGptMenuItem(page, modelTarget, ["menuitem"], true);
+            if (opened) {
+                await page.waitForTimeout(500);
+                const selected = await this._selectChatGptModelInSubmenu(page, modelTarget);
+                if (!selected)
+                    console.warn(`[chatgpt] 模型「${modelTarget}」未在子菜单选中`);
+            }
+            else {
+                console.warn(`[chatgpt] 未找到模型子菜单项「${modelTarget}」`);
+            }
+            await page.keyboard.press("Escape").catch(() => {});
+            await page.waitForTimeout(200);
+
+            this._ensuredModelUrl = url;
+            this._ensuredModelOk = true;
+            console.log(`[chatgpt] 已对齐模型=${modelTarget} 推理=${reasonTarget}`);
+        }
+        catch (e) {
+            console.warn("[chatgpt] 设置模型/推理档位失败（非致命，继续发送）：", e?.message || e);
+        }
+    }
+
+    // 在已打开的菜单里点击文本匹配的项；requirePopup=true 仅点 aria-haspopup=menu 的子菜单入口
+    async _clickChatGptMenuItem(page, text, roles, requirePopup = false) {
+        const handle = await page.evaluateHandle(({ text, roles, requirePopup }) => {
+            const sel = roles.map((r) => `[role="${r}"]`).join(",");
+            const items = Array.from(document.querySelectorAll(sel));
+            for (const it of items) {
+                const t = (it.textContent || "").trim();
+                if (t === text || t.includes(text)) {
+                    if (requirePopup && (it.getAttribute("aria-haspopup") || "") !== "menu")
+                        continue;
+                    return it;
+                }
+            }
+            return null;
+        }, { text, roles, requirePopup });
+        const el = handle.asElement();
+        if (!el)
+            return false;
+        await el.click({ timeout: 5000 }).catch(() => {});
+        return true;
+    }
+
+    // 在模型子菜单里选择目标模型；已 aria-checked=true 视为已选，返回 true
+    async _selectChatGptModelInSubmenu(page, modelTarget) {
+        const handle = await page.evaluateHandle(({ text }) => {
+            const items = Array.from(document.querySelectorAll('[role="menuitemradio"],[role="menuitem"],[role="option"]'));
+            for (const it of items) {
+                const t = (it.textContent || "").trim();
+                if (t.includes(text)) {
+                    if (it.getAttribute("aria-checked") === "true")
+                        return null;
+                    return it;
+                }
+            }
+            return null;
+        }, { text: modelTarget });
+        const el = handle.asElement();
+        if (!el)
+            return true; // 没找到未选中的 = 已是目标（视为成功）
+        await el.click({ timeout: 5000 }).catch(() => {});
+        return true;
+    }
+
     async sendPromptOnce(prompt, fingerprint) {
         const page = await this.requirePage();
+        // 发送前自动对齐 ChatGPT 模型 + 推理档位（非致命：UI 变动时仅告警不阻断流程）
+        await this.ensureChatGptModelAndReasoning(page);
         // 发送前先做健康检查：掉登录 / 人机验证 / 报错弹窗都会让 send 静默失败
         const preHealth = await this.quickHealthCheck().catch(() => ({ ok: true }));
         if (!preHealth.ok) {
