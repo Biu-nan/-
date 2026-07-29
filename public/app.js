@@ -11222,30 +11222,54 @@ async function pollBlcStatus() {
     const data = await request("/api/batch-listing-create/status");
     if (!data || !data.ok) return;
 
-    // 恢复模式：刷新页面后前端状态为空，但后端可能保存了最近任务
-    if (batchListingCreateState.rows.length === 0 && data.items && data.items.length > 0) {
-      batchListingCreateState.rows = data.items.map((it) => ({
-        productName: it.productName,
-        mode: it.mode || "full_listing",
-        category: "",
-        notes: "",
-        imageCount: 0,
-        status: it.status || "idle",
-        currentStage: it.currentStage || "",
-        progress: typeof it.progress === "number" ? it.progress : 0,
-        outputDirectory: it.outputDirectory || "",
-        artifacts: Array.isArray(it.artifacts) ? it.artifacts : [],
-        reason: it.reason || ""
-      }));
-      batchListingCreateState.jobId = data.jobId || batchListingCreateState.jobId;
-      batchListingCreateState.uploaded = true;
-      batchListingCreateState.busy = data.running || false;
-      batchListingCreateState.active = data.running || false;
-      batchListingCreateState.summary = data.summary || null;
-      if (batchListingCreateState.summary && batchListingCreateState.jobId) {
-        batchListingCreateState.resultUrl = "/api/batch-listing-create/download?jobId=" + encodeURIComponent(batchListingCreateState.jobId);
+    // 恢复模式：刷新页面后前端状态为空，从后端 rowsMeta + items 重建全量行（含未跑的）
+    if (batchListingCreateState.rows.length === 0) {
+      const meta = Array.isArray(data.rowsMeta) ? data.rowsMeta : [];
+      const items = Array.isArray(data.items) ? data.items : [];
+      if (meta.length > 0 || items.length > 0) {
+        const itemsByName = new Map(items.map((it) => [it.productName, it]));
+        batchListingCreateState.rows = meta.map((m) => {
+          const it = itemsByName.get(m.productName) || {};
+          return {
+            productName: m.productName,
+            mode: m.mode || it.mode || "full_listing",
+            category: m.category || "",
+            notes: m.notes || "",
+            imageCount: m.imageCount || 0,
+            status: it.status || "idle",
+            currentStage: it.currentStage || "",
+            progress: typeof it.progress === "number" ? it.progress : 0,
+            outputDirectory: it.outputDirectory || "",
+            artifacts: Array.isArray(it.artifacts) ? it.artifacts : [],
+            reason: it.reason || ""
+          };
+        });
+        // 如果 rowsMeta 为空（极旧的任务）回退到 items
+        if (batchListingCreateState.rows.length === 0) {
+          batchListingCreateState.rows = items.map((it) => ({
+            productName: it.productName,
+            mode: it.mode || "full_listing",
+            category: "",
+            notes: "",
+            imageCount: 0,
+            status: it.status || "idle",
+            currentStage: it.currentStage || "",
+            progress: typeof it.progress === "number" ? it.progress : 0,
+            outputDirectory: it.outputDirectory || "",
+            artifacts: Array.isArray(it.artifacts) ? it.artifacts : [],
+            reason: it.reason || ""
+          }));
+        }
+        batchListingCreateState.jobId = data.jobId || batchListingCreateState.jobId;
+        batchListingCreateState.uploaded = true;
+        batchListingCreateState.busy = data.running || false;
+        batchListingCreateState.active = data.running || false;
+        batchListingCreateState.summary = data.summary || null;
+        if (batchListingCreateState.summary && batchListingCreateState.jobId) {
+          batchListingCreateState.resultUrl = "/api/batch-listing-create/download?jobId=" + encodeURIComponent(batchListingCreateState.jobId);
+        }
+        return;
       }
-      return;
     }
 
     const byName = new Map((data.items || []).map((it) => [it.productName, it]));

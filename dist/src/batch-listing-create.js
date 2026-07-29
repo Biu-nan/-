@@ -24,6 +24,7 @@ const listingCreateRunState = {
     overallProgress: 0,
     summary: null,
     items: {},
+    rowsMeta: [],
     filePath: null
 };
 
@@ -175,7 +176,8 @@ async function snapshotListingCreate(jobId) {
         finishedAt: listingCreateRunState.finishedAt,
         overallProgress: listingCreateRunState.overallProgress,
         summary: listingCreateRunState.summary,
-        items: listingCreateRunState.items
+        items: listingCreateRunState.items,
+        rowsMeta: listingCreateRunState.rowsMeta || []
     }, null, 2), "utf8");
 }
 
@@ -224,6 +226,14 @@ async function runBatchListingCreate(jobId, rows, filePath, deps) {
     listingCreateRunState.summary = null;
     listingCreateRunState.items = {};
     listingCreateRunState.filePath = filePath;
+    // 持久化所有行元数据：刷新页面/重启 server 后可重建完整 5 行表格
+    listingCreateRunState.rowsMeta = rows.map((r) => ({
+        productName: r.productName,
+        mode: r.mode,
+        category: r.category || "",
+        notes: r.notes || "",
+        imageCount: (r.imageUrls?.length || 0) + (r.localImages?.length || 0)
+    }));
 
     const resultsByIndex = {};
     let success = 0;
@@ -616,6 +626,7 @@ async function recoverListingCreateState() {
         listingCreateRunState.overallProgress = saved.overallProgress || 0;
         listingCreateRunState.summary = saved.summary || null;
         listingCreateRunState.items = saved.items || {};
+        listingCreateRunState.rowsMeta = Array.isArray(saved.rowsMeta) ? saved.rowsMeta : [];
         // 兜底：如果 state.json 没存 filePath，从同目录反查 input.xlsx
         if (saved.filePath) {
             listingCreateRunState.filePath = saved.filePath;
@@ -819,6 +830,7 @@ export function registerBatchListingCreateRoutes(app, deps) {
                 jobId: listingCreateRunState.jobId,
                 overallProgress: listingCreateRunState.overallProgress,
                 summary: listingCreateRunState.summary,
+                rowsMeta: listingCreateRunState.rowsMeta || [],
                 items
             });
         }
