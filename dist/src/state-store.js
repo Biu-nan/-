@@ -13,6 +13,8 @@ const initialState = () => ({
     researchCompleted: false,
     browserStarted: false,
     provider: "chatgpt",
+    skipProductFacts: false,
+    skipResearch: false,
     imageCount: 0,
     imageNames: [],
     objectiveInfo: "",

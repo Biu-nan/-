@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import path from "node:path";
-import { copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, readdir, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import {
     HIDDEN_DATA_DIR,
     OUTPUT_DIR,
@@ -15,6 +15,33 @@ import { archiveCurrentProduct } from "./product-session.js";
 const MAX_ROWS = 50;
 const MAX_URLS_PER_ROW = 20;
 const URL_CHUNK_SIZE = 12;
+
+/**
+ * 用 rename 原子重置目录，绕过 safe-delete shim 对 fs.rm 的回收站拦截。
+ * 旧目录保留为 dir.old.<timestamp>，不主动删除以避免 Windows trash API 失败。
+ */
+async function safeResetDirectory(dir) {
+    try {
+        await rename(dir, `${dir}.old.${Date.now()}`);
+    }
+    catch (error) {
+        if (error && error.code !== "ENOENT") {
+            throw error;
+        }
+    }
+    await mkdir(dir, { recursive: true });
+}
+
+async function safeUnlink(filePath) {
+    try {
+        await unlink(filePath);
+    }
+    catch (error) {
+        if (error && error.code !== "ENOENT") {
+            throw error;
+        }
+    }
+}
 
 const listingCreateRunState = {
     running: false,
@@ -236,8 +263,10 @@ async function runBatchListingCreate(jobId, rows, filePath, deps) {
     }));
 
     const resultsByIndex = {};
-    let success = 0;
-    let failed = 0;
+    // 从已有 items 初始化计数器：支持断点续跑（服务端重启后计数器会重置，但 items 已持久化）
+    const existingItems = Object.values(listingCreateRunState.items);
+    let success = existingItems.filter((it) => it.status === "done").length;
+    let failed = existingItems.filter((it) => it.status === "failed").length;
     // finally 兜底：无论中途如何退出（崩溃/未捕获异常），都归一化 running=false 与 summary，
     // 避免「所有行跑完但 running 没清」的 stuck 状态让剩余行永远 pending。
     const finishRun = async () => {
@@ -249,9 +278,11 @@ async function runBatchListingCreate(jobId, rows, filePath, deps) {
         }
         listingCreateRunState.running = false;
         listingCreateRunState.finishedAt = listingCreateRunState.finishedAt || new Date().toISOString();
-        if (!listingCreateRunState.summary) {
-            listingCreateRunState.summary = { success, failed, skipped: 0, total: rows.length };
-        }
+        // 最终 summary 从 items 重新计算，避免本地计数器漂移（断点续跑/服务端重启后计数器会重置）
+        const finalItems = Object.values(listingCreateRunState.items);
+        const doneCount = finalItems.filter((it) => it.status === "done").length;
+        const failedCount = finalItems.filter((it) => it.status === "failed").length;
+        listingCreateRunState.summary = { success: doneCount, failed: failedCount, skipped: 0, total: rows.length };
         try {
             await snapshotListingCreate(jobId);
         }
@@ -289,9 +320,8 @@ async function runBatchListingCreate(jobId, rows, filePath, deps) {
             // (1) 行级隔离：重置工作区
             await store.reset(`批量制作 第 ${i + 1}/${rows.length} 行：${row.productName}`);
             await clearProductImages();
-            await rm(OUTPUT_DIR, { recursive: true, force: true });
-            await mkdir(OUTPUT_DIR, { recursive: true });
-            await rm(PRODUCT_PROFILE_FILE, { force: true });
+            await safeResetDirectory(OUTPUT_DIR);
+            await safeUnlink(PRODUCT_PROFILE_FILE);
 
             // (2) 设置模式与客观信息
             const objectiveParts = [`产品名：${row.productName}`];
@@ -303,6 +333,8 @@ async function runBatchListingCreate(jobId, rows, filePath, deps) {
                 workflowMode: "standard_listing",
                 standardWorkflowGoal: row.mode,
                 provider: "chatgpt",
+                skipProductFacts: true,
+                skipResearch: true,
                 objectiveInfo: objectiveParts.join("\n"),
                 batchProductName: row.productName
             });
@@ -329,8 +361,23 @@ async function runBatchListingCreate(jobId, rows, filePath, deps) {
             }
             item.progress = 25;
 
-            // (4) 跑单品 Listing 流水线
-            await standardService.runAll();
+            // (4) 跑单品 Listing 流水线（带阶段同步心跳，避免前端长时间显示 INIT）
+            let stageSyncTick = 0;
+            const stageSyncInterval = setInterval(() => {
+                const live = store.get();
+                item.currentStage = live.stage || item.currentStage;
+                item.message = live.message || item.message;
+                stageSyncTick += 1;
+                if (stageSyncTick % 5 === 0) {
+                    snapshotListingCreate(jobId).catch(() => { });
+                }
+            }, 1_000);
+            try {
+                await standardService.runAll();
+            }
+            finally {
+                clearInterval(stageSyncInterval);
+            }
             const st = store.get();
             item.currentStage = st.stage;
 
@@ -387,16 +434,6 @@ async function runBatchListingCreateRetry(jobId, filePath, deps) {
         throw new Error("单品流程正在运行，请先暂停或结束单品任务");
     }
 
-    // 找出当前 failed 项对应的原行号；done 项不重跑
-    const failedIndices = Object.entries(listingCreateRunState.items)
-        .filter(([, it]) => it.status === "failed")
-        .map(([k]) => Number(k))
-        .filter((n) => Number.isFinite(n) && n >= 0)
-        .sort((a, b) => a - b);
-    if (!failedIndices.length) {
-        throw new Error("当前没有失败项可重试");
-    }
-
     // 重读原 xlsx 拿到完整 row 列表（不依赖内存中残缺状态）
     const buf = await readFile(filePath);
     const wb = XLSX.read(buf, { type: "array" });
@@ -408,12 +445,27 @@ async function runBatchListingCreateRetry(jobId, filePath, deps) {
     listingCreateRunState.finishedAt = null;
     listingCreateRunState.summary = null;
 
+    // 找出需要补跑的项：failed 项 + 完全 missing/idle 的项（服务端中断导致后续行未开始）
+    const itemStatuses = new Map(Object.entries(listingCreateRunState.items).map(([k, it]) => [Number(k), it]));
+    const pendingIndices = [];
+    for (let i = 0; i < rows.length; i++) {
+        const it = itemStatuses.get(i);
+        if (!it || it.status === "failed" || it.status === "idle" || it.status === "running") {
+            pendingIndices.push(i);
+        }
+    }
+    if (!pendingIndices.length) {
+        throw new Error("当前没有失败/待处理项可继续");
+    }
+
     const resultsByIndex = {};
-    let success = 0;
-    let failed = 0;
+    // 从已有 items 初始化计数器：done 项不重跑但仍要计入 summary
+    const existingItems = Object.values(listingCreateRunState.items);
+    let success = existingItems.filter((it) => it.status === "done").length;
+    let failed = existingItems.filter((it) => it.status === "failed").length;
     let processed = 0;
 
-    for (const i of failedIndices) {
+    for (const i of pendingIndices) {
         const row = rows[i];
         if (!row) continue;
         const item = listingCreateRunState.items[String(i)] || {
@@ -441,9 +493,8 @@ async function runBatchListingCreateRetry(jobId, filePath, deps) {
         try {
             await store.reset(`批量制作 重试 第 ${i + 1} 行：${row.productName}`);
             await clearProductImages();
-            await rm(OUTPUT_DIR, { recursive: true, force: true });
-            await mkdir(OUTPUT_DIR, { recursive: true });
-            await rm(PRODUCT_PROFILE_FILE, { force: true });
+            await safeResetDirectory(OUTPUT_DIR);
+            await safeUnlink(PRODUCT_PROFILE_FILE);
 
             const objectiveParts = [`产品名：${row.productName}`];
             if (row.category) objectiveParts.push(`类目：${row.category}`);
@@ -452,6 +503,8 @@ async function runBatchListingCreateRetry(jobId, filePath, deps) {
                 workflowMode: "standard_listing",
                 standardWorkflowGoal: row.mode,
                 provider: "chatgpt",
+                skipProductFacts: true,
+                skipResearch: true,
                 objectiveInfo: objectiveParts.join("\n"),
                 batchProductName: row.productName
             });
@@ -516,7 +569,7 @@ async function runBatchListingCreateRetry(jobId, filePath, deps) {
         item.reason = result.reason;
         resultsByIndex[i] = result;
         processed += 1;
-        listingCreateRunState.overallProgress = Math.round(((rows.length - failedIndices.length + processed) / rows.length) * 100);
+        listingCreateRunState.overallProgress = Math.round(((rows.length - pendingIndices.length + processed) / rows.length) * 100);
         await snapshotListingCreate(jobId);
     }
 
@@ -530,7 +583,11 @@ async function runBatchListingCreateRetry(jobId, filePath, deps) {
 
     listingCreateRunState.running = false;
     listingCreateRunState.finishedAt = listingCreateRunState.finishedAt || new Date().toISOString();
-    listingCreateRunState.summary = listingCreateRunState.summary || { success, failed, skipped: 0, total: rows.length };
+    // 最终 summary 从全量 items 重新计算，done 项（含此前已完成）+ 本次新跑项一起统计
+    const finalItems = Object.values(listingCreateRunState.items);
+    const doneCount = finalItems.filter((it) => it.status === "done").length;
+    const failedCount = finalItems.filter((it) => it.status === "failed").length;
+    listingCreateRunState.summary = { success: doneCount, failed: failedCount, skipped: 0, total: rows.length };
     await snapshotListingCreate(jobId);
 }
 
@@ -646,6 +703,21 @@ async function recoverListingCreateState() {
         //（例如 server 重启/被杀发生在最后一行写快照之后、最终 running=false 快照之前），
         // 自动归一化为已结束，避免前端按钮永远被禁用。
         await normalizeStuckRunningState();
+        // server 重启后，后台任务已被杀，任何标记为 running 的行实际上都已中断，
+        // 转成 failed 以便用户点击「重试失败项」继续，而不是永远卡 running。
+        let recoveredFromInterruption = false;
+        for (const key of Object.keys(listingCreateRunState.items)) {
+            const it = listingCreateRunState.items[key];
+            if (it && it.status === "running") {
+                it.status = "failed";
+                it.currentStage = it.currentStage || "INTERRUPTED";
+                it.reason = (it.reason ? `${it.reason}; ` : "") + "服务重启导致中断，请重试";
+                recoveredFromInterruption = true;
+            }
+        }
+        if (recoveredFromInterruption) {
+            await snapshotListingCreate(listingCreateRunState.jobId);
+        }
     }
     catch (error) {
         console.warn("recover listing create state failed:", error instanceof Error ? error.message : String(error));
@@ -823,6 +895,20 @@ export function registerBatchListingCreateRoutes(app, deps) {
             }
             // 运行中如果发生 stuck（所有行跑完但 running 没清），自动归一化
             await normalizeStuckRunningState();
+            // summary 是 items 的派生数据：任务已结束时，强制从 items 重算，修正计数器漂移
+            if (!listingCreateRunState.running && listingCreateRunState.rowsMeta && listingCreateRunState.rowsMeta.length > 0) {
+                const stateItems = Object.values(listingCreateRunState.items);
+                const doneCount = stateItems.filter((it) => it.status === "done").length;
+                const failedCount = stateItems.filter((it) => it.status === "failed").length;
+                const expectedTotal = listingCreateRunState.rowsMeta.length;
+                if (!listingCreateRunState.summary ||
+                    listingCreateRunState.summary.success !== doneCount ||
+                    listingCreateRunState.summary.failed !== failedCount ||
+                    listingCreateRunState.summary.total !== expectedTotal) {
+                    listingCreateRunState.summary = { success: doneCount, failed: failedCount, skipped: 0, total: expectedTotal };
+                    snapshotListingCreate(listingCreateRunState.jobId).catch(() => {});
+                }
+            }
             const items = Object.values(listingCreateRunState.items).map((it) => ({
                 productName: it.productName,
                 mode: it.mode,

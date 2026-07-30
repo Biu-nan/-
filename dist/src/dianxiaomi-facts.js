@@ -1,3 +1,5 @@
+import { readdir } from "node:fs/promises";
+import path from "node:path";
 import { DIANXIAOMI_TEMPLATE_PRODUCT_ID } from "./config.js";
 // 店小秘 ERP 产品事实标准化（单真相源）。
 // 上品流程（generateSeoListingContent 桥接）与店小秘引用上架（reference-apply）
@@ -103,5 +105,118 @@ export function normalizeDianxiaomiFacts(raw) {
     if (!base.mainKeyword)
         base.mainKeyword = "Nipple Covers";
     return base;
+}
+// 本地兜底：不依赖 ChatGPT，从已保存的 Listing 文本 + 本地图片目录直接构造「可用」的 product-facts.json。
+// 用于三类场景，保证下游（店小秘上架）不会因缺文件而整批跳过：
+//  1) generateProductFactsFile 的 AI 桥接静默失败；
+//  2) 归档时仍缺文件（skipProductFacts 批量模式 / 历史包）；
+//  3) 采集箱批量上架模板生成时发现包内缺文件。
+// 只保证 checkDianxiaomiFactsReady 要求的 标题 / 详情页 / 主图 三项齐全；颜色/尺寸/价格等留空，
+// 由店小秘上架端 autofix 兜底填必填项。质量为「降级但可上架」，meta.source 标记为 local_fallback。
+export async function buildProductFactsFallback({ factText = "", listingContentText = "", baseDir = "" } = {}) {
+    const titleEn = extractCleanTitleLocal(listingContentText);
+    const aeo = extractDetailLocal(listingContentText);
+    const images = await collectImagesFromDir(baseDir);
+    const material = extractField(factText, ["材质", "material"]);
+    const brand = extractField(factText, ["品牌", "brand"]);
+    const raw = {
+        title: { zh: "", en: titleEn },
+        category: "",
+        brand: brand || null,
+        material: material || null,
+        description: {
+            pc: aeo || listingContentText.slice(0, 4000),
+            mobile: aeo || listingContentText.slice(0, 4000)
+        },
+        images: { main: images },
+        variants: { matrix: [] },
+        meta: { source: "local_fallback", confirmed: false }
+    };
+    const facts = normalizeDianxiaomiFacts(raw);
+    facts.meta = Object.assign({}, facts.meta, { source: "local_fallback", confirmed: false });
+    return facts;
+}
+// 从 Listing 文案提取 Clean Title。兼容两种写法：
+//  - 含「3.1 算法标题 Clean Title」章节（标准 prompt）；
+//  - 含「Clean Title 强制校验版」+ 下一行「Final Title」（批量制作 seo_content_only 写法）。
+// 关键：跳过「Final Title / Clean Title / 字符核算」等标签行，取第一个像真实标题的行。
+function extractCleanTitleLocal(listingText) {
+    if (!listingText)
+        return "";
+    const lines = listingText.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i += 1) {
+        if (!/Clean Title/i.test(lines[i]))
+            continue;
+        for (let j = i + 1; j < Math.min(i + 6, lines.length); j += 1) {
+            const line = lines[j].trim();
+            if (!line)
+                continue;
+            if (/^(Final Title|Clean Title|字符核算|校验|Title)/i.test(line))
+                continue;
+            if (line.length >= 10 && line.length <= 220)
+                return line;
+        }
+    }
+    return "";
+}
+// 从 Listing 文案提取详情页 / AEO 五点描述段落。批量制作（seo_content_only）没有「3.2」编号，
+// 改用 「Product Detail Page」/「AEO Structured Bullet Points」等英文标记；中文包回退到「商品详情页」。
+// 取到段落会在常见结尾标记（字符核算 / Step / markdown 标题）处截断，避免把核算行也塞进详情页。
+function extractDetailLocal(listingText) {
+    if (!listingText)
+        return "";
+    const markers = [
+        "Product Detail Page",
+        "商品详情页内容",
+        "商品详情页",
+        "AEO Structured Bullet Points",
+        "AEO 结构化五点描述",
+        "Bullet Points And Q"
+    ];
+    for (const m of markers) {
+        const idx = listingText.indexOf(m);
+        if (idx < 0)
+            continue;
+        const remainder = listingText.slice(idx + m.length);
+        const endMatch = remainder.match(/\n\s*(?:字符核算|Character Count|Step\s|#{1,4}\s|\d+[\.、]\s+[A-Z0-9])/i);
+        const section = (endMatch ? remainder.slice(0, endMatch.index) : remainder).trim();
+        if (section.length >= 30)
+            return section;
+    }
+    return "";
+}
+async function collectImagesFromDir(baseDir) {
+    if (!baseDir)
+        return [];
+    const found = [];
+    // output/ 优先用 AI 生成的 Listing 图（Image_*.png），产品图/ 兜底用 1688 源图（任意图片扩展名）。
+    const specs = [
+        { sub: "output", re: /^Image_\d+\.(png|jpe?g|webp)$/i },
+        { sub: "产品图", re: /\.(png|jpe?g|webp)$/i }
+    ];
+    for (const { sub, re } of specs) {
+        let entries = [];
+        try {
+            entries = await readdir(path.join(baseDir, sub));
+        }
+        catch {
+            continue;
+        }
+        for (const name of entries.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))) {
+            if (re.test(name))
+                found.push(name);
+        }
+    }
+    return found.slice(0, 6);
+}
+function extractField(text, labels) {
+    if (!text)
+        return "";
+    for (const label of labels) {
+        const m = text.match(new RegExp(`${label}[：:]\\s*([^\\n;，。]{1,30})`, "i"));
+        if (m && m[1])
+            return m[1].trim();
+    }
+    return "";
 }
 //# sourceMappingURL=dianxiaomi-facts.js.map

@@ -795,6 +795,24 @@ export class DianxiaomiAdapter {
     // 3) 点「根据PC端描述一键生成」
     step("clicking 根据PC端描述一键生成");
     await genBtn.click({ timeout: 8000 }).catch((e) => step("gen click err: " + e.message));
+    await sleep(800);
+
+    // 3.1) 处理「一键生成将会替换掉现有的无线端内容」确认弹窗
+    // 该弹窗在点击生成后弹出，必须点「确定」才会真正生成；否则流程会卡在这里。
+    const confirmModal = this.page.locator(".ant-modal-confirm, .ant-modal-wrap").filter({ hasText: /一键生成将会替换掉现有的无线端内容|确定一键生成吗/ }).first();
+    if (await confirmModal.count() > 0 && await confirmModal.isVisible().catch(() => false)) {
+      step("confirm modal appeared -> clicking 确定");
+      const okBtn = confirmModal.locator("button").filter({ hasText: /^确定$|确定/ }).first();
+      if (await okBtn.count() > 0) {
+        await okBtn.click({ timeout: 5000 }).catch((e) => step("confirm ok click err: " + e.message));
+      } else {
+        // 兜底：按 ant-modal-confirm-btns 里的第一个 button（确定通常在左/右首个）
+        const firstBtn = confirmModal.locator(".ant-modal-confirm-btns button, .ant-modal-footer button").first();
+        if (await firstBtn.count() > 0) await firstBtn.click({ timeout: 5000 }).catch(() => {});
+      }
+      await sleep(1000);
+    }
+
     await sleep(6000);
 
     // 4) 等弹窗内编辑器有内容（ckeditor33 = 无线端实例）
@@ -1355,6 +1373,11 @@ export class DianxiaomiAdapter {
           const pattr = await this.fillProductAttributes(facts);
           for (const f of (pattr.fields || [])) applied.push({ field: "attr:" + f.field, ...f });
         } catch (e) { applied.push({ field: "attr", ok: false, reason: e.message }); }
+        // 一键翻译：把 fillProductAttributes 填的中文默认值转成英文，避免保存校验「请输入英文、数字或空格符号」。
+        try {
+          const tr = await this.translatePageToEnglish();
+          applied.push({ field: "translate-to-en", ...tr });
+        } catch (e) { applied.push({ field: "translate-to-en", ok: false, reason: e.message }); }
         // 迭代自动兜底：保存 → 读校验错误 → 逐个填默认值 → 再保存，直到无错或达到轮次上限。
         let saved = false;
         for (let round = 1; round <= 3 && !saved; round += 1) {
@@ -1374,6 +1397,11 @@ export class DianxiaomiAdapter {
               applied.push({ field: "autofix:" + (core || lbl), ...r });
             } catch (ex) { applied.push({ field: "autofix:" + (core || lbl), ok: false, reason: ex.message }); }
           }
+          // autofix 默认值可能为中文，一键翻译兜底后再保存
+          try {
+            const tr = await this.translatePageToEnglish();
+            applied.push({ field: "translate-to-en", round, ...tr });
+          } catch (ex) { applied.push({ field: "translate-to-en", round, ok: false, reason: ex.message }); }
           await sleep(900);
         }
       }
@@ -1386,18 +1414,50 @@ export class DianxiaomiAdapter {
     // 2) PC端描述 / 无线端描述：PC 填 3.2 AEO 文案；无线端使用新版编辑器「根据PC端描述一键生成」
     if (facts.description) {
       if (facts.description.pc) applied.push({ field: "description.pc", ...(await this.fillCkeditorByLabel("PC端描述", facts.description.pc)) });
-      const mbRes = await this.clickNewEditorThenGenerateFromPc();
-      applied.push({ field: "description.mobile", ...mbRes });
+      // 采集箱模式跳过无线端描述弹窗（与箱包分支一致）：避免弹窗残留拦截后续必填字段，且无线端非保存必填
+      if (!collectMode) {
+        const mbRes = await this.clickNewEditorThenGenerateFromPc();
+        applied.push({ field: "description.mobile", ...mbRes });
+      } else {
+        applied.push({ field: "description.mobile", ok: true, skipped: true, reason: "collect-mode-skip" });
+      }
     }
     // 3) 品牌（引用后品牌为可搜索 select；先选项，失败则自定义键入）
     if (facts.brand) applied.push({ field: "brand", ...(await this.trySetBrand(facts.brand)) });
-    // 4) 材质（非破坏式：源产品引用后已合法填材质则保留；仅当源为空才尝试用 facts 覆盖）
+    // 4) 材质（非破坏式：源产品引用后已合法填材质则保留；仅当源为空/明显错误时才尝试用 facts 覆盖）
     if (facts.material) {
+      const BAD_MATERIAL_KWS = /nipple|breast|petal|bra|乳贴|乳罩|胸贴/i;
       const cur = await this.readField("材质", "rc_select_18");
-      const r = await this.trySetMaterial(facts.material);
+      const curIsBad = cur && BAD_MATERIAL_KWS.test(cur);
+      let r = await this.trySetMaterial(facts.material);
+      if (!r.ok && (curIsBad || !cur)) {
+        // 当前值为错误默认值（如 Nipple Covers 串到箱包页），先清空为安全项再试
+        const cleared = await this.page.evaluate(() => {
+          const items = Array.from(document.querySelectorAll(".ant-form-item"));
+          for (const item of items) {
+            const lab = item.querySelector(".ant-form-item-label label, label");
+            if (lab && /材质/.test(lab.innerText || "")) {
+              const sel = item.querySelector(".ant-select");
+              if (sel) { sel.click(); return true; }
+            }
+          }
+          return false;
+        });
+        if (cleared) {
+          await sleep(700);
+          const safeOpt = this.page.locator(".ant-select-dropdown:visible .ant-select-item-option-content").filter({ hasText: /^(NONE|None|无|否|合金|Alloy|Metal|default)$/i }).first();
+          if (await safeOpt.count() > 0) await safeOpt.click({ timeout: 3000 }).catch(() => {});
+          else {
+            const firstOpt = this.page.locator(".ant-select-dropdown:visible .ant-select-item-option-content").first();
+            if (await firstOpt.count() > 0) await firstOpt.click({ timeout: 3000 }).catch(() => {});
+          }
+          await sleep(400);
+          r = await this.trySetMaterial(facts.material);
+        }
+      }
       if (r.ok) {
         applied.push({ field: "material", ...r });
-      } else if (cur) {
+      } else if (cur && !curIsBad) {
         applied.push({ field: "material", ok: true, skipped: true, reason: "source-kept", value: cur });
       } else {
         applied.push({ field: "material", ok: false, reason: r.reason || "material-not-set", value: facts.material });
@@ -1456,6 +1516,13 @@ export class DianxiaomiAdapter {
     }
     // 7) 合规信息（欧盟责任人/土耳其责任人/品牌制造商）
     applied.push(...(await this.fillComplianceInfo(facts)));
+    // 8) 采集箱模式：一键翻译为英文（处理自定义属性/名称中文值导致的保存校验失败）
+    if (collectMode) {
+      try {
+        const tr = await this.translatePageToEnglish();
+        applied.push({ field: "translate-to-en", ...tr });
+      } catch (e) { applied.push({ field: "translate-to-en", ok: false, reason: e.message }); }
+    }
     return applied;
   }
 
@@ -1726,7 +1793,8 @@ export class DianxiaomiAdapter {
   // 非致命：单个属性失败只记日志，不中断整体流程。
   async fillCategoryAttributes(facts) {
     const applied = [];
-    const kw = (facts && facts.mainKeyword) || "Nipple Covers";
+    const isRutie = (this.profile && this.profile.key === "ruTie") || /ruTie|乳贴|nipple/i.test((this.profile && this.profile.label) || "");
+    const kw = (facts && facts.mainKeyword) || (isRutie ? "Nipple Covers" : "通用");
     // 通用/必填属性：已填则跳过（复用源值），空才用默认兜底
     const defaults = [
       { label: "高关注化学品", id: "rc_select_12", value: "天然未处理(None)" },
@@ -1753,8 +1821,10 @@ export class DianxiaomiAdapter {
     }
     // 关键标识项：型号 用主关键词（决策2，强制覆盖源值 NPE0005 等）
     applied.push({ field: "attr:型号", ...(await this.fillInputByLabel("型号", kw)) });
-    // 关键标识项：内衣配件类型 用主关键词；匹配不上则保留源值（不强行覆盖为错值）
-    applied.push({ field: "attr:内衣配件类型", ...(await this.applyAttribute("内衣配件类型", "rc_select_17", kw)) });
+    // 关键标识项：内衣配件类型 用主关键词；匹配不上则保留源值（不强行覆盖为错值）。仅限乳贴类目，避免箱包/钥匙扣页误填。
+    if (isRutie) {
+      applied.push({ field: "attr:内衣配件类型", ...(await this.applyAttribute("内衣配件类型", "rc_select_17", kw)) });
+    }
     return applied;
   }
 
@@ -1856,7 +1926,7 @@ export class DianxiaomiAdapter {
         if (await inp.count() > 0) {
           const cur = await inp.inputValue().catch(() => "");
           if (cur && cur.trim()) { result.fields.push({ field: label, ok: true, skipped: true, value: cur.trim() }); continue; }
-          const def = /重量|weight/i.test(label) ? "0.1" : (/型号|model/i.test(label) ? "通用" : "无");
+          const def = /重量|weight/i.test(label) ? "0.1" : (/型号|model/i.test(label) ? "Universal" : "None");
           try {
             await inp.click({ timeout: 4000 }).catch(() => {});
             await inp.fill(def, { timeout: 4000 }).catch(() => {});
@@ -1866,6 +1936,117 @@ export class DianxiaomiAdapter {
         }
       }
     }
+    return result;
+  }
+
+  // 一键翻译：店小秘编辑页顶部「一键翻译」按钮，将中文内容翻译为英文。
+  // 用于解决自定义属性、自定义名称等字段填中文后保存报「请输入英文、数字或空格符号」的问题。
+  async translatePageToEnglish(options = {}) {
+    await this.connect();
+    const result = { ok: false, reason: "", translated: [] };
+    // 1) 点击顶部「一键翻译」按钮（兼容多种 DOM 形态）
+    const translateBtnSelectors = [
+      'button:has-text("一键翻译")',
+      'a:has-text("一键翻译")',
+      '.ant-btn:has-text("一键翻译")',
+      '[class*="translate"]:has-text("一键翻译")'
+    ];
+    let clicked = false;
+    for (const sel of translateBtnSelectors) {
+      const loc = this.page.locator(sel).first();
+      if (await loc.count() > 0 && await loc.isVisible().catch(() => false)) {
+        await loc.click({ timeout: 5000 }).catch(() => {});
+        clicked = true;
+        break;
+      }
+    }
+    if (!clicked) {
+      clicked = await this.page.evaluate(() => {
+        const els = Array.from(document.querySelectorAll("button, a, span, div"));
+        const el = els.find((e) => /一键翻译/.test((e.innerText || "").trim()));
+        if (el) { el.click(); return true; }
+        return false;
+      }).catch(() => false);
+    }
+    if (!clicked) { result.reason = "translate-button-not-found"; return result; }
+    await sleep(800);
+
+    // 2) 定位翻译弹窗
+    const modalSelectors = [
+      '.ant-modal:has-text("翻译")',
+      '.ant-modal-wrap:has-text("翻译")',
+      '.ant-modal-content:has-text("翻译")',
+      '[role="dialog"]:has-text("翻译")',
+      '.ant-modal:has-text("一键翻译")'
+    ];
+    let modal = null;
+    for (let i = 0; i < 12 && !modal; i++) {
+      for (const sel of modalSelectors) {
+        const loc = this.page.locator(sel).first();
+        if (await loc.count() > 0 && await loc.isVisible().catch(() => false)) { modal = loc; break; }
+      }
+      if (!modal) await sleep(300);
+    }
+    if (!modal) { result.reason = "translate-modal-not-found"; return result; }
+
+    try {
+      // 3) 确保语种为「中文 → 英文」：先读当前，若不是则点选英文
+      const langText = await modal.innerText().catch(() => "");
+      if (!/中文.*英文|中.*英|Chinese.*English/i.test(langText)) {
+        const langSelect = modal.locator(".ant-select").first();
+        if (await langSelect.count() > 0) {
+          await langSelect.click({ timeout: 3000 }).catch(() => {});
+          await sleep(400);
+          const enOpt = this.page.locator(".ant-select-dropdown:visible .ant-select-item-option-content").filter({ hasText: /英文|English/i }).first();
+          if (await enOpt.count() > 0) await enOpt.click({ timeout: 3000 }).catch(() => {});
+        }
+      }
+      // 4) 勾选翻译内容：优先「自定义属性」「自定义名称」；有则顺带标题/描述
+      const targets = [
+        { text: "自定义属性", key: "custom-attr" },
+        { text: "自定义名称", key: "custom-name" },
+        { text: "标题", key: "title" },
+        { text: "PC端描述", key: "pc-desc" },
+        { text: "无线端描述", key: "mobile-desc" }
+      ];
+      for (const t of targets) {
+        const cbLoc = modal.locator("label, .ant-checkbox-wrapper, span").filter({ hasText: t.text }).first();
+        if (await cbLoc.count() === 0) continue;
+        const input = cbLoc.locator('input[type="checkbox"]').first();
+        if (await input.count() > 0) {
+          const checked = await input.isChecked().catch(() => true);
+          if (!checked) await cbLoc.click({ timeout: 3000 }).catch(() => {});
+        }
+        result.translated.push(t.key);
+      }
+    } catch (e) {
+      result.reason = "configure-modal:" + (e && e.message || e);
+    }
+
+    // 5) 点「确定」触发翻译
+    const confirmBtn = modal.locator("button").filter({ hasText: /^确定$|^确认$|^翻译$|^确定翻译$/ }).first();
+    if (await confirmBtn.count() > 0) {
+      await confirmBtn.click({ timeout: 5000 }).catch(() => {});
+    } else {
+      await modal.evaluate((m) => {
+        const b = Array.from(m.querySelectorAll("button")).find((x) => /确定|确认|翻译/.test((x.innerText || "").trim()));
+        if (b) b.click();
+      });
+    }
+
+    // 6) 等待翻译完成：loading 消失且翻译弹窗关闭
+    let completed = false;
+    for (let i = 0; i < 30 && !completed; i++) {
+      const stillLoading = await this.page.evaluate(() => {
+        const spin = document.querySelector(".ant-spin, .ant-spin-spinning, .loading, [class*='loading']");
+        return spin && spin.offsetParent !== null;
+      }).catch(() => false);
+      const stillModal = await this.page.locator('.ant-modal-wrap:has-text("翻译"), .ant-modal:has-text("翻译")').count() > 0;
+      if (!stillLoading && !stillModal) { completed = true; break; }
+      await sleep(500);
+    }
+    result.ok = completed;
+    if (!result.ok && !result.reason) result.reason = "translation-timeout";
     return result;
   }
 
@@ -2407,7 +2588,7 @@ export class DianxiaomiAdapter {
     if (await inp.count() > 0) {
       const cur = await inp.inputValue().catch(() => "");
       if (cur && cur.trim()) return { ok: true, skipped: true, value: cur.trim() };
-      const def = /重量|weight/i.test(core) ? "0.1" : (/型号|model/i.test(core) ? "通用" : "无");
+      const def = /重量|weight/i.test(core) ? "0.1" : (/型号|model/i.test(core) ? "Universal" : "None");
       await inp.click({ timeout: 4000 }).catch(() => {});
       await inp.fill(def, { timeout: 4000 }).catch(() => {});
       await sleep(400);
@@ -2610,9 +2791,12 @@ export class DianxiaomiAdapter {
     const detect = async (p) => p.evaluate(() => {
       const bodyText = document.body ? (document.body.innerText || "") : "";
       const buttons = Array.from(document.querySelectorAll("button"));
-      const hasSaveNext = !!buttons.find((b) => /保存，下一步|保存下一步/.test(b.innerText || ""));
-      const hasCategorySelect = !!Array.from(document.querySelectorAll(".ant-select-selection-placeholder")).find((el) => /请选择分类/.test(el.innerText || ""));
-      const hasVariantTable = /1688变种主题/.test(bodyText) && /对应速卖通/.test(bodyText);
+      const href = location.href || "";
+      // 分类映射页 URL 强信号（如 /web/modifyCategory）
+      const isCategoryPageByUrl = /\/modifyCategory/i.test(href) || /category/i.test(href) && /编辑分类|选择分类|modify/.test(bodyText);
+      const hasSaveNext = !!buttons.find((b) => /保存[，并]?下一步|保存$|下一步$/.test((b.innerText || "").trim()));
+      const hasCategorySelect = !!Array.from(document.querySelectorAll(".ant-select-selection-placeholder, .ant-select-selection-item")).find((el) => /请选择分类|请选择类目|选择分类/.test((el.innerText || "").trim()));
+      const hasVariantTable = /(1688)?变种主题/.test(bodyText) && /对应速卖通|速卖通/.test(bodyText);
       // 提示弹窗（两个按钮：编辑分类 / 跳过，去编辑产品）
       const hasEditCategoryBtn = !!buttons.find((b) => /^编辑分类$/.test((b.innerText || "").trim()));
       const hasSkipToEditBtn = !!buttons.find((b) => /跳过，?去编辑产品/.test(b.innerText || ""));
@@ -2620,10 +2804,10 @@ export class DianxiaomiAdapter {
       // 是否已经直接进到编辑表单页
       const isEditPage = /(产品标题|商品标题|quoteEdit|productEdit)/.test(bodyText) || /quoteEdit|productEdit/.test(location.href);
       return {
-        isCategoryPage: hasSaveNext && (hasCategorySelect || hasVariantTable),
+        isCategoryPage: isCategoryPageByUrl || (hasSaveNext && (hasCategorySelect || hasVariantTable)),
         isCategoryPrompt: hasEditCategoryBtn && hasSkipToEditBtn && hasPromptProgress,
         isEditPage,
-        url: location.href,
+        url: href,
         title: document.title
       };
     });
@@ -2677,14 +2861,14 @@ export class DianxiaomiAdapter {
     }
 
     if (!state.isCategoryPage) {
-      return { ok: true, skipped: true, reason: "not-category-page", state };
+      return { ok: true, skipped: true, reason: "not-category-page", url: page.url(), state };
     }
 
     // 3) 映射页：选类目
     const categoryName = profile.category;
     if (categoryName) {
       const categorySelect = page.locator(".ant-select", {
-        has: page.locator(".ant-select-selection-placeholder", { hasText: "请选择分类" })
+        has: page.locator(".ant-select-selection-placeholder, .ant-select-selection-item", { hasText: /请选择分类|请选择类目|选择分类/ })
       }).first();
       if (await categorySelect.count() > 0 && await categorySelect.isVisible().catch(() => false)) {
         await categorySelect.click();
@@ -2737,7 +2921,7 @@ export class DianxiaomiAdapter {
     // 5) 保存并进入下一步
     const context = page.context();
     const newPagePromise = context.waitForEvent("page", { timeout: 10000 }).catch(() => null);
-    await page.locator("button").filter({ hasText: /保存，下一步|保存下一步/ }).first().click({ timeout: 8000 }).catch(() => {
+    await page.locator("button").filter({ hasText: /保存[，并]?下一步|保存下一步/ }).first().click({ timeout: 8000 }).catch(() => {
       return clickVisibleByText(page, "保存，下一步", 8000);
     });
     let newPage = await awaitRealPage(newPagePromise, 8000);

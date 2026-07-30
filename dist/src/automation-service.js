@@ -1,7 +1,7 @@
 import { mkdir, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { OUTPUT_DIR, PLANNING_COMPLETION_PROMPT, PRODUCT_FACT_FILE, PRODUCT_FACT_PROMPT_FINGERPRINT, PRODUCT_IMAGES_DIR, PRODUCT_ROOT, TEST_PROMPT, singleImageCommand } from "./config.js";
-import { normalizeDianxiaomiFacts } from "./dianxiaomi-facts.js";
+import { normalizeDianxiaomiFacts, buildProductFactsFallback } from "./dianxiaomi-facts.js";
 import { scanProductImages } from "./image-files.js";
 import { extractImagePrompt, isOutlineOnlyPlanningText, readPrompt, validatePromptPack } from "./prompt-files.js";
 import { ProductVisualAssetsService } from "./product-visual-assets-service.js";
@@ -128,7 +128,8 @@ export function standardAutoStep(state) {
         return "start";
     if (state.completedPhase === "MVP1") {
         if (state.standardWorkflowGoal === "seo_content_only") {
-            return state.researchCompleted ? "seo" : "research";
+            // 批量制作跳过市场调研，MVP1 后直接生成 SEO/Listing
+            return (state.skipResearch || state.researchCompleted) ? "seo" : "research";
         }
         return "planning";
     }
@@ -137,10 +138,13 @@ export function standardAutoStep(state) {
     return "seo";
 }
 export function isSeoContentReady(state) {
-    return state.standardWorkflowGoal === "seo_content_only"
-        ? state.completedPhase === "MVP1" && Boolean(state.researchCompleted)
-        : state.completedPhase === "MVP4" &&
-            (state.generatedImageNumbers ?? []).length === 10;
+    if (state.standardWorkflowGoal === "seo_content_only") {
+        // skipResearch 时只要求完成 MVP1，不要求市场调研
+        return state.completedPhase === "MVP1" &&
+            (Boolean(state.skipResearch) || Boolean(state.researchCompleted));
+    }
+    return state.completedPhase === "MVP4" &&
+        (state.generatedImageNumbers ?? []).length === 10;
 }
 export class AutomationService {
     store;
@@ -485,7 +489,10 @@ export class AutomationService {
         });
         try {
             const planningPromptTemplate = await readPrompt("planning");
-            await this.ai.openChat(existing.chatUrl);
+            const restoredChatUrl = await this.ai.openChat(existing.chatUrl);
+            if (restoredChatUrl && restoredChatUrl !== existing.chatUrl) {
+                await this.store.update({ chatUrl: restoredChatUrl });
+            }
             const researchText = await this.ensureResearch(existing);
             await this.store.update({
                 researchText,
@@ -572,7 +579,10 @@ export class AutomationService {
             message: "正在恢复商品对话并准备联网市场调研…"
         });
         try {
-            await this.ai.openChat(existing.chatUrl);
+            const restoredChatUrl = await this.ai.openChat(existing.chatUrl);
+            if (restoredChatUrl && restoredChatUrl !== existing.chatUrl) {
+                await this.store.update({ chatUrl: restoredChatUrl });
+            }
             const researchText = await this.ensureResearch(existing);
             await this.store.update({
                 stage: "PAUSED",
@@ -610,7 +620,10 @@ export class AutomationService {
             message: "正在恢复商品对话并准备逐图生成…"
         });
         try {
-            await this.ai.openChat(existing.chatUrl);
+            const restoredChatUrl = await this.ai.openChat(existing.chatUrl);
+            if (restoredChatUrl && restoredChatUrl !== existing.chatUrl) {
+                await this.store.update({ chatUrl: restoredChatUrl });
+            }
             for (let imageNumber = 1; imageNumber <= 10; imageNumber += 1) {
                 if (generated.has(imageNumber))
                     continue;
@@ -772,8 +785,12 @@ export class AutomationService {
         try {
             const seoPromptTemplate = await readPrompt("seoKeywords");
             const listingPromptTemplate = await readPrompt("listingContent");
-            await this.ai.openChat(existing.chatUrl);
-            const seoPrompt = seoOnly
+            const restoredChatUrl = await this.ai.openChat(existing.chatUrl);
+            if (restoredChatUrl && restoredChatUrl !== existing.chatUrl) {
+                await this.store.update({ chatUrl: restoredChatUrl });
+            }
+            // 批量模式下跳过市场调研：不注入 researchText，直接基于产品事实生成 SEO/Listing
+            const seoPrompt = (seoOnly && !existing.skipResearch)
                 ? `${seoPromptTemplate}
 
 ## 本商品已完成的联网市场调研与 VOC
@@ -869,11 +886,18 @@ ${existing.researchText ?? ""}
             });
             // 桥接（Plan B，非致命）：把 Listing 资料整理成 当前产品/product-facts.json，
             // 供后续「上架店小秘」复用（不改动原 MVP1/MVP5 prompt）。
-            try {
-                await this.generateProductFactsFile(existing, listingContentText);
-            }
-            catch (factsError) {
-                console.error("[product-facts] 整理 product-facts.json 失败（非致命，不影响 MVP5 完成）:", factsError);
+            // 批量制作模式下跳过：避免额外 ChatGPT 调用阻塞下一行。
+            if (!existing.skipProductFacts) {
+                try {
+                    await this.generateProductFactsFile(existing, listingContentText);
+                }
+                catch (factsError) {
+                    console.error("[product-facts] 整理 product-facts.json 失败（非致命，不影响 MVP5 完成）:", factsError);
+                    await this.store.update({
+                        productFactsReady: false,
+                        productFactsError: factsError instanceof Error ? factsError.message : String(factsError)
+                    }).catch(() => {});
+                }
             }
         }
         catch (error) {
@@ -893,41 +917,51 @@ ${existing.researchText ?? ""}
             console.warn("[product-facts] 无产品事实与 Listing 文案，跳过整理");
             return null;
         }
-        const prompt = [
-            PRODUCT_FACTS_STRUCTURE_FINGERPRINT,
-            "",
-            PRODUCT_FACTS_STRUCTURE_PROMPT,
-            "",
-            "## A) 产品事实提取（MVP1）",
-            "<<<FACTS_START>>>",
-            factText,
-            "<<<FACTS_END>>>",
-            "",
-            "## B) SEO / Listing 文案（MVP5）",
-            "<<<LISTING_START>>>",
-            listingContentText,
-            "<<<LISTING_END>>>",
-            "",
-            "请按上述要求输出符合形状的 JSON 代码块。"
-        ].join("\n");
-        await this.ai.sendPromptOnce(prompt, PRODUCT_FACTS_STRUCTURE_FINGERPRINT);
-        await this.store.update({
-            stage: "BUILDING_PRODUCT_FACTS",
-            message: "正在把 Listing 资料整理成 product-facts.json…"
-        });
-        const responseText = await this.ai.waitForResponseAfterPrompt(PRODUCT_FACTS_STRUCTURE_FINGERPRINT);
-        const parsed = JSON.parse(extractJsonBlock(responseText));
-        const facts = normalizeDianxiaomiFacts(parsed);
-        // 强制使用 MVP5 Listing 里的 Clean Title 与 AEO 结构化五点描述（AI 可能未严格按 prompt 提取）
-        const cleanTitle = extractCleanTitle(listingContentText);
-        if (cleanTitle) {
-            facts.title.en = cleanTitle;
-            facts.title.zh = facts.title.zh || "";
+        let facts;
+        let usedFallback = false;
+        try {
+            const prompt = [
+                PRODUCT_FACTS_STRUCTURE_FINGERPRINT,
+                "",
+                PRODUCT_FACTS_STRUCTURE_PROMPT,
+                "",
+                "## A) 产品事实提取（MVP1）",
+                "<<<FACTS_START>>>",
+                factText,
+                "<<<FACTS_END>>>",
+                "",
+                "## B) SEO / Listing 文案（MVP5）",
+                "<<<LISTING_START>>>",
+                listingContentText,
+                "<<<LISTING_END>>>",
+                "",
+                "请按上述要求输出符合形状的 JSON 代码块。"
+            ].join("\n");
+            await this.ai.sendPromptOnce(prompt, PRODUCT_FACTS_STRUCTURE_FINGERPRINT);
+            await this.store.update({
+                stage: "BUILDING_PRODUCT_FACTS",
+                message: "正在把 Listing 资料整理成 product-facts.json…"
+            });
+            const responseText = await this.ai.waitForResponseAfterPrompt(PRODUCT_FACTS_STRUCTURE_FINGERPRINT);
+            const parsed = JSON.parse(extractJsonBlock(responseText));
+            facts = normalizeDianxiaomiFacts(parsed);
+            // 强制使用 MVP5 Listing 里的 Clean Title 与 AEO 结构化五点描述（AI 可能未严格按 prompt 提取）
+            const cleanTitle = extractCleanTitle(listingContentText);
+            if (cleanTitle) {
+                facts.title.en = cleanTitle;
+                facts.title.zh = facts.title.zh || "";
+            }
+            const aeoSection = extractAeoSection(listingContentText);
+            if (aeoSection) {
+                facts.description.pc = aeoSection;
+                facts.description.mobile = aeoSection;
+            }
         }
-        const aeoSection = extractAeoSection(listingContentText);
-        if (aeoSection) {
-            facts.description.pc = aeoSection;
-            facts.description.mobile = aeoSection;
+        catch (aiErr) {
+            // AI 桥接静默失败（超时 / 聊天漂移 / 返回非 JSON）→ 改用本地兜底生成，保证文件一定产出。
+            console.warn("[product-facts] AI 桥接失败，改用本地兜底生成（非致命）:", aiErr && aiErr.message ? aiErr.message : aiErr);
+            usedFallback = true;
+            facts = await buildProductFactsFallback({ factText, listingContentText, baseDir: PRODUCT_ROOT });
         }
         // 主图优先使用 MVP4 AI 生成的 Listing 图（output/Image_01.png ...），而非原始 1688 产品图。
         // 这样店小秘上品主图和详情页插图才是「系统做的图」；无生成图时才回退到 scanProductImages。
@@ -966,8 +1000,11 @@ ${existing.researchText ?? ""}
         }
         await this.store.update({
             productFactsReady: true,
+            productFactsFallback: usedFallback,
             productFactsPath: target,
-            message: "MVP 5 已完成，product-facts.json 已生成（可上架店小秘）"
+            message: usedFallback
+                ? "MVP5 已完成（product-facts 为本地兜底版，可上架但建议人工复核标题/属性）"
+                : "MVP 5 已完成，product-facts.json 已生成（可上架店小秘）"
         });
         return facts;
     }
@@ -976,7 +1013,10 @@ ${existing.researchText ?? ""}
         if (!before.chatUrl) {
             throw new Error("当前没有可同步的 AI 商品对话");
         }
-        await this.ai.openChat(before.chatUrl);
+        const restoredChatUrl = await this.ai.openChat(before.chatUrl);
+        if (restoredChatUrl && restoredChatUrl !== before.chatUrl) {
+            await this.store.update({ chatUrl: restoredChatUrl });
+        }
         const known = before.generatedImageNumbers ?? [];
         const recovered = await this.ai.recoverCompletedGeneratedImages(OUTPUT_DIR, known);
         const recoveredFiles = recovered.map((number) => `Image_${String(number).padStart(2, "0")}.jpg`);

@@ -85,9 +85,9 @@ export const HOST = process.env.HOST ?? "0.0.0.0";
 export const CHATGPT_URL = "https://chatgpt.com/";
 // ChatGPT 对话模型与推理档位：适配器每次发送前自动对齐到该值（环境变量可覆盖）。
 // - CHATGPT_MODEL：模型名子串，如 "GPT-5.6 Sol"（大小写/空格不敏感，按包含匹配）
-// - CHATGPT_REASONING：推理档位，取值 低 / 中 / 高（默认「中」，高档太慢）
+// - CHATGPT_REASONING：推理档位，取值 低 / 中 / 高（默认「高」，确保 10 张图 Prompt Pack 一次性完整输出；中/低档 ChatGPT 倾向只给大纲）
 export const CHATGPT_MODEL = process.env.CHATGPT_MODEL || "GPT-5.6 Sol";
-export const CHATGPT_REASONING = process.env.CHATGPT_REASONING || "中";
+export const CHATGPT_REASONING = process.env.CHATGPT_REASONING || "高";
 export const NOTEBOOKLM_URL = "https://notebooklm.google.com/notebook/e8814b50-af7a-462a-be88-d267b56dbf91";
 
 // ===== 店小秘 ERP 自动化上品（乳贴 v1.0）=====

@@ -95,6 +95,23 @@ export async function archiveCurrentProduct(state) {
                 throw err;
         }
     }
+    // 自修复：归档时若仍缺 product-facts.json（如 skipProductFacts 批量模式 / 历史包），
+    // 用已保存的 listingContentText/responseText + 刚归档的图片本地兜底生成，避免下游店小秘上架整批跳过。
+    const archivedFacts = path.join(destination, "product-facts.json");
+    if (!(await exists(archivedFacts)) && (state.listingContentText || state.responseText)) {
+        try {
+            const { buildProductFactsFallback } = await import("./dianxiaomi-facts.js");
+            const fb = await buildProductFactsFallback({
+                factText: state.responseText || "",
+                listingContentText: state.listingContentText || "",
+                baseDir: destination
+            });
+            await writeFile(archivedFacts, `${JSON.stringify(fb, null, 2)}\n`, "utf8");
+        }
+        catch (fbErr) {
+            console.warn("[product-facts] 归档兜底生成失败（非致命）:", fbErr && fbErr.message ? fbErr.message : fbErr);
+        }
+    }
     await writeFile(path.join(destination, "run-state.json"), `${JSON.stringify(state, null, 2)}\n`, "utf8");
     await Promise.all([
         mkdir(PRODUCT_IMAGES_DIR, { recursive: true }),

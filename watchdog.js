@@ -115,8 +115,10 @@ function startServer() {
   child = spawn(NODE, ["dist/src/server.js"], {
     cwd: PROJECT_ROOT,
     env: { ...process.env, HOST, PORT: String(PORT) },
-    stdio: ["ignore", serverLog, serverLog],
+    stdio: ["ignore", "pipe", "pipe"],
   });
+  child.stdout.pipe(serverLog, { end: false });
+  child.stderr.pipe(serverLog, { end: false });
   child.on("exit", (code, signal) => {
     log(`工作台进程退出 code=${code} signal=${signal}`);
     child = null;
