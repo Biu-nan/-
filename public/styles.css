@@ -2401,3 +2401,22 @@ body.secretary-docked .workspace {
   color: #7a1212;
   font-weight: 600;
 }
+
+/* ── 店小秘上品端到端心跳（P1-2 闭环优化） ── */
+.bl-heartbeat {
+  min-height: 0;
+  margin: 6px 0 2px;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.6;
+}
+.bl-heartbeat.active {
+  min-height: 20px;
+  color: #1d4ed8;
+  font-weight: 600;
+  animation: blc-pulse 1.4s ease-in-out infinite;
+}
+@keyframes blc-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .55; }
+}

@@ -793,6 +793,9 @@ app.get("/api/status", async (_request, response) => {
             }
             : undefined,
         systemAwake: sleepInhibitor.isActive(),
+        dianxiaomiStage: (typeof dianxiaomiAdapter !== "undefined" && typeof dianxiaomiAdapter.getStage === "function")
+            ? dianxiaomiAdapter.getStage()
+            : { name: "idle", detail: "", since: Date.now() },
         prompts: await promptStatus(),
         productDirectory: PRODUCT_IMAGES_DIR,
         availableImages: images.map(({ name, size, sha256 }) => ({
@@ -3518,6 +3521,8 @@ app.post("/api/dianxiaomi/collect-batch-generate", async (request, response) => 
         category,
         searchTitle: title,
         factsPath: dir,
+        // 变种覆盖：默认空 = 沿用采集箱源变种。填 1/是/覆盖 才用 facts 重建颜色/尺寸/SKU。
+        variantOverride: "",
         enabled: true,
         status: "idle",
         progress: 0,
@@ -3552,7 +3557,10 @@ app.post("/api/dianxiaomi/collect-batch-apply", async (request, response) => {
       searchTitle: (r.searchTitle || r.packageName || "").toString().trim(),
       enabled: r.enabled === false || r.enabled === "false" || r.enabled === 0 || r.enabled === "0" ? false : true,
       factsPath: (r.factsPath || "").toString().trim(),
-      variantThemeMap: (r.variantThemeMap || "").toString().trim()
+      variantThemeMap: (r.variantThemeMap || "").toString().trim(),
+      // 变种覆盖开关：默认空 = 沿用采集箱源变种（不动颜色/尺寸/SKU）。
+      // 填 1/true/是/覆盖 才允许用 product-facts 的 variants 重建变种。
+      variantOverride: parseVariantOverrideFlag(r.variantOverride)
     })).filter((r) => r.packageName);
     if (!normalized.length) return response.status(400).json({ ok: false, error: "无有效 packageName" });
     collectBatchRunState.jobId = `collect-${Date.now()}`;
@@ -3586,6 +3594,9 @@ app.get("/api/dianxiaomi/collect-batch-status", async (_request, response) => {
       jobId: collectBatchRunState.jobId,
       overallProgress: collectBatchRunState.overallProgress,
       summary: collectBatchRunState.summary,
+      dianxiaomiStage: (typeof dianxiaomiAdapter !== "undefined" && typeof dianxiaomiAdapter.getStage === "function")
+        ? dianxiaomiAdapter.getStage()
+        : { name: "idle", detail: "", since: Date.now() },
       items
     });
   }
@@ -3618,6 +3629,7 @@ app.post("/api/dianxiaomi/collect-batch-retry", async (request, response) => {
           searchTitle: r.searchTitle || r.packageName,
           category: r.category || "auto",
           variantThemeMap: r.variantThemeMap || "",
+          variantOverride: parseVariantOverrideFlag(r.variantOverride),
           enabled: r.enabled !== false
         };
       }
@@ -3640,6 +3652,17 @@ app.post("/api/dianxiaomi/collect-explore", async (_request, response) => {
     response.status(500).json({ error: error instanceof Error ? error.message : String(error) });
   }
 });
+
+// 解析「变种覆盖」开关：默认 false = 完全沿用采集箱源变种（不勾选/取消颜色尺寸、不重建 SKU）。
+// 仅当模板该列填 1/true/yes/是/覆盖/override 时才返回 true，允许用 product-facts 的 variants 重建变种。
+// 设计意图：采集箱草稿的变种来自 1688 源商品，比 facts（尤其 local_fallback 兜底档）更准，默认不动。
+function parseVariantOverrideFlag(v) {
+  if (v === true) return true;
+  if (v === false || v === undefined || v === null) return false;
+  const s = String(v).trim().toLowerCase();
+  if (!s) return false;
+  return /^(1|true|yes|y|on|是|覆盖|override)$/.test(s);
+}
 
 // 解析表格/行数据里的「变种主题映射」文本 → { "颜色": "Color", "型号": "Size" }
 // 格式：1688主题:速卖通主题;…  支持中英文冒号、分号/换行分隔。空串返回 {}。
@@ -3785,6 +3808,7 @@ async function runCollectBatchListing(rows, opts = {}) {
       await snapshot();
     }
     collectBatchRunState.running = false;
+    dianxiaomiAdapter.setStage("idle", "");
     collectBatchRunState.finishedAt = Date.now();
     const all = Object.values(collectBatchRunState.items);
     collectBatchRunState.summary = {
@@ -3820,6 +3844,7 @@ async function runCollectBatchListing(rows, opts = {}) {
     await snapshot();
   }
   collectBatchRunState.running = false;
+  dianxiaomiAdapter.setStage("idle", "");
   collectBatchRunState.finishedAt = Date.now();
   collectBatchRunState.summary = { success, failed, skipped, total };
   await snapshot();
@@ -3829,6 +3854,7 @@ async function runCollectBatchListing(rows, opts = {}) {
 // 直接更新 item.status/progress/reason，返回状态字符串："done" | "failed" | "skipped"。
 async function processCollectBatchRow(row, item, log) {
   const name = row.packageName;
+  dianxiaomiAdapter.setStage("采集箱上架·准备", name);
   const dir = path.join(COMPLETED_PRODUCTS_DIR, name);
   // 校验包目录 + product-facts.json
   let factsFile = null;
@@ -3870,13 +3896,17 @@ async function processCollectBatchRow(row, item, log) {
       return "failed";
     }
     // 导航：采集箱 → 搜标题 → 点编辑
+    dianxiaomiAdapter.setStage("采集箱上架·导航采集箱列表", name);
     await dianxiaomiAdapter.openCollectBox();
     item.progress = 15;
+    dianxiaomiAdapter.setStage("采集箱上架·搜索标题", name);
     await dianxiaomiAdapter.searchCollectBox(row.searchTitle);
     item.progress = 30;
+    dianxiaomiAdapter.setStage("采集箱上架·打开草稿编辑", name);
     await dianxiaomiAdapter.openCollectDraftByTitle(row.searchTitle);
     item.progress = 45;
     // 处理采集箱编辑前的「分类/变种主题映射」中间页（选类目 + 颜色->Color + 保存下一步）
+    dianxiaomiAdapter.setStage("采集箱上架·填写类目映射", name);
     const catRes = await dianxiaomiAdapter.fillCollectDraftCategory(facts);
     if (catRes.mapped && catRes.mapped.length) log(`分类映射: ${catRes.mapped.map((m) => `${m.theme}->${m.target}`).join(", ")}`);
     log(`映射页结果: url=${catRes.url || "(unknown)"}, ok=${catRes.ok}, skipped=${catRes.skipped || false}, reason=${catRes.reason || ""}`);
@@ -3885,12 +3915,18 @@ async function processCollectBatchRow(row, item, log) {
     }
     item.progress = 55;
     // 采集箱草稿已带固定字段（店铺/备货/分类等），不调用 fillFixedFields，只填 facts 文字/属性/描述。
-    const applied = await dianxiaomiAdapter.fillFromFacts(facts, { collectMode: true });
+    // variantOverride 默认 false → 采集箱变种信息原样沿用，只填标题/描述/属性/合规。
+    const variantOverride = parseVariantOverrideFlag(row.variantOverride);
+    if (variantOverride) log("变种模式: 覆盖（用 product-facts 重建颜色/尺寸/SKU）");
+    else log("变种模式: 沿用采集源变种（不改动）");
+    dianxiaomiAdapter.setStage("采集箱上架·填写属性与描述", name);
+    const applied = await dianxiaomiAdapter.fillFromFacts(facts, { collectMode: true, variantOverride });
     for (const a of applied) {
       if (a.ok === false) log(`${a.field}: FAIL ${a.reason || ""}`);
       else if (a.skipped) log(`${a.field}: SKIP ${a.reason || ""}`);
     }
     item.progress = 80;
+    dianxiaomiAdapter.setStage("采集箱上架·保存草稿", name);
     let saved = await dianxiaomiAdapter.save();
     // 迭代自动纠错：保存 → 读校验错误 → 逐个按标签兜底填默认值 → 再保存，直到无错或达轮次上限。
     // 覆盖非箱包类目（如 Party Favors）在 fillFromFacts 非 xiangBao 分支未内置 autofix 的缺口，
@@ -3898,6 +3934,14 @@ async function processCollectBatchRow(row, item, log) {
     for (let round = 1; round <= 3 && saved && !saved.saved; round += 1) {
       const errs = await dianxiaomiAdapter.readValidationErrors().catch(() => []);
       if (!errs.length) break;
+      // 变种兜底只在店小秘明确报「缺必选变种」时才触发；平时绝不动采集带来的变种。
+      if (errs.some((e) => /变种|销售属性|颜色\s*\(?\s*Color/i.test(`${e.label || ""} ${e.hint || ""}`))) {
+        try {
+          const vd = await dianxiaomiAdapter.ensureDefaultVariantColor();
+          log(`variantDefault(round${round})=${vd.ok ? (vd.value || "ok") : (vd.reason || "fail")}`);
+        }
+        catch (ex) { log(`variantDefault(round${round})=err:${ex.message}`); }
+      }
       const handled = new Set();
       for (const e of errs) {
         const lbl = e.label;
@@ -3911,6 +3955,7 @@ async function processCollectBatchRow(row, item, log) {
         catch (ex) { log(`autofix:${core || lbl}=err:${ex.message}`); }
       }
       // autofix 可能填入中文默认值，触发「请输入英文、数字或空格符号」；一键翻译兜底。
+      dianxiaomiAdapter.setStage(`采集箱上架·自动纠错(第${round}轮)`, name);
       try {
         const tr = await dianxiaomiAdapter.translatePageToEnglish();
         log(`translate-to-en=${tr.ok ? "ok" : (tr.reason || "skip")} [${tr.translated.join(",")}]`);
@@ -3924,6 +3969,7 @@ async function processCollectBatchRow(row, item, log) {
     const readbackIssues = (saved && Array.isArray(saved.hardIssues) && saved.hardIssues.length) ? saved.hardIssues : [];
     const criticalFailed = criticalFailures.length > 0 || readbackIssues.length > 0;
     if (saved && saved.saved && !criticalFailed) {
+      dianxiaomiAdapter.setStage("采集箱上架·完成", name);
       item.status = "done";
       item.reason = saved.url || saved.message || "已存草稿(采集箱，未发布)";
       item.progress = 100;
@@ -3941,6 +3987,7 @@ async function processCollectBatchRow(row, item, log) {
       return "failed";
     }
   } catch (e) {
+    dianxiaomiAdapter.setStage("采集箱上架·异常", name);
     item.status = "failed";
     item.reason = e instanceof Error ? e.message : String(e);
     item.progress = 100;

@@ -147,6 +147,29 @@ export class DianxiaomiAdapter {
     this.imageBaseDir = PRODUCT_IMAGES_DIR;
     // profile 解析：可为 key 字符串 / profile 对象 / 空（默认 ruTie，向后兼容）
     this.profile = getDianxiaomiProfile(profile || DIANXIAOMI_DEFAULT_PROFILE_KEY);
+    // 端到端心跳（P1-2）：店小秘上品当前所处阶段 + 进入时刻；setStage 同时触发 onStage 回调。
+    // 供 /api/status 暴露给前端显示「正在 XX 已等待 Ns」，消除「上架卡死无反馈」的错觉。
+    this.stage = { name: "idle", detail: "", since: Date.now() };
+    this.onStage = null;
+  }
+
+  // 设置当前上品阶段（心跳）。detail 可附简短上下文（如当前产品名/行号）。
+  setStage(name, detail) {
+    this.stage = { name: name || "idle", detail: detail || "", since: Date.now() };
+    if (typeof this.onStage === "function") {
+      try { this.onStage(this.stage); } catch { /* 回调异常不影响主流程 */ }
+    }
+    return this.stage;
+  }
+
+  getStage() {
+    return this.stage || { name: "idle", detail: "", since: Date.now() };
+  }
+
+  // 注册阶段变化回调（前端心跳钩子）。回调签名 (stage) => void。
+  setOnStage(cb) {
+    this.onStage = (typeof cb === "function") ? cb : null;
+    return this;
   }
 
   setProfile(profile) {
@@ -1342,6 +1365,12 @@ export class DianxiaomiAdapter {
     await this.connect();
     // 采集箱模式：保留采集箱自带源图，只填文字/属性/描述/合规，跳过一切图片上传。
     const collectMode = !!(options && options.collectMode);
+    // 采集箱模式默认「沿用采集带来的变种信息」：不勾选/取消颜色尺寸、不重建 SKU 矩阵、不补默认颜色。
+    // 采集箱草稿的变种是从 1688 源商品采下来的真实数据，比 facts（尤其 local_fallback 兜底档）更准；
+    // 用 facts 去 toggle 会把源变种取消掉（fillSalesAttributes 的 pass2 会 uncheck 非目标项）。
+    // 仅当模板行显式提供变种覆盖（variantOverride）时才允许改动变种。
+    const variantOverride = !!(options && options.variantOverride);
+    const keepSourceVariants = collectMode && !variantOverride;
     const isXiangBao = isXiangBaoProfile(this.profile);
     if (isXiangBao) {
       const applied = [];
@@ -1350,8 +1379,13 @@ export class DianxiaomiAdapter {
       applied.push({ field: "stockingType", ...(await this.fillStockingType(this.profile.stockingType || "国内履约")) });
       // 物流属性（必填，引用不携带；箱包默认普货）。弹窗选择，非致命。
       applied.push({ field: "logistics", ...(await this.fillLogisticsAttribute(this.profile.logistics || "普货")) });
-      // 销售属性：按 facts.variants 勾选颜色/尺寸（箱包以颜色区分 SKU）
-      applied.push({ field: "salesAttrs", ...(await this.fillSalesAttributes(facts)) });
+      // 销售属性：按 facts.variants 勾选颜色/尺寸（箱包以颜色区分 SKU）。
+      // 采集箱默认沿用源变种，整段跳过（否则会把采集下来的真实颜色/尺寸取消掉）。
+      if (keepSourceVariants) {
+        applied.push({ field: "salesAttrs", ok: true, skipped: true, reason: "collect-keep-source-variants" });
+      } else {
+        applied.push({ field: "salesAttrs", ...(await this.fillSalesAttributes(facts)) });
+      }
       await sleep(800);
       // 每色自定义名称 + 每色图（仅当 facts.variants.colorMap 存在时）。采集箱模式跳过（不覆盖源图）。
       if (!collectMode) {
@@ -1363,12 +1397,9 @@ export class DianxiaomiAdapter {
       }
       // 合规信息（欧盟责任人/土耳其责任人/品牌制造商）
       applied.push(...(await this.fillComplianceInfo(facts)));
-      // 采集箱兜底：facts 缺必填项时填默认值，确保能存草稿（颜色变种 + 产品属性通用兜底）。
+      // 采集箱兜底：facts 缺必填项时填默认值，确保能存草稿（仅产品属性；变种一律沿用源数据，
+      // 只有下面 autofix 循环里店小秘明确报「缺必选变种」时才触发 ensureDefaultVariantColor）。
       if (collectMode) {
-        try {
-          const vd = await this.ensureDefaultVariantColor();
-          applied.push({ field: "variantDefault", ...vd });
-        } catch (e) { applied.push({ field: "variantDefault", ok: false, reason: e.message }); }
         try {
           const pattr = await this.fillProductAttributes(facts);
           for (const f of (pattr.fields || [])) applied.push({ field: "attr:" + f.field, ...f });
@@ -1386,6 +1417,14 @@ export class DianxiaomiAdapter {
           if (sv.saved) { saved = true; break; }
           const errs = await this.readValidationErrors();
           if (!errs.length) break;
+          // 变种兜底只在店小秘明确报「缺必选变种」时才触发，平时绝不动源变种。
+          const variantMissing = errs.some((e) => /变种|销售属性|颜色\s*\(?\s*Color/i.test(`${e.label || ""} ${e.hint || ""}`));
+          if (variantMissing) {
+            try {
+              const vd = await this.ensureDefaultVariantColor();
+              applied.push({ field: "variantDefault", round, ...vd });
+            } catch (ex) { applied.push({ field: "variantDefault", round, ok: false, reason: ex.message }); }
+          }
           const handled = new Set();
           for (const e of errs) {
             const lbl = e.label;
@@ -1499,10 +1538,17 @@ export class DianxiaomiAdapter {
     }
     // 5.5) 销售属性（颜色/尺寸）必填勾选：从 facts.variants 勾选分类 checkbox（点 label 触发 React onChange）。
     //       颜色为实操必填（靠颜色区分子 SKU）；尺寸按 facts 默认（One Size），并取消引用带出的多余尺寸。
-    applied.push({ field: "salesAttrs", ...(await this.fillSalesAttributes(facts)) });
+    //       采集箱模式沿用源变种，整段跳过。
     // 6) SKU 变种（引用后点「生成SKU」→ 填每组合价格/库存/图；无 variants 则跳过，不报错）
-    const skuResult = await this.fillSkus(facts);
-    if (skuResult) applied.push({ field: "sku", ...skuResult });
+    //       采集箱模式沿用源 SKU 矩阵（价格/库存已由采集带入），不重建。
+    if (keepSourceVariants) {
+      applied.push({ field: "salesAttrs", ok: true, skipped: true, reason: "collect-keep-source-variants" });
+      applied.push({ field: "sku", ok: true, skipped: true, reason: "collect-keep-source-variants" });
+    } else {
+      applied.push({ field: "salesAttrs", ...(await this.fillSalesAttributes(facts)) });
+      const skuResult = await this.fillSkus(facts);
+      if (skuResult) applied.push({ field: "sku", ...skuResult });
+    }
     // 6.5) 每色图绑定（实验性，非致命：组合表无图列，每色图只能挂到「颜色(Color)」字段的「选择图片」）
     //      采集箱模式跳过（保留源图）。
     if (!collectMode) {
@@ -1990,18 +2036,43 @@ export class DianxiaomiAdapter {
     if (!modal) { result.reason = "translate-modal-not-found"; return result; }
 
     try {
-      // 3) 确保语种为「中文 → 英文」：先读当前，若不是则点选英文
-      const langText = await modal.innerText().catch(() => "");
-      if (!/中文.*英文|中.*英|Chinese.*English/i.test(langText)) {
-        const langSelect = modal.locator(".ant-select").first();
-        if (await langSelect.count() > 0) {
-          await langSelect.click({ timeout: 3000 }).catch(() => {});
-          await sleep(400);
-          const enOpt = this.page.locator(".ant-select-dropdown:visible .ant-select-item-option-content").filter({ hasText: /英文|English/i }).first();
-          if (await enOpt.count() > 0) await enOpt.click({ timeout: 3000 }).catch(() => {});
-        }
+      // 3) 点击「中文 → 英文」这一行才真正开始翻译。
+      // 店小秘弹窗里这一行只是语种选择，下方灰色提示「点击该行可执行：将翻译...」，
+      // 必须点它触发翻译流程，而不是只点确定。
+      let langRow = null;
+      const langSelectors = [
+        '.ant-modal-content:has-text("翻译") :text-matches("中文.*英文", "i")',
+        '.ant-modal-content:has-text("翻译") :text-matches("中.*英", "i")',
+        '.ant-modal-content :text-matches("Chinese.*English", "i")'
+      ];
+      for (const sel of langSelectors) {
+        const loc = this.page.locator(sel).first();
+        if (await loc.count() > 0 && await loc.isVisible().catch(() => false)) { langRow = loc; break; }
       }
+      if (!langRow) {
+        // 兜底：从弹窗内所有可见元素里找文本匹配
+        const matched = await modal.evaluate(() => {
+          const walk = (el) => {
+            for (const c of el.children) {
+              const t = (c.innerText || "").trim();
+              if (/中文[\s\-→]*英文|中[\s\-→]*英/i.test(t)) {
+                c.click();
+                return true;
+              }
+              if (walk(c)) return true;
+            }
+            return false;
+          };
+          return walk(document.body);
+        }).catch(() => false);
+        if (!matched) { result.reason = "translate-lang-row-not-found"; return result; }
+      } else {
+        await langRow.click({ timeout: 5000 }).catch(() => {});
+      }
+      await sleep(600);
+
       // 4) 勾选翻译内容：优先「自定义属性」「自定义名称」；有则顺带标题/描述
+      // 注意：点击语种行后弹窗可能直接进入「翻译中」而不再展示复选框，所以找不到时不视为失败。
       const targets = [
         { text: "自定义属性", key: "custom-attr" },
         { text: "自定义名称", key: "custom-name" },
@@ -2023,7 +2094,7 @@ export class DianxiaomiAdapter {
       result.reason = "configure-modal:" + (e && e.message || e);
     }
 
-    // 5) 点「确定」触发翻译
+    // 5) 点「确定」触发翻译（若弹窗仍在）
     const confirmBtn = modal.locator("button").filter({ hasText: /^确定$|^确认$|^翻译$|^确定翻译$/ }).first();
     if (await confirmBtn.count() > 0) {
       await confirmBtn.click({ timeout: 5000 }).catch(() => {});

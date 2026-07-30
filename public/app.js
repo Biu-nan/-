@@ -10761,8 +10761,27 @@ async function pollBatchStatus() {
       if (it) { r.status = it.status; r.progress = it.progress; r.reason = it.reason || ""; }
     }
     if (data.summary) batchListingState.summary = data.summary;
+    if (data.dianxiaomiStage) batchListingState.stage = data.dianxiaomiStage;
+    updateBatchHeartbeat(data.running);
     if (!data.running) { batchListingState.active = false; batchListingState.busy = false; }
   } catch (_e) { /* ignore */ }
+}
+
+// P1-2：店小秘上品端到端心跳。根据后端 dianxiaomiStage（name+since）显示「正在 XX 已等待 Ns」，
+// 消除采集箱批量上架「卡死无反馈」的错觉。仅在 running 且阶段非 idle 时显示。
+function updateBatchHeartbeat(running) {
+  const el = document.getElementById("blc-heartbeat");
+  if (!el) return;
+  const st = batchListingState.stage;
+  if (!running || !st || !st.name || st.name === "idle") {
+    el.textContent = "";
+    el.classList.remove("active");
+    return;
+  }
+  const waited = Math.max(0, Math.round((Date.now() - (st.since || Date.now())) / 1000));
+  const detail = st.detail ? `（${st.detail}）` : "";
+  el.textContent = `🔄 正在 ${st.name}${detail} · 已等待 ${waited}s`;
+  el.classList.add("active");
 }
 
 // ───────────────────────── 采集箱批量上架（v 新路径，2026-07-28）─────────────────────────
@@ -11011,6 +11030,7 @@ function renderBatchListing() {
             <span>💡 「下载空白模板」先看列名；「生成采集模板」自动扫描 已完成产品/ 里含 product-facts.json 的包并直接载入表格；逐行核对「搜索标题」就是采集箱里的标题（不一致就改），再点开始。「探索采集箱」会在你开着 Chrome+店小秘登录时 dump 列表页结构，用于校准导航选择器。</span>
           </div>
           ${busy ? `<div class="bl-hint">采集箱上架进行中，进度每秒刷新…</div>` : ""}
+          <div id="blc-heartbeat" class="bl-heartbeat"></div>
           ${(batchListingState.explore) ? `<pre class="bl-explore">${blEscapeHtml(batchListingState.explore)}</pre>` : ""}
         </div>
 
