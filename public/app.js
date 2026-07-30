@@ -10874,17 +10874,19 @@ async function collectStart() {
 }
 
 async function collectRetry() {
-  const failed = batchListingState.rows.filter((r) => r.status === "failed");
+  const failed = batchListingState.rows.filter((r) => r.status === "failed" || r.status === "skipped");
   if (!failed.length) return;
+  if (!window.confirm(`将对 ${failed.length} 个失败/跳过项重新上架（已成功项保留）。继续？`)) return;
   try {
-    await request("/api/dianxiaomi/collect-batch-apply", {
+    await request("/api/dianxiaomi/collect-batch-retry", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rows: failed.map((r) => collectRowToPayload(Object.assign({}, r, { enabled: true }))) })
+      body: JSON.stringify({ rows: failed.map((r) => collectRowToPayload(r)) })
     });
-    for (const r of failed) { r.status = "idle"; r.progress = 0; r.reason = ""; }
+    for (const r of failed) { r.status = "running"; r.progress = 0; r.reason = ""; }
     batchListingState.busy = true;
     batchListingState.active = true;
+    batchListingState.summary = null;
   } catch (e) {
     alert("重试失败：" + (e && e.message ? e.message : e));
   }
@@ -10914,7 +10916,7 @@ function renderBatchListing() {
   const rows = batchListingState.rows;
   const busy = batchListingState.busy;
   const dis = busy ? "disabled" : "";
-  const hasFailed = rows.some((r) => r.status === "failed");
+  const hasFailed = rows.some((r) => r.status === "failed" || r.status === "skipped");
   const enabledCount = rows.filter((r) => r.enabled !== false).length;
   // 采集箱模式「类目」为自由文本输入：用户手填对应店小秘精准类目（profile key 或精确类目串），
   // 运行时以该值为基准选类目（见 server.js runCollectBatchListing）。
@@ -10966,7 +10968,7 @@ function renderBatchListing() {
             <thead><tr><th>上架</th><th>产品包名</th><th>类目</th><th>引用商品ID</th><th>店铺</th><th>品牌</th><th>变种参数</th><th>备货类型</th><th>状态</th><th>进度</th><th>说明</th></tr></thead>
             <tbody>
               ${rows.map((r) => `
-                <tr>
+                <tr class="${r.status === "failed" || r.status === "skipped" ? "status-failed" : ""}">
                   <td><input type="checkbox" class="bl-enabled" data-name="${blEscapeHtml(r.packageName)}" ${r.enabled !== false ? "checked" : ""} ${dis}/></td>
                   <td>${blEscapeHtml(r.packageName)}</td>
                   <td><select class="bl-cat" data-name="${blEscapeHtml(r.packageName)}" ${dis}>${catOpts(r.category)}</select></td>
@@ -11003,7 +11005,7 @@ function renderBatchListing() {
             </div>
             <button id="bl-explore" class="bl-btn ghost" ${dis}>🔍 探索采集箱</button>
             <button id="bl-start" class="bl-btn primary" ${(!batchListingState.uploaded || busy) ? "disabled" : ""}>▶ 开始采集箱上架</button>
-            ${hasFailed ? `<button id="bl-retry" class="bl-btn ghost" ${dis}>↻ 重试失败项</button>` : ""}
+            ${hasFailed ? `<button id="bl-retry" class="bl-btn ghost" ${dis}>↻ 重试失败/跳过项</button>` : ""}
           </div>
           <div class="bl-card-note">
             <span>💡 「下载空白模板」先看列名；「生成采集模板」自动扫描 已完成产品/ 里含 product-facts.json 的包并直接载入表格；逐行核对「搜索标题」就是采集箱里的标题（不一致就改），再点开始。「探索采集箱」会在你开着 Chrome+店小秘登录时 dump 列表页结构，用于校准导航选择器。</span>
@@ -11019,7 +11021,7 @@ function renderBatchListing() {
             <thead><tr><th>上架</th><th>搜索标题（采集箱里的标题）</th><th>类目</th><th>变种主题映射</th><th>产品包名</th><th>状态</th><th>进度</th><th>说明</th></tr></thead>
             <tbody>
               ${rows.map((r) => `
-                <tr>
+                <tr class="${r.status === "failed" || r.status === "skipped" ? "status-failed" : ""}">
                   <td><input type="checkbox" class="bl-enabled" data-name="${blEscapeHtml(r.packageName)}" ${r.enabled !== false ? "checked" : ""} ${dis}/></td>
                   <td><input type="text" class="bl-searchtitle" data-name="${blEscapeHtml(r.packageName)}" value="${blEscapeHtml(r.searchTitle || "")}" placeholder="采集箱里的标题" ${dis}/></td>
                   <td><input type="text" class="bl-cat" data-name="${blEscapeHtml(r.packageName)}" value="${blEscapeHtml(r.category || "")}" placeholder="xiangBaoFold / 箱包便携折叠包 / 精准类目" ${dis}/></td>
@@ -11203,11 +11205,15 @@ async function blcRetry() {
     return;
   }
   const failed = (batchListingCreateState.rows || []).filter((r) => r.status === "failed");
-  if (!failed.length) {
-    alert("当前没有失败项可重试");
+  const pending = (batchListingCreateState.rows || []).filter((r) => !r.status || r.status === "idle" || r.status === "running");
+  if (!failed.length && !pending.length) {
+    alert("当前没有失败/待处理项可继续");
     return;
   }
-  if (!window.confirm(`将对 ${failed.length} 个失败项重新执行 Listing 生成（已完成项保留）。继续？`)) {
+  const parts = [];
+  if (failed.length) parts.push(`${failed.length} 个失败项`);
+  if (pending.length) parts.push(`${pending.length} 个待处理项`);
+  if (!window.confirm(`将对 ${parts.join("、")} 继续执行 Listing 生成（已完成项保留）。继续？`)) {
     return;
   }
   try {
@@ -11343,6 +11349,7 @@ function renderBatchListingCreate() {
 
   const rows = batchListingCreateState.rows;
   const hasFailed = rows.some((r) => r.status === "failed");
+  const hasPending = rows.some((r) => !r.status || r.status === "idle" || r.status === "running");
   const summary = batchListingCreateState.summary;
 
   root.innerHTML = `
@@ -11364,7 +11371,7 @@ function renderBatchListingCreate() {
             <span class="bl-hint">选择填好的 .xlsx（productName + imageUrl_* + mode）</span>
           </div>
           <button id="blc-start" class="bl-btn primary" ${(!batchListingCreateState.uploaded || batchListingCreateState.busy) ? "disabled" : ""}>▶ 开始批量制作</button>
-          <button id="blc-retry" class="bl-btn ghost" ${(!hasFailed || batchListingCreateState.busy) ? "disabled" : ""} title="仅重跑失败项，已完成项保留">↻ 重试失败项</button>
+          <button id="blc-retry" class="bl-btn ghost" ${((!hasFailed && !hasPending) || batchListingCreateState.busy) ? "disabled" : ""} title="重跑失败项并继续待处理项，已完成项保留">↻ 重试/继续</button>
         </div>
         <div class="bl-card-note">
           <span>💡 每行 mode 填 full_listing 或 seo_content_only；full_listing 必须提供至少一张图片（URL 或本地路径）。图片 URL 须为 http/https 公网可访问链接；本地图片填本机文件绝对路径（如 C:\Users\你\Pictures\a.jpg 或 D:\产品图\b.png），优先用 localImage_* / 本地图片 列，与 imageUrl_* 列可混用，二者都支持分号/逗号分隔多张。</span>
@@ -11379,7 +11386,7 @@ function renderBatchListingCreate() {
             <thead><tr><th>产品名</th><th>模式</th><th>状态</th><th>阶段</th><th>进度</th><th>输出目录</th><th>产物</th><th>说明</th></tr></thead>
             <tbody>
               ${rows.map((r) => `
-                <tr>
+                <tr class="${r.status === "failed" || r.status === "skipped" ? "status-failed" : ""}">
                   <td>${blcEscapeHtml(r.productName)}</td>
                   <td>${blcEscapeHtml(r.mode)}</td>
                   <td><span class="bl-badge ${r.status || "idle"}">${BLC_STATUS_LABEL[r.status] || "待处理"}</span></td>
