@@ -3487,7 +3487,27 @@ app.post("/api/dianxiaomi/collect-batch-generate", async (request, response) => 
       try { isDir = (await stat(dir)).isDirectory(); } catch { isDir = false; }
       if (!isDir) continue;
       let facts = null;
-      try { facts = JSON.parse(await readFile(path.join(dir, "product-facts.json"), "utf8")); } catch { /* 无 facts 跳过 */ }
+      try { facts = JSON.parse(await readFile(path.join(dir, "product-facts.json"), "utf8")); } catch { /* 无 facts 尝试兜底 */ }
+      if (!facts) {
+        // 缺文件兜底：用包内 run-state.json 的 listingContentText/responseText + 本地图片本地生成，
+        // 避免采集箱批量上架因缺文件而整批跳过（与生成端 buildProductFactsFallback 同逻辑）。
+        try {
+          const rs = JSON.parse(await readFile(path.join(dir, "run-state.json"), "utf8"));
+          if (rs.listingContentText || rs.responseText) {
+            const { buildProductFactsFallback } = await import("./dianxiaomi-facts.js");
+            const fb = await buildProductFactsFallback({
+              factText: rs.responseText || "",
+              listingContentText: rs.listingContentText || "",
+              baseDir: dir
+            });
+            await writeFile(path.join(dir, "product-facts.json"), `${JSON.stringify(fb, null, 2)}\n`, "utf8");
+            facts = fb;
+          }
+        }
+        catch (fbErr) {
+          console.warn(`[collect-batch] 包 ${name} 本地兜底生成 facts 失败:`, fbErr && fbErr.message ? fbErr.message : fbErr);
+        }
+      }
       if (!facts) continue;
       let category = "ruTie";
       try { category = await detectCategory(dir); } catch { /* ignore */ }
@@ -3516,6 +3536,7 @@ app.post("/api/dianxiaomi/collect-batch-apply", async (request, response) => {
   try {
     const rows = (request.body && Array.isArray(request.body.rows)) ? request.body.rows : [];
     if (!rows.length) return response.status(400).json({ ok: false, error: "rows 为空" });
+    await normalizeCollectBatchRunningState();
     if (collectBatchRunState.running) return response.status(409).json({ ok: false, error: "已有采集箱批量任务在运行" });
     const normalized = rows.map((r) => ({
       packageName: (r.packageName || "").toString().trim(),
@@ -3538,6 +3559,11 @@ app.post("/api/dianxiaomi/collect-batch-apply", async (request, response) => {
 // 采集箱批量进度查询（前端每秒轮询）
 app.get("/api/dianxiaomi/collect-batch-status", async (_request, response) => {
   try {
+    // 懒恢复：服务重启后内存状态为空时，从磁盘快照回读（含 failed 项，供「重试失败项」）
+    if (!collectBatchRunState.jobId) {
+      await recoverCollectBatchState();
+      await normalizeCollectBatchRunningState();
+    }
     const items = Object.values(collectBatchRunState.items).map((it) => ({
       name: it.name,
       status: it.status,
@@ -3555,6 +3581,42 @@ app.get("/api/dianxiaomi/collect-batch-status", async (_request, response) => {
     });
   }
   catch (error) {
+    response.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
+// 采集箱批量「重试失败项」：扫描当前 failed 项，用已持久化的原始行（可被前端传入的最新编辑覆盖）
+// 仅重跑失败项，done/skipped 项与整体进度保留。
+app.post("/api/dianxiaomi/collect-batch-retry", async (request, response) => {
+  try {
+    await normalizeCollectBatchRunningState();
+    if (collectBatchRunState.running) {
+      return response.status(409).json({ ok: false, error: "已有采集箱批量任务在运行" });
+    }
+    if (!collectBatchRunState.rows || !collectBatchRunState.rows.length) {
+      return response.status(400).json({ ok: false, error: "未找到原始行数据（可能服务重启过），请重新生成模板并点「开始」上架" });
+    }
+    const retryableItems = Object.values(collectBatchRunState.items).filter((it) => it.status === "failed" || it.status === "skipped");
+    if (!retryableItems.length) {
+      return response.status(400).json({ ok: false, error: "当前没有失败/跳过项可重试" });
+    }
+    // 可选：前端传入最新编辑后的失败/跳过行（覆盖搜索标题/类目/变种映射）
+    const passed = (request.body && Array.isArray(request.body.rows)) ? request.body.rows : [];
+    const overrides = {};
+    for (const r of passed) {
+      if (r && r.packageName) {
+        overrides[r.packageName] = {
+          searchTitle: r.searchTitle || r.packageName,
+          category: r.category || "auto",
+          variantThemeMap: r.variantThemeMap || "",
+          enabled: r.enabled !== false
+        };
+      }
+    }
+    collectBatchRunState.jobId = `collect-${Date.now()}`;
+    runBackground(() => runCollectBatchListing(collectBatchRunState.rows, { retry: true, overrides }));
+    response.json({ ok: true, jobId: collectBatchRunState.jobId, accepted: true, retryCount: retryableItems.length });
+  } catch (error) {
     response.status(500).json({ error: error instanceof Error ? error.message : String(error) });
   }
 });
@@ -3659,20 +3721,22 @@ const collectBatchRunState = {
   finishedAt: null,
   overallProgress: 0,
   summary: null,
-  items: {}
+  items: {},
+  rows: [] // 最近一次 apply 的原始行（含 searchTitle/category/variantThemeMap），用于「重试失败项」重建
 };
 
-async function runCollectBatchListing(rows) {
+async function runCollectBatchListing(rows, opts = {}) {
+  const retryMode = !!(opts && opts.retry);
   collectBatchRunState.running = true;
-  collectBatchRunState.jobId = `collect-${Date.now()}`;
-  collectBatchRunState.startedAt = Date.now();
-  collectBatchRunState.finishedAt = null;
-  collectBatchRunState.summary = null;
-  collectBatchRunState.items = {};
-  collectBatchRunState.overallProgress = 0;
-  const targets = rows.filter((r) => r.enabled !== false && r.packageName);
-  const total = targets.length;
-  let success = 0, failed = 0, skipped = 0, done = 0;
+  if (!retryMode) {
+    collectBatchRunState.jobId = `collect-${Date.now()}`;
+    collectBatchRunState.startedAt = Date.now();
+    collectBatchRunState.finishedAt = null;
+    collectBatchRunState.summary = null;
+    collectBatchRunState.items = {};
+    collectBatchRunState.overallProgress = 0;
+    collectBatchRunState.rows = rows; // 持久化原始行，供「重试失败项」重建
+  }
   const snapshot = async () => {
     try {
       await writeFile(
@@ -3682,110 +3746,56 @@ async function runCollectBatchListing(rows) {
       );
     } catch { /* ignore */ }
   };
+
+  // 重试模式：仅重跑 failed/skipped 项，保留 done 项与整体进度
+  if (retryMode) {
+    const rowsById = new Map((collectBatchRunState.rows || []).map((r) => [r.packageName, r]));
+    const overrides = (opts && opts.overrides) || {};
+    const targets = Object.values(collectBatchRunState.items)
+      .filter((it) => (it.status === "failed" || it.status === "skipped") && rowsById.has(it.name))
+      .map((it) => Object.assign({}, rowsById.get(it.name), overrides[it.name] || {}));
+    const total = Object.keys(collectBatchRunState.items).length || targets.length;
+    let done = Object.values(collectBatchRunState.items).filter((it) => it.status === "done" || it.status === "skipped").length;
+    for (const row of targets) {
+      const item = collectBatchRunState.items[row.packageName];
+      item.status = "running";
+      item.progress = 0;
+      item.reason = "";
+      item.log = Array.isArray(item.log) ? item.log : [];
+      item.log.push(`[${new Date().toISOString()}] ↻ 重试失败项`);
+      const log = (m) => item.log.push(`[${new Date().toISOString()}] ${m}`);
+      await processCollectBatchRow(row, item, log);
+      done += 1;
+      collectBatchRunState.overallProgress = total ? Math.round((done / total) * 100) : 100;
+      await snapshot();
+    }
+    collectBatchRunState.running = false;
+    collectBatchRunState.finishedAt = Date.now();
+    const all = Object.values(collectBatchRunState.items);
+    collectBatchRunState.summary = {
+      success: all.filter((it) => it.status === "done").length,
+      failed: all.filter((it) => it.status === "failed").length,
+      skipped: all.filter((it) => it.status === "skipped").length,
+      total: all.length
+    };
+    await snapshot();
+    return;
+  }
+
+  const targets = rows.filter((r) => r.enabled !== false && r.packageName);
+  const total = targets.length;
+  let success = 0, failed = 0, skipped = 0, done = 0;
   for (const row of targets) {
     const name = row.packageName;
-    const dir = path.join(COMPLETED_PRODUCTS_DIR, name);
     const item = { name, status: "running", progress: 0, reason: "", log: [] };
     collectBatchRunState.items[name] = item;
     const log = (m) => item.log.push(`[${new Date().toISOString()}] ${m}`);
     log(`采集箱上架: ${name} | 搜索标题: ${row.searchTitle}`);
-    // 校验包目录 + product-facts.json
-    let factsFile = null;
-    try {
-      await readFile(path.join(dir, "product-facts.json"), "utf8");
-      factsFile = path.join(dir, "product-facts.json");
-    } catch {
-      item.status = "skipped";
-      item.reason = "缺少 product-facts.json";
-      item.progress = 100;
-      skipped++; done++;
-      collectBatchRunState.overallProgress = total ? Math.round((done / total) * 100) : 100;
-      await snapshot();
-      continue;
-    }
-    const key = (row.category && row.category !== "auto") ? row.category : await detectCategory(dir);
-    try {
-      let profile;
-      if (DIANXIAOMI_CATEGORY_PROFILES[key]) {
-        profile = dianxiaomiAdapter.setProfile(key);
-      } else {
-        // 表格手填的精准类目（非预设 profile key）：复用默认 profile 结构，仅覆盖 category 标签，
-        // 让分类映射页按该精准字符串选类目。变种主题映射回退到通用默认（颜色->Color / 尺寸尺码型号->Size），
-        // 避免映射页因未选主题而无法保存；如需覆盖可在表格提供 variantThemeMap 列。
-        profile = JSON.parse(JSON.stringify(getDianxiaomiProfile(key)));
-        profile.key = key;
-        profile.category = key;
-        profile.label = key;
-        const userVariantMap = parseVariantThemeMap(row.variantThemeMap);
-        profile.variantThemeMap = Object.keys(userVariantMap).length > 0
-          ? userVariantMap
-          : { "颜色": "Color", "尺寸": "Size", "尺码": "Size", "型号": "Size" };
-        dianxiaomiAdapter.profile = profile;
-      }
-      log(`类目 profile: ${profile.key}`);
-      const facts = normalizeDianxiaomiFacts(JSON.parse(await readFile(factsFile, "utf8")));
-      const ready = checkDianxiaomiFactsReady(facts);
-      if (!ready.ok) {
-        item.status = "failed";
-        item.reason = "facts 不完整: " + (ready.message || "");
-        item.progress = 100;
-        failed++; done++;
-        collectBatchRunState.overallProgress = total ? Math.round((done / total) * 100) : 100;
-        await snapshot();
-        continue;
-      }
-      // 导航：采集箱 → 搜标题 → 点编辑
-      await dianxiaomiAdapter.openCollectBox();
-      item.progress = 15;
-      await dianxiaomiAdapter.searchCollectBox(row.searchTitle);
-      item.progress = 30;
-      await dianxiaomiAdapter.openCollectDraftByTitle(row.searchTitle);
-      item.progress = 45;
-      // 处理采集箱编辑前的「分类/变种主题映射」中间页（选类目 + 颜色->Color + 保存下一步）
-      const catRes = await dianxiaomiAdapter.fillCollectDraftCategory(facts);
-      if (catRes.mapped && catRes.mapped.length) log(`分类映射: ${catRes.mapped.map((m) => `${m.theme}->${m.target}`).join(", ")}`);
-      log(`映射页结果: url=${catRes.url || "(unknown)"}, ok=${catRes.ok}, skipped=${catRes.skipped || false}, reason=${catRes.reason || ""}`);
-      if (catRes.reason === "not-category-page") {
-        throw new Error(`分类映射页未出现，当前页面: ${catRes.state && catRes.state.url ? catRes.state.url : "unknown"}。可能原因：1) 搜索标题未定位到正确行；2) 编辑未打开新标签页；3) 页面结构变化。`);
-      }
-      item.progress = 55;
-      // 采集箱草稿已带固定字段（店铺/备货/分类等），不调用 fillFixedFields，只填 facts 文字/属性/描述。
-      const applied = await dianxiaomiAdapter.fillFromFacts(facts, { collectMode: true });
-      for (const a of applied) {
-        if (a.ok === false) log(`${a.field}: FAIL ${a.reason || ""}`);
-        else if (a.skipped) log(`${a.field}: SKIP ${a.reason || ""}`);
-      }
-      item.progress = 80;
-      const saved = await dianxiaomiAdapter.save();
-      // 关键校验：描述类 critical fields 任一 FAIL / 读回校验失败 → 整行判 failed（与引用模式一致）
-      // 采集箱模式只保留 PC 描述，无线端描述故意不填，因此不将 description.mobile 视为失败。
-      const criticalFailures = applied.filter((a) => a.field === "description.pc" && a.ok === false);
-      const readbackIssues = (saved && Array.isArray(saved.hardIssues) && saved.hardIssues.length) ? saved.hardIssues : [];
-      const criticalFailed = criticalFailures.length > 0 || readbackIssues.length > 0;
-      if (saved && saved.saved && !criticalFailed) {
-        item.status = "done";
-        item.reason = saved.url || saved.message || "已存草稿(采集箱，未发布)";
-        item.progress = 100;
-        success++;
-      } else if (saved && saved.saved && criticalFailed) {
-        const failList = criticalFailures.map((a) => `${a.field}(${a.reason || "no-reason"})`).concat(readbackIssues.map((s) => `readback:${s}`));
-        item.status = "failed";
-        item.reason = `店小秘保存成功但页面实际为空: ${failList.join("; ")}`;
-        item.progress = 100;
-        failed++;
-      } else {
-        item.status = "failed";
-        item.reason = (saved && (saved.error || saved.message || JSON.stringify(saved))) || "save 返回非 ok";
-        item.progress = 100;
-        failed++;
-      }
-    } catch (e) {
-      item.status = "failed";
-      item.reason = e instanceof Error ? e.message : String(e);
-      item.progress = 100;
-      failed++;
-    }
-    done++;
+    const st = await processCollectBatchRow(row, item, log);
+    if (st === "skipped") skipped++;
+    else if (st === "done") success++;
+    else failed++;
+    done += 1;
     collectBatchRunState.overallProgress = total ? Math.round((done / total) * 100) : 100;
     await snapshot();
   }
@@ -3793,6 +3803,196 @@ async function runCollectBatchListing(rows) {
   collectBatchRunState.finishedAt = Date.now();
   collectBatchRunState.summary = { success, failed, skipped, total };
   await snapshot();
+}
+
+// 单条采集箱上架核心执行（被全量 run 与 retry 共用）。
+// 直接更新 item.status/progress/reason，返回状态字符串："done" | "failed" | "skipped"。
+async function processCollectBatchRow(row, item, log) {
+  const name = row.packageName;
+  const dir = path.join(COMPLETED_PRODUCTS_DIR, name);
+  // 校验包目录 + product-facts.json
+  let factsFile = null;
+  try {
+    await readFile(path.join(dir, "product-facts.json"), "utf8");
+    factsFile = path.join(dir, "product-facts.json");
+  } catch {
+    item.status = "skipped";
+    item.reason = "缺少 product-facts.json";
+    item.progress = 100;
+    return "skipped";
+  }
+  const key = (row.category && row.category !== "auto") ? row.category : await detectCategory(dir);
+  try {
+    let profile;
+    if (DIANXIAOMI_CATEGORY_PROFILES[key]) {
+      profile = dianxiaomiAdapter.setProfile(key);
+    } else {
+      // 表格手填的精准类目（非预设 profile key）：复用默认 profile 结构，仅覆盖 category 标签，
+      // 让分类映射页按该精准字符串选类目。变种主题映射回退到通用默认（颜色->Color / 尺寸尺码型号->Size），
+      // 避免映射页因未选主题而无法保存；如需覆盖可在表格提供 variantThemeMap 列。
+      profile = JSON.parse(JSON.stringify(getDianxiaomiProfile(key)));
+      profile.key = key;
+      profile.category = key;
+      profile.label = key;
+      const userVariantMap = parseVariantThemeMap(row.variantThemeMap);
+      profile.variantThemeMap = Object.keys(userVariantMap).length > 0
+        ? userVariantMap
+        : { "颜色": "Color", "尺寸": "Size", "尺码": "Size", "型号": "Size" };
+      dianxiaomiAdapter.profile = profile;
+    }
+    log(`类目 profile: ${profile.key}`);
+    const facts = normalizeDianxiaomiFacts(JSON.parse(await readFile(factsFile, "utf8")));
+    const ready = checkDianxiaomiFactsReady(facts);
+    if (!ready.ok) {
+      item.status = "failed";
+      item.reason = "facts 不完整: " + (ready.message || "");
+      item.progress = 100;
+      return "failed";
+    }
+    // 导航：采集箱 → 搜标题 → 点编辑
+    await dianxiaomiAdapter.openCollectBox();
+    item.progress = 15;
+    await dianxiaomiAdapter.searchCollectBox(row.searchTitle);
+    item.progress = 30;
+    await dianxiaomiAdapter.openCollectDraftByTitle(row.searchTitle);
+    item.progress = 45;
+    // 处理采集箱编辑前的「分类/变种主题映射」中间页（选类目 + 颜色->Color + 保存下一步）
+    const catRes = await dianxiaomiAdapter.fillCollectDraftCategory(facts);
+    if (catRes.mapped && catRes.mapped.length) log(`分类映射: ${catRes.mapped.map((m) => `${m.theme}->${m.target}`).join(", ")}`);
+    log(`映射页结果: url=${catRes.url || "(unknown)"}, ok=${catRes.ok}, skipped=${catRes.skipped || false}, reason=${catRes.reason || ""}`);
+    if (catRes.reason === "not-category-page") {
+      throw new Error(`分类映射页未出现，当前页面: ${catRes.state && catRes.state.url ? catRes.state.url : "unknown"}。可能原因：1) 搜索标题未定位到正确行；2) 编辑未打开新标签页；3) 页面结构变化。`);
+    }
+    item.progress = 55;
+    // 采集箱草稿已带固定字段（店铺/备货/分类等），不调用 fillFixedFields，只填 facts 文字/属性/描述。
+    const applied = await dianxiaomiAdapter.fillFromFacts(facts, { collectMode: true });
+    for (const a of applied) {
+      if (a.ok === false) log(`${a.field}: FAIL ${a.reason || ""}`);
+      else if (a.skipped) log(`${a.field}: SKIP ${a.reason || ""}`);
+    }
+    item.progress = 80;
+    let saved = await dianxiaomiAdapter.save();
+    // 迭代自动纠错：保存 → 读校验错误 → 逐个按标签兜底填默认值 → 再保存，直到无错或达轮次上限。
+    // 覆盖非箱包类目（如 Party Favors）在 fillFromFacts 非 xiangBao 分支未内置 autofix 的缺口，
+    // 避免「颜色风格/性别/中国省份」等必填属性找不到对应填写逻辑时直接被店小秘拒收。
+    for (let round = 1; round <= 3 && saved && !saved.saved; round += 1) {
+      const errs = await dianxiaomiAdapter.readValidationErrors().catch(() => []);
+      if (!errs.length) break;
+      const handled = new Set();
+      for (const e of errs) {
+        const lbl = e.label;
+        if (!lbl || handled.has(lbl)) continue;
+        handled.add(lbl);
+        const core = lbl.replace(/[（(].*?[)）]/g, "").trim();
+        try {
+          const r = await dianxiaomiAdapter.fillFieldDefaultByLabel(core || lbl);
+          log(`autofix:${core || lbl}=${r.ok ? "ok" : (r.reason || "fail")}`);
+        }
+        catch (ex) { log(`autofix:${core || lbl}=err:${ex.message}`); }
+      }
+      // autofix 可能填入中文默认值，触发「请输入英文、数字或空格符号」；一键翻译兜底。
+      try {
+        const tr = await dianxiaomiAdapter.translatePageToEnglish();
+        log(`translate-to-en=${tr.ok ? "ok" : (tr.reason || "skip")} [${tr.translated.join(",")}]`);
+      } catch (ex) { log(`translate-to-en=err:${ex.message}`); }
+      await new Promise((r) => setTimeout(r, 900));
+      saved = await dianxiaomiAdapter.save();
+    }
+    // 关键校验：描述类 critical fields 任一 FAIL / 读回校验失败 → 整行判 failed（与引用模式一致）
+    // 采集箱模式只保留 PC 描述，无线端描述故意不填，因此不将 description.mobile 视为失败。
+    const criticalFailures = applied.filter((a) => a.field === "description.pc" && a.ok === false);
+    const readbackIssues = (saved && Array.isArray(saved.hardIssues) && saved.hardIssues.length) ? saved.hardIssues : [];
+    const criticalFailed = criticalFailures.length > 0 || readbackIssues.length > 0;
+    if (saved && saved.saved && !criticalFailed) {
+      item.status = "done";
+      item.reason = saved.url || saved.message || "已存草稿(采集箱，未发布)";
+      item.progress = 100;
+      return "done";
+    } else if (saved && saved.saved && criticalFailed) {
+      const failList = criticalFailures.map((a) => `${a.field}(${a.reason || "no-reason"})`).concat(readbackIssues.map((s) => `readback:${s}`));
+      item.status = "failed";
+      item.reason = `店小秘保存成功但页面实际为空: ${failList.join("; ")}`;
+      item.progress = 100;
+      return "failed";
+    } else {
+      item.status = "failed";
+      item.reason = (saved && (saved.error || saved.message || JSON.stringify(saved))) || "save 返回非 ok";
+      item.progress = 100;
+      return "failed";
+    }
+  } catch (e) {
+    item.status = "failed";
+    item.reason = e instanceof Error ? e.message : String(e);
+    item.progress = 100;
+    return "failed";
+  }
+}
+
+// 服务重启后从磁盘快照回读采集箱批量状态（含 failed 项与原始行，供「重试失败项」）。
+// 仅在内存状态为空（jobId 未设置）时调用，避免覆盖进行中的任务。
+async function recoverCollectBatchState() {
+  try {
+    const fp = path.join(HIDDEN_DATA_DIR, "collect-batch-state.json");
+    const saved = JSON.parse(await readFile(fp, "utf8"));
+    if (!saved || !saved.jobId) return;
+    // 内存已有更新的状态（例如刚启动且已有任务），不覆盖
+    if (collectBatchRunState.jobId && collectBatchRunState.startedAt && saved.startedAt && collectBatchRunState.startedAt >= saved.startedAt) {
+      return;
+    }
+    collectBatchRunState.running = saved.running || false;
+    collectBatchRunState.jobId = saved.jobId;
+    collectBatchRunState.startedAt = saved.startedAt || null;
+    collectBatchRunState.finishedAt = saved.finishedAt || null;
+    collectBatchRunState.overallProgress = saved.overallProgress || 0;
+    collectBatchRunState.summary = saved.summary || null;
+    collectBatchRunState.items = saved.items || {};
+    collectBatchRunState.rows = Array.isArray(saved.rows) ? saved.rows : [];
+    // 兜底：服务端重启后，任何标记 running 的行实际已中断 → 转 failed，方便重试
+    let recovered = false;
+    for (const key of Object.keys(collectBatchRunState.items)) {
+      const it = collectBatchRunState.items[key];
+      if (it && it.status === "running") {
+        it.status = "failed";
+        it.reason = (it.reason ? `${it.reason}; ` : "") + "服务重启导致中断，请重试";
+        recovered = true;
+      }
+    }
+    if (recovered) {
+      await writeFile(fp, JSON.stringify(collectBatchRunState, null, 2), "utf8").catch(() => {});
+    }
+  } catch {
+    /* 无快照或解析失败则保持空状态 */
+  }
+  // 启动时再做一次自愈：把 disk 上残留的 running=true 且无活跃 item 归零
+  // 修复采集箱批量「启动失败：已有任务在运行」永久残留的 409 拦路
+  await normalizeCollectBatchRunningState();
+}
+
+async function normalizeCollectBatchRunningState() {
+  // 自愈判定：标记 running=true，但 (a) 没有任何 item 还处于 running 中（说明后台进程已死）
+  // 且 (b) 已经跑过一些行（items>0）或进度到 100%。这覆盖「跑完后没归零」和「中断后没归零」两类。
+  const items = Object.values(collectBatchRunState.items);
+  const anyRunning = items.some((it) => it && it.status === "running");
+  if (collectBatchRunState.running && !anyRunning &&
+      (collectBatchRunState.overallProgress >= 100 || items.length > 0)) {
+    collectBatchRunState.running = false;
+    collectBatchRunState.finishedAt = collectBatchRunState.finishedAt || new Date().toISOString();
+    if (!collectBatchRunState.summary) {
+      const success = items.filter((it) => it && it.status === "done").length;
+      const failed = items.filter((it) => it && it.status === "failed").length;
+      const skipped = items.filter((it) => it && it.status === "skipped").length;
+      collectBatchRunState.summary = { success, failed, skipped, total: items.length };
+    }
+    try {
+      await writeFile(
+        path.join(HIDDEN_DATA_DIR, "collect-batch-state.json"),
+        JSON.stringify(collectBatchRunState, null, 2),
+        "utf8"
+      );
+    } catch { /* ignore */ }
+    return true;
+  }
+  return false;
 }
 
 async function runBatchListing(rows) {
