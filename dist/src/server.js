@@ -3537,6 +3537,14 @@ app.post("/api/dianxiaomi/collect-batch-apply", async (request, response) => {
     const rows = (request.body && Array.isArray(request.body.rows)) ? request.body.rows : [];
     if (!rows.length) return response.status(400).json({ ok: false, error: "rows 为空" });
     await normalizeCollectBatchRunningState();
+    // operationId 幂等：同 op 重放 → 直接返回原 jobId（不重启任务，不触发 409）。
+    // 防服务重启/网络重试导致重复拾起；不含异 payload 冲突检测（避免 hash 复杂度）。
+    const operationId = (request.body && typeof request.body.operationId === "string" && request.body.operationId.trim())
+      ? request.body.operationId.trim()
+      : null;
+    if (operationId && collectBatchRunState.lastOperationId === operationId && collectBatchRunState.jobId) {
+      return response.json({ ok: true, jobId: collectBatchRunState.jobId, accepted: false, idempotentReplay: true });
+    }
     if (collectBatchRunState.running) return response.status(409).json({ ok: false, error: "已有采集箱批量任务在运行" });
     const normalized = rows.map((r) => ({
       packageName: (r.packageName || "").toString().trim(),
@@ -3548,6 +3556,7 @@ app.post("/api/dianxiaomi/collect-batch-apply", async (request, response) => {
     })).filter((r) => r.packageName);
     if (!normalized.length) return response.status(400).json({ ok: false, error: "无有效 packageName" });
     collectBatchRunState.jobId = `collect-${Date.now()}`;
+    collectBatchRunState.lastOperationId = operationId; // 持久化到 snapshot，供下次同 op 命中
     runBackground(() => runCollectBatchListing(normalized));
     response.json({ ok: true, jobId: collectBatchRunState.jobId, accepted: true });
   }
@@ -3722,7 +3731,8 @@ const collectBatchRunState = {
   overallProgress: 0,
   summary: null,
   items: {},
-  rows: [] // 最近一次 apply 的原始行（含 searchTitle/category/variantThemeMap），用于「重试失败项」重建
+  rows: [], // 最近一次 apply 的原始行（含 searchTitle/category/variantThemeMap），用于「重试失败项」重建
+  lastOperationId: null // 最近一次 apply 的 operationId（幂等键）：同 op 重放直接返回原 jobId，不重启任务
 };
 
 async function runCollectBatchListing(rows, opts = {}) {
@@ -3947,6 +3957,7 @@ async function recoverCollectBatchState() {
     collectBatchRunState.summary = saved.summary || null;
     collectBatchRunState.items = saved.items || {};
     collectBatchRunState.rows = Array.isArray(saved.rows) ? saved.rows : [];
+    collectBatchRunState.lastOperationId = saved.lastOperationId || null; // 幂等键：服务端重启后仍能识别同 op 重放
     // 兜底：服务端重启后，任何标记 running 的行实际已中断 → 转 failed，方便重试
     let recovered = false;
     for (const key of Object.keys(collectBatchRunState.items)) {
