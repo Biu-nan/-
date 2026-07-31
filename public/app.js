@@ -10502,7 +10502,7 @@ function renderDianxiaomiListing() {
 }
 
 /* ───────────────────────── 批量流水线上架（Batch Listing，v1.4.0）───────────────────────── */
-const batchListingState = { rows: [], uploaded: false, busy: false, active: false, summary: null, generated: "", mode: "reference", explore: "" };
+const batchListingState = { rows: [], uploaded: false, busy: false, active: false, summary: null, generated: "", mode: "reference", explore: "", importing: false, importInfo: null };
 let batchListingSig = "";
 const BL_STATUS_LABEL = { idle: "待上架", running: "进行中", done: "成功", failed: "失败", skipped: "跳过" };
 
@@ -10793,7 +10793,15 @@ function collectRowToPayload(r) {
     searchTitle: r.searchTitle || r.packageName,
     enabled: r.enabled !== false,
     factsPath: r.factsPath || "",
-    variantThemeMap: r.variantThemeMap || ""
+    variantThemeMap: r.variantThemeMap || "",
+    // 产品模板：填模板名（如「箱包配件-包饰」）则编辑页第一步自动引用，带入海关/产品/物流/合规属性。
+    productTemplate: r.productTemplate || "",
+    // 变种覆盖：留空 = 沿用采集源变种；填 1/是/覆盖 才用 facts 重建颜色/尺寸/SKU。
+    variantOverride: r.variantOverride || "",
+    // 物流属性：填 普货/带电/液体 等；留空 = 走 profile/默认「普货」。
+    logisticsAttribute: r.logisticsAttribute || "",
+    // 材质：填 Felt/硅胶 等；留空 = 走 facts.material 或模板带入值。
+    material: r.material || ""
   };
 }
 
@@ -10804,15 +10812,23 @@ function collectRowFromCols(cols, header) {
   const idxName = col(/产品包名|包名|packageName|name/i);
   const idxCat = col(/^类目$|category|category$/i);
   const idxMap = col(/变种主题映射|variantThemeMap|theme\s*map/i);
+  const idxTpl = col(/产品模板|productTemplate|template/i);
+  const idxVo = col(/变种覆盖|variantOverride/i);
+  const idxLog = col(/物流属性|logistics|logisticsAttribute/i);
+  const idxMat = col(/材质|material/i);
   const name = (idxName >= 0 ? (cols[idxName] || "") : "").trim() || (cols[idxTitle] || "").trim();
   if (!name) return null;
   let category = idxCat >= 0 ? String(cols[idxCat] || "").trim() : "";
   if (!category || category === "auto") category = "auto";
   const variantThemeMap = idxMap >= 0 ? String(cols[idxMap] || "").trim() : "";
+  const productTemplate = idxTpl >= 0 ? String(cols[idxTpl] || "").trim() : "";
+  const variantOverride = idxVo >= 0 ? String(cols[idxVo] || "").trim() : "";
+  const logisticsAttribute = idxLog >= 0 ? String(cols[idxLog] || "").trim() : "";
+  const material = idxMat >= 0 ? String(cols[idxMat] || "").trim() : "";
   let enabled = true;
   const idxEn = col(/^enabled$|上架|启用/i);
   if (idxEn >= 0) { const ev = String(cols[idxEn] || "").trim().toLowerCase(); enabled = !(ev === "false" || ev === "0" || ev === "no" || ev === "否"); }
-  return { packageName: name, category, searchTitle: (cols[idxTitle] || name).trim(), variantThemeMap, enabled, status: "idle", progress: 0, reason: "", factsPath: "" };
+  return { packageName: name, category, searchTitle: (cols[idxTitle] || name).trim(), variantThemeMap, productTemplate, variantOverride, logisticsAttribute, material, enabled, status: "idle", progress: 0, reason: "", factsPath: "" };
 }
 
 // 采集箱模式文件解析：读取 CSV/XLSX 每行，映射到 collect 形状（搜索标题/类目/产品包名）。
@@ -10849,11 +10865,11 @@ function parseCollectXlsx(arrayBuffer) {
 }
 
 function collectDownloadTemplate() {
-  const header = ["搜索标题", "类目", "变种主题映射", "产品包名", "enabled"];
+  const header = ["搜索标题", "类目", "变种主题映射", "产品模板", "变种覆盖", "物流属性", "材质", "产品包名", "enabled"];
   downloadXlsx([
     header,
-    ["采集箱里该链接的真实标题", "xiangBaoFold", "颜色:Color;型号:Size", "已完成产品里的包名", "true"],
-    ["示例-幸运草手机挂链", "xiangBao", "", "幸运草手机挂链", "true"]
+    ["采集箱里该链接的真实标题", "xiangBaoFold", "颜色:Color;型号:Size", "箱包配件-包饰", "", "普货", "Felt", "已完成产品里的包名", "true"],
+    ["示例-幸运草手机挂链", "xiangBao", "", "箱包配件-包饰", "", "普货", "Silicone", "幸运草手机挂链", "true"]
   ], "采集箱上架模板.xlsx");
 }
 
@@ -10861,7 +10877,9 @@ async function collectGenerateSource() {
   try {
     const data = await request("/api/dianxiaomi/collect-batch-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
     if (!data || !data.ok) { alert("生成采集模板失败：" + (data && data.error ? data.error : "未知错误")); return; }
-    const rows = (data.rows || []).map((r) => ({ packageName: r.packageName, category: r.category, searchTitle: r.searchTitle || "", variantThemeMap: r.variantThemeMap || "", enabled: r.enabled !== false, status: "idle", progress: 0, reason: "", factsPath: r.factsPath || "" }));
+    // productTemplate / variantOverride 必须原样保留：后端按类目 profile 已自动带出默认模板
+    // （如箱包配件→箱包配件-包饰），丢掉则编辑页不会执行「引用产品模板」第一步。
+    const rows = (data.rows || []).map((r) => ({ packageName: r.packageName, category: r.category, searchTitle: r.searchTitle || "", variantThemeMap: r.variantThemeMap || "", productTemplate: r.productTemplate || "", variantOverride: r.variantOverride || "", logisticsAttribute: r.logisticsAttribute || "", material: r.material || "", enabled: r.enabled !== false, status: "idle", progress: 0, reason: "", factsPath: r.factsPath || "" }));
     if (!rows.length) { alert("没有含 product-facts.json 的已完成产品包，无法生成采集模板。"); return; }
     batchListingState.rows = rows;
     batchListingState.uploaded = true;
@@ -10922,13 +10940,99 @@ async function collectExplore() {
   }
 }
 
+function catOpts(cur) {
+    const profiles = (dianxiaomiState.profiles && dianxiaomiState.profiles.length)
+        ? dianxiaomiState.profiles
+        : [
+            { key: "ruTie", label: "乳贴" },
+            { key: "xiangBao", label: "箱包配件" },
+            { key: "xiangBaoFold", label: "箱包配件(折叠)" }
+          ];
+    let opts = profiles.map((p) => `<option value="${p.key}" ${cur === p.key ? "selected" : ""}>${blEscapeHtml(p.label || p.key)}</option>`).join("");
+    if (cur && !profiles.find((p) => p.key === cur)) {
+        opts += `<option value="${blEscapeHtml(cur)}" selected>${blEscapeHtml(cur)}</option>`;
+    }
+    return opts;
+}
+
+function blImportInfoHtml(info) {
+    if (info.running) return `⏳ ${blEscapeHtml(info.msg || "制作作业运行中")}`;
+    if (info.error) return `<span class="bl-import-err">⚠ ${blEscapeHtml(info.error)}</span>`;
+    if (info.autoStarting) return `✅ 带入 ${info.added || 0} 行 · 正在自动开始上架…`;
+    return `✅ 带入 ${info.added || 0} 行（合并 ${info.merged || 0}）· 跳过已上架 ${info.dedupCount || 0} · 跳过失败 ${info.skipped || 0}` + (info.mode ? `（${info.mode === "reference" ? "引用" : "采集箱"}模式）` : "");
+}
+
+async function blImportFromCreateJob(silent, chainStart) {
+    if (batchListingState.importing) return;
+    batchListingState.importing = true;
+    renderBatchListing();
+    try {
+        const cb = document.getElementById("bl-include-uploaded");
+        const includeUploaded = cb ? cb.checked : false;
+        const data = await request("/api/workflow/listing-to-upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ excludeUploaded: !includeUploaded })
+        });
+        if (!data || data.running) {
+            batchListingState.importInfo = { running: true, msg: "制作作业仍在运行中，请稍后再试" };
+            return;
+        }
+        if (!data.ok) {
+            batchListingState.importInfo = { error: data.error || "桥接失败" };
+            return;
+        }
+        // 一站式模式：按制作作业里两种模式行数选主导模式，自动切到对应 tab
+        if (chainStart) {
+            const refN = (data.referenceRows || []).length;
+            const colN = (data.collectRows || []).length;
+            const targetMode = colN >= refN ? "collect" : "reference";
+            if (batchListingState.mode !== targetMode) {
+                batchListingState.mode = targetMode;
+                renderBatchListing();
+            }
+        }
+        const mode = batchListingState.mode;
+        const src = mode === "reference" ? (data.referenceRows || []) : (data.collectRows || []);
+        const map = {};
+        batchListingState.rows.forEach((r) => { map[r.packageName] = r; });
+        let added = 0, merged = 0;
+        src.forEach((r) => {
+            if (map[r.packageName]) { Object.assign(map[r.packageName], r); merged++; }
+            else { batchListingState.rows.push(r); added++; }
+        });
+        batchListingState.uploaded = true;
+        batchListingState.importInfo = {
+            added, merged,
+            dedupCount: data.dedupCount || 0,
+            skipped: (data.skipped || []).length,
+            mode
+        };
+        // 一站式：带入完成后自动开始上架（仅主导模式；混合模式需手动补另一 tab）
+        if (chainStart && batchListingState.rows.length) {
+            batchListingState.importInfo.autoStarting = true;
+            setTimeout(() => {
+                if (batchListingState.mode === "collect") collectStart();
+                else batchStart();
+            }, 500);
+        }
+    } catch (e) {
+        batchListingState.importInfo = { error: String((e && e.message) || e) };
+        batchListingCreateState.autoUploadFailed = true;
+    } finally {
+        batchListingState.importing = false;
+        batchListingCreateState.autoUploading = false;
+        renderBatchListing();
+    }
+}
+
 function renderBatchListing() {
   const root = document.getElementById("batch-listing-root");
   if (!root) return;
   if (activeViewName() !== "batch-listing") return;
   if (batchListingState.active) void pollBatchStatus();
   const mode = batchListingState.mode || "reference";
-  const sig = JSON.stringify([mode, batchListingState.rows.map((r) => [r.packageName, r.category, r.searchTitle, r.enabled, r.status, r.progress, r.reason, r.store, r.storeOn, r.brand, r.brandOn, r.variantParams, r.variantOn, r.stockType, r.stockTypeOn])]);
+  const sig = JSON.stringify([mode, batchListingState.importing, batchListingState.importInfo, batchListingState.rows.map((r) => [r.packageName, r.category, r.searchTitle, r.enabled, r.status, r.progress, r.reason, r.store, r.storeOn, r.brand, r.brandOn, r.variantParams, r.variantOn, r.stockType, r.stockTypeOn, r.productTemplate, r.variantOverride, r.logisticsAttribute, r.material])]);
   if (sig === batchListingSig && root.dataset.rendered === "1") return;
   batchListingSig = sig;
   root.dataset.rendered = "1";
@@ -10971,9 +11075,13 @@ function renderBatchListing() {
               <input type="file" id="bl-file" accept=".xlsx,.xls,.csv" ${dis} />
               <span class="bl-hint">选择填好的 .xlsx（或 .csv）</span>
             </div>
+            <button id="bl-import-create" class="bl-btn ghost" ${batchListingState.importing ? "disabled" : ""}>⇥ 带入本批制作产物</button>
+            <label class="bl-check"><input type="checkbox" id="bl-include-uploaded" /> 含已上架</label>
             <button id="bl-start" class="bl-btn primary" ${(!batchListingState.uploaded || busy) ? "disabled" : ""}>▶ 开始批量上架</button>
             ${hasFailed ? `<button id="bl-retry" class="bl-btn ghost" ${dis}>↻ 重试失败项</button>` : ""}
           </div>
+          ${batchListingState.importInfo ? `<div class="bl-import-info">${blImportInfoHtml(batchListingState.importInfo)}</div>` : ""}
+        </div>
           <div class="bl-card-note">
             <span>💡 只上传你确认要上架的行即可；带「自定义」勾选的列：填了内容即覆盖引用模板默认值。</span>
           </div>
@@ -11023,9 +11131,13 @@ function renderBatchListing() {
               <span class="bl-hint">或上传填好的 .xlsx / .csv</span>
             </div>
             <button id="bl-explore" class="bl-btn ghost" ${dis}>🔍 探索采集箱</button>
+            <button id="bl-import-create" class="bl-btn ghost" ${batchListingState.importing ? "disabled" : ""}>⇥ 带入本批制作产物</button>
+            <label class="bl-check"><input type="checkbox" id="bl-include-uploaded" /> 含已上架</label>
             <button id="bl-start" class="bl-btn primary" ${(!batchListingState.uploaded || busy) ? "disabled" : ""}>▶ 开始采集箱上架</button>
             ${hasFailed ? `<button id="bl-retry" class="bl-btn ghost" ${dis}>↻ 重试失败/跳过项</button>` : ""}
           </div>
+          ${batchListingState.importInfo ? `<div class="bl-import-info">${blImportInfoHtml(batchListingState.importInfo)}</div>` : ""}
+        </div>
           <div class="bl-card-note">
             <span>💡 「下载空白模板」先看列名；「生成采集模板」自动扫描 已完成产品/ 里含 product-facts.json 的包并直接载入表格；逐行核对「搜索标题」就是采集箱里的标题（不一致就改），再点开始。「探索采集箱」会在你开着 Chrome+店小秘登录时 dump 列表页结构，用于校准导航选择器。</span>
           </div>
@@ -11038,7 +11150,7 @@ function renderBatchListing() {
         <div class="bl-card">
           <div class="bl-table-wrap">
           <table class="bl-table">
-            <thead><tr><th>上架</th><th>搜索标题（采集箱里的标题）</th><th>类目</th><th>变种主题映射</th><th>产品包名</th><th>状态</th><th>进度</th><th>说明</th></tr></thead>
+            <thead><tr><th>上架</th><th>搜索标题（采集箱里的标题）</th><th>类目</th><th>变种主题映射</th><th>产品模板（第一步引用）</th><th>变种覆盖</th><th>物流属性</th><th>材质</th><th>产品包名</th><th>状态</th><th>进度</th><th>说明</th></tr></thead>
             <tbody>
               ${rows.map((r) => `
                 <tr class="${r.status === "failed" || r.status === "skipped" ? "status-failed" : ""}">
@@ -11046,6 +11158,10 @@ function renderBatchListing() {
                   <td><input type="text" class="bl-searchtitle" data-name="${blEscapeHtml(r.packageName)}" value="${blEscapeHtml(r.searchTitle || "")}" placeholder="采集箱里的标题" ${dis}/></td>
                   <td><input type="text" class="bl-cat" data-name="${blEscapeHtml(r.packageName)}" value="${blEscapeHtml(r.category || "")}" placeholder="xiangBaoFold / 箱包便携折叠包 / 精准类目" ${dis}/></td>
                   <td><input type="text" class="bl-variantmap" data-name="${blEscapeHtml(r.packageName)}" value="${blEscapeHtml(r.variantThemeMap || "")}" placeholder="颜色:Color;型号:Size" ${dis}/></td>
+                  <td><input type="text" class="bl-producttpl" data-name="${blEscapeHtml(r.packageName)}" value="${blEscapeHtml(r.productTemplate || "")}" placeholder="留空=不引用" title="店小秘产品模板名。填了则进入编辑页第一步就「引用产品→引用产品模板」，一次性带入海关监管属性/产品属性/物流属性/合规信息。" ${dis}/></td>
+                  <td><input type="text" class="bl-varoverride" data-name="${blEscapeHtml(r.packageName)}" value="${blEscapeHtml(r.variantOverride || "")}" placeholder="留空=沿用" title="留空 = 沿用采集箱源变种（推荐）。填 1/是/覆盖 才用 product-facts 重建颜色/尺寸/SKU。" ${dis}/></td>
+                  <td><input type="text" class="bl-logistics" data-name="${blEscapeHtml(r.packageName)}" value="${blEscapeHtml(r.logisticsAttribute || "")}" placeholder="留空=普货" title="物流属性：普货/带电/液体 等。留空 = 走 profile/默认「普货」。" ${dis}/></td>
+                  <td><input type="text" class="bl-material" data-name="${blEscapeHtml(r.packageName)}" value="${blEscapeHtml(r.material || "")}" placeholder="留空=随 facts/模板" title="材质：Felt/Silicone/硅胶 等。留空 = 走 facts.material 或模板带入值；填写则优先覆盖。" ${dis}/></td>
                   <td>${blEscapeHtml(r.packageName)}</td>
                   <td><span class="bl-badge ${r.status || "idle"}">${BL_STATUS_LABEL[r.status] || "待上架"}</span></td>
                   <td><div class="progress"><span style="width:${Math.max(0, Math.min(100, r.progress || 0))}%"></span></div></td>
@@ -11054,7 +11170,7 @@ function renderBatchListing() {
             </tbody>
           </table>
           </div>
-          <div class="bl-hint">共 ${rows.length} 行，本次上架 ${enabledCount} 行。「搜索标题」改采集箱真实标题；「类目」为自由文本，以店小秘精准类目为准；「变种主题映射」可覆盖默认（颜色→Color / 尺寸尺码型号→Size），格式：颜色:Color;型号:Size。</div>
+          <div class="bl-hint">共 ${rows.length} 行，本次上架 ${enabledCount} 行。「搜索标题」改采集箱真实标题；「类目」为自由文本，以店小秘精准类目为准；「变种主题映射」可覆盖默认（颜色→Color / 尺寸尺码型号→Size），格式：颜色:Color;型号:Size。<b>「产品模板」</b>已按类目自动带出（箱包配件→箱包配件-包饰），进编辑页第一步就引用，海关/产品/物流/合规属性都不用再填；留空则走逐项兜底填写。<b>「变种覆盖」</b>留空即沿用采集箱源变种（推荐）。<b>「物流属性」</b>填 普货/带电/液体 等（留空按 profile/默认「普货」）；<b>「材质」</b>填 Felt/Silicone/硅胶 等（留空按 facts.material 或模板带入值，填写则优先覆盖）。</div>
         </div>` : `<div class="bl-hint">尚未生成/导入表格。点击「生成采集模板」自动扫描 已完成产品/，或上传填好的 .xlsx / .csv（列：搜索标题 / 类目 / 产品包名）。</div>`}
       `}
 
@@ -11082,6 +11198,7 @@ function renderBatchListing() {
   document.getElementById("bl-start")?.addEventListener("click", () => void (mode === "collect" ? collectStart() : batchStart()));
   document.getElementById("bl-retry")?.addEventListener("click", () => void (mode === "collect" ? collectRetry() : batchRetry()));
   document.getElementById("bl-explore")?.addEventListener("click", () => void collectExplore());
+  document.getElementById("bl-import-create")?.addEventListener("click", () => void blImportFromCreateJob(false));
   const qattr = (s) => '"' + String(s).replace(/"/g, '\\"') + '"';
   const wireField = (textCls, onCls, textKey, onKey) => {
     root.querySelectorAll("." + textCls).forEach((inp) => inp.addEventListener("input", (e) => {
@@ -11121,6 +11238,30 @@ function renderBatchListing() {
     const r = batchListingState.rows.find((x) => x.packageName === name);
     if (r) r.variantThemeMap = e.target.value.trim();
   }));
+  // 采集箱模式：产品模板（编辑页第一步引用），留空 = 不引用
+  root.querySelectorAll(".bl-producttpl").forEach((inp) => inp.addEventListener("input", (e) => {
+    const name = e.target.dataset.name;
+    const r = batchListingState.rows.find((x) => x.packageName === name);
+    if (r) r.productTemplate = e.target.value.trim();
+  }));
+  // 采集箱模式：变种覆盖开关，留空 = 沿用采集源变种
+  root.querySelectorAll(".bl-varoverride").forEach((inp) => inp.addEventListener("input", (e) => {
+    const name = e.target.dataset.name;
+    const r = batchListingState.rows.find((x) => x.packageName === name);
+    if (r) r.variantOverride = e.target.value.trim();
+  }));
+  // 采集箱模式：物流属性（表格模板列），留空 = 走 profile/默认「普货」
+  root.querySelectorAll(".bl-logistics").forEach((inp) => inp.addEventListener("input", (e) => {
+    const name = e.target.dataset.name;
+    const r = batchListingState.rows.find((x) => x.packageName === name);
+    if (r) r.logisticsAttribute = e.target.value.trim();
+  }));
+  // 采集箱模式：材质（表格模板列），留空 = 走 facts.material / 模板带入值
+  root.querySelectorAll(".bl-material").forEach((inp) => inp.addEventListener("input", (e) => {
+    const name = e.target.dataset.name;
+    const r = batchListingState.rows.find((x) => x.packageName === name);
+    if (r) r.material = e.target.value.trim();
+  }));
   root.querySelectorAll(".bl-enabled").forEach((cb) => cb.addEventListener("change", (e) => {
     const name = e.target.dataset.name;
     const r = batchListingState.rows.find((x) => x.packageName === name);
@@ -11136,9 +11277,16 @@ const batchListingCreateState = {
   busy: false,
   active: false,
   summary: null,
-  resultUrl: ""
+  resultUrl: "",
+  finishedAt: null,
+  ctaDismissed: false,
+  autoUploading: false,
+  autoUploadOnComplete: false,
+  autoUploadFailed: false
 };
 let blcSig = "";
+let blcPrevRunning = false;
+const blcAutoUploadedJobs = new Set();
 
 const BLC_STATUS_LABEL = {
   idle: "待处理",
@@ -11150,8 +11298,8 @@ const BLC_STATUS_LABEL = {
 };
 
 function blcDownloadTemplate() {
-  const header = ["productName", "imageUrl_1", "imageUrl_2", "imageUrl_3", "imageUrls", "localImage_1", "localImage_2", "localImage_3", "localImages", "mode", "category", "notes"];
-  const example = ["示例产品(上传前删掉此行)", "https://example.com/img1.jpg", "https://example.com/img2.jpg", "", "https://example.com/extra.jpg;https://example.com/extra2.jpg", "C:\\Users\\你的用户名\\Pictures\\a.jpg", "D:\\产品图\\b.png", "", "D:\\产品图\\c.jpg;D:\\产品图\\d.webp", "full_listing", "", "可选备注"];
+  const header = ["productName", "imageUrl_1", "imageUrl_2", "imageUrl_3", "imageUrls", "localImage_1", "localImage_2", "localImage_3", "localImages", "mode", "category", "notes", "uploadMode", "searchTitle", "productTemplate", "logisticsAttribute", "material", "referenceProductId", "variantThemeMap"];
+  const example = ["示例产品(上传前删掉此行)", "https://example.com/img1.jpg", "https://example.com/img2.jpg", "", "https://example.com/extra.jpg;https://example.com/extra2.jpg", "C:\\Users\\你的用户名\\Pictures\\a.jpg", "D:\\产品图\\b.png", "", "D:\\产品图\\c.jpg;D:\\产品图\\d.webp", "full_listing", "", "可选备注", "采集箱", "在店小秘搜到的真实标题", "箱包配件-包饰", "普货", "合金", "", "颜色:Color;尺寸:Size"];
   downloadXlsx([header, example], "批量制作模板.xlsx");
 }
 
@@ -11195,7 +11343,7 @@ async function blcOnFile(event) {
   renderBatchListingCreate();
 }
 
-async function blcStart() {
+async function blcStart(autoUpload) {
   if (!batchListingCreateState.jobId) {
     alert("请先上传表格");
     return;
@@ -11210,6 +11358,10 @@ async function blcStart() {
     batchListingCreateState.active = true;
     batchListingCreateState.summary = null;
     batchListingCreateState.resultUrl = "";
+    batchListingCreateState.autoUploading = false;
+    batchListingCreateState.autoUploadFailed = false;
+    batchListingCreateState.autoUploadOnComplete = !!autoUpload;
+    batchListingCreateState.ctaDismissed = false;
   } catch (e) {
     alert("启动失败：" + (e && e.message ? e.message : e));
   }
@@ -11299,6 +11451,7 @@ async function pollBlcStatus() {
         batchListingCreateState.busy = data.running || false;
         batchListingCreateState.active = data.running || false;
         batchListingCreateState.summary = data.summary || null;
+        batchListingCreateState.finishedAt = data.finishedAt || null;
         if (batchListingCreateState.summary && batchListingCreateState.jobId) {
           batchListingCreateState.resultUrl = "/api/batch-listing-create/download?jobId=" + encodeURIComponent(batchListingCreateState.jobId);
         }
@@ -11328,6 +11481,21 @@ async function pollBlcStatus() {
         batchListingCreateState.resultUrl = "/api/batch-listing-create/download?jobId=" + encodeURIComponent(batchListingCreateState.jobId);
       }
     }
+    // 自动一站式：检测「运行 → 完成」跃迁，仅一次自动跳上架视图并链式带入+开始
+    const nowRunning = !!data.running;
+    const jobId = data.jobId;
+    if (blcPrevRunning && !nowRunning && data.finishedAt && jobId && !blcAutoUploadedJobs.has(jobId)) {
+      blcAutoUploadedJobs.add(jobId);
+      if (batchListingCreateState.autoUploadOnComplete) {
+        // 「并上架」意图：运行→完成，自动跳上架视图并链式带入+开始
+        batchListingCreateState.ctaDismissed = true;
+        batchListingCreateState.autoUploading = true;
+        switchView("batch-listing");
+        blImportFromCreateJob(true, true);
+      }
+      // 「只制作」意图：不自动上架，完成页显示「一键去上架」供手动触发
+    }
+    blcPrevRunning = nowRunning;
   } catch (_e) {
     // 轮询静默失败，下一秒重试
   }
@@ -11346,7 +11514,9 @@ function renderBatchListingCreate() {
   if (!root) return;
   if (activeViewName() !== "batch-listing-create") return;
   // 页面刷新后状态会清空：只要没有行数据或任务仍在跑，就主动拉后端恢复
-  if (batchListingCreateState.rows.length === 0 || batchListingCreateState.active) void pollBlcStatus();
+  // 页面刷新后状态会清空：只要没有行数据或任务仍在跑，就主动拉后端恢复
+  // 额外：blcPrevRunning 为 true 时（正在监视「运行→完成」跃迁）也继续轮询，确保完成那拍能自动触发一站式上架
+  if (batchListingCreateState.rows.length === 0 || batchListingCreateState.active || blcPrevRunning) void pollBlcStatus();
 
   // 实时显示 ChatGPT 生成中心跳（不被 sig 短路阻断，每秒跳动）
   const hint = root.querySelector("#blcChatgptHint");
@@ -11391,6 +11561,7 @@ function renderBatchListingCreate() {
             <span class="bl-hint">选择填好的 .xlsx（productName + imageUrl_* + mode）</span>
           </div>
           <button id="blc-start" class="bl-btn primary" ${(!batchListingCreateState.uploaded || batchListingCreateState.busy) ? "disabled" : ""}>▶ 开始批量制作</button>
+          <button id="blc-start-upload" class="bl-btn primary" title="制作完成后自动带入并上架（仅存草稿，不发布）" ${(!batchListingCreateState.uploaded || batchListingCreateState.busy) ? "disabled" : ""}>▶ 开始批量制作并上架</button>
           <button id="blc-retry" class="bl-btn ghost" ${((!hasFailed && !hasPending) || batchListingCreateState.busy) ? "disabled" : ""} title="重跑失败项并继续待处理项，已完成项保留">↻ 重试/继续</button>
         </div>
         <div class="bl-card-note">
@@ -11423,13 +11594,21 @@ function renderBatchListingCreate() {
       </div>` : `<div class="bl-hint">尚未上传表格。点击「下载模板」后填写并上传。</div>`}
 
       ${summary ? `<div class="bl-summary">✅ 完成：成功 ${summary.success} · 失败 ${summary.failed} · 跳过 ${summary.skipped} / 共 ${summary.total}</div>` : ""}
+      ${batchListingCreateState.autoUploading ? `<div class="bl-card bl-cta"><div class="bl-import-info">⏳ 制作已完成，正在自动带入并上架…（无需操作）</div></div>` : ""}
+      ${(batchListingCreateState.summary && batchListingCreateState.summary.success > 0 && !batchListingCreateState.ctaDismissed && !batchListingCreateState.autoUploading && (batchListingCreateState.autoUploadFailed || !batchListingCreateState.autoUploadOnComplete)) ? `<div class="bl-card bl-cta"><button id="blc-goto-upload" class="bl-btn primary">⇥ 一键去上架（带入并自动开始）</button></div>` : ""}
       ${batchListingCreateState.resultUrl ? `<div class="bl-card"><a class="bl-btn primary" href="${batchListingCreateState.resultUrl}">⬇ 下载结果 xlsx（含状态/路径回填）</a></div>` : ""}
     </div>`;
 
   document.getElementById("blc-template")?.addEventListener("click", () => blcDownloadTemplate());
   document.getElementById("blc-file")?.addEventListener("change", blcOnFile);
-  document.getElementById("blc-start")?.addEventListener("click", () => void blcStart());
+  document.getElementById("blc-start")?.addEventListener("click", () => void blcStart(false));
+  document.getElementById("blc-start-upload")?.addEventListener("click", () => void blcStart(true));
   document.getElementById("blc-retry")?.addEventListener("click", () => void blcRetry());
+  document.getElementById("blc-goto-upload")?.addEventListener("click", () => {
+      batchListingCreateState.ctaDismissed = true;
+      switchView("batch-listing");
+      blImportFromCreateJob(true, true);
+  });
 }
 
 /* ───────────────────────── 爆款研究中心（Hit Product Research Center）───────────────────────── */

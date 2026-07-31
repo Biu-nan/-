@@ -204,10 +204,13 @@ export const DIANXIAOMI_CATEGORY_PROFILES = {
     templateProductId: "1005012741652735",
     fixed: {
       storeName: "自营箱包全托2店",
-      stockType: "国内履约",
+      stockType: "国内备货",
       sizeTemplate: ""
     },
     category: "箱包配件(Bag Parts & Accessories)",
+    // 店小秘「引用产品模板」默认模板名；采集箱/引用模式下若表格 productTemplate 列留空，
+    // 则自动引用该模板，一次性带入海关监管属性/产品属性/物流属性/合规信息。
+    defaultProductTemplate: "箱包配件-包饰",
     variantThemeMap: { "颜色": "Color", "尺寸": "Size", "尺码": "Size", "型号": "Size" },
     // 引用模式引用自带清单（引用 1005012741652735 实测）：
     //   店铺/备货/分类/产品属性(NONE)/高关注化学品(无)/产地(中国大陆)/中国省份(浙江)/欧盟责任人/品牌制造商/型号/来源地/计件单位/海关监管属性(3)/来源URL/PC+无线描述 均已带出。
@@ -222,6 +225,8 @@ export const DIANXIAOMI_CATEGORY_PROFILES = {
     defaultMaterial: "",
     logistics: "普货",
     compliance: { euResponsible: "GET RICH", trResponsible: "", manufacturer: "Yiwu Sumu Arts and Crafts Co., Ltd" },
+    // 海关监管属性：当模板/引用未带入时，按此兜底填。截图基准：全球海关监管属性 / 税率代码 8308909000 / 种类 其他。
+    customs: { mode: "添加全球海关监管属性", hsCode: "8308909000", kind: "其他" },
     // 箱包：变种板块人工填写，本系统不自动生成 SKU/销售属性
     fillVariantSections: false,
     factExtractFingerprint: "# 店小秘箱包配件产品事实提取 Agent v0.1",
@@ -266,7 +271,7 @@ export const DIANXIAOMI_CATEGORY_PROFILES = {
     categoryFamily: "xiangBao",
     fixed: {
       storeName: "自营箱包全托2店",
-      stockType: "国内履约",
+      stockType: "国内备货",
       sizeTemplate: ""
     },
     category: "箱包便携折叠包(Bag Parts & Accessories)",
@@ -281,6 +286,8 @@ export const DIANXIAOMI_CATEGORY_PROFILES = {
     defaultMaterial: "",
     logistics: "普货",
     compliance: { euResponsible: "GET RICH", trResponsible: "", manufacturer: "Yiwu Sumu Arts and Crafts Co., Ltd" },
+    // 海关监管属性：当模板/引用未带入时，按此兜底填。截图基准：全球海关监管属性 / 税率代码 8308909000 / 种类 其他。
+    customs: { mode: "添加全球海关监管属性", hsCode: "8308909000", kind: "其他" },
     fillVariantSections: false,
     factExtractFingerprint: "# 店小秘箱包便携折叠包产品事实提取 Agent v0.1",
     factExtractPrompt: `# 店小秘箱包便携折叠包产品事实提取 Agent v0.1

@@ -43,7 +43,7 @@ async function safeUnlink(filePath) {
     }
 }
 
-const listingCreateRunState = {
+export const listingCreateRunState = {
     running: false,
     jobId: null,
     startedAt: null,
@@ -645,7 +645,7 @@ async function mergeBatchListingCreateResults(filePath, resultsByIndex) {
     await writeFile(filePath, outBuf);
 }
 
-async function recoverListingCreateState() {
+export async function recoverListingCreateState() {
     try {
         const base = path.join(HIDDEN_DATA_DIR, "batch-listing-create");
         const entries = await readdir(base, { withFileTypes: true }).catch(() => []);
@@ -744,7 +744,7 @@ async function normalizeStuckRunningState() {
 }
 
 export function registerBatchListingCreateRoutes(app, deps) {
-    const { upload, store, standardService, productProfiles, runBackground, getBatchRunStateRunning } = deps;
+    const { upload, store, standardService, productProfiles, runBackground, getBatchRunStateRunning, getCollectRunStateRunning } = deps;
 
     app.post("/api/batch-listing-create/upload", upload.single("workbook"), async (request, response) => {
         try {
@@ -812,6 +812,9 @@ export function registerBatchListingCreateRoutes(app, deps) {
             }
             if (getBatchRunStateRunning && getBatchRunStateRunning()) {
                 return response.status(409).json({ ok: false, error: "ERP 批量上架正在运行" });
+            }
+            if (getCollectRunStateRunning && getCollectRunStateRunning()) {
+                return response.status(409).json({ ok: false, error: "采集箱批量上架正在运行" });
             }
 
             const buf = await readFile(listingCreateRunState.filePath);
@@ -923,6 +926,8 @@ export function registerBatchListingCreateRoutes(app, deps) {
                 ok: true,
                 running: listingCreateRunState.running,
                 jobId: listingCreateRunState.jobId,
+                startedAt: listingCreateRunState.startedAt,
+                finishedAt: listingCreateRunState.finishedAt,
                 overallProgress: listingCreateRunState.overallProgress,
                 summary: listingCreateRunState.summary,
                 rowsMeta: listingCreateRunState.rowsMeta || [],
@@ -953,4 +958,71 @@ export function registerBatchListingCreateRoutes(app, deps) {
             return response.status(500).json({ ok: false, error: message });
         }
     });
+}
+
+// ===== 工作流桥接：供 server.js 的 /api/workflow/listing-to-upload 调用 =====
+export function isListingCreateRunning() {
+    return listingCreateRunState.running;
+}
+
+export function getLatestListingCreateJob() {
+    return {
+        jobId: listingCreateRunState.jobId,
+        running: listingCreateRunState.running,
+        finishedAt: listingCreateRunState.finishedAt,
+        items: listingCreateRunState.items || {}
+    };
+}
+
+// 直读 input.xlsx 原始单元格（不走 parseRows，避免新增列被静默丢弃）
+export async function readInputWorkbook() {
+    const fp = listingCreateRunState.filePath;
+    if (!fp) return [];
+    let buf;
+    try {
+        buf = await readFile(fp);
+    } catch {
+        return [];
+    }
+    const wb = XLSX.read(buf, { type: "buffer" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+    const header = (aoa[0] || []).map((h) => String(h || "").trim());
+    const col = (re) => header.findIndex((h) => re.test(h));
+    const idx = {
+        productName: col(/^(productName|产品名|产品名称|商品名)$/),
+        uploadMode: col(/^(uploadMode|上架模式|上架类型)$/),
+        searchTitle: col(/^(searchTitle|搜索标题|采集箱标题)$/),
+        productTemplate: col(/^(productTemplate|产品模板|模板)$/),
+        logisticsAttribute: col(/^(logisticsAttribute|物流属性|物流)$/),
+        material: col(/^(material|材质)$/),
+        referenceProductId: col(/^(referenceProductId|引用商品ID|引用ID)$/),
+        variantThemeMap: col(/^(variantThemeMap|变种主题映射|变种映射)$/),
+        outputDirectory: col(/^(outputDirectory|归档目录)$/)
+    };
+    const rows = [];
+    for (let i = 1; i < aoa.length; i++) {
+        const cells = aoa[i] || [];
+        const get = (k) => (idx[k] >= 0 ? String(cells[idx[k]] || "").trim() : "");
+        const productName = get("productName");
+        if (!productName) continue;
+        let uploadMode = get("uploadMode").toLowerCase();
+        if (uploadMode === "引用" || uploadMode === "reference" || uploadMode === "ref" || uploadMode === "yinyong") {
+            uploadMode = "reference";
+        } else {
+            uploadMode = "collect";
+        }
+        rows.push({
+            productName,
+            uploadMode,
+            searchTitle: get("searchTitle"),
+            productTemplate: get("productTemplate"),
+            logisticsAttribute: get("logisticsAttribute"),
+            material: get("material"),
+            referenceProductId: get("referenceProductId"),
+            variantThemeMap: get("variantThemeMap"),
+            outputDirectory: get("outputDirectory")
+        });
+    }
+    return rows;
 }

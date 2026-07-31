@@ -2057,6 +2057,30 @@ body:has(.workflow-view[data-view-panel="daily-cockpit"].active) .task-dock {
   background: rgba(255, 149, 0, .14);
   color: #9a5b00;
 }
+
+.bl-cta {
+  border: 1px solid rgba(52, 199, 89, .4);
+  background: rgba(52, 199, 89, .08);
+}
+.bl-import-info {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(52, 199, 89, .1);
+  color: #1d7f3a;
+  font-size: 13px;
+}
+.bl-import-err {
+  color: #b00020;
+}
+.bl-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: 4px;
+}
 .hidden-loop-note {
   margin: -4px 0 12px;
   color: var(--muted);

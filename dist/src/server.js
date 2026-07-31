@@ -3,9 +3,9 @@ import { appendFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } fro
 import path from "node:path";
 import express from "express";
 import multer from "multer";
-import { HOST, OUTPUT_DIR, INSERT_BAG_IMAGES_DIR, INSERT_LINER_IMAGES_DIR, INSERT_OUTPUT_DIR, PORT, PRODUCT_IMAGES_DIR, PRODUCT_ROOT, PROMPTS_DIR, PROJECT_ROOT, COMPLETED_PRODUCTS_DIR, HIDDEN_DATA_DIR, PUBLIC_DIR } from "./config.js";
+import { HOST, OUTPUT_DIR, INSERT_BAG_IMAGES_DIR, INSERT_LINER_IMAGES_DIR, INSERT_OUTPUT_DIR, PORT, PRODUCT_IMAGES_DIR, PRODUCT_ROOT, PROMPTS_DIR, PROJECT_ROOT, COMPLETED_PRODUCTS_DIR, HIDDEN_DATA_DIR, PUBLIC_DIR, USER_DATA_DIR } from "./config.js";
 import { DIANXIAOMI_TEMPLATE_PRODUCT_ID, PRODUCT_FACT_FILE, DIANXIAOMI_CATEGORY_PROFILES, getDianxiaomiProfile, isXiangBaoProfile } from "./config.js";
-import { normalizeDianxiaomiFacts } from "./dianxiaomi-facts.js";
+import { normalizeDianxiaomiFacts, buildProductFactsFallback } from "./dianxiaomi-facts.js";
 import { AutomationService } from "./automation-service.js";
 import { ChatGptAdapter } from "./chatgpt-adapter.js";
 import { GeminiAdapter } from "./gemini-adapter.js";
@@ -29,7 +29,7 @@ import { P0ProtocolService } from "./p0-protocol-service.js";
 import { DianxiaomiAdapter } from "./dianxiaomi-adapter.js";
 import { ResearchService } from "./research-service.js";
 import { ResearchStore } from "./research-store.js";
-import { registerBatchListingCreateRoutes } from "./batch-listing-create.js";
+import { registerBatchListingCreateRoutes, isListingCreateRunning, getLatestListingCreateJob, readInputWorkbook, recoverListingCreateState, listingCreateRunState } from "./batch-listing-create.js";
 
 // The WorkBuddy runtime injects a "safe-delete" shim (genie-safe-delete.cjs) that
 // intercepts fs.rm and throws SAFE_DELETE_BULK_CONFIRM_REQUIRED once the per-turn
@@ -360,7 +360,8 @@ registerBatchListingCreateRoutes(app, {
     standardService,
     productProfiles,
     runBackground,
-    getBatchRunStateRunning: () => batchRunState.running
+    getBatchRunStateRunning: () => batchRunState.running,
+    getCollectRunStateRunning: () => collectBatchRunState.running
 });
 app.get("/agent-dispatch", (_request, response) => {
     response.sendFile(path.join(PUBLIC_DIR, "index.html"));
@@ -3430,6 +3431,7 @@ app.post("/api/dianxiaomi/batch-apply", async (request, response) => {
     const rows = (request.body && Array.isArray(request.body.rows)) ? request.body.rows : [];
     if (!rows.length) return response.status(400).json({ ok: false, error: "rows 为空" });
     if (batchRunState.running) return response.status(409).json({ ok: false, error: "已有批量任务在运行" });
+    if (collectBatchRunState.running) return response.status(409).json({ ok: false, error: "采集箱批量上架正在运行" });
     const normalized = rows.map((r) => ({
       packageName: (r.packageName || "").toString().trim(),
       category: (r.category || "auto").toString().trim(),
@@ -3476,6 +3478,72 @@ app.get("/api/dianxiaomi/batch-status", async (_request, response) => {
 
 // ===== 采集箱批量上架：路由（v 新路径，2026-07-28）=====
 
+// ===== 工作流桥接辅助：由 input.xlsx 的 uploadMode 分流构建上架行 =====
+// 采集箱模式行（复用 collect-batch-generate 的字段语义，支持 overrides 覆盖）
+async function buildCollectRowForDir(dir, name, overrides) {
+    overrides = overrides || {};
+    let facts = null;
+    try {
+        facts = JSON.parse(await readFile(path.join(dir, PRODUCT_FACT_FILE), "utf8"));
+    } catch { /* 无 facts 尝试兜底 */ }
+    if (!facts) {
+        try {
+            const rs = JSON.parse(await readFile(path.join(dir, "run-state.json"), "utf8"));
+            if (rs.listingContentText || rs.responseText) {
+                facts = await buildProductFactsFallback({
+                    factText: rs.responseText || "",
+                    listingContentText: rs.listingContentText || "",
+                    baseDir: dir
+                });
+                await writeFile(path.join(dir, PRODUCT_FACT_FILE), `${JSON.stringify(facts, null, 2)}\n`, "utf8");
+            }
+        } catch (fbErr) {
+            console.warn(`[workflow] 包 ${name} 本地兜底生成 facts 失败:`, fbErr && fbErr.message ? fbErr.message : fbErr);
+        }
+    }
+    if (!facts) return null;
+    let category = "ruTie";
+    try { category = await detectCategory(dir); } catch { /* ignore */ }
+    const profile = getDianxiaomiProfile(category);
+    const defaultProductTemplate = (profile && profile.defaultProductTemplate) || "";
+    const title = (facts.title && (facts.title.zh || facts.title.en)) || "";
+    return {
+        packageName: name,
+        category,
+        searchTitle: overrides.searchTitle || title,
+        factsPath: dir,
+        variantOverride: overrides.variantOverride || "",
+        variantThemeMap: overrides.variantThemeMap || "",
+        productTemplate: overrides.productTemplate || defaultProductTemplate,
+        logisticsAttribute: overrides.logisticsAttribute || "",
+        material: overrides.material || "",
+        enabled: true,
+        status: "idle",
+        progress: 0,
+        reason: ""
+    };
+}
+
+// 引用模式行：靠 referenceProductId 引用已建商品；同时透传产品模板/物流/材质（adapter ruTie 分支支持）
+async function buildReferenceRowForDir(dir, name, overrides) {
+    overrides = overrides || {};
+    let category = "ruTie";
+    try { category = await detectCategory(dir); } catch { /* ignore */ }
+    const profile = getDianxiaomiProfile(category);
+    return {
+        packageName: name,
+        category,
+        referenceProductId: overrides.referenceProductId || (profile && profile.templateProductId) || "",
+        productTemplate: overrides.productTemplate || (profile && profile.defaultProductTemplate) || "",
+        logisticsAttribute: overrides.logisticsAttribute || "",
+        material: overrides.material || "",
+        enabled: true,
+        status: "idle",
+        progress: 0,
+        reason: ""
+    };
+}
+
 // 生成「采集批量上架模板」：扫描 已完成产品/ 中含 product-facts.json 的包，
 // 按 detectCategory 判定类目，取 facts.title 作为预填「搜索标题」。可选 body.category 过滤类目。
 app.post("/api/dianxiaomi/collect-batch-generate", async (request, response) => {
@@ -3515,6 +3583,9 @@ app.post("/api/dianxiaomi/collect-batch-generate", async (request, response) => 
       let category = "ruTie";
       try { category = await detectCategory(dir); } catch { /* ignore */ }
       if (onlyCat && category !== onlyCat) continue;
+      // 按检测到的类目取 profile，自动带出默认产品模板（如箱包配件→箱包配件-包饰）。
+      const profile = getDianxiaomiProfile(category);
+      const defaultProductTemplate = (profile && profile.defaultProductTemplate) || "";
       const title = (facts.title && (facts.title.zh || facts.title.en)) || "";
       rows.push({
         packageName: name,
@@ -3523,6 +3594,12 @@ app.post("/api/dianxiaomi/collect-batch-generate", async (request, response) => 
         factsPath: dir,
         // 变种覆盖：默认空 = 沿用采集箱源变种。填 1/是/覆盖 才用 facts 重建颜色/尺寸/SKU。
         variantOverride: "",
+        // 产品模板：默认空 = 不引用；类目 profile 配置了 defaultProductTemplate 则自动带出。
+        productTemplate: defaultProductTemplate,
+        // 物流属性：默认空 = 走 profile/默认「普货」；表格填值（如 普货/带电/液体）则优先使用。
+        logisticsAttribute: "",
+        // 材质：默认空 = 走 facts.material；表格「材质」列显式填写则优先使用（覆盖模板带入值）。
+        material: "",
         enabled: true,
         status: "idle",
         progress: 0,
@@ -3551,6 +3628,7 @@ app.post("/api/dianxiaomi/collect-batch-apply", async (request, response) => {
       return response.json({ ok: true, jobId: collectBatchRunState.jobId, accepted: false, idempotentReplay: true });
     }
     if (collectBatchRunState.running) return response.status(409).json({ ok: false, error: "已有采集箱批量任务在运行" });
+    if (batchRunState.running) return response.status(409).json({ ok: false, error: "引用批量上架正在运行" });
     const normalized = rows.map((r) => ({
       packageName: (r.packageName || "").toString().trim(),
       category: (r.category || "auto").toString().trim(),
@@ -3560,7 +3638,13 @@ app.post("/api/dianxiaomi/collect-batch-apply", async (request, response) => {
       variantThemeMap: (r.variantThemeMap || "").toString().trim(),
       // 变种覆盖开关：默认空 = 沿用采集箱源变种（不动颜色/尺寸/SKU）。
       // 填 1/true/是/覆盖 才允许用 product-facts 的 variants 重建变种。
-      variantOverride: parseVariantOverrideFlag(r.variantOverride)
+      variantOverride: parseVariantOverrideFlag(r.variantOverride),
+      // 产品模板：默认空 = 不引用。填模板名称（如「箱包配件-包饰」）则自动引用。
+      productTemplate: (r.productTemplate || "").toString().trim(),
+      // 物流属性：表格列，空则回退 profile/默认「普货」。
+      logisticsAttribute: (r.logisticsAttribute || "").toString().trim(),
+      // 材质：表格列，空则回退 facts.material。
+      material: (r.material || "").toString().trim()
     })).filter((r) => r.packageName);
     if (!normalized.length) return response.status(400).json({ ok: false, error: "无有效 packageName" });
     collectBatchRunState.jobId = `collect-${Date.now()}`;
@@ -3613,6 +3697,9 @@ app.post("/api/dianxiaomi/collect-batch-retry", async (request, response) => {
     if (collectBatchRunState.running) {
       return response.status(409).json({ ok: false, error: "已有采集箱批量任务在运行" });
     }
+    if (batchRunState.running) {
+      return response.status(409).json({ ok: false, error: "引用批量上架正在运行" });
+    }
     if (!collectBatchRunState.rows || !collectBatchRunState.rows.length) {
       return response.status(400).json({ ok: false, error: "未找到原始行数据（可能服务重启过），请重新生成模板并点「开始」上架" });
     }
@@ -3630,6 +3717,9 @@ app.post("/api/dianxiaomi/collect-batch-retry", async (request, response) => {
           category: r.category || "auto",
           variantThemeMap: r.variantThemeMap || "",
           variantOverride: parseVariantOverrideFlag(r.variantOverride),
+          productTemplate: (r.productTemplate || "").toString().trim(),
+          logisticsAttribute: (r.logisticsAttribute || "").toString().trim(),
+          material: (r.material || "").toString().trim(),
           enabled: r.enabled !== false
         };
       }
@@ -3640,6 +3730,100 @@ app.post("/api/dianxiaomi/collect-batch-retry", async (request, response) => {
   } catch (error) {
     response.status(500).json({ error: error instanceof Error ? error.message : String(error) });
   }
+});
+
+// ===== 工作流桥接：批量制作(Listing) → 批量上架 =====
+// 读最新制作作业的 input.xlsx，按 uploadMode 分流生成引用/采集箱上架行，
+// 用 outputDirectory 作 join 外键带入用户填的 searchTitle/模板/物流/材质/引用ID/变种映射。
+app.post("/api/workflow/listing-to-upload", async (request, response) => {
+    try {
+        const body = (request.body && typeof request.body === "object") ? request.body : {};
+        const excludeUploaded = body.excludeUploaded === true;
+        // 新 server 启动后内存态可能未恢复，先尝试恢复最新作业（与 status/retry 路由一致）
+        if (!listingCreateRunState.jobId) {
+            await recoverListingCreateState();
+        }
+        if (isListingCreateRunning()) {
+            return response.json({ ok: true, running: true, jobId: getLatestListingCreateJob().jobId });
+        }
+        const job = getLatestListingCreateJob();
+        if (!job.jobId) {
+            return response.json({ ok: false, error: "没有可用的批量制作作业（请先跑一次批量制作）" });
+        }
+        const inputRows = await readInputWorkbook();
+        if (!inputRows.length) {
+            return response.json({ ok: false, error: "制作作业无有效行（input.xlsx 缺失或尚未完成）" });
+        }
+        // 去重：读两 state 的 done 项（packageName）
+        const uploaded = new Set();
+        if (!excludeUploaded) {
+            try {
+                const bl = JSON.parse(await readFile(path.join(HIDDEN_DATA_DIR, "batch-listing-state.json"), "utf8"));
+                for (const [k, it] of Object.entries(bl.items || {})) {
+                    if (it && it.status === "done") uploaded.add(it.name || k);
+                }
+            } catch { /* ignore */ }
+            try {
+                const cb = JSON.parse(await readFile(path.join(HIDDEN_DATA_DIR, "collect-batch-state.json"), "utf8"));
+                for (const [k, it] of Object.entries(cb.items || {})) {
+                    if (it && it.status === "done") uploaded.add(it.name || k);
+                }
+            } catch { /* ignore */ }
+        }
+        const referenceRows = [];
+        const collectRows = [];
+        const skipped = [];
+        let dedupCount = 0;
+        for (const r of inputRows) {
+            const od = r.outputDirectory;
+            if (!od) {
+                skipped.push({ productName: r.productName, reason: "无归档目录(outputDirectory 为空)" });
+                continue;
+            }
+            const dir = path.resolve(USER_DATA_DIR, od);
+            let dirExists = false;
+            try { dirExists = (await stat(dir)).isDirectory(); } catch { dirExists = false; }
+            if (!dirExists) {
+                skipped.push({ productName: r.productName, reason: "归档目录不存在: " + od });
+                continue;
+            }
+            const pkgName = path.basename(od.replace(/\\/g, "/"));
+            const overrides = {
+                searchTitle: r.searchTitle || undefined,
+                productTemplate: r.productTemplate || undefined,
+                logisticsAttribute: r.logisticsAttribute || undefined,
+                material: r.material || undefined,
+                referenceProductId: r.referenceProductId || undefined,
+                variantThemeMap: r.variantThemeMap || undefined
+            };
+            if (!excludeUploaded && uploaded.has(pkgName)) {
+                dedupCount++;
+                continue;
+            }
+            if (r.uploadMode === "reference") {
+                const row = await buildReferenceRowForDir(dir, pkgName, overrides);
+                if (!row) { skipped.push({ productName: r.productName, reason: "无法构建引用行" }); continue; }
+                referenceRows.push(row);
+            } else {
+                const row = await buildCollectRowForDir(dir, pkgName, overrides);
+                if (!row) { skipped.push({ productName: r.productName, reason: "缺少 product-facts.json 且兜底失败" }); continue; }
+                collectRows.push(row);
+            }
+        }
+        return response.json({
+            ok: true,
+            jobId: job.jobId,
+            finishedAt: job.finishedAt,
+            referenceRows,
+            collectRows,
+            skipped,
+            dedupCount
+        });
+    }
+    catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return response.status(500).json({ ok: false, error: message });
+    }
 });
 
 // 探索采集箱：dump 列表页 DOM 结构，便于校准导航选择器（需 Chrome+店小秘已登录）。
@@ -3919,8 +4103,23 @@ async function processCollectBatchRow(row, item, log) {
     const variantOverride = parseVariantOverrideFlag(row.variantOverride);
     if (variantOverride) log("变种模式: 覆盖（用 product-facts 重建颜色/尺寸/SKU）");
     else log("变种模式: 沿用采集源变种（不改动）");
+    let productTemplate = (row.productTemplate || "").toString().trim();
+    // 表格未指定时，按类目 profile 的 defaultProductTemplate 自动引用（如箱包配件→箱包配件-包饰）。
+    if (!productTemplate && profile && profile.defaultProductTemplate) {
+      productTemplate = profile.defaultProductTemplate;
+      log(`产品模板(默认): ${productTemplate}`);
+    } else if (productTemplate) {
+      log(`产品模板: ${productTemplate}`);
+    }
     dianxiaomiAdapter.setStage("采集箱上架·填写属性与描述", name);
-    const applied = await dianxiaomiAdapter.fillFromFacts(facts, { collectMode: true, variantOverride });
+    const applied = await dianxiaomiAdapter.fillFromFacts(facts, {
+      collectMode: true,
+      variantOverride,
+      productTemplate,
+      // 表格模板列：物流属性 / 材质（空则回退 profile/默认）。
+      logisticsAttribute: (row.logisticsAttribute || "").toString().trim(),
+      material: (row.material || "").toString().trim()
+    });
     for (const a of applied) {
       if (a.ok === false) log(`${a.field}: FAIL ${a.reason || ""}`);
       else if (a.skipped) log(`${a.field}: SKIP ${a.reason || ""}`);
@@ -3954,13 +4153,19 @@ async function processCollectBatchRow(row, item, log) {
         }
         catch (ex) { log(`autofix:${core || lbl}=err:${ex.message}`); }
       }
-      // autofix 可能填入中文默认值，触发「请输入英文、数字或空格符号」；一键翻译兜底。
+      // autofix 可能填入中文默认值，触发「请输入英文、数字或空格符号」；仅在校验错误提示英文/数字时才强制重翻，
+      // 否则跳过（fillFromFacts 末尾已翻译过一次，避免每轮无谓重翻拖慢上架）。
       dianxiaomiAdapter.setStage(`采集箱上架·自动纠错(第${round}轮)`, name);
-      try {
-        const tr = await dianxiaomiAdapter.translatePageToEnglish();
-        log(`translate-to-en=${tr.ok ? "ok" : (tr.reason || "skip")} [${tr.translated.join(",")}]`);
-      } catch (ex) { log(`translate-to-en=err:${ex.message}`); }
-      await new Promise((r) => setTimeout(r, 900));
+      const needTranslate = errs.some((e) => /英文|数字|空格|符号|english|letter|character/i.test(`${e.label || ""} ${e.hint || ""} ${e.message || ""}`));
+      if (needTranslate) {
+        try {
+          const tr = await dianxiaomiAdapter.translatePageToEnglish({ force: true });
+          log(`translate-to-en=${tr.ok ? "ok" : (tr.reason || "skip")} [${tr.translated.join(",")}]`);
+        } catch (ex) { log(`translate-to-en=err:${ex.message}`); }
+      } else {
+        log(`translate-to-en=skip(no-english-error)`);
+      }
+      await new Promise((r) => setTimeout(r, 400));
       saved = await dianxiaomiAdapter.save();
     }
     // 关键校验：描述类 critical fields 任一 FAIL / 读回校验失败 → 整行判 failed（与引用模式一致）
