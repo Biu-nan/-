@@ -571,8 +571,10 @@ export class ChatGptAdapter {
                 }
             }).catch(() => {});
             await page.keyboard.insertText(prompt);
+            // 先等 send 态就绪（处理上一行仍在生成的 stop 态），再用 waitFor 兜底可见性
+            await this.waitForSendReady(page, 60_000);
             const sendButton = this.sendButton(page);
-            await sendButton.waitFor({ state: "visible", timeout: 15_000 });
+            await sendButton.waitFor({ state: "visible", timeout: 5_000 });
             await this.dismissOverlays(page);
             await sendButton.click();
             // 延长到 45s（30s 太短，长 Prompt 经常误判）
@@ -887,9 +889,43 @@ export class ChatGptAdapter {
             .first();
     }
     sendButton(page) {
+        // composer-submit-button 是 ChatGPT 的固定 id；aria-label/data-testid 在 send↔stop 之间切换
+        // 严格只匹配 send 态：data-testid="send-button" + aria-label 中含"发送/Send"
+        return page
+            .locator('button#composer-submit-button[data-testid="send-button"], button[aria-label="发送提示"][data-testid="send-button"], button[aria-label="Send prompt"][data-testid="send-button"]')
+            .first();
+    }
+    // 兼容旧的 send-button 选择器（仅用于错误信息回显，避免误中 stop-button）
+    _sendButtonStrict(page) {
         return page
             .locator('button[data-testid="send-button"], button[aria-label="Send prompt"], button[aria-label="发送提示"]')
             .first();
+    }
+    // 等 send 按钮从「stop 态」切回「send 态」。批量跑时前一行可能仍在生成，
+    // 此时 send-button 永远不存在（被 stop-button 替换），必须先等 stop 消失。
+    async waitForSendReady(page, timeoutMs = 60_000) {
+        const stop = this.stopButton(page);
+        const send = this._sendButtonStrict(page);
+        const deadline = Date.now() + timeoutMs;
+        let lastDiag = "";
+        while (Date.now() < deadline) {
+            const stopVisible = await stop.isVisible().catch(() => false);
+            const sendVisible = await send.isVisible().catch(() => false);
+            if (sendVisible && !stopVisible) return; // 可发
+            // stop 还在 → 抓诊断
+            if (stopVisible) {
+                lastDiag = `stop-button 仍可见（ChatGPT 仍在生成中），已等待 ${Math.round((timeoutMs - (deadline - Date.now())) / 1000)}s`;
+                await page.waitForTimeout(800);
+                continue;
+            }
+            // send 不可见、stop 也不可见 → 可能页面掉登录/未进入对话
+            lastDiag = "send-button 不可见且 stop-button 也不可见（页面可能不在对话状态）";
+            await page.waitForTimeout(800);
+        }
+        // 超时：抛明确错误，包含最后状态
+        const url = page.url().slice(0, 120);
+        const stopStillVisible = await stop.isVisible().catch(() => false);
+        throw new Error(`等不到可发送状态：${lastDiag || "未知原因"} @ ${url}（stop 仍可见=${stopStillVisible}）。批量模式下前一行 ChatGPT 还没生成完，请重试或在 ChatGPT 页面手动停止后重发。`);
     }
     async dismissOverlays(page) {
         const dialog = page
