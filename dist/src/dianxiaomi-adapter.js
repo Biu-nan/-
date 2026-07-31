@@ -3393,26 +3393,41 @@ export class DianxiaomiAdapter {
       return { ok: true, skipped: true, reason: "not-category-page", url: page.url(), state };
     }
 
-    // 3) 映射页：选类目（STRICT 匹配表格填写的分类，未找到直接抛错）
-    const categoryName = profile.category;
-    if (categoryName) {
-      const categorySelect = page.locator(".ant-select", {
-        has: page.locator(".ant-select-selection-placeholder, .ant-select-selection-item", { hasText: /请选择分类|请选择类目|选择分类/ })
-      }).first();
-      if (await categorySelect.count() === 0 || !(await categorySelect.isVisible().catch(() => false))) {
-        throw new Error(`分类映射页未找到分类下拉控件（expected for "${categoryName}"）`);
+    // 3) 映射页：选类目
+    // 「auto」/空/未指定 → 沿用页面已选分类（采集箱草稿自带类目、或引用模板带入），跳过不抛错。
+    // 真实叶子类目 → 已正确选中则跳过；未选(请选择)则从下拉选；已选但≠目标则走「更换分类」弹窗。
+    const categoryName = (profile.category || "").toString().trim();
+    const IS_AUTO = !categoryName || /^auto$/i.test(categoryName);
+    if (!IS_AUTO) {
+      const placeholderEl = page.locator(".ant-select-selection-placeholder").first();
+      const placeholderVisible = await placeholderEl.isVisible().catch(() => false);
+      const selectedItem = page.locator(".ant-select-selection-item").first();
+      const currentValue = placeholderVisible ? "" : (await selectedItem.innerText().catch(() => "") || "").trim();
+      if (currentValue && currentValue === categoryName) {
+        // 已正确选中，跳过
+      } else if (placeholderVisible) {
+        // 未选 → 从下拉选
+        const categorySelect = page.locator(".ant-select", {
+          has: page.locator(".ant-select-selection-placeholder, .ant-select-selection-item", { hasText: /请选择分类|请选择类目|选择分类|选择产品分类/ })
+        }).first();
+        if (await categorySelect.count() === 0 || !(await categorySelect.isVisible().catch(() => false))) {
+          throw new Error(`分类映射页未找到分类下拉控件（expected for "${categoryName}"）`);
+        }
+        await categorySelect.click();
+        await sleep(500);
+        // exact-label 匹配：去掉首尾空白后整词匹配，不降级到短名/包含匹配
+        const option = page.locator(".ant-select-dropdown:visible .ant-select-item-option-content")
+          .filter({ hasText: new RegExp(`^\\s*${escapeRegex(categoryName)}\\s*$`) }).first();
+        if (await option.count() === 0) {
+          await page.keyboard.press("Escape").catch(() => {});
+          throw new Error(`分类映射页未找到分类选项 "${categoryName}"（表格填写的分类与店小秘分类映射页选项不匹配）`);
+        }
+        await option.click();
+        await sleep(400);
+      } else {
+        // 已选中但≠目标 → 点「更换分类」改
+        await this.changeCategoryViaModal(categoryName);
       }
-      await categorySelect.click();
-      await sleep(800);
-      // exact-label 匹配：去掉首尾空白后整词匹配，不降级到短名/包含匹配
-      const option = page.locator(".ant-select-dropdown:visible .ant-select-item-option-content")
-        .filter({ hasText: new RegExp(`^\\s*${escapeRegex(categoryName)}\\s*$`) }).first();
-      if (await option.count() === 0) {
-        await page.keyboard.press("Escape").catch(() => {});
-        throw new Error(`分类映射页未找到分类选项 "${categoryName}"（表格填写的分类与店小秘分类映射页选项不匹配）`);
-      }
-      await option.click();
-      await sleep(600);
     }
 
     // 4) 映射页：变种主题映射（非阻塞；失败只记录，不影响保存）
@@ -3471,18 +3486,15 @@ export class DianxiaomiAdapter {
       page = newPage;
     }
     await page.waitForLoadState("networkidle").catch(() => {});
-    await sleep(3000);
+    await sleep(1500);
     return { ok: true, url: page.url() };
   }
 
-  // ★ 引用路径分类更改（C-2）：点击「更换分类」链接，在弹窗里搜索 xlsx 填写的精确类目标签，点结果后
-  //   关弹窗，再点主页面「保存，下一步」。仅当 row.category 不是已知 profile key 时调用（即用户填了
-  //   精确叶子类目如「便携式折叠包」而非 profile key 如「xiangBaoFold」）。
-  async changeCategoryTo(categoryName) {
-    if (!categoryName || !String(categoryName).trim()) {
-      return { ok: true, skipped: true, reason: "no-category-specified" };
-    }
-    const target = String(categoryName).trim();
+  // ★ 共用：在「更换分类」弹窗里搜索并选择目标类目。引用 C-2 与采集箱改类目都调它。
+  // 流程：点「更换分类」链接 → 弹窗搜索框填值 → 点搜索 → 点搜索结果 → （选「选择」）→ 等弹窗关。
+  async changeCategoryViaModal(categoryName) {
+    const target = String(categoryName || "").trim();
+    if (!target) return { ok: false, reason: "no-category-specified" };
     await this.connect();
     const page = this.page;
     // 1) 点「更换分类」链接（exact text）
@@ -3500,7 +3512,7 @@ export class DianxiaomiAdapter {
     } catch {
       return { ok: false, reason: "category-modal-not-opened", target };
     }
-    await sleep(500);
+    await page.waitForTimeout(400);
     // 3) 搜索框填值 + 点搜索
     const searchInput = modal.locator('input[placeholder*="搜索"], input[type="text"]').first();
     try {
@@ -3511,16 +3523,19 @@ export class DianxiaomiAdapter {
     await searchInput.fill(target);
     const searchBtn = modal.locator("button").filter({ hasText: /^搜索$/ }).first();
     await searchBtn.click();
-    // 4) 等搜索结果，点含目标文本的那一条（exact 包含，避免匹配到面包屑父类目）
-    await sleep(1200);
-    const resultItem = modal.locator("text=" + target).first();
+    // 4) 等搜索结果，点含目标文本的那一条（优先 ant-select 选项，兜底按文本匹配，避免匹配到面包屑父类目）
+    await page.waitForTimeout(1000);
+    let resultItem = modal.locator(".ant-select-dropdown:visible .ant-select-item-option-content").filter({ hasText: target }).first();
+    if (await resultItem.count() === 0) {
+      resultItem = modal.locator(".ant-modal-body button, .ant-modal-body li, .ant-list-item").filter({ hasText: target }).first();
+    }
     try {
       await resultItem.waitFor({ state: "visible", timeout: 5000 });
     } catch {
       return { ok: false, reason: "search-result-not-found", target };
     }
     await resultItem.click();
-    await sleep(500);
+    await page.waitForTimeout(400);
     // 5) 点弹窗底部「选择」确认（部分 UI 是单击结果即关，部分需要二次确认；都兼容）
     const selectBtn = modal.locator("button").filter({ hasText: /^选择$/ }).first();
     if (await selectBtn.isVisible().catch(() => false)) {
@@ -3532,10 +3547,19 @@ export class DianxiaomiAdapter {
     } catch {
       /* 兼容：有些 UI 关得很快或自动关，不阻断 */
     }
-    await sleep(500);
-    // 7) 主页面点「保存，下一步」收尾（与采集路径 collectDraftCategory 末尾 clickSaveAndNext 一致）
+    await page.waitForTimeout(300);
+    return { ok: true, value: target };
+  }
+
+  // ★ 引用路径分类更改（C-2）：点击「更换分类」链接，在弹窗里搜索 xlsx 填写的精确类目标签，点结果后
+  //   关弹窗，再点主页面「保存，下一步」。仅当 row.category 不是已知 profile key 时调用（即用户填了
+  //   精确叶子类目如「便携式折叠包」而非 profile key 如「xiangBaoFold」）。
+  async changeCategoryTo(categoryName) {
+    const res = await this.changeCategoryViaModal(categoryName);
+    if (!res.ok) return res;
+    // 弹窗改完类目后，主页面点「保存，下一步」收尾（与采集路径 collectDraftCategory 末尾一致）
     const sn = await this.clickSaveAndNext();
-    return { ok: true, value: target, saveNext: sn };
+    return { ok: true, value: res.value, saveNext: sn };
   }
 
   // 探索：dump 采集箱列表页结构（搜索框 / 表头 / 编辑按钮 / 所有按钮文案），

@@ -4129,9 +4129,9 @@ async function processCollectBatchRow(row, item, log) {
   try {
     await readFile(path.join(dir, "product-facts.json"), "utf8");
     factsFile = path.join(dir, "product-facts.json");
-  } catch {
+  } catch (factsErr) {
     item.status = "skipped";
-    item.reason = "缺少 product-facts.json";
+    item.reason = `缺少 product-facts.json（dir=${dir} | err=${factsErr && factsErr.code ? factsErr.code : (factsErr && factsErr.message ? factsErr.message : factsErr)}）`;
     item.progress = 100;
     return "skipped";
   }
