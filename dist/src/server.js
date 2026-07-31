@@ -18,6 +18,7 @@ import { StateStore } from "./state-store.js";
 import { abandonCurrentProduct, archiveCurrentProduct } from "./product-session.js";
 import { PROMPT_KINDS, promptStatus, readPrompt, savePrompt } from "./prompt-files.js";
 import { SleepInhibitor } from "./sleep-inhibitor.js";
+import * as XLSX from "xlsx";
 import { ProductProfileService } from "./product-profile-service.js";
 import { QueueService } from "./queue-service.js";
 import { OperationService } from "./operation-service.js";
@@ -361,7 +362,88 @@ registerBatchListingCreateRoutes(app, {
     productProfiles,
     runBackground,
     getBatchRunStateRunning: () => batchRunState.running,
-    getCollectRunStateRunning: () => collectBatchRunState.running
+    getCollectRunStateRunning: () => collectBatchRunState.running,
+    // ★ 自动上架触发器：listing 完成后后端自动串行跑引用 + 采集箱两条路径。
+    // 走内部函数（不 HTTP 自调用）避免 409 互斥自拦；runCollectBatchListing 已支持 opts.operationId 幂等。
+    // 复用 buildCollectRowForDir/buildReferenceRowForDir 解析 facts + 派生默认 category / searchTitle 等。
+    triggerAutoUpload: async ({ jobId, filePath: xlsxPath, operationId, logger }) => {
+        const log = typeof logger === "function" ? logger : () => {};
+        log(`读取 input.xlsx: ${xlsxPath}`);
+        let buf;
+        try {
+            buf = await readFile(xlsxPath);
+        } catch (e) {
+            log(`读 input.xlsx 失败: ${e.message}`);
+            return { ok: false, error: "input.xlsx not readable" };
+        }
+        const wb = XLSX.read(buf, { type: "buffer" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+        const header = (aoa[0] || []).map((h) => String(h || "").trim());
+        const col = (re) => header.findIndex((h) => re.test(h));
+        const idx = {
+            productName: col(/^(productName|产品名|产品名称|商品名)$/),
+            uploadMode: col(/^(uploadMode|上架模式|上架类型)$/),
+            searchTitle: col(/^(searchTitle|搜索标题|采集箱标题)$/),
+            productTemplate: col(/^(productTemplate|产品模板|模板)$/),
+            logisticsAttribute: col(/^(logisticsAttribute|物流属性|物流)$/),
+            material: col(/^(material|材质)$/),
+            referenceProductId: col(/^(referenceProductId|引用商品ID|引用ID)$/),
+            variantThemeMap: col(/^(variantThemeMap|变种主题映射|变种映射)$/),
+            outputDirectory: col(/^(outputDirectory|归档目录)$/)
+        };
+        const refRows = [];
+        const colRows = [];
+        for (let i = 1; i < aoa.length; i++) {
+            const cells = aoa[i] || [];
+            const get = (k) => (idx[k] >= 0 ? String(cells[idx[k]] || "").trim() : "");
+            const productName = get("productName");
+            if (!productName) continue;
+            let mode = get("uploadMode").toLowerCase();
+            if (mode === "引用" || mode === "reference" || mode === "ref" || mode === "yinyong") mode = "reference";
+            else mode = "collect";
+            const dir = path.join(COMPLETED_PRODUCTS_DIR, productName);
+            const overrides = {
+                searchTitle: get("searchTitle") || undefined,
+                productTemplate: get("productTemplate") || undefined,
+                logisticsAttribute: get("logisticsAttribute") || undefined,
+                material: get("material") || undefined,
+                referenceProductId: get("referenceProductId") || undefined,
+                variantThemeMap: get("variantThemeMap") || undefined
+            };
+            try {
+                if (mode === "reference") {
+                    const row = await buildReferenceRowForDir(dir, productName, overrides);
+                    if (row) refRows.push(row);
+                    else log(`引用行构建失败: ${productName}`);
+                } else {
+                    const row = await buildCollectRowForDir(dir, productName, overrides);
+                    if (row) colRows.push(row);
+                    else log(`采集箱行构建失败（无 facts）: ${productName}`);
+                }
+            } catch (e) {
+                log(`行构建异常 ${productName}: ${e.message}`);
+            }
+        }
+        log(`分流: reference=${refRows.length} collect=${colRows.length}`);
+        const results = { refJobId: null, colJobId: null };
+        try {
+            if (refRows.length) {
+                // 引用模式无 operationId 幂等门控，靠 listing 完成后只触发一次的契约保证不重复
+                await runBatchListing(refRows);
+                results.refJobId = batchRunState.jobId;
+            }
+            if (colRows.length) {
+                // 采集箱已支持 opts.operationId，重复拾起会返回 idempotentReplay
+                await runCollectBatchListing(colRows, { operationId });
+                results.colJobId = collectBatchRunState.jobId;
+            }
+        } catch (e) {
+            log(`run 出错: ${e.message}`);
+            results.error = e.message;
+        }
+        return { ok: true, ...results };
+    }
 });
 app.get("/agent-dispatch", (_request, response) => {
     response.sendFile(path.join(PUBLIC_DIR, "index.html"));
@@ -3484,7 +3566,9 @@ async function buildCollectRowForDir(dir, name, overrides) {
     overrides = overrides || {};
     let facts = null;
     try {
-        facts = JSON.parse(await readFile(path.join(dir, PRODUCT_FACT_FILE), "utf8"));
+        // 修复：PRODUCT_FACT_FILE 是绝对路径（config.js:105），path.join(dir, 绝对路径) 会拼成垃圾，
+        // 导致归档包的真实 product-facts.json 被完全忽略，每次都走 run-state 兜底。
+        facts = JSON.parse(await readFile(path.join(dir, "product-facts.json"), "utf8"));
     } catch { /* 无 facts 尝试兜底 */ }
     if (!facts) {
         try {
@@ -3495,7 +3579,7 @@ async function buildCollectRowForDir(dir, name, overrides) {
                     listingContentText: rs.listingContentText || "",
                     baseDir: dir
                 });
-                await writeFile(path.join(dir, PRODUCT_FACT_FILE), `${JSON.stringify(facts, null, 2)}\n`, "utf8");
+                await writeFile(path.join(dir, "product-facts.json"), `${JSON.stringify(facts, null, 2)}\n`, "utf8");
             }
         } catch (fbErr) {
             console.warn(`[workflow] 包 ${name} 本地兜底生成 facts 失败:`, fbErr && fbErr.message ? fbErr.message : fbErr);
@@ -4444,11 +4528,29 @@ async function runBatchListing(rows) {
       // 逐行自定义「引用商品ID」覆盖：表格填了就用行级 ID，否则用类目默认模板 ID
       const refId = (row.referenceProductId && String(row.referenceProductId).trim()) || profile.templateProductId;
       log("引用模板: " + refId + (row.referenceProductId ? " (行级自定义)" : ""));
+      // B-1: 顺序重组 —— 先开 create page + 选店铺 + 备货类型，再点引用模板，最后填 facts。
+      // 用户要求「店铺选择必须在引用模板的前一步执行」。
+      await dianxiaomiAdapter.openCreatePage();
+      if (row.store) {
+        const sr = await dianxiaomiAdapter.selectStoreByName(row.store);
+        log(`店铺选择: ${sr.ok ? sr.value : "FAIL " + sr.reason}`);
+      }
+      if (row.stockType) {
+        const sk = await dianxiaomiAdapter.selectStockingTypeByLabel(row.stockType);
+        log(`备货类型: ${sk.ok ? sk.value : "FAIL " + sk.reason}`);
+      }
       await dianxiaomiAdapter.referenceProduct(refId);
       item.progress = 25;
+      // fillFixedFields 已被 B-1 改 label-based；此处仍调用以兜底 profile 默认值
       await dianxiaomiAdapter.fillFixedFields();
       item.progress = 50;
-      const applied = await dianxiaomiAdapter.fillFromFacts(facts);
+      // B-3: 引用路径默认 keepVariants=true 沿用引用模板变种；若用户表格「变种参数」列有填，
+      // server.js:4398-4432 已重建 facts.variants.matrix，fillFromFacts 会按重建结果走 fillSkuRow setVal（非 click）。
+      const fillOpts = {
+        keepVariants: row.variantOn !== true,
+        productTemplate: row.productTemplate || profile.defaultProductTemplate
+      };
+      const applied = await dianxiaomiAdapter.fillFromFacts(facts, fillOpts);
       // 记录图片/字段应用结果到日志，方便前端排错
       for (const a of applied) {
         if (a.ok === false) log(`${a.field}: FAIL ${a.reason || ""}`);

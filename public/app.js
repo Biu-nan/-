@@ -11412,22 +11412,16 @@ async function pollBlcStatus() {
     const data = await request("/api/batch-listing-create/status");
     if (!data || !data.ok) return;
 
-    // 提前恢复意图 + 运行→完成边沿检测（必须在 rows 重建 return 之前，否则首拍 running=true 会被吞掉导致错过跃迁）
+    // 恢复意图（用于 UI 展示"是否勾选了一站式上架"）
     batchListingCreateState.autoUploadOnComplete = data.autoUploadOnComplete || false;
-    {
-      const _nowRunning = !!data.running;
-      const _jobId = data.jobId;
-      if (blcPrevRunning && !_nowRunning && data.finishedAt && _jobId && !blcAutoUploadedJobs.has(_jobId)) {
-        blcAutoUploadedJobs.add(_jobId);
-        if (batchListingCreateState.autoUploadOnComplete) {
-          batchListingCreateState.ctaDismissed = true;
-          batchListingCreateState.autoUploading = true;
-          switchView("batch-listing");
-          blImportFromCreateJob(true, true);
-        }
-      }
-      blcPrevRunning = _nowRunning;
-    }
+    // 自动上架改由后端 triggerAutoUpload 统一发起（finishRun 内），前端只读取 autoUploadStatus 做 UI 展示，
+    // 不再自行触发，避免刷新/关浏览器丢任务 + 与后端双触发。
+    const _aus = data.autoUploadStatus || null;
+    batchListingCreateState.autoUploadStatus = _aus;
+    batchListingCreateState.autoUploading = !!(_aus && _aus.status === "running");
+    batchListingCreateState.autoUploadFailed = !!(_aus && _aus.status === "failed");
+    batchListingCreateState.autoUploadFinished = !!(_aus && _aus.status === "done");
+    blcPrevRunning = !!data.running;
 
     // 恢复模式：刷新页面后前端状态为空，从后端 rowsMeta + items 重建全量行（含未跑的）
     if (batchListingCreateState.rows.length === 0) {
@@ -11524,8 +11518,8 @@ function renderBatchListingCreate() {
   if (activeViewName() !== "batch-listing-create") return;
   // 页面刷新后状态会清空：只要没有行数据或任务仍在跑，就主动拉后端恢复
   // 页面刷新后状态会清空：只要没有行数据或任务仍在跑，就主动拉后端恢复
-  // 额外：blcPrevRunning 为 true 时（正在监视「运行→完成」跃迁）也继续轮询，确保完成那拍能自动触发一站式上架
-  if (batchListingCreateState.rows.length === 0 || batchListingCreateState.active || blcPrevRunning) void pollBlcStatus();
+  // 后端自动上架（autoUploadStatus.status==="running"）期间持续轮询，确保 UI 实时反映进度/完成
+  if (batchListingCreateState.rows.length === 0 || batchListingCreateState.active || blcPrevRunning || batchListingCreateState.autoUploading) void pollBlcStatus();
 
   // 实时显示 ChatGPT 生成中心跳（不被 sig 短路阻断，每秒跳动）
   const hint = root.querySelector("#blcChatgptHint");
@@ -11604,7 +11598,8 @@ function renderBatchListingCreate() {
 
       ${summary ? `<div class="bl-summary">✅ 完成：成功 ${summary.success} · 失败 ${summary.failed} · 跳过 ${summary.skipped} / 共 ${summary.total}</div>` : ""}
       ${batchListingCreateState.autoUploading ? `<div class="bl-card bl-cta"><div class="bl-import-info">⏳ 制作已完成，正在自动带入并上架…（无需操作）</div></div>` : ""}
-      ${(batchListingCreateState.summary && batchListingCreateState.summary.success > 0 && !batchListingCreateState.autoUploading && (batchListingCreateState.autoUploadFailed || !batchListingCreateState.autoUploadOnComplete)) ? `<div class="bl-card bl-cta"><button id="blc-goto-upload" class="bl-btn primary">⇥ 一键去上架（带入并自动开始）</button></div>` : ""}
+      ${batchListingCreateState.autoUploadFinished ? `<div class="bl-card bl-cta"><div class="bl-import-info">✅ 已自动带入并上架完成（引用 + 采集箱）</div></div>` : ""}
+      ${(batchListingCreateState.summary && batchListingCreateState.summary.success > 0 && !batchListingCreateState.autoUploading && !batchListingCreateState.autoUploadFinished && (batchListingCreateState.autoUploadFailed || !batchListingCreateState.autoUploadOnComplete || (batchListingCreateState.autoUploadOnComplete && !batchListingCreateState.autoUploadStatus))) ? `<div class="bl-card bl-cta"><button id="blc-goto-upload" class="bl-btn primary">⇥ 一键去上架（带入并自动开始）</button></div>` : ""}
       ${batchListingCreateState.resultUrl ? `<div class="bl-card"><a class="bl-btn primary" href="${batchListingCreateState.resultUrl}">⬇ 下载结果 xlsx（含状态/路径回填）</a></div>` : ""}
     </div>`;
 

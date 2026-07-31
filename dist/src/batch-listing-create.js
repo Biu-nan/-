@@ -53,7 +53,8 @@ export const listingCreateRunState = {
     items: {},
     rowsMeta: [],
     filePath: null,
-    autoUploadOnComplete: false
+    autoUploadOnComplete: false,
+    autoUploadStatus: null  // { startedAt, operationId, jobIds, status: "running"|"done", finishedAt, error? }
 };
 
 function col(header, re) {
@@ -206,7 +207,8 @@ async function snapshotListingCreate(jobId) {
         summary: listingCreateRunState.summary,
         items: listingCreateRunState.items,
         rowsMeta: listingCreateRunState.rowsMeta || [],
-        autoUploadOnComplete: listingCreateRunState.autoUploadOnComplete
+        autoUploadOnComplete: listingCreateRunState.autoUploadOnComplete,
+        autoUploadStatus: listingCreateRunState.autoUploadStatus
     }, null, 2), "utf8");
 }
 
@@ -289,6 +291,46 @@ async function runBatchListingCreate(jobId, rows, filePath, deps) {
             await snapshotListingCreate(jobId);
         }
         catch {}
+        // ★ 自动上架触发器：勾选 autoUploadOnComplete 时，listing 完成后后端自动串行跑引用 + 采集箱。
+        // 下沉到后端是为了避免刷新页面/关浏览器就丢任务的脆弱性（前端编排会被丢失）。
+        // operationId 用 jobId 拼接，runCollectBatchListing 已支持幂等门控（v1.6.24），不会重复拾起。
+        // 不复用 runBackground（它会污染单品 store 的 stage/message 字段）。
+        if (listingCreateRunState.autoUploadOnComplete && doneCount > 0 && deps && typeof deps.triggerAutoUpload === "function") {
+            const opId = `auto-upload-${jobId}`;
+            listingCreateRunState.autoUploadStatus = {
+                startedAt: new Date().toISOString(),
+                operationId: opId,
+                jobIds: [],
+                status: "running"
+            };
+            try { await snapshotListingCreate(jobId); } catch {}
+            const log = (m) => console.log(`[auto-upload ${jobId}]`, m);
+            void (async () => {
+                try {
+                    await deps.triggerAutoUpload({ jobId, filePath, operationId: opId, logger: log });
+                }
+                catch (e) {
+                    const msg = e instanceof Error ? e.message : String(e);
+                    console.error(`[auto-upload ${jobId}] failed:`, msg);
+                    listingCreateRunState.autoUploadStatus = {
+                        ...(listingCreateRunState.autoUploadStatus || {}),
+                        status: "failed",
+                        finishedAt: new Date().toISOString(),
+                        error: msg
+                    };
+                }
+                finally {
+                    if (!listingCreateRunState.autoUploadStatus || listingCreateRunState.autoUploadStatus.status === "running") {
+                        listingCreateRunState.autoUploadStatus = {
+                            ...(listingCreateRunState.autoUploadStatus || {}),
+                            status: "done",
+                            finishedAt: new Date().toISOString()
+                        };
+                    }
+                    try { await snapshotListingCreate(jobId); } catch {}
+                }
+            })();
+        }
     };
 
     try {
@@ -936,6 +978,7 @@ export function registerBatchListingCreateRoutes(app, deps) {
                 summary: listingCreateRunState.summary,
                 rowsMeta: listingCreateRunState.rowsMeta || [],
                 autoUploadOnComplete: listingCreateRunState.autoUploadOnComplete,
+                autoUploadStatus: listingCreateRunState.autoUploadStatus,
                 items
             });
         }

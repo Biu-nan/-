@@ -139,6 +139,28 @@ async function clickVisibleByText(page, text, timeout = 10000) {
   return { source: "generic-first", text };
 }
 
+// 转义正则元字符，用于把任意字符串塞进 RegExp 而不破坏语法
+function escapeRegex(s) {
+  return String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// 等待并获取真实页面（过滤 about:blank）。供 clickSaveAndNext 等跨标签页跳转复用。
+async function awaitRealPage(promise, timeoutMs = 10000) {
+  const start = Date.now();
+  let p = await promise;
+  if (!p) return null;
+  while (Date.now() - start < timeoutMs) {
+    if (!p.isClosed()) {
+      try {
+        const url = p.url();
+        if (url && url !== "about:blank" && !url.startsWith("about:blank")) return p;
+      } catch {}
+    }
+    await sleep(200);
+  }
+  return p.isClosed() ? null : p;
+}
+
 export class DianxiaomiAdapter {
   constructor(profile) {
     this.browser = null;
@@ -300,9 +322,12 @@ export class DianxiaomiAdapter {
   }
 
   // 引用现有产品（不保存）。引用后表单被模板源产品预填。
+  // B-1: openCreatePage() 已被前置到 server.js:runBatchListing（在选店铺/备货之前）。
+  // 这里只负责点「引用产品」按钮 + 选模板 + 填产品ID。调用方必须先确保页面已 openCreatePage + 选完店铺/备货。
   async referenceProduct(templateId = this.profile.templateProductId) {
     await this.connect();
-    await this.openCreatePage();
+    // B-1: 不再调 openCreatePage() —— 已在 runBatchListing 前置。
+    // await this.openCreatePage();
 
     // 步骤1：点「引用产品」按钮（会弹 JS confirm，由 connect() 中的 handler 自动接受）
     // 先关闭任何残留下拉（多下拉残留会合并/隐藏，导致旧 dropdown 的 <li> 被 .first() 误选 →「element is not visible」）
@@ -487,12 +512,76 @@ export class DianxiaomiAdapter {
     return { ok: true, id, value };
   }
 
+  // 选店铺名称（label 定位，引用模板前必须执行；类目选项依赖店铺先选）
+  // B-1: 新增方法替代旧 fillFixedFields 的 rc_select_0 脆弱索引定位。顺序：在 referenceProduct 之前。
+  async selectStoreByName(name) {
+    await this.connect();
+    try {
+      if (!name) return { ok: false, reason: "store-name-empty" };
+      const item = this.page.locator(".ant-form-item").filter({
+        has: this.page.locator(".ant-form-item-label label, label").filter({ hasText: /^店铺名称$/ })
+      }).first();
+      if (await item.count() === 0) return { ok: false, reason: "field-not-found" };
+      const sel = item.locator(".ant-select").first();
+      if (await sel.count() === 0) return { ok: false, reason: "select-not-found" };
+      await sel.click({ timeout: 5000, force: true }).catch(() => {});
+      await sleep(600);
+      const opt = this.page.locator(".ant-select-dropdown:visible .ant-select-item-option-content, .ant-select-dropdown:visible .ant-select-item-option")
+        .filter({ hasText: new RegExp(`^\\s*${escapeRegex(String(name))}\\s*$`) }).first();
+      if (await opt.count() > 0 && await opt.isVisible().catch(() => false)) {
+        await opt.click({ timeout: 5000 }).catch(() => {});
+        await sleep(400);
+        return { ok: true, value: name };
+      }
+      await this.page.keyboard.press("Escape").catch(() => {});
+      return { ok: false, reason: `option-not-found:${name}` };
+    } catch (e) {
+      return { ok: false, reason: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
+  // 选备货类型（label 定位，仿 fillStockingType 模式）
+  async selectStockingTypeByLabel(name) {
+    await this.connect();
+    try {
+      if (!name) return { ok: false, reason: "stocking-type-empty" };
+      const item = this.page.locator(".ant-form-item").filter({
+        has: this.page.locator(".ant-form-item-label label, label").filter({ hasText: /备货类型/ })
+      }).first();
+      if (await item.count() === 0) return { ok: false, reason: "field-not-found" };
+      const sel = item.locator(".ant-select").first();
+      if (await sel.count() === 0) return { ok: false, reason: "select-not-found" };
+      await sel.click({ timeout: 5000, force: true }).catch(() => {});
+      await sleep(600);
+      const opt = this.page.locator(".ant-select-dropdown:visible .ant-select-item-option-content, .ant-select-dropdown:visible .ant-select-item-option")
+        .filter({ hasText: new RegExp(`^\\s*${escapeRegex(String(name))}\\s*$`) }).first();
+      if (await opt.count() > 0 && await opt.isVisible().catch(() => false)) {
+        await opt.click({ timeout: 5000 }).catch(() => {});
+        await sleep(400);
+        return { ok: true, value: name };
+      }
+      await this.page.keyboard.press("Escape").catch(() => {});
+      return { ok: false, reason: `option-not-found:${name}` };
+    } catch (e) {
+      return { ok: false, reason: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
   // 填固定字段（本店配置，来自 profile.fixed）
+  // B-1: 不再用脆弱的 rc_select_0/rc_select_1 索引化定位，改 label 定位；店铺/备货已在 runBatchListing
+  // 前置选好，这里只兜底 profile 默认值（覆盖场景：表格没填但 profile 里有兜底值）。
   async fillFixedFields() {
     const fixed = this.profile.fixed || DIANXIAOMI_FIXED;
     const results = [];
-    if (fixed.storeName) results.push(await this.selectAntSelectById("rc_select_0", fixed.storeName));
-    if (fixed.stockType) results.push(await this.selectAntSelectById("rc_select_1", fixed.stockType));
+    if (fixed.storeName) {
+      // 已被前置选择时，重复选也无害（不抛错）；这里兜底 profile 默认
+      const r = await this.selectStoreByName(fixed.storeName);
+      results.push({ field: "storeName", ...r });
+    }
+    if (fixed.stockType) {
+      const r = await this.selectStockingTypeByLabel(fixed.stockType);
+      results.push({ field: "stockType", ...r });
+    }
     // sizeTemplate 留空（乳贴/箱包一般均码或不需要）
     return results;
   }
@@ -1491,7 +1580,10 @@ export class DianxiaomiAdapter {
     // 用 facts 去 toggle 会把源变种取消掉（fillSalesAttributes 的 pass2 会 uncheck 非目标项）。
     // 仅当模板行显式提供变种覆盖（variantOverride）时才允许改动变种。
     const variantOverride = !!(options && options.variantOverride);
-    const keepSourceVariants = collectMode && !variantOverride;
+    // B-3: keepVariants 选项让引用路径也能沿用引用模板自带的变种（不勾选/不重建）。
+    // 引用路径默认 keepVariants=true：表格「变种参数」列没填时，沿用引用模板带出的颜色/尺寸/SKU。
+    // 表格显式填了变种参数 → server.js 在 fillFromFacts 前重建 facts.variants.matrix，fillSkuRow 会用 setVal 写价格/库存。
+    const keepSourceVariants = variantOverride ? false : (collectMode || !!(options && options.keepVariants));
     // 表格模板「物流属性」列：非空则优先于 profile.logistics / 默认「普货」。
     const logisticsAttribute = (options && options.logisticsAttribute) ? String(options.logisticsAttribute).trim() : "";
     // 表格模板「材质」列：非空则优先于 facts.material（用户可显式指定材质）。
@@ -1917,69 +2009,13 @@ export class DianxiaomiAdapter {
   // 销售属性（颜色/尺寸）必填勾选：从 facts.variants 勾选店小秘分类 checkbox（点 label 触发 React onChange）。
   // 颜色为实操必填（靠颜色区分子 SKU）；尺寸按 facts 默认（One Size），并取消引用带出的多余项。
   // 本步骤非实验性、必跑（在 fillSkus 之前，因为「生成SKU」依赖已勾选的销售属性）。
+  // 勾选/取消颜色尺寸 checkbox
+  // B-2: 变种 SKU 点击全删。函数体改为函数体开头直接 return，跳过所有 checkbox 勾选/取消。
+  // 采集箱路径靠现有 keepSourceVariants 门控保护源变种；引用路径靠 keepVariants 选项（默认 true）保护引用模板带出的变种。
+  // 若用户在表格里手动填了「变种参数」列，server.js 会在 fillFromFacts 之前重建 facts.variants.colors/sizes/matrix，
+  // 然后由 fillSkuRow 走 setVal（非 click）写价格/库存；不依赖本函数勾选。
   async fillSalesAttributes(facts) {
-    const v = facts && facts.variants;
-    const colors = v && Array.isArray(v.colors) && v.colors.length ? v.colors : null;
-    const sizes = v && Array.isArray(v.sizes) && v.sizes.length ? v.sizes : null;
-    if (!colors && !sizes) return { ok: true, skipped: true, reason: "no-colors-or-sizes-in-facts" };
-    const norm = (s) => (s || "").toLowerCase().replace(/\s+/g, "").replace(/[()（）]/g, "").trim();
-    const isMatch = (labelText, wantList) => {
-      const t = norm(labelText);
-      const bare = t.replace(/[()（）].*$/, ""); // 去掉括号及之后的内容
-      return wantList.some((w) => {
-        const wn = norm(w);
-        return t.includes(wn) || (wn.includes(bare) && bare.length > 0) || bare.includes(wn);
-      });
-    };
-    const toggleGroup = async (groupLabel, wantList) => {
-      if (!wantList || !wantList.length) return { skipped: true };
-      // 找到属性组容器：优先匹配 label 文本为「颜色(Color)」或「尺寸(Size)」的 .ant-form-item
-      const item = this.page.locator(".ant-form-item").filter({
-        has: this.page.locator(".ant-form-item-label label, label").filter({
-          hasText: new RegExp(`^\\s*${groupLabel}\\s*(\\(Color\\)|\\(Size\\))?\\s*$`, "i")
-        })
-      }).first();
-      if (await item.count() === 0) return { error: "group-not-found" };
-      await item.scrollIntoViewIfNeeded().catch(() => {});
-      await sleep(500);
-      // 拿到该组下所有 checkbox 包装 label
-      const wraps = await item.locator(".ant-checkbox-wrapper, label:has(input[type=checkbox])").all();
-      const states = [];
-      for (const wrap of wraps) {
-        const txt = await wrap.innerText().catch(() => "");
-        const input = wrap.locator("input[type=checkbox]").first();
-        const checked = await input.isChecked().catch(() => false);
-        states.push({ wrap, text: txt.trim(), checked, want: isMatch(txt, wantList) });
-      }
-      // pass1: 勾选目标
-      let matched = 0;
-      for (const st of states) {
-        if (st.want && !st.checked) {
-          await st.wrap.click({ timeout: 5000 }).catch(() => {});
-          await sleep(600);
-          matched++;
-        } else if (st.want && st.checked) {
-          matched++;
-        }
-      }
-      // pass2: 仅当成功匹配到目标后，才取消引用带出的多余项
-      const unchecked = [];
-      if (matched > 0) {
-        for (const st of states) {
-          if (!st.want && st.checked) {
-            await st.wrap.click({ timeout: 5000 }).catch(() => {});
-            await sleep(600);
-            unchecked.push(st.text);
-          }
-        }
-      }
-      return { matched, unchecked, total: states.length };
-    };
-    const colorRes = colors ? await toggleGroup("颜色", colors) : { skipped: true };
-    const sizeRes = sizes ? await toggleGroup("尺寸", sizes) : { skipped: true };
-    const colorOk = !colorRes.error && (colorRes.matched || 0) > 0;
-    const sizeOk = !sizeRes.error && (sizeRes.skipped || (sizeRes.matched || 0) > 0);
-    return { ok: colorOk && sizeOk, colors: colorRes, sizes: sizeRes };
+    return { ok: true, skipped: true, reason: "variant-skus-deprecated" };
   }
 
   // 读取某字段当前值（Ant Select 读 selection-item，普通 input 读 value）。用于「已填则跳过，不覆盖源产品值」。
@@ -2481,7 +2517,7 @@ export class DianxiaomiAdapter {
   async ensureDefaultVariantColor() {
     await this.connect();
     try {
-      await this.clickAnchorTab("变种参数").catch(() => {});
+      // B-2: 移除 clickAnchorTab("变种参数") —— 此点击不写数据，仅切视图；保留下方 checkbox / chip 兜底。
       const item = this.page.locator(".ant-form-item").filter({
         has: this.page.locator(".ant-form-item-label label, label").filter({ hasText: /^颜色\s*\(Color\)\s*$/i })
       }).first();
@@ -2783,14 +2819,25 @@ export class DianxiaomiAdapter {
       // 显式报错而非静默跳过：缺变种矩阵 → 店小秘保存会因价格/库存为空被校验拦截
       return { ok: false, skipped: false, reason: "no-variants-in-facts", hint: "请在 SKU 规划卡点「生成组合表」（默认 One Size）并保存规划后再上架" };
     }
-    const gen = await this.page.evaluate(() => {
-      const bs = Array.from(document.querySelectorAll("button"));
-      const t = (b) => (b.innerText || b.textContent || "").trim();
-      const target = bs.find((b) => /生成\s*SKU/i.test(t(b))) || bs.find((b) => /生成销售属性|添加\s*SKU/i.test(t(b)));
-      if (target) { target.click(); return t(target); }
-      return null;
-    });
-    await sleep(1800);
+    // B-2: 生成SKU 按钮加守卫 —— 组合表已有 ≥ matrix.length 行则不点（沿用已有结构），避免无谓的破坏性重新生成。
+    const tableHasRows = await this.page.evaluate(() => {
+      try {
+        const tables = Array.from(document.querySelectorAll("table"));
+        const tb = tables.find((t) => Array.from(t.querySelectorAll("thead th, thead td")).some((h) => /供货价|库存/.test(h.innerText || "")));
+        return tb ? tb.querySelectorAll("tbody tr").length : 0;
+      } catch { return 0; }
+    }).catch(() => 0);
+    let gen = null;
+    if (tableHasRows < matrix.length) {
+      gen = await this.page.evaluate(() => {
+        const bs = Array.from(document.querySelectorAll("button"));
+        const t = (b) => (b.innerText || b.textContent || "").trim();
+        const target = bs.find((b) => /生成\s*SKU/i.test(t(b))) || bs.find((b) => /生成销售属性|添加\s*SKU/i.test(t(b)));
+        if (target) { target.click(); return t(target); }
+        return null;
+      });
+      await sleep(1800);
+    }
     const applied = [];
     for (let i = 0; i < matrix.length; i++) {
       try {
@@ -2873,7 +2920,7 @@ export class DianxiaomiAdapter {
       const bs = Array.from(document.querySelectorAll("button"));
       const t = (b) => (b.innerText || b.textContent || "").trim();
       const exact = bs.find((b) => t(b) === "保存");
-      const safe = bs.find((b) => /保存/.test(t(b)) && !/上架|发布|提交/.test(t(b)));
+      const safe = bs.find((b) => /保存/.test(t(b)) && !/上架|发布|提交|下一步/.test(t(b)));
       const target = exact || safe;
       if (!target) return null;
       target.click();
@@ -3033,8 +3080,8 @@ export class DianxiaomiAdapter {
     await this.connect();
     const TAB_HINTS = {
       "尺码表": "基本信息", "海关监管属性": "基本信息", "计件单位": "基本信息",
-      "欧盟责任人": "合规信息", "土耳其责任人": "合规信息", "品牌制造商": "合规信息",
-      "颜色": "变种参数",
+      "欧盟责任人": "合规信息", "土耳其责任人": "合规信息", "品牌制造商": "合规信息"
+      // B-2: 移除 "颜色": "变种参数" —— 「变种参数」tab 的纯视图点击已废除，颜色字段若需切换 tab 由调用方按需触发。
     };
     const core = String(label || "").replace(/[（(].*?[)）]/g, "").trim();
     const USER_SKIP_FIELDS = ["尺码表", "土耳其责任人", "来源地"];
@@ -3311,23 +3358,6 @@ export class DianxiaomiAdapter {
       };
     });
 
-    // 辅助：等待并获取真实页面（过滤 about:blank）
-    const awaitRealPage = async (promise, timeoutMs = 10000) => {
-      const start = Date.now();
-      let p = await promise;
-      if (!p) return null;
-      while (Date.now() - start < timeoutMs) {
-        if (!p.isClosed()) {
-          try {
-            const url = p.url();
-            if (url && url !== "about:blank" && !url.startsWith("about:blank")) return p;
-          } catch {}
-        }
-        await sleep(200);
-      }
-      return p.isClosed() ? null : p;
-    };
-
     // 1) 等待弹窗或映射页或编辑页出现（最多 10 秒）
     let state = null;
     for (let i = 0; i < 40; i++) {
@@ -3363,24 +3393,26 @@ export class DianxiaomiAdapter {
       return { ok: true, skipped: true, reason: "not-category-page", url: page.url(), state };
     }
 
-    // 3) 映射页：选类目
+    // 3) 映射页：选类目（STRICT 匹配表格填写的分类，未找到直接抛错）
     const categoryName = profile.category;
     if (categoryName) {
       const categorySelect = page.locator(".ant-select", {
         has: page.locator(".ant-select-selection-placeholder, .ant-select-selection-item", { hasText: /请选择分类|请选择类目|选择分类/ })
       }).first();
-      if (await categorySelect.count() > 0 && await categorySelect.isVisible().catch(() => false)) {
-        await categorySelect.click();
-        await sleep(800);
-        let option = page.locator(".ant-select-item-option-content").filter({ hasText: categoryName }).first();
-        if (await option.count() === 0) {
-          const shortName = categoryName.split(/[（(]/)[0].trim();
-          option = page.locator(".ant-select-item-option-content").filter({ hasText: shortName }).first();
-        }
-        if (await option.count() > 0) await option.click();
-        else await page.mouse.click(5, 5);
-        await sleep(600);
+      if (await categorySelect.count() === 0 || !(await categorySelect.isVisible().catch(() => false))) {
+        throw new Error(`分类映射页未找到分类下拉控件（expected for "${categoryName}"）`);
       }
+      await categorySelect.click();
+      await sleep(800);
+      // exact-label 匹配：去掉首尾空白后整词匹配，不降级到短名/包含匹配
+      const option = page.locator(".ant-select-dropdown:visible .ant-select-item-option-content")
+        .filter({ hasText: new RegExp(`^\\s*${escapeRegex(categoryName)}\\s*$`) }).first();
+      if (await option.count() === 0) {
+        await page.keyboard.press("Escape").catch(() => {});
+        throw new Error(`分类映射页未找到分类选项 "${categoryName}"（表格填写的分类与店小秘分类映射页选项不匹配）`);
+      }
+      await option.click();
+      await sleep(600);
     }
 
     // 4) 映射页：变种主题映射（非阻塞；失败只记录，不影响保存）
@@ -3417,21 +3449,30 @@ export class DianxiaomiAdapter {
       }
     }
 
-    // 5) 保存并进入下一步
+    // 5) 保存并进入下一步（共用 clickSaveAndNext 方法，采集/引用路径都可用）
+    await this.clickSaveAndNext();
+
+    return { ok: true, url: this.page.url(), mapped, state };
+  }
+
+  // 点击「保存，下一步 / 保存并下一步」按钮，处理新标签页跳转。
+  // 共用于采集箱路径（编辑分类后）和引用路径（如需新增分类中间页）。
+  async clickSaveAndNext() {
+    await this.connect();
+    let page = this.page;
     const context = page.context();
     const newPagePromise = context.waitForEvent("page", { timeout: 10000 }).catch(() => null);
     await page.locator("button").filter({ hasText: /保存[，并]?下一步|保存下一步/ }).first().click({ timeout: 8000 }).catch(() => {
       return clickVisibleByText(page, "保存，下一步", 8000);
     });
-    let newPage = await awaitRealPage(newPagePromise, 8000);
+    const newPage = await awaitRealPage(newPagePromise, 8000);
     if (newPage && !newPage.isClosed()) {
-      page = newPage;
       this.page = newPage;
+      page = newPage;
     }
     await page.waitForLoadState("networkidle").catch(() => {});
     await sleep(3000);
-
-    return { ok: true, url: page.url(), mapped, state };
+    return { ok: true, url: page.url() };
   }
 
   // 探索：dump 采集箱列表页结构（搜索框 / 表头 / 编辑按钮 / 所有按钮文案），
