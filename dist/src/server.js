@@ -385,6 +385,7 @@ registerBatchListingCreateRoutes(app, {
             productName: col(/^(productName|产品名|产品名称|商品名)$/),
             uploadMode: col(/^(uploadMode|上架模式|上架类型)$/),
             searchTitle: col(/^(searchTitle|搜索标题|采集箱标题)$/),
+            category: col(/^(category|类目|产品类目|产品分类)$/),
             productTemplate: col(/^(productTemplate|产品模板|模板)$/),
             logisticsAttribute: col(/^(logisticsAttribute|物流属性|物流)$/),
             material: col(/^(material|材质)$/),
@@ -405,6 +406,7 @@ registerBatchListingCreateRoutes(app, {
             const dir = path.join(COMPLETED_PRODUCTS_DIR, productName);
             const overrides = {
                 searchTitle: get("searchTitle") || undefined,
+                category: get("category") || undefined,
                 productTemplate: get("productTemplate") || undefined,
                 logisticsAttribute: get("logisticsAttribute") || undefined,
                 material: get("material") || undefined,
@@ -3586,8 +3588,10 @@ async function buildCollectRowForDir(dir, name, overrides) {
         }
     }
     if (!facts) return null;
-    let category = "ruTie";
-    try { category = await detectCategory(dir); } catch { /* ignore */ }
+    // 优先使用表格显式填写的类目（overrides.category）；未填 / "auto" 才走 detectCategory 自动识别兜底。
+    const explicitCat = (overrides.category && overrides.category !== "auto") ? String(overrides.category).trim() : "";
+    let category = explicitCat || "ruTie";
+    if (!explicitCat) { try { category = await detectCategory(dir); } catch { /* ignore */ } }
     const profile = getDianxiaomiProfile(category);
     const defaultProductTemplate = (profile && profile.defaultProductTemplate) || "";
     const title = (facts.title && (facts.title.zh || facts.title.en)) || "";
@@ -3611,8 +3615,10 @@ async function buildCollectRowForDir(dir, name, overrides) {
 // 引用模式行：靠 referenceProductId 引用已建商品；同时透传产品模板/物流/材质（adapter ruTie 分支支持）
 async function buildReferenceRowForDir(dir, name, overrides) {
     overrides = overrides || {};
-    let category = "ruTie";
-    try { category = await detectCategory(dir); } catch { /* ignore */ }
+    // 优先使用表格显式填写的类目（overrides.category）；未填 / "auto" 才走 detectCategory 自动识别兜底。
+    const explicitCat = (overrides.category && overrides.category !== "auto") ? String(overrides.category).trim() : "";
+    let category = explicitCat || "ruTie";
+    if (!explicitCat) { try { category = await detectCategory(dir); } catch { /* ignore */ } }
     const profile = getDianxiaomiProfile(category);
     return {
         packageName: name,

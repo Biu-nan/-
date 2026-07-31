@@ -11353,10 +11353,18 @@ async function blcStart(autoUpload) {
     return;
   }
   try {
+    // 收集 UI 表格里手填的「类目」覆盖项（productName -> category），随 start 一并提交。
+    // 后端会把它写回 input.xlsx 的 category 列，使上架流程按指定类目选，而非自动猜测。
+    const categoryOverrides = {};
+    document.querySelectorAll(".blc-cat").forEach((el) => {
+      const name = (el.dataset.name || "").trim();
+      const val = (el.value || "").trim();
+      if (name && val) categoryOverrides[name] = val;
+    });
     await request("/api/batch-listing-create/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobId: batchListingCreateState.jobId, autoUpload })
+      body: JSON.stringify({ jobId: batchListingCreateState.jobId, autoUpload, categoryOverrides })
     });
     batchListingCreateState.busy = true;
     batchListingCreateState.active = true;
@@ -11577,12 +11585,13 @@ function renderBatchListingCreate() {
       <div class="bl-card">
         <div class="bl-table-wrap">
           <table class="bl-table">
-            <thead><tr><th>产品名</th><th>模式</th><th>状态</th><th>阶段</th><th>进度</th><th>输出目录</th><th>产物</th><th>说明</th></tr></thead>
+            <thead><tr><th>产品名</th><th>模式</th><th>类目</th><th>状态</th><th>阶段</th><th>进度</th><th>输出目录</th><th>产物</th><th>说明</th></tr></thead>
             <tbody>
               ${rows.map((r) => `
                 <tr class="${r.status === "failed" || r.status === "skipped" ? "status-failed" : ""}">
                   <td>${blcEscapeHtml(r.productName)}</td>
                   <td>${blcEscapeHtml(r.mode)}</td>
+                  <td><input type="text" class="blc-cat" data-name="${blcEscapeHtml(r.productName)}" value="${blcEscapeHtml(r.category || "")}" placeholder="如 xiangBaoFold / 精准类目" ${batchListingCreateState.busy ? "disabled" : ""}/></td>
                   <td><span class="bl-badge ${r.status || "idle"}">${BLC_STATUS_LABEL[r.status] || "待处理"}</span></td>
                   <td>${blcEscapeHtml(r.currentStage)}</td>
                   <td><div class="progress"><span style="width:${Math.max(0, Math.min(100, r.progress || 0))}%"></span></div></td>

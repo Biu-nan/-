@@ -844,7 +844,7 @@ export function registerBatchListingCreateRoutes(app, deps) {
                 await store.update({ autoRun: false }).catch(() => {});
             }
             await normalizeStuckRunningState();
-            const { jobId, autoUpload } = request.body || {};
+            const { jobId, autoUpload, categoryOverrides } = request.body || {};
             if (!jobId || !listingCreateRunState.filePath || listingCreateRunState.jobId !== jobId) {
                 return response.status(400).json({ ok: false, error: "jobId 无效或文件未上传" });
             }
@@ -866,6 +866,30 @@ export function registerBatchListingCreateRoutes(app, deps) {
             const wb = XLSX.read(buf, { type: "array" });
             const ws = wb.Sheets[wb.SheetNames[0]];
             const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+            // 将 UI 表格手填的「类目」覆盖项写回 input.xlsx 的 category 列，使上架按指定类目选（而非自动猜测）。
+            // UI 未填则保持 xlsx 原值；categoryOverrides 为空或无效则不改动文件。
+            if (categoryOverrides && typeof categoryOverrides === "object" && Object.keys(categoryOverrides).length) {
+                const header = (aoa[0] || []).map((h) => String(h || "").trim());
+                let idxCat = header.findIndex((h) => /^(category|类目|产品类目|产品分类)$/.test(h));
+                if (idxCat < 0) { aoa[0] = header.concat(["category"]); idxCat = header.length; }
+                const idxName = header.findIndex((h) => /^(productName|产品名|产品名称|商品名)$/.test(h));
+                if (idxName >= 0) {
+                    for (let i = 1; i < aoa.length; i++) {
+                        const row = aoa[i];
+                        if (!row) continue;
+                        const name = String(row[idxName] || "").trim();
+                        const ov = (categoryOverrides[name] || "").toString().trim();
+                        if (ov) {
+                            if (!Array.isArray(row)) aoa[i] = [];
+                            aoa[i][idxCat] = ov;
+                        }
+                    }
+                    const newWs = XLSX.utils.aoa_to_sheet(aoa);
+                    wb.Sheets[wb.SheetNames[0]] = newWs;
+                    const outBuf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+                    await writeFile(listingCreateRunState.filePath, outBuf);
+                }
+            }
             const { rows, warnings } = parseRows(aoa);
             if (!rows.length) {
                 return response.status(400).json({ ok: false, error: "表格中没有有效行", warnings });
