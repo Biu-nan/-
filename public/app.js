@@ -10962,7 +10962,7 @@ function blImportInfoHtml(info) {
     return `✅ 带入 ${info.added || 0} 行（合并 ${info.merged || 0}）· 跳过已上架 ${info.dedupCount || 0} · 跳过失败 ${info.skipped || 0}` + (info.mode ? `（${info.mode === "reference" ? "引用" : "采集箱"}模式）` : "");
 }
 
-async function blImportFromCreateJob(silent, chainStart) {
+async function blImportFromCreateJob(silent, chainStart, _depth = 0) {
     if (batchListingState.importing) return;
     batchListingState.importing = true;
     renderBatchListing();
@@ -10975,6 +10975,10 @@ async function blImportFromCreateJob(silent, chainStart) {
             body: JSON.stringify({ excludeUploaded: !includeUploaded })
         });
         if (!data || data.running) {
+            if (silent && chainStart && _depth < 3) {
+                setTimeout(() => void blImportFromCreateJob(true, true, _depth + 1), 1500);
+                return;
+            }
             batchListingState.importInfo = { running: true, msg: "制作作业仍在运行中，请稍后再试" };
             return;
         }
@@ -11352,7 +11356,7 @@ async function blcStart(autoUpload) {
     await request("/api/batch-listing-create/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobId: batchListingCreateState.jobId })
+      body: JSON.stringify({ jobId: batchListingCreateState.jobId, autoUpload })
     });
     batchListingCreateState.busy = true;
     batchListingCreateState.active = true;
@@ -11408,6 +11412,23 @@ async function pollBlcStatus() {
     const data = await request("/api/batch-listing-create/status");
     if (!data || !data.ok) return;
 
+    // 提前恢复意图 + 运行→完成边沿检测（必须在 rows 重建 return 之前，否则首拍 running=true 会被吞掉导致错过跃迁）
+    batchListingCreateState.autoUploadOnComplete = data.autoUploadOnComplete || false;
+    {
+      const _nowRunning = !!data.running;
+      const _jobId = data.jobId;
+      if (blcPrevRunning && !_nowRunning && data.finishedAt && _jobId && !blcAutoUploadedJobs.has(_jobId)) {
+        blcAutoUploadedJobs.add(_jobId);
+        if (batchListingCreateState.autoUploadOnComplete) {
+          batchListingCreateState.ctaDismissed = true;
+          batchListingCreateState.autoUploading = true;
+          switchView("batch-listing");
+          blImportFromCreateJob(true, true);
+        }
+      }
+      blcPrevRunning = _nowRunning;
+    }
+
     // 恢复模式：刷新页面后前端状态为空，从后端 rowsMeta + items 重建全量行（含未跑的）
     if (batchListingCreateState.rows.length === 0) {
       const meta = Array.isArray(data.rowsMeta) ? data.rowsMeta : [];
@@ -11452,6 +11473,7 @@ async function pollBlcStatus() {
         batchListingCreateState.active = data.running || false;
         batchListingCreateState.summary = data.summary || null;
         batchListingCreateState.finishedAt = data.finishedAt || null;
+        batchListingCreateState.autoUploadOnComplete = data.autoUploadOnComplete || false;
         if (batchListingCreateState.summary && batchListingCreateState.jobId) {
           batchListingCreateState.resultUrl = "/api/batch-listing-create/download?jobId=" + encodeURIComponent(batchListingCreateState.jobId);
         }
@@ -11475,27 +11497,14 @@ async function pollBlcStatus() {
     }
     if (data.summary) {
       batchListingCreateState.summary = data.summary;
+      batchListingCreateState.autoUploadOnComplete = data.autoUploadOnComplete || false;
       batchListingCreateState.active = false;
       batchListingCreateState.busy = false;
       if (batchListingCreateState.jobId) {
         batchListingCreateState.resultUrl = "/api/batch-listing-create/download?jobId=" + encodeURIComponent(batchListingCreateState.jobId);
       }
     }
-    // 自动一站式：检测「运行 → 完成」跃迁，仅一次自动跳上架视图并链式带入+开始
-    const nowRunning = !!data.running;
-    const jobId = data.jobId;
-    if (blcPrevRunning && !nowRunning && data.finishedAt && jobId && !blcAutoUploadedJobs.has(jobId)) {
-      blcAutoUploadedJobs.add(jobId);
-      if (batchListingCreateState.autoUploadOnComplete) {
-        // 「并上架」意图：运行→完成，自动跳上架视图并链式带入+开始
-        batchListingCreateState.ctaDismissed = true;
-        batchListingCreateState.autoUploading = true;
-        switchView("batch-listing");
-        blImportFromCreateJob(true, true);
-      }
-      // 「只制作」意图：不自动上架，完成页显示「一键去上架」供手动触发
-    }
-    blcPrevRunning = nowRunning;
+    // （运行→完成跃迁检测已上移到 data 解析之后、rows 重建 return 之前执行）
   } catch (_e) {
     // 轮询静默失败，下一秒重试
   }
@@ -11595,7 +11604,7 @@ function renderBatchListingCreate() {
 
       ${summary ? `<div class="bl-summary">✅ 完成：成功 ${summary.success} · 失败 ${summary.failed} · 跳过 ${summary.skipped} / 共 ${summary.total}</div>` : ""}
       ${batchListingCreateState.autoUploading ? `<div class="bl-card bl-cta"><div class="bl-import-info">⏳ 制作已完成，正在自动带入并上架…（无需操作）</div></div>` : ""}
-      ${(batchListingCreateState.summary && batchListingCreateState.summary.success > 0 && !batchListingCreateState.ctaDismissed && !batchListingCreateState.autoUploading && (batchListingCreateState.autoUploadFailed || !batchListingCreateState.autoUploadOnComplete)) ? `<div class="bl-card bl-cta"><button id="blc-goto-upload" class="bl-btn primary">⇥ 一键去上架（带入并自动开始）</button></div>` : ""}
+      ${(batchListingCreateState.summary && batchListingCreateState.summary.success > 0 && !batchListingCreateState.autoUploading && (batchListingCreateState.autoUploadFailed || !batchListingCreateState.autoUploadOnComplete)) ? `<div class="bl-card bl-cta"><button id="blc-goto-upload" class="bl-btn primary">⇥ 一键去上架（带入并自动开始）</button></div>` : ""}
       ${batchListingCreateState.resultUrl ? `<div class="bl-card"><a class="bl-btn primary" href="${batchListingCreateState.resultUrl}">⬇ 下载结果 xlsx（含状态/路径回填）</a></div>` : ""}
     </div>`;
 

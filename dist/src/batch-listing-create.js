@@ -52,7 +52,8 @@ export const listingCreateRunState = {
     summary: null,
     items: {},
     rowsMeta: [],
-    filePath: null
+    filePath: null,
+    autoUploadOnComplete: false
 };
 
 function col(header, re) {
@@ -204,7 +205,8 @@ async function snapshotListingCreate(jobId) {
         overallProgress: listingCreateRunState.overallProgress,
         summary: listingCreateRunState.summary,
         items: listingCreateRunState.items,
-        rowsMeta: listingCreateRunState.rowsMeta || []
+        rowsMeta: listingCreateRunState.rowsMeta || [],
+        autoUploadOnComplete: listingCreateRunState.autoUploadOnComplete
     }, null, 2), "utf8");
 }
 
@@ -684,6 +686,7 @@ export async function recoverListingCreateState() {
         listingCreateRunState.summary = saved.summary || null;
         listingCreateRunState.items = saved.items || {};
         listingCreateRunState.rowsMeta = Array.isArray(saved.rowsMeta) ? saved.rowsMeta : [];
+        listingCreateRunState.autoUploadOnComplete = saved.autoUploadOnComplete || false;
         // 兜底：如果 state.json 没存 filePath，从同目录反查 input.xlsx
         if (saved.filePath) {
             listingCreateRunState.filePath = saved.filePath;
@@ -799,7 +802,7 @@ export function registerBatchListingCreateRoutes(app, deps) {
                 await store.update({ autoRun: false }).catch(() => {});
             }
             await normalizeStuckRunningState();
-            const { jobId } = request.body || {};
+            const { jobId, autoUpload } = request.body || {};
             if (!jobId || !listingCreateRunState.filePath || listingCreateRunState.jobId !== jobId) {
                 return response.status(400).json({ ok: false, error: "jobId 无效或文件未上传" });
             }
@@ -826,6 +829,7 @@ export function registerBatchListingCreateRoutes(app, deps) {
                 return response.status(400).json({ ok: false, error: "表格中没有有效行", warnings });
             }
 
+            listingCreateRunState.autoUploadOnComplete = !!autoUpload;
             runBackground(() => runBatchListingCreate(jobId, rows, listingCreateRunState.filePath, deps));
             return response.json({ ok: true, jobId, accepted: true });
         }
@@ -846,7 +850,7 @@ export function registerBatchListingCreateRoutes(app, deps) {
                 await recoverListingCreateState();
             }
             await normalizeStuckRunningState();
-            const { jobId } = request.body || {};
+            const { jobId, autoUpload } = request.body || {};
             if (!jobId || !listingCreateRunState.filePath || listingCreateRunState.jobId !== jobId) {
                 return response.status(400).json({ ok: false, error: "jobId 无效或文件未上传" });
             }
@@ -931,6 +935,7 @@ export function registerBatchListingCreateRoutes(app, deps) {
                 overallProgress: listingCreateRunState.overallProgress,
                 summary: listingCreateRunState.summary,
                 rowsMeta: listingCreateRunState.rowsMeta || [],
+                autoUploadOnComplete: listingCreateRunState.autoUploadOnComplete,
                 items
             });
         }
