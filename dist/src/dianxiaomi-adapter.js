@@ -3475,6 +3475,69 @@ export class DianxiaomiAdapter {
     return { ok: true, url: page.url() };
   }
 
+  // ★ 引用路径分类更改（C-2）：点击「更换分类」链接，在弹窗里搜索 xlsx 填写的精确类目标签，点结果后
+  //   关弹窗，再点主页面「保存，下一步」。仅当 row.category 不是已知 profile key 时调用（即用户填了
+  //   精确叶子类目如「便携式折叠包」而非 profile key 如「xiangBaoFold」）。
+  async changeCategoryTo(categoryName) {
+    if (!categoryName || !String(categoryName).trim()) {
+      return { ok: true, skipped: true, reason: "no-category-specified" };
+    }
+    const target = String(categoryName).trim();
+    await this.connect();
+    const page = this.page;
+    // 1) 点「更换分类」链接（exact text）
+    const changeLink = page.locator("a, button, span").filter({ hasText: /^更换分类$/ }).first();
+    try {
+      await changeLink.waitFor({ state: "visible", timeout: 5000 });
+    } catch {
+      return { ok: false, reason: "change-category-link-not-found", target };
+    }
+    await changeLink.click();
+    // 2) 等弹窗
+    const modal = page.locator(".ant-modal:visible").first();
+    try {
+      await modal.waitFor({ state: "visible", timeout: 10000 });
+    } catch {
+      return { ok: false, reason: "category-modal-not-opened", target };
+    }
+    await sleep(500);
+    // 3) 搜索框填值 + 点搜索
+    const searchInput = modal.locator('input[placeholder*="搜索"], input[type="text"]').first();
+    try {
+      await searchInput.waitFor({ state: "visible", timeout: 5000 });
+    } catch {
+      return { ok: false, reason: "search-input-not-found", target };
+    }
+    await searchInput.fill(target);
+    const searchBtn = modal.locator("button").filter({ hasText: /^搜索$/ }).first();
+    await searchBtn.click();
+    // 4) 等搜索结果，点含目标文本的那一条（exact 包含，避免匹配到面包屑父类目）
+    await sleep(1200);
+    const resultItem = modal.locator("text=" + target).first();
+    try {
+      await resultItem.waitFor({ state: "visible", timeout: 5000 });
+    } catch {
+      return { ok: false, reason: "search-result-not-found", target };
+    }
+    await resultItem.click();
+    await sleep(500);
+    // 5) 点弹窗底部「选择」确认（部分 UI 是单击结果即关，部分需要二次确认；都兼容）
+    const selectBtn = modal.locator("button").filter({ hasText: /^选择$/ }).first();
+    if (await selectBtn.isVisible().catch(() => false)) {
+      await selectBtn.click();
+    }
+    // 6) 等弹窗关
+    try {
+      await modal.waitFor({ state: "hidden", timeout: 10000 });
+    } catch {
+      /* 兼容：有些 UI 关得很快或自动关，不阻断 */
+    }
+    await sleep(500);
+    // 7) 主页面点「保存，下一步」收尾（与采集路径 collectDraftCategory 末尾 clickSaveAndNext 一致）
+    const sn = await this.clickSaveAndNext();
+    return { ok: true, value: target, saveNext: sn };
+  }
+
   // 探索：dump 采集箱列表页结构（搜索框 / 表头 / 编辑按钮 / 所有按钮文案），
   // 供前端「探索采集箱」按钮调用，便于在真实 Chrome+店小秘登录后校准导航选择器。
   async exploreCollectBox() {

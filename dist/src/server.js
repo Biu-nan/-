@@ -4540,6 +4540,21 @@ async function runBatchListing(rows) {
         log(`备货类型: ${sk.ok ? sk.value : "FAIL " + sk.reason}`);
       }
       await dianxiaomiAdapter.referenceProduct(refId);
+      // C-2: 引用路径分类更改——xlsx「category」列若是精确叶子类目标签（如「便携式折叠包」）而非已知
+      // profile key（如 xiangBao/xiangBaoFold/ruTie），则引用模板后点「更换分类」弹窗搜索替换。profile 仍走
+      // 上方 detectCategory / getDianxiaomiProfile 派生，分类选择是独立维度。
+      {
+        const rawCat = row.category && String(row.category).trim();
+        const isProfileKey = rawCat && DIANXIAOMI_CATEGORY_PROFILES[rawCat];
+        if (rawCat && rawCat !== "auto" && !isProfileKey) {
+          try {
+            const cc = await dianxiaomiAdapter.changeCategoryTo(rawCat);
+            log(`分类更改: ${cc.ok ? (cc.value || rawCat) : "FAIL " + (cc.reason || "")}`);
+          } catch (ccErr) {
+            log(`分类更改异常: ${ccErr && ccErr.message ? ccErr.message : ccErr}`);
+          }
+        }
+      }
       item.progress = 25;
       // fillFixedFields 已被 B-1 改 label-based；此处仍调用以兜底 profile 默认值
       await dianxiaomiAdapter.fillFixedFields();
