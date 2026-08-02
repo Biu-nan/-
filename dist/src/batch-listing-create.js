@@ -80,7 +80,7 @@ function parseRows(aoa) {
     const header = (aoa[0] || []).map((h) => String(h || "").trim());
     const idxName = col(header, /^(productName|产品名|产品名称|商品名)$/);
     const idxMode = col(header, /^(mode|模式|流程模式)$/);
-    const idxCategory = col(header, /^(category|类目|类别)$/);
+    const idxCategory = col(header, /^(category|类目|商品类目|产品类目|产品分类)$/);
     const idxNotes = col(header, /^(notes|备注|说明)$/);
     const idxUrls = col(header, /^(imageUrls|图片链接|图片地址|图片URL|图片网址)$/);
     const idxLocal = col(header, /^(localImages|本地图片|本地图|本地路径|本地文件)$/);

@@ -11302,8 +11302,8 @@ const BLC_STATUS_LABEL = {
 };
 
 function blcDownloadTemplate() {
-  const header = ["产品名", "图片链接1", "图片链接2", "图片链接3", "图片链接", "本地图片1", "本地图片2", "本地图片3", "本地图片", "模式", "类目", "备注", "上架模式", "搜索标题", "产品模板", "物流属性", "材质", "引用商品ID", "变种主题映射"];
-  const example = ["示例产品(上传前删掉此行)", "https://example.com/img1.jpg", "https://example.com/img2.jpg", "", "https://example.com/extra.jpg;https://example.com/extra2.jpg", "C:\\Users\\你的用户名\\Pictures\\a.jpg", "D:\\产品图\\b.png", "", "D:\\产品图\\c.jpg;D:\\产品图\\d.webp", "完整listing", "", "可选备注", "采集箱", "在店小秘搜到的真实标题", "箱包配件-包饰", "普货", "合金", "", "颜色:Color;尺寸:Size"];
+  const header = ["产品名", "图片链接1", "图片链接2", "图片链接3", "图片链接", "本地图片1", "本地图片2", "本地图片3", "本地图片", "模式", "商品类目", "备注", "上架模式", "搜索标题", "产品模板", "物流属性", "材质", "引用商品ID", "变种主题映射"];
+  const example = ["示例产品(上传前删掉此行)", "https://example.com/img1.jpg", "https://example.com/img2.jpg", "", "https://example.com/extra.jpg;https://example.com/extra2.jpg", "C:\\Users\\你的用户名\\Pictures\\a.jpg", "D:\\产品图\\b.png", "", "D:\\产品图\\c.jpg;D:\\产品图\\d.webp", "完整listing", "xiangBaoFold", "可选备注", "采集箱", "在店小秘搜到的真实标题", "箱包配件-包饰", "普货", "合金", "", "颜色:Color;尺寸:Size"];
   downloadXlsx([header, example], "批量制作模板.xlsx");
 }
 

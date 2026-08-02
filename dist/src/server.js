@@ -385,7 +385,7 @@ registerBatchListingCreateRoutes(app, {
             productName: col(/^(productName|产品名|产品名称|商品名)$/),
             uploadMode: col(/^(uploadMode|上架模式|上架类型)$/),
             searchTitle: col(/^(searchTitle|搜索标题|采集箱标题)$/),
-            category: col(/^(category|类目|产品类目|产品分类)$/),
+            category: col(/^(category|类目|商品类目|产品类目|产品分类)$/),
             productTemplate: col(/^(productTemplate|产品模板|模板)$/),
             logisticsAttribute: col(/^(logisticsAttribute|物流属性|物流)$/),
             material: col(/^(material|材质)$/),
