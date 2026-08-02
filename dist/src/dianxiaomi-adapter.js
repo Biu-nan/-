@@ -3609,6 +3609,84 @@ export class DianxiaomiAdapter {
     return { ok: true, value: res.value, saveNext: sn };
   }
 
+  // 采集箱每行「编辑保存」后置：行内「更多 → 添加备注（默认 待上架）→ 提交」，再点操作列「移入待发布」。
+  // 选「操作」列直链「移入待发布」而不是「更多」下拉里的「保存并移入待发布」：前者一步、不依赖下拉可见性。
+  // 失败 try/catch 包裹不抛——本步为辅助，不阻断 done 状态；失败原因回传 server 写进 item.reason。
+  async markCollectRowAsPending(searchTitle, opts = {}) {
+    const remark = (opts.remark || "待上架").toString().trim();
+    const skipRemark = !!opts.skipRemark;
+    const skipMove = !!opts.skipMoveToPending;
+    const log = opts.log || ((m) => console.log("[dianxiaomi] markCollect: " + m));
+    const out = { ok: true, remark: null, movedToPending: null, steps: [], reason: "" };
+    try {
+      log(`打开采集箱 (searchTitle=${searchTitle})`);
+      await this.openCollectBox();
+      out.steps.push("openCollectBox");
+      log("搜索标题");
+      await this.searchCollectBox(searchTitle);
+      out.steps.push("search");
+      // 等表格行出现（vxe body）
+      await this.page.waitForSelector(".vxe-body--row", { timeout: 10000 }).catch(() => {});
+      await sleep(800);
+      const rowCount = await this.page.locator(".vxe-body--row").count();
+      if (!rowCount) throw new Error(`采集箱搜索后无行 (searchTitle=${searchTitle})`);
+      log(`匹配 ${rowCount} 行，取第 1 行`);
+      // 3) 备注
+      if (!skipRemark) {
+        log("更多→添加备注");
+        const moreBtn = this.page.locator(".vxe-body--row").first().locator("button.ant-dropdown-trigger").last();
+        await moreBtn.click({ timeout: 8000, force: true });
+        await this.page.waitForTimeout(800);
+        const addMemoItem = this.page.locator(".ant-dropdown-menu-item:visible").filter({ hasText: "添加备注" }).first();
+        await addMemoItem.click({ timeout: 5000, force: true });
+        await this.page.waitForTimeout(1500);
+        const ta = this.page.locator("textarea[placeholder*='请填写您要备注的内容']:visible").first();
+        await ta.fill(remark, { timeout: 5000 });
+        // 提交按钮（在 ant-modal 里精确匹配「提交」字样，避免误中主页面顶部「保存」等）
+        const submitBtn = this.page.locator(".ant-modal:visible button").filter({ hasText: /^提交$/ }).first();
+        await submitBtn.click({ timeout: 5000, force: true });
+        // 等 modal 关闭
+        try { await this.page.waitForFunction(() => !document.querySelector(".ant-modal-wrap:not([style*='display: none'])"), null, { timeout: 6000 }); }
+        catch (ex) { log(`备注 modal 关闭超时(非致命): ${ex.message}`); }
+        out.remark = remark;
+        out.steps.push("remark");
+        log("备注提交完成");
+      }
+      // 4) 移入待发布（操作列直链按钮）
+      if (!skipMove) {
+        // DOM 可能在备注后刷新（搜索+列表可能在某些情况下重新渲染），重新定位
+        await this.page.waitForTimeout(500);
+        await this.page.waitForSelector(".vxe-body--row", { timeout: 5000 }).catch(() => {});
+        log("操作列→移入待发布");
+        const moveBtn = this.page.locator(".vxe-body--row").first().locator("button").filter({ hasText: /^移入待发布$/ }).first();
+        const hasMove = await moveBtn.count();
+        if (!hasMove) {
+          // 草稿状态可能没有「移入待发布」（已是待发布/已发布）—— 视为跳过非错误
+          log("操作列无「移入待发布」按钮（已非草稿状态？），跳过移入");
+          out.movedToPending = "skipped";
+        } else {
+          await moveBtn.click({ timeout: 8000, force: true });
+          await this.page.waitForTimeout(1200);
+          // 二次确认：ant-modal-confirm / 简化 ant-modal
+          const confirmBtn = this.page.locator(".ant-modal-confirm-btns button, .ant-modal:visible button").filter({ hasText: /^确定$|^确认$/ }).first();
+          if (await confirmBtn.count() > 0) {
+            log("二次确认→确定");
+            await confirmBtn.click({ timeout: 5000, force: true });
+            await this.page.waitForTimeout(1000);
+          }
+          out.movedToPending = true;
+        }
+        out.steps.push("moveToPending");
+      }
+      return out;
+    } catch (e) {
+      out.ok = false;
+      out.reason = e && e.message ? e.message : String(e);
+      log(`FAILED at step ${out.steps.join("→") || "(init)"}: ${out.reason}`);
+      return out;
+    }
+  }
+
   // 探索：dump 采集箱列表页结构（搜索框 / 表头 / 编辑按钮 / 所有按钮文案），
   // 供前端「探索采集箱」按钮调用，便于在真实 Chrome+店小秘登录后校准导航选择器。
   async exploreCollectBox() {

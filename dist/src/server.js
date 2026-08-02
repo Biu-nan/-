@@ -4265,8 +4265,21 @@ async function processCollectBatchRow(row, item, log) {
     const criticalFailed = criticalFailures.length > 0 || readbackIssues.length > 0;
     if (saved && saved.saved && !criticalFailed) {
       dianxiaomiAdapter.setStage("采集箱上架·完成", name);
+      // 后置：在采集箱行添加备注「待上架」并「移入待发布」。非致命：失败仅追加 reason，不阻断 done。
+      try {
+        const markRes = await dianxiaomiAdapter.markCollectRowAsPending(row.searchTitle, { remark: "待上架" });
+        const markMsg = `markCollect:${markRes.ok ? "ok" : "FAIL"} steps=${markRes.steps.join(",") || "-"} remark=${markRes.remark || "-"} moved=${markRes.movedToPending ?? "-"}${markRes.reason ? " reason=" + markRes.reason : ""}`;
+        log(markMsg);
+        if (!markRes.ok) {
+          item.reason = [saved.url || saved.message || "已存草稿(采集箱，未发布)", `markCollect-fail:${markRes.reason}`].filter(Boolean).join(" | ");
+        } else {
+          item.reason = saved.url || saved.message || "已存草稿(采集箱，未发布)";
+        }
+      } catch (ex) {
+        log(`markCollect: EXC ${ex.message}`);
+        item.reason = saved.url || saved.message || "已存草稿(采集箱，未发布)";
+      }
       item.status = "done";
-      item.reason = saved.url || saved.message || "已存草稿(采集箱，未发布)";
       item.progress = 100;
       return "done";
     } else if (saved && saved.saved && criticalFailed) {
