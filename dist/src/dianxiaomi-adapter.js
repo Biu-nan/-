@@ -3454,6 +3454,9 @@ export class DianxiaomiAdapter {
       const rows = page.locator("table tbody tr");
       const rowCount = await rows.count();
       // 第一遍：扫页面所有「对应速卖通变种主题」select 是否已全部填好
+      // 「已映射」= 必填项全部已填：selText 非空、不是 placeholder、且等于目标值。
+      // 之前的写法误把 selText===target 与 placeholder 都塞进 continue 分支，导致 placeholder=true（未填）也被 skip，
+      // allMapped 永远 = true → 循环永不填。即便配合下面的 for 兜底，placeholder 行也无法进入自动填。
       let allMapped = true;
       if (rowCount > 0) {
         const rowSummary = await rows.evaluateAll((rs, map) => {
@@ -3467,14 +3470,15 @@ export class DianxiaomiAdapter {
         }, variantThemeMap);
         for (const it of rowSummary) {
           if (!it.target) continue;
-          // 已填 = 既有值、且不是 placeholder、且匹配目标
-          if (it.placeholder || !it.selText || it.selText === it.target) continue;
-          allMapped = false;
-          break;
+          // 未填 或 已填不等于目标 → 视为未映射
+          if (it.placeholder || !it.selText || it.selText !== it.target) {
+            allMapped = false;
+            break;
+          }
         }
       }
       if (allMapped && rowCount > 0) {
-        step("variant theme map already auto-filled, skip loop");
+        console.log("[dianxiaomi] 映射页：变种主题已自动填好，跳过循环");
       } else {
         for (let i = 0; i < rowCount; i++) {
           try {
