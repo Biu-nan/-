@@ -352,6 +352,45 @@ export class DianxiaomiAdapter {
     } catch { /* 静默吞错 — 本步为防御性清场 */ }
   }
 
+  // 全表模糊匹配 searchTitle 第一行（score > 0 即返回 index；-1 = 无匹配）。
+  // 复用 openCollectDraftByTitle 的 score 算法思想：cell 文本含 searchTitle 任一关键词加分；
+  // 完全相等/包含加分更高。不依赖 searchCollectBox（它对完整英文长标题搜不到 0 行）。
+  async _findFirstRowByScore(title) {
+    if (!title || !title.trim()) return -1;
+    await this.connect();
+    return await this.page.evaluate((t) => {
+      const norm = (s) => (s || "").replace(/\s+/g, "").trim().toLowerCase();
+      const keywords = (s) => norm(s).split(/[^\u4e00-\u9fa5a-z0-9]+/).filter(Boolean);
+      const tk = keywords(t);
+      if (!tk.length) return -1;
+      const rows = Array.from(document.querySelectorAll(".vxe-body--row"));
+      let bestIdx = -1, bestScore = 0;
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        const cells = Array.from(r.querySelectorAll(".vxe-cell, td"));
+        const titleCells = cells.filter((c) => (c.innerText || "").length > 8);
+        const candidates = titleCells.length ? titleCells : cells;
+        let rowScore = 0;
+        for (const td of candidates) {
+          const ct = norm(td.innerText);
+          if (!ct) continue;
+          if (ct === norm(t)) rowScore += 4;
+          else if (ct.includes(norm(t)) || norm(t).includes(ct)) rowScore += 2;
+          for (const k of tk) {
+            if (k.length < 2) continue;
+            if (ct.includes(k)) rowScore += 1;
+            else if (k.length >= 4) {
+              const pref = k.slice(0, Math.floor(k.length * 0.6));
+              if (ct.includes(pref)) rowScore += 0.4;
+            }
+          }
+        }
+        if (rowScore > bestScore) { bestScore = rowScore; bestIdx = i; }
+      }
+      return bestIdx;
+    }, title);
+  }
+
   async openCreatePage() {
     await this.connect();
     await this.page.goto(this.profile.url || DIANXIAOMI_URL, { waitUntil: "domcontentloaded" });
@@ -3663,21 +3702,22 @@ export class DianxiaomiAdapter {
       // 清场：关闭所有残留 modal/drawer/dropdown（编辑流程里可能弹出"分类映射"中间页 / 列设置 / 筛选 dialog），
       // 否则后续 search 会被遮挡，.first() 元素不可点击。
       await this._dismissAllOverlays().catch(() => {});
-      log("搜索标题");
-      await this.searchCollectBox(searchTitle);
-      out.steps.push("search");
-      // 等表格行出现（vxe body）
-      await this.page.waitForSelector(".vxe-body--row", { timeout: 10000 }).catch(() => {});
-      await sleep(800);
-      const rowCount = await this.page.locator(".vxe-body--row").count();
-      if (!rowCount) throw new Error(`采集箱搜索后无行 (searchTitle=${searchTitle})`);
-      log(`匹配 ${rowCount} 行，取第 1 行`);
+      await sleep(1500);
+      // 全表模糊匹配 searchTitle 第一行（不依赖 searchCollectBox，它对完整英文长标题搜不到 0 行）
+      const totalRows = await this.page.locator(".vxe-body--row").count();
+      if (!totalRows) throw new Error(`采集箱无任何行 (searchTitle=${searchTitle})`);
+      const rowIdx = await this._findFirstRowByScore(searchTitle);
+      if (rowIdx < 0) throw new Error(`采集箱全表无匹配行 (searchTitle=${searchTitle}, totalRows=${totalRows})`);
+      log(`匹配第 ${rowIdx + 1}/${totalRows} 行`);
+      out.steps.push("findRow");
+      const targetRow = this.page.locator(".vxe-body--row").nth(rowIdx);
       // 3) 备注
       if (!skipRemark) {
         log("更多→添加备注");
-        const moreBtn = this.page.locator(".vxe-body--row").first().locator("button.ant-dropdown-trigger").last();
+        const moreBtn = targetRow.locator("button.ant-dropdown-trigger").last();
         await moreBtn.click({ timeout: 8000, force: true });
-        await this.page.waitForTimeout(800);
+        await this.page.waitForTimeout(1000);
+        await this.page.waitForSelector(".ant-dropdown-menu-item:visible", { timeout: 5000 }).catch(() => {});
         const addMemoItem = this.page.locator(".ant-dropdown-menu-item:visible").filter({ hasText: "添加备注" }).first();
         await addMemoItem.click({ timeout: 5000, force: true });
         await this.page.waitForTimeout(1500);
@@ -3688,18 +3728,19 @@ export class DianxiaomiAdapter {
         await submitBtn.click({ timeout: 5000, force: true });
         // 等 modal 关闭
         try { await this.page.waitForFunction(() => !document.querySelector(".ant-modal-wrap:not([style*='display: none'])"), null, { timeout: 6000 }); }
-        catch (ex) { log(`备注 modal 关闭超时(非致命): ${ex.message}`); }
+        catch (ex) { log(`备注 modal 关闭超时(非致命): ${ex.message.slice(0, 80)}`); }
         out.remark = remark;
         out.steps.push("remark");
         log("备注提交完成");
       }
       // 4) 移入待发布（操作列直链按钮）
       if (!skipMove) {
-        // DOM 可能在备注后刷新（搜索+列表可能在某些情况下重新渲染），重新定位
-        await this.page.waitForTimeout(500);
-        await this.page.waitForSelector(".vxe-body--row", { timeout: 5000 }).catch(() => {});
+        // DOM 可能在备注后刷新，重新按 score 定位同一行
+        await this.page.waitForTimeout(800);
+        const freshIdx = await this._findFirstRowByScore(searchTitle);
+        const freshRow = freshIdx >= 0 ? this.page.locator(".vxe-body--row").nth(freshIdx) : targetRow;
         log("操作列→移入待发布");
-        const moveBtn = this.page.locator(".vxe-body--row").first().locator("button").filter({ hasText: /^移入待发布$/ }).first();
+        const moveBtn = freshRow.locator("button").filter({ hasText: /^移入待发布$/ }).first();
         const hasMove = await moveBtn.count();
         if (!hasMove) {
           // 草稿状态可能没有「移入待发布」（已是待发布/已发布）—— 视为跳过非错误
