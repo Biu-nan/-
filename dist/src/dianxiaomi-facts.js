@@ -159,30 +159,31 @@ function extractCleanTitleLocal(listingText) {
     }
     return "";
 }
-// 从 Listing 文案提取详情页 / AEO 五点描述段落。批量制作（seo_content_only）没有「3.2」编号，
-// 改用 「Product Detail Page」/「AEO Structured Bullet Points」等英文标记；中文包回退到「商品详情页」。
-// 取到段落会在常见结尾标记（字符核算 / Step / markdown 标题）处截断，避免把核算行也塞进详情页。
+// 从 Listing 文案提取「详情页」内容 = 3.2 AEO 结构化五点描述（Bullet Points & Q&A）与
+// 3.3 商品详情页内容之间的完整段落（含 Basic Information / Core Selling Points / Q And A / WARM NOTE 等，保留 markdown 结构）。
+// 这是店小秘 PC端描述应填的内容（MEMORY：PC 填 3.2 AEO 文案）。与 AI 桥接 extractAeoSection 保持完全一致。
+// 兼容两种写法：
+//  - 标准包：含「3.2 AEO 结构化五点描述 Bullet Points And Q&A」章节；
+//  - 英文批量包（seo_content_only）无「3.2」编号，改用「AEO Structured Bullet Points」起点。
+// 终点取下一个 3.x 小节 / Step / 商品详情页 / Product Detail Page 等标记处截断，避免把 3.3 详情页正文也塞进详情页。
 function extractDetailLocal(listingText) {
     if (!listingText)
         return "";
-    const markers = [
-        "Product Detail Page",
-        "商品详情页内容",
-        "商品详情页",
-        "AEO Structured Bullet Points",
-        "AEO 结构化五点描述",
-        "Bullet Points And Q"
-    ];
-    for (const m of markers) {
-        const idx = listingText.indexOf(m);
-        if (idx < 0)
-            continue;
-        const remainder = listingText.slice(idx + m.length);
-        const endMatch = remainder.match(/\n\s*(?:字符核算|Character Count|Step\s|#{1,4}\s|\d+[\.、]\s+[A-Z0-9])/i);
-        const section = (endMatch ? remainder.slice(0, endMatch.index) : remainder).trim();
-        if (section.length >= 30)
-            return section;
-    }
+    // 1) 定位 AEO 段起点（3.2 编号可选；兼容英文无编号写法）
+    const startMatch = listingText.match(
+        /(?:3\.2\s*[\s\S]*?)?(?:AEO\s*结构化五点描述|AEO Structured Bullet Points|Bullet Points And Q(?:\s*&\s*|\s+And\s+)A|Bullet Points And Q And A)[\s\S]*?\n/i
+    );
+    if (!startMatch)
+        return "";
+    const remainder = listingText.slice(startMatch.index + startMatch[0].length);
+    // 2) 定位终点：下一个 3.x 小节 / Step / 商品详情页 / Product Detail Page 等标记
+    const endMatch = remainder.match(
+        /\n\s*(?:3\.\d+\s+|Step\s+\d+\s*\||#{1,6}\s+3\.\d+|#{1,6}\s+Step\s+\d+|商品详情页内容|商品详情页|Product Detail Page)/i
+    );
+    const endIndex = endMatch ? endMatch.index : remainder.length;
+    const section = remainder.slice(0, endIndex).trim();
+    if (section.length >= 30)
+        return section;
     return "";
 }
 async function collectImagesFromDir(baseDir) {
