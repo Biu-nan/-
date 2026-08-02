@@ -11286,7 +11286,12 @@ const batchListingCreateState = {
   ctaDismissed: false,
   autoUploading: false,
   autoUploadOnComplete: false,
-  autoUploadFailed: false
+  autoUploadFailed: false,
+  autoUploadStatus: null,
+  autoUploadProgress: null,
+  autoUploadSummary: null,
+  autoUploadItems: new Map(),
+  autoUploadVisible: false
 };
 let blcSig = "";
 let blcPrevRunning = false;
@@ -11426,9 +11431,16 @@ async function pollBlcStatus() {
     // 不再自行触发，避免刷新/关浏览器丢任务 + 与后端双触发。
     const _aus = data.autoUploadStatus || null;
     batchListingCreateState.autoUploadStatus = _aus;
-    batchListingCreateState.autoUploading = !!(_aus && _aus.status === "running");
+    const _upRunning = !!(_aus && (_aus.running || _aus.status === "running"));
+    batchListingCreateState.autoUploading = _upRunning;
     batchListingCreateState.autoUploadFailed = !!(_aus && _aus.status === "failed");
     batchListingCreateState.autoUploadFinished = !!(_aus && _aus.status === "done");
+    // 上架阶段实时进度（后端从 batchRunState + collectBatchRunState 合并而来）
+    batchListingCreateState.autoUploadProgress = (_aus && typeof _aus.overallProgress === "number") ? _aus.overallProgress : null;
+    batchListingCreateState.autoUploadSummary = (_aus && _aus.summary) || null;
+    const _upItems = (_aus && Array.isArray(_aus.items)) ? _aus.items : [];
+    batchListingCreateState.autoUploadItems = new Map(_upItems.map((it) => [it.productName, it]));
+    batchListingCreateState.autoUploadVisible = !!(_aus && (_upRunning || _aus.status === "done" || _aus.status === "failed"));
     blcPrevRunning = !!data.running;
 
     // 恢复模式：刷新页面后前端状态为空，从后端 rowsMeta + items 重建全量行（含未跑的）
@@ -11520,6 +11532,54 @@ function blcEscapeHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
+// 上架阶段实时进度卡片：制作完成后「制作并上架」会自动串行跑引用 + 采集箱两条路径，
+// 这里把后端合并进 autoUploadStatus 的总进度 / 逐行状态 / 汇总实时展示出来（以前只有一句静态「正在上架」）。
+function renderAutoUploadCard() {
+  const st = batchListingCreateState;
+  const aus = st.autoUploadStatus;
+  if (!aus || !st.autoUploadVisible) return "";
+  const items = Array.from(st.autoUploadItems.values());
+  const statusLabel = { running: "上架进行中", done: "上架完成", failed: "上架失败" }[aus.status] || (aus.running ? "上架进行中" : "上架");
+  const progress = (typeof st.autoUploadProgress === "number") ? st.autoUploadProgress : 0;
+  const sm = st.autoUploadSummary;
+  const refJob = aus.refJobId ? `引用任务 <code>${blcEscapeHtml(aus.refJobId)}</code>` : "";
+  const colJob = aus.colJobId ? `采集箱任务 <code>${blcEscapeHtml(aus.colJobId)}</code>` : "";
+  const jobLine = [refJob, colJob].filter(Boolean).join(" ｜ ");
+  const rowsHtml = items.length ? `
+    <div class="bl-table-wrap">
+      <table class="bl-table">
+        <thead><tr><th>产品名</th><th>状态</th><th>阶段</th><th>进度</th><th>说明</th></tr></thead>
+        <tbody>
+          ${items.map((it) => `
+            <tr class="${it.status === "failed" || it.status === "skipped" ? "status-failed" : ""}">
+              <td>${blcEscapeHtml(it.productName)}</td>
+              <td><span class="bl-badge ${it.status || "idle"}">${BLC_STATUS_LABEL[it.status] || "待处理"}</span></td>
+              <td>${blcEscapeHtml(it.currentStage || "")}</td>
+              <td><div class="progress"><span style="width:${Math.max(0, Math.min(100, it.progress || 0))}%"></span></div></td>
+              <td class="bl-reason">${blcEscapeHtml(it.reason || "")}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>` : `<div class="bl-hint">正在准备上架任务…</div>`;
+  const summaryHtml = (sm && sm.total) ? `<div class="bl-summary">📤 上架：成功 ${sm.success} · 失败 ${sm.failed} · 跳过 ${sm.skipped} / 共 ${sm.total}</div>` : "";
+  return `
+    <div class="bl-card" style="border-left:3px solid #2997ff">
+      <div class="bl-overview">
+        <div class="bl-overview-icon">📤</div>
+        <div class="bl-overview-text">
+          <b>上架进度</b>：${blcEscapeHtml(statusLabel)}（制作完成，后端自动带入并上架，无需操作）
+          ${jobLine ? `<div class="bl-overview-sub">${jobLine}</div>` : ""}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;margin:10px 0">
+        <div class="progress" style="height:10px;flex:1"><span style="width:${progress}%"></span></div>
+        <span style="font-weight:700;min-width:44px;text-align:right">${progress}%</span>
+      </div>
+      ${summaryHtml}
+      ${rowsHtml}
+    </div>`;
+}
+
 function renderBatchListingCreate() {
   const root = document.getElementById("batch-listing-create-root");
   if (!root) return;
@@ -11543,7 +11603,13 @@ function renderBatchListingCreate() {
 
   const sig = JSON.stringify(batchListingCreateState.rows.map((r) => [
     r.productName, r.mode, r.status, r.progress, r.currentStage, r.outputDirectory, r.reason
-  ])) + "|" + JSON.stringify(batchListingCreateState.summary) + "|" + batchListingCreateState.resultUrl;
+  ])) + "|" + JSON.stringify(batchListingCreateState.summary) + "|" + batchListingCreateState.resultUrl
+    + "|au:" + JSON.stringify({
+      s: batchListingCreateState.autoUploadStatus ? batchListingCreateState.autoUploadStatus.status : null,
+      p: batchListingCreateState.autoUploadProgress,
+      sm: batchListingCreateState.autoUploadSummary,
+      items: Array.from(batchListingCreateState.autoUploadItems.values()).map((it) => [it.productName, it.status, it.currentStage, it.progress, it.reason])
+    });
   if (sig === blcSig && root.dataset.rendered === "1") return;
   blcSig = sig;
   root.dataset.rendered = "1";
@@ -11606,8 +11672,7 @@ function renderBatchListingCreate() {
       </div>` : `<div class="bl-hint">尚未上传表格。点击「下载模板」后填写并上传。</div>`}
 
       ${summary ? `<div class="bl-summary">✅ 完成：成功 ${summary.success} · 失败 ${summary.failed} · 跳过 ${summary.skipped} / 共 ${summary.total}</div>` : ""}
-      ${batchListingCreateState.autoUploading ? `<div class="bl-card bl-cta"><div class="bl-import-info">⏳ 制作已完成，正在自动带入并上架…（无需操作）</div></div>` : ""}
-      ${batchListingCreateState.autoUploadFinished ? `<div class="bl-card bl-cta"><div class="bl-import-info">✅ 已自动带入并上架完成（引用 + 采集箱）</div></div>` : ""}
+      ${renderAutoUploadCard()}
       ${(batchListingCreateState.summary && batchListingCreateState.summary.success > 0 && !batchListingCreateState.autoUploading && !batchListingCreateState.autoUploadFinished && (batchListingCreateState.autoUploadFailed || !batchListingCreateState.autoUploadOnComplete || (batchListingCreateState.autoUploadOnComplete && !batchListingCreateState.autoUploadStatus))) ? `<div class="bl-card bl-cta"><button id="blc-goto-upload" class="bl-btn primary">⇥ 一键去上架（带入并自动开始）</button></div>` : ""}
       ${batchListingCreateState.resultUrl ? `<div class="bl-card"><a class="bl-btn primary" href="${batchListingCreateState.resultUrl}">⬇ 下载结果 xlsx（含状态/路径回填）</a></div>` : ""}
     </div>`;

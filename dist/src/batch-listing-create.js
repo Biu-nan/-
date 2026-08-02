@@ -307,7 +307,11 @@ async function runBatchListingCreate(jobId, rows, filePath, deps) {
             const log = (m) => console.log(`[auto-upload ${jobId}]`, m);
             void (async () => {
                 try {
-                    await deps.triggerAutoUpload({ jobId, filePath, operationId: opId, logger: log });
+                    // triggerAutoUpload 内部串行跑「引用 + 采集箱」两条上架路径，返回各自的 jobId
+                    const upRes = await deps.triggerAutoUpload({ jobId, filePath, operationId: opId, logger: log });
+                    const ids = [upRes && upRes.refJobId, upRes && upRes.colJobId].filter(Boolean);
+                    if (ids.length) listingCreateRunState.autoUploadStatus.jobIds = ids;
+
                 }
                 catch (e) {
                     const msg = e instanceof Error ? e.message : String(e);
@@ -992,6 +996,39 @@ export function registerBatchListingCreateRoutes(app, deps) {
                 artifacts: it.artifacts,
                 reason: it.reason
             }));
+            // ★ 上架阶段实时进度：把引用(batchRunState) + 采集箱(collectBatchRunState)两条路径的
+            //   总进度 / 逐行状态 / 汇总合并进 autoUploadStatus，让前端「制作并上架」能像制作阶段一样看到进度。
+            let autoUploadStatus = listingCreateRunState.autoUploadStatus || null;
+            if (autoUploadStatus && deps && typeof deps.getBatchRunState === "function" && typeof deps.getCollectRunState === "function") {
+                const brs = deps.getBatchRunState();
+                const crs = deps.getCollectRunState();
+                const upItems = [...(brs.items || []), ...(crs.items || [])];
+                const upDone = upItems.filter((it) => it.status === "done" || it.status === "skipped").length;
+                const upProgress = upItems.length
+                    ? Math.round((upDone / upItems.length) * 100)
+                    : (autoUploadStatus.status === "done" ? 100 : 0);
+                const upSummary = {
+                    success: upItems.filter((it) => it.status === "done").length,
+                    failed: upItems.filter((it) => it.status === "failed").length,
+                    skipped: upItems.filter((it) => it.status === "skipped").length,
+                    total: upItems.length
+                };
+                // 运行态兜底：status 仍 running 但实际两条路径都已结束（极端时序）时，纠正为 done
+                const stillRunning = autoUploadStatus.status === "running" && (brs.running || crs.running);
+                autoUploadStatus = {
+                    ...autoUploadStatus,
+                    running: !!stillRunning,
+                    overallProgress: upProgress,
+                    summary: upSummary,
+                    items: upItems,
+                    refJobId: brs.jobId || null,
+                    colJobId: crs.jobId || null,
+                    refRunning: !!brs.running,
+                    colRunning: !!crs.running,
+                    refSummary: brs.summary || null,
+                    colSummary: crs.summary || null
+                };
+            }
             return response.json({
                 ok: true,
                 running: listingCreateRunState.running,
@@ -1002,7 +1039,7 @@ export function registerBatchListingCreateRoutes(app, deps) {
                 summary: listingCreateRunState.summary,
                 rowsMeta: listingCreateRunState.rowsMeta || [],
                 autoUploadOnComplete: listingCreateRunState.autoUploadOnComplete,
-                autoUploadStatus: listingCreateRunState.autoUploadStatus,
+                autoUploadStatus,
                 items
             });
         }

@@ -355,14 +355,20 @@ export class DianxiaomiAdapter {
   // 全表模糊匹配 searchTitle 第一行（score > 0 即返回 index；-1 = 无匹配）。
   // 复用 openCollectDraftByTitle 的 score 算法思想：cell 文本含 searchTitle 任一关键词加分；
   // 完全相等/包含加分更高。不依赖 searchCollectBox（它对完整英文长标题搜不到 0 行）。
-  async _findFirstRowByScore(title) {
-    if (!title || !title.trim()) return -1;
+  // 全表模糊匹配 searchTitle 最佳行，返回 {idx, score}。
+  // 基于 .vxe-body--row（店小秘采集箱用 VxeTable），对完整英文长标题也能命中；
+  // 不依赖 searchCollectBox（它对完整英文长标题搜不到 0 行）。
+  // requireEdit=true 时仅计入带「编辑」类按钮的行（openCollectDraftByTitle 用）；
+  // false 时不限（markCollectRowAsPending 用，只要定位到产品行即可）。
+  async _bestRowByScore(title, requireEdit = false) {
+    if (!title || !title.trim()) return { idx: -1, score: 0 };
     await this.connect();
-    return await this.page.evaluate((t) => {
+    return await this.page.evaluate((args) => {
+      const { t, requireEdit } = args;
       const norm = (s) => (s || "").replace(/\s+/g, "").trim().toLowerCase();
       const keywords = (s) => norm(s).split(/[^\u4e00-\u9fa5a-z0-9]+/).filter(Boolean);
       const tk = keywords(t);
-      if (!tk.length) return -1;
+      if (!tk.length) return { idx: -1, score: 0 };
       const rows = Array.from(document.querySelectorAll(".vxe-body--row"));
       let bestIdx = -1, bestScore = 0;
       for (let i = 0; i < rows.length; i++) {
@@ -385,10 +391,20 @@ export class DianxiaomiAdapter {
             }
           }
         }
+        if (requireEdit) {
+          const hasEdit = Array.from(r.querySelectorAll("button, a")).some((b) => /编辑/.test(b.innerText || ""));
+          if (!hasEdit) continue;
+        }
         if (rowScore > bestScore) { bestScore = rowScore; bestIdx = i; }
       }
-      return bestIdx;
-    }, title);
+      return { idx: bestIdx, score: bestScore };
+    }, { t: title, requireEdit });
+  }
+
+  // 兼容别名：markCollectRowAsPending 用，返回最佳行索引（无匹配返回 -1）。
+  async _findFirstRowByScore(title) {
+    const r = await this._bestRowByScore(title, false);
+    return r.idx;
   }
 
   async openCreatePage() {
@@ -3349,48 +3365,15 @@ export class DianxiaomiAdapter {
   async openCollectDraftByTitle(title) {
     await this.connect();
 
-    const found = await this.page.evaluate((t) => {
-      const norm = (s) => (s || "").replace(/\s+/g, "").trim().toLowerCase();
-      const keywords = (s) => norm(s).split(/[^\u4e00-\u9fa5a-z0-9]+/).filter(Boolean);
-      const tk = keywords(t);
-      const rows = Array.from(document.querySelectorAll("tr")).filter((r) => r.querySelector("td"));
-      let bestRowText = "", bestScore = 0;
-      for (const r of rows) {
-        const cells = Array.from(r.querySelectorAll("td"));
-        // 优先取看起来是标题的单元格（文本较长），否则取整行文本
-        const titleCells = cells.filter((td) => (td.innerText || "").length > 8);
-        const candidates = titleCells.length ? titleCells : cells;
-        let rowScore = 0;
-        let rowTitle = "";
-        for (const td of candidates) {
-          const ct = norm(td.innerText);
-          const ck = keywords(td.innerText);
-          let score = 0;
-          if (ct && (ct === norm(t) || ct.includes(norm(t)) || norm(t).includes(ct))) {
-            score = Math.max(score, ct === norm(t) ? 4 : (ct.includes(norm(t)) ? 3 : 2));
-          }
-          // 关键词交集比例（中文/英文词）
-          const inter = ck.filter((w) => tk.includes(w)).length;
-          if (tk.length && inter) {
-            const ratio = inter / Math.max(tk.length, ck.length);
-            score = Math.max(score, ratio * 2);
-          }
-          if (score > rowScore) { rowScore = score; rowTitle = (td.innerText || "").trim(); }
-        }
-        if (rowScore < 0.3) continue;
-        const btns = Array.from(r.querySelectorAll("button, a")).filter((b) => /编辑/.test(b.innerText || ""));
-        if (!btns.length) continue;
-        if (rowScore > bestScore) { bestScore = rowScore; bestRowText = rowTitle; }
-      }
-      if (!bestRowText) return { ok: false };
-      return { ok: true, score: bestScore, rowTitle: bestRowText.slice(0, 80) };
-    }, title);
-
-    if (!found.ok) {
+    // 用与 markCollect 一致的模糊匹配定位行（_bestRowByScore 基于 .vxe-body--row，
+    // 对完整英文长标题也能命中；旧版基于 querySelectorAll("tr") 的 score 算法对长英文标题算 0 分，已弃用）。
+    // requireEdit=true：仅计入带「编辑」按钮的产品行。score 阈值 2 = 至少命中「单元格含标题(子串/包含)」级匹配。
+    const best = await this._bestRowByScore(title, true);
+    if (best.idx < 0) {
       throw new Error(`采集箱：搜索结果中未找到含标题「${title}」的行 / 编辑按钮，请把表格「搜索标题」改成采集箱里的真实标题`);
     }
-    if (found.score < 0.5) {
-      throw new Error(`采集箱：标题「${title}」与搜索结果匹配度过低(score=${found.score.toFixed(2)})，请核对表格「搜索标题」`);
+    if (best.score < 2) {
+      throw new Error(`采集箱：标题「${title}」与搜索结果匹配度过低(score=${best.score.toFixed(2)})，请核对表格「搜索标题」`);
     }
 
     // 用 Playwright 真实点击行内「编辑」按钮（Vue/Ant 需要真实鼠标事件）。
@@ -3403,22 +3386,12 @@ export class DianxiaomiAdapter {
     let lastErr = "";
     const isEditNow = async (p) => p.evaluate(() => /(产品标题|商品标题|quoteEdit|productEdit)/.test((document.body && document.body.innerText) || "") || /quoteEdit|productEdit/.test(location.href)).catch(() => false);
     const listPages = () => this.browser.contexts().flatMap((c) => c.pages().filter((p) => !p.isClosed()));
-    const findEditBtn = async () => {
-      const h = await this.page.evaluateHandle((t) => {
-        const norm = (s) => (s || "").replace(/\s+/g, "").trim().toLowerCase();
-        const tn = norm(t);
-        const rows = Array.from(document.querySelectorAll("tr")).filter((r) => r.querySelector("td"));
-        for (const r of rows) {
-          if (!r.innerText || !norm(r.innerText).includes(tn)) continue;
-          const btns = Array.from(r.querySelectorAll("button, a")).filter((b) => {
-            const bt = (b.innerText || "").trim();
-            return bt === "编辑" || /编辑产品|编辑草稿/.test(bt) || (/编辑/.test(bt) && !/编辑分类|编辑映射|编辑类目/.test(bt));
-          });
-          if (btns.length) return btns[0];
-        }
-        return null;
-      }, title);
-      return h.asElement();
+    // 用 _bestRowByScore 定位到的 vxe 行索引精确点「编辑」（避免重查 tr 的 score 误差）。
+    const clickEditInRow = async () => {
+      const rowEl = this.page.locator(".vxe-body--row").nth(best.idx);
+      const btn = rowEl.locator("button, a").filter({ hasText: /^编辑$|编辑产品|编辑草稿/ }).first();
+      const c = await btn.count();
+      return c > 0 ? btn : null;
     };
     // 清理上一轮残留的 edit 标签（避免累积导致 connect 卡死）
     for (const p of listPages()) { if (p !== this.page && /web\/smtChoice\/edit/.test(p.url())) { await p.close().catch(() => {}); } }
@@ -3428,7 +3401,7 @@ export class DianxiaomiAdapter {
       // 若上一轮残留 modal 仍开着，先关掉再点（否则再点编辑可能被 modal 遮挡）。
       const staleModal = await this.page.$(".ant-modal").catch(() => null);
       if (staleModal) { await this.page.keyboard.press("Escape").catch(() => {}); await sleep(400); }
-      const editBtn = await findEditBtn();
+      const editBtn = await clickEditInRow();
       if (!editBtn) { lastErr = "edit-btn-not-found"; await sleep(800); continue; }
       await editBtn.scrollIntoViewIfNeeded().catch(() => {});
       await editBtn.click({ timeout: 8000, force: true }).catch(async (e) => {
@@ -3456,7 +3429,7 @@ export class DianxiaomiAdapter {
     }
     await sleep(2000);
 
-    return { ok: true, url: this.page.url(), score: found.score, mode: targetPage ? "new-tab" : (modalOnCurrent ? "modal" : "same-page") };
+    return { ok: true, url: this.page.url(), score: best.score, mode: targetPage ? "new-tab" : (modalOnCurrent ? "modal" : "same-page") };
   }
 
   // 采集箱「编辑」后可能出现的「分类/变种主题映射」中间页处理。

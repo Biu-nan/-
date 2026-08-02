@@ -355,6 +355,28 @@ app.use(express.json());
 app.use(express.static(PUBLIC_DIR));
 // 产品图静态文件服务（用于前端预览已上传的图片）
 app.use("/product-images", express.static(PRODUCT_IMAGES_DIR));
+// 把引用/采集箱批量上架的运行态快照成前端可读结构（只读，避免把内部 log 等大字段暴露出去）
+function snapshotUploadRunState(runState) {
+    if (!runState) return { running: false, jobId: null, overallProgress: 0, summary: null, items: [] };
+    const items = Object.values(runState.items || {}).map((it) => ({
+        productName: it.productName || it.name || it.packageName || "",
+        mode: it.mode || "",
+        status: it.status || "idle",
+        currentStage: it.currentStage || "",
+        progress: typeof it.progress === "number" ? it.progress : 0,
+        reason: it.reason || ""
+    }));
+    return {
+        running: !!runState.running,
+        jobId: runState.jobId || null,
+        startedAt: runState.startedAt || null,
+        finishedAt: runState.finishedAt || null,
+        overallProgress: typeof runState.overallProgress === "number" ? runState.overallProgress : 0,
+        summary: runState.summary || null,
+        items
+    };
+}
+
 registerBatchListingCreateRoutes(app, {
     upload,
     store,
@@ -363,6 +385,8 @@ registerBatchListingCreateRoutes(app, {
     runBackground,
     getBatchRunStateRunning: () => batchRunState.running,
     getCollectRunStateRunning: () => collectBatchRunState.running,
+    getBatchRunState: () => snapshotUploadRunState(batchRunState),
+    getCollectRunState: () => snapshotUploadRunState(collectBatchRunState),
     // ★ 自动上架触发器：listing 完成后后端自动串行跑引用 + 采集箱两条路径。
     // 走内部函数（不 HTTP 自调用）避免 409 互斥自拦；runCollectBatchListing 已支持 opts.operationId 幂等。
     // 复用 buildCollectRowForDir/buildReferenceRowForDir 解析 facts + 派生默认 category / searchTitle 等。
