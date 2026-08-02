@@ -3299,7 +3299,48 @@ export class DianxiaomiAdapter {
       { timeout: 15000 }
     ).catch(() => {});
     await sleep(1500);
+    // Fallback：完整 title 搜不到任何行（店小秘"标题搜索"对完整英文长标题/复杂串支持差），
+    // 拆词取第一个关键词再搜，确保至少有少量行。
+    const firstRowCount = await this.page.locator(".vxe-body--row").count();
+    if (!firstRowCount) {
+      const fallback = this._pickSearchFallback(title);
+      if (fallback && fallback !== title) {
+        console.log(`[dianxiaomi] searchCollectBox fallback: "${title}" → "${fallback}" (完整搜 0 行)`);
+        await box.fill("", { timeout: 5000 }).catch(() => {});
+        await box.fill(fallback, { timeout: 5000 });
+        await sleep(400);
+        await this.page.keyboard.press("Enter").catch(() => {});
+        await clickVisibleByText(this.page, "搜索", 4000).catch(() => {});
+        await this.page.waitForFunction(
+          () => !document.querySelector(".vxe-table--loading"),
+          { timeout: 10000 }
+        ).catch(() => {});
+        await sleep(1500);
+      }
+    }
     return { ok: true };
+  }
+
+  // 从 searchTitle 拆出"最可能搜出结果的关键词"。中文取前 4 字，英文按空格拆取前 2 词。
+  // 用于 searchCollectBox 内部 fallback——完整 title 搜不到时退一步。
+  _pickSearchFallback(title) {
+    if (!title) return "";
+    const t = title.trim();
+    // 英文：按空格拆
+    const enWords = t.split(/\s+/).filter(Boolean);
+    if (enWords.length > 1) {
+      // 前 2 词（去掉 , . Accessory 等）
+      const clean = enWords.slice(0, 2).map((w) => w.replace(/[,.!?;:]+$/, "")).filter((w) => w.length >= 3);
+      if (clean.length) return clean.join(" ");
+    }
+    // 中文：取前 4-6 字
+    const cnPart = t.match(/[\u4e00-\u9fa5]+/g);
+    if (cnPart && cnPart.length) {
+      const flat = cnPart.join("");
+      if (flat.length >= 4) return flat.slice(0, Math.min(6, flat.length));
+    }
+    // 兜底：取前 8 字符
+    return t.slice(0, 8);
   }
 
   // 在搜索结果中定位含标题的行并点击其「编辑」按钮。
