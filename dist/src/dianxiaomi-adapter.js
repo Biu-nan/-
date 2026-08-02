@@ -1763,6 +1763,12 @@ export class DianxiaomiAdapter {
           applied.push({ field: "colorCustom", ok: false, reason: e.message });
         }
       }
+      // 4.7) 货品信息·每色包装尺寸（L/W/H）：必填项，源产品/采集箱不预填；空则按 opts 填默认 15/10/5。
+      //     表格未渲染（变种未勾选）时返回 skipped，不报错。
+      try {
+        const pkgSize = (facts && facts.product && facts.product.packageSize) || (this.profile && this.profile.packageSize) || null;
+        applied.push({ field: "packageSize", ...(await this.fillProductPackageSize({ packageSize: pkgSize })) });
+      } catch (e) { applied.push({ field: "packageSize", ok: false, reason: e.message }); }
       // 4) 合规信息：按 profile.compliance 强制选择（欧盟责任人/土耳其责任人/品牌制造商）。
       //    即使模板已引用，也用 profile 值再覆盖一次，确保与截图一致。
       this.setStage("采集箱上架·⑤合规信息");
@@ -1950,6 +1956,12 @@ export class DianxiaomiAdapter {
         applied.push({ field: "colorImages", ok: false, reason: e.message });
       }
     }
+    // 6.6) 货品信息·每色包装尺寸（L/W/H）：必填项，源产品/采集箱不预填；空则按 opts 填默认 15/10/5。
+    //      表格未渲染（变种未勾选）时返回 skipped，不报错。
+    try {
+      const pkgSize = (facts && facts.product && facts.product.packageSize) || (this.profile && this.profile.packageSize) || null;
+      applied.push({ field: "packageSize", ...(await this.fillProductPackageSize({ packageSize: pkgSize })) });
+    } catch (e) { applied.push({ field: "packageSize", ok: false, reason: e.message }); }
     // 7) 合规信息（欧盟责任人/土耳其责任人/品牌制造商）。模板已带入则跳过。
     if (tplOk) {
       applied.push({ field: "compliance", ok: true, skipped: true, reason: "product-template-applied" });
@@ -2126,6 +2138,141 @@ export class DianxiaomiAdapter {
     }
     const allOk = results.every((r) => r.ok !== false);
     return { ok: allOk, attempted: results.length, results };
+  }
+
+  // 货品信息表·每色包装尺寸（L/W/H）：店小秘「货品信息」表格的最后一列是「尺寸（cm）」，
+  // 每个色行有 3 个 input（name=variationLength/variationWidth/variationHeight，placeholder=长/宽/高）。
+  // 这些字段保存时为必填（缺值会触发红字「请输入完整的包装尺寸」），但系统原流程不预填。
+  // 策略：每色已填则保留（不覆盖源产品/采集箱真实尺寸），空则用 opts 提供的默认值（默认 15/10/5）。
+  // opts.packageSize: { length, width, height } 任一字段；空字段回落到默认 15/10/5。
+  // opts.force=true 时即便已填也覆盖（默认 false，仅补空）。
+  // 非致命：单行失败只记日志，不中断整体流程；表格未渲染（变种未勾）时返回 skipped。
+  async fillProductPackageSize(opts = {}) {
+    await this.connect();
+    const def = { length: 15, width: 10, height: 5 };
+    const cfg = (opts && opts.packageSize) || {};
+    const targets = {
+      length: (cfg.length != null && String(cfg.length).trim() !== "") ? String(cfg.length).trim() : def.length,
+      width: (cfg.width != null && String(cfg.width).trim() !== "") ? String(cfg.width).trim() : def.width,
+      height: (cfg.height != null && String(cfg.height).trim() !== "") ? String(cfg.height).trim() : def.height
+    };
+    const force = !!(opts && opts.force);
+    const result = { ok: true, attempted: 0, filled: 0, skipped: 0, results: [], targets };
+    try {
+      // 1) 切到「货品信息」锚点（页面是 anchor 结构；点击能确保表格可见）
+      await this.clickAnchorTab("货品信息").catch(() => {});
+      await sleep(800);
+      // 2) 找「尺寸（cm）」列的表（每行有 variationLength/variationWidth/variationHeight 3 input）
+      const probe = await this.page.evaluate(() => {
+        const tables = Array.from(document.querySelectorAll("table"));
+        for (const t of tables) {
+          const ths = Array.from(t.querySelectorAll("thead th, thead td")).map((h) => (h.innerText || "").replace(/\s+/g, " ").trim());
+          if (!ths.some((h) => /尺寸/.test(h))) continue;
+          // 确认至少有一行的 variationLength/variationWidth/variationHeight input
+          const trs = Array.from(t.querySelectorAll("tbody tr"));
+          if (!trs.length) return { found: true, but: "no-rows" };
+          const allInputs = trs.flatMap((tr) => Array.from(tr.querySelectorAll("input[name=variationLength], input[name=variationWidth], input[name=variationHeight]")));
+          if (!allInputs.length) return { found: true, but: "no-lwh-inputs" };
+          return { found: true, totalRows: trs.length, inputCount: allInputs.length };
+        }
+        return { found: false };
+      });
+      if (!probe.found) { result.ok = true; result.skipped = 1; result.reason = "product-info-table-not-rendered"; return result; }
+      if (probe.but) { result.ok = true; result.skipped = 1; result.reason = probe.but; return result; }
+      // 3) 逐行填（input 用 setVal：value + input/change event，让 React 收到）
+      const rows = await this.page.evaluate(() => {
+        const tables = Array.from(document.querySelectorAll("table"));
+        for (const t of tables) {
+          const ths = Array.from(t.querySelectorAll("thead th, thead td")).map((h) => (h.innerText || "").replace(/\s+/g, " ").trim());
+          if (!ths.some((h) => /尺寸/.test(h))) continue;
+          return Array.from(t.querySelectorAll("tbody tr")).map((tr) => {
+            const color = (tr.children[0] ? (tr.children[0].innerText || "").trim() : "");
+            const get = (name) => {
+              const inp = tr.querySelector(`input[name=${name}]`);
+              return inp ? inp.value : null;
+            };
+            return {
+              color,
+              length: get("variationLength"),
+              width: get("variationWidth"),
+              height: get("variationHeight")
+            };
+          });
+        }
+        return [];
+      });
+      result.attempted = rows.length;
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        const item = { color: r.color, ok: true, filled: { length: false, width: false, height: false } };
+        const setOne = async (name, val) => {
+          const cur = r[name];
+          if (!force && cur && String(cur).trim() !== "") { item.filled[name === "length" ? "length" : (name === "width" ? "width" : "height")] = false; item.skipped = (item.skipped || 0) + 1; return false; }
+          const ok = await this.page.evaluate(({ name, val }) => {
+            const tables = Array.from(document.querySelectorAll("table"));
+            for (const t of tables) {
+              const ths = Array.from(t.querySelectorAll("thead th, thead td")).map((h) => (h.innerText || "").replace(/\s+/g, " ").trim());
+              if (!ths.some((h) => /尺寸/.test(h))) continue;
+              const trs = Array.from(t.querySelectorAll("tbody tr"));
+              // 找到色匹配的行（去掉括号、空格、大小写无关比较）
+              const norm = (s) => (s || "").toLowerCase().replace(/\s+/g, "").replace(/[()（）]/g, "");
+              const target = trs.find((tr) => norm(tr.children[0] ? tr.children[0].innerText : "").includes(norm(window.__curPkgColor || "")));
+              if (!target) return false;
+              const inp = target.querySelector(`input[name=${name}]`);
+              if (!inp) return false;
+              const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+              setter.call(inp, String(val));
+              inp.dispatchEvent(new Event("input", { bubbles: true }));
+              inp.dispatchEvent(new Event("change", { bubbles: true }));
+              inp.dispatchEvent(new Event("blur", { bubbles: true }));
+              // 移除 error 样式类（红字），让校验通过
+              if (inp.classList) inp.classList.remove("error");
+              return true;
+            }
+            return false;
+          }, { name, val });
+          return ok;
+        };
+        try {
+          // 通过 evaluate 把当前行 color 注入 window，避免多次 evaluate 反复传参
+          await this.page.evaluate((c) => { window.__curPkgColor = c; }, r.color);
+          const ol = await setOne("variationLength", targets.length);
+          const ow = await setOne("variationWidth", targets.width);
+          const oh = await setOne("variationHeight", targets.height);
+          item.filled = { length: ol, width: ow, height: oh };
+          if (ol || ow || oh) result.filled += 1;
+          else result.skipped += 1;
+        }
+        catch (e) { item.ok = false; item.reason = e.message; }
+        result.results.push(item);
+        await sleep(120);
+      }
+      // 4) 简单自检：抽查首行（不抛错，仅记日志）
+      const verify = await this.page.evaluate(() => {
+        const tables = Array.from(document.querySelectorAll("table"));
+        for (const t of tables) {
+          const ths = Array.from(t.querySelectorAll("thead th, thead td")).map((h) => (h.innerText || "").replace(/\s+/g, " ").trim());
+          if (!ths.some((h) => /尺寸/.test(h))) continue;
+          const tr = t.querySelector("tbody tr");
+          if (!tr) return null;
+          return {
+            length: tr.querySelector("input[name=variationLength]")?.value || "",
+            width: tr.querySelector("input[name=variationWidth]")?.value || "",
+            height: tr.querySelector("input[name=variationHeight]")?.value || ""
+          };
+        }
+        return null;
+      });
+      result.verify = verify;
+      // 5) 清掉临时全局
+      await this.page.evaluate(() => { try { delete window.__curPkgColor; } catch {} }).catch(() => {});
+      return result;
+    }
+    catch (e) {
+      result.ok = false;
+      result.reason = e.message;
+      return result;
+    }
   }
 
   // 销售属性（颜色/尺寸）必填勾选：从 facts.variants 勾选店小秘分类 checkbox（点 label 触发 React onChange）。
