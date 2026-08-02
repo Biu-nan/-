@@ -10658,7 +10658,7 @@ function downloadCsv(text, filename) {
 // 批量上架表格表头（基础列 + 可选自定义列）。可选列规则：填了"自定义名称"即覆盖默认，无需手勾。
 // 引用商品ID：逐行覆盖类目默认模板 ID；留空则用类目 profile.templateProductId。
 const BATCH_XLSX_HEADER = [
-  "packageName", "category", "引用商品ID", "enabled",
+  "产品包名", "类目", "引用商品ID", "上架",
   "店铺_启用", "店铺_名称",
   "品牌_启用", "品牌_名称",
   "变种参数_启用", "变种参数",
@@ -11302,8 +11302,8 @@ const BLC_STATUS_LABEL = {
 };
 
 function blcDownloadTemplate() {
-  const header = ["productName", "imageUrl_1", "imageUrl_2", "imageUrl_3", "imageUrls", "localImage_1", "localImage_2", "localImage_3", "localImages", "mode", "category", "notes", "uploadMode", "searchTitle", "productTemplate", "logisticsAttribute", "material", "referenceProductId", "variantThemeMap"];
-  const example = ["示例产品(上传前删掉此行)", "https://example.com/img1.jpg", "https://example.com/img2.jpg", "", "https://example.com/extra.jpg;https://example.com/extra2.jpg", "C:\\Users\\你的用户名\\Pictures\\a.jpg", "D:\\产品图\\b.png", "", "D:\\产品图\\c.jpg;D:\\产品图\\d.webp", "full_listing", "", "可选备注", "采集箱", "在店小秘搜到的真实标题", "箱包配件-包饰", "普货", "合金", "", "颜色:Color;尺寸:Size"];
+  const header = ["产品名", "图片链接1", "图片链接2", "图片链接3", "图片链接", "本地图片1", "本地图片2", "本地图片3", "本地图片", "模式", "类目", "备注", "上架模式", "搜索标题", "产品模板", "物流属性", "材质", "引用商品ID", "变种主题映射"];
+  const example = ["示例产品(上传前删掉此行)", "https://example.com/img1.jpg", "https://example.com/img2.jpg", "", "https://example.com/extra.jpg;https://example.com/extra2.jpg", "C:\\Users\\你的用户名\\Pictures\\a.jpg", "D:\\产品图\\b.png", "", "D:\\产品图\\c.jpg;D:\\产品图\\d.webp", "完整listing", "", "可选备注", "采集箱", "在店小秘搜到的真实标题", "箱包配件-包饰", "普货", "合金", "", "颜色:Color;尺寸:Size"];
   downloadXlsx([header, example], "批量制作模板.xlsx");
 }
 

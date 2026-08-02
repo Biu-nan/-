@@ -85,11 +85,11 @@ function parseRows(aoa) {
     const idxUrls = col(header, /^(imageUrls|图片链接|图片地址|图片URL|图片网址)$/);
     const idxLocal = col(header, /^(localImages|本地图片|本地图|本地路径|本地文件)$/);
     const urlCols = header
-        .map((h, i) => (/^imageUrl_\d+$/i.test(String(h || "")) ? i : -1))
+        .map((h, i) => (/^(imageUrl|图片链接)\d+$/i.test(String(h || "")) ? i : -1))
         .filter((i) => i >= 0)
         .sort((a, b) => a - b);
     const localCols = header
-        .map((h, i) => (/^localImage_\d+$/i.test(String(h || "")) ? i : -1))
+        .map((h, i) => (/^(localImage|本地图片)\d+$/i.test(String(h || "")) ? i : -1))
         .filter((i) => i >= 0)
         .sort((a, b) => a - b);
 
