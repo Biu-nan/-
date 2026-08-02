@@ -314,6 +314,44 @@ export class DianxiaomiAdapter {
     }
   }
 
+  // 清场：关掉所有可见的 ant-modal / ant-drawer / 残留 dropdown / 提示弹窗。
+  // 流程内多步操作可能在主页面留下"图片白底 / 模板引用 / 列设置 / 筛选"等 dialog，挡后续点击。
+  async _dismissAllOverlays() {
+    if (!this.page || this.page.isClosed()) return;
+    try {
+      // 1) 点所有可见 ant-modal 的关闭按钮
+      const modalCloseBtns = this.page.locator(".ant-modal-wrap:visible .ant-modal-close");
+      const mc = await modalCloseBtns.count();
+      for (let i = 0; i < mc; i++) {
+        await modalCloseBtns.nth(i).click({ force: true, timeout: 2000 }).catch(() => {});
+        await sleep(200);
+      }
+      // 2) 兜底：evaluate 暴力关掉所有可见 modal-wrap / drawer（保留 backdrop 无所谓）
+      await this.page.evaluate(() => {
+        const sel = [".ant-modal-wrap", ".ant-drawer", ".ant-popover"];
+        for (const s of sel) {
+          document.querySelectorAll(s).forEach((el) => {
+            try {
+              if (s === ".ant-popover") {
+                // popover 用 ESC 关
+                return;
+              }
+              // modal/drawer：先找关闭按钮 click，没有就强制隐藏
+              const close = el.querySelector(".ant-modal-close, .ant-drawer-close, [class*='close']");
+              if (close) { close.click(); return; }
+              el.style.display = "none";
+            } catch { /* ignore */ }
+          });
+        }
+      }).catch(() => {});
+      // 3) 按 ESC 收尾（关残留 popover / dropdown）
+      await this.page.keyboard.press("Escape").catch(() => {});
+      await sleep(300);
+      await this.page.keyboard.press("Escape").catch(() => {});
+      await sleep(300);
+    } catch { /* 静默吞错 — 本步为防御性清场 */ }
+  }
+
   async openCreatePage() {
     await this.connect();
     await this.page.goto(this.profile.url || DIANXIAOMI_URL, { waitUntil: "domcontentloaded" });
@@ -3622,6 +3660,9 @@ export class DianxiaomiAdapter {
       log(`打开采集箱 (searchTitle=${searchTitle})`);
       await this.openCollectBox();
       out.steps.push("openCollectBox");
+      // 清场：关闭所有残留 modal/drawer/dropdown（编辑流程里可能弹出"分类映射"中间页 / 列设置 / 筛选 dialog），
+      // 否则后续 search 会被遮挡，.first() 元素不可点击。
+      await this._dismissAllOverlays().catch(() => {});
       log("搜索标题");
       await this.searchCollectBox(searchTitle);
       out.steps.push("search");
