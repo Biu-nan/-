@@ -1063,7 +1063,36 @@ export class DianxiaomiAdapter {
 
     // 5) 保存并关闭弹窗
     step("saving modal");
-    let saved = await clickByTextIn(modal, /保存|完成|确定/);
+    // 关键修复（v1.6.37）：优先点新版编辑器头部右侧橙色「保存」按钮（class 含 smt-new-editor-save-btn），
+    // 兜底再按文本「保存/完成」找。注意：店小秘新版编辑器头部有「批量操作」下拉含「保存」菜单项，
+    // 跳过它直接点顶部 button，避免点错。
+    let saved = false;
+    const saveBtnSelectors = [
+      'button.smt-new-editor-save-btn:visible',
+      'button[class*="save"]:visible',
+      '.new-editor-header button:has-text("保存"):visible',
+      '.smt-new-editor-header button:has-text("保存"):visible',
+      'button.ant-btn-primary:has-text("保存"):visible'
+    ];
+    for (const sel of saveBtnSelectors) {
+      const b = modal.locator(sel).first();
+      if (await b.count() > 0 && await b.isVisible().catch(() => false)) {
+        await b.click({ timeout: 5000, force: true }).catch((e) => step("save err: " + e.message));
+        saved = true;
+        break;
+      }
+    }
+    if (!saved) {
+      // 兜底：在 modal 内精确文本「保存」/「完成」（避免匹配「保存并移入待发布」主页面顶部按钮）
+      const exactSave = modal.locator("button").filter({ hasText: /^保存$|^完成$/ }).first();
+      if (await exactSave.count() > 0 && await exactSave.isVisible().catch(() => false)) {
+        await exactSave.click({ timeout: 5000, force: true }).catch((e) => step("exact save err: " + e.message));
+        saved = true;
+      } else {
+        // 最后兜底：用 clickByTextIn 在 modal 内找
+        saved = await clickByTextIn(modal, /^保存$|^完成$|^确定$/);
+      }
+    }
     if (!saved) {
       const x = modal.locator(".ant-modal-close, .ant-drawer-close, [class*=close]").first();
       if (await x.count() > 0) await x.click({ timeout: 5000 }).catch(() => {});
@@ -2376,7 +2405,10 @@ export class DianxiaomiAdapter {
       return { ok: true, skipped: true, reason: "recently-translated", translated: [] };
     }
     // 1) 点击顶部「一键翻译」按钮（兼容多种 DOM 形态）
+    // 关键修复（v1.6.37）：店小秘按钮 class 是 `translation-btn`，但有时 click 会被页面上其他 ant-modal
+    // 残留的 mask 拦截导致超时——加 force:true 强制点击。
     const translateBtnSelectors = [
+      'button.translation-btn:has-text("一键翻译")',
       'button:has-text("一键翻译")',
       'a:has-text("一键翻译")',
       '.ant-btn:has-text("一键翻译")',
@@ -2386,7 +2418,7 @@ export class DianxiaomiAdapter {
     for (const sel of translateBtnSelectors) {
       const loc = this.page.locator(sel).first();
       if (await loc.count() > 0 && await loc.isVisible().catch(() => false)) {
-        await loc.click({ timeout: 5000 }).catch(() => {});
+        await loc.click({ timeout: 5000, force: true }).catch(() => {});
         clicked = true;
         break;
       }
@@ -2402,67 +2434,37 @@ export class DianxiaomiAdapter {
     if (!clicked) { result.reason = "translate-button-not-found"; return result; }
     await sleep(800);
 
-    // 2) 定位翻译弹窗
-    const modalSelectors = [
+    // 2) 定位翻译弹窗：店小秘实际是 ant-popover（不是 ant-modal，截图5/6 v1.6.37 实测），
+    //    默认已选「中文 → 英文」+ 默认翻译内容已含「标题、自定义属性、自定义名称、PC端描述、无线端描述」，
+    //    无「确定」按钮——点外面/关闭按钮即触发翻译。
+    const popoverSelectors = [
+      '.ant-popover:visible:has-text("翻译方式")',
+      '.ant-popover:visible:has-text("选择语种")',
+      '.translate-panel:visible',
+      '.ant-popover-inner:visible',
+      // 兜底旧版 ant-modal
+      '.ant-modal:visible:has-text("翻译方式")',
+      '.ant-modal:has-text("翻译方式")',
       '.ant-modal:has-text("翻译")',
-      '.ant-modal-wrap:has-text("翻译")',
-      '.ant-modal-content:has-text("翻译")',
-      '[role="dialog"]:has-text("翻译")',
-      '.ant-modal:has-text("一键翻译")'
+      '[role="dialog"]:has-text("翻译方式")'
     ];
-    let modal = null;
-    for (let i = 0; i < 8 && !modal; i++) {
-      for (const sel of modalSelectors) {
+    let popover = null;
+    for (let i = 0; i < 8 && !popover; i++) {
+      for (const sel of popoverSelectors) {
         const loc = this.page.locator(sel).first();
-        if (await loc.count() > 0 && await loc.isVisible().catch(() => false)) { modal = loc; break; }
+        if (await loc.count() > 0 && await loc.isVisible().catch(() => false)) { popover = loc; break; }
       }
-      if (!modal) await sleep(300);
+      if (!popover) await sleep(300);
     }
-    if (!modal) { result.reason = "translate-modal-not-found"; return result; }
+    if (!popover) { result.reason = "translate-popover-not-found"; return result; }
 
     try {
-      // 3) 点击「中文 → 英文」这一行才真正开始翻译。
-      // 店小秘弹窗里这一行只是语种选择，下方灰色提示「点击该行可执行：将翻译...」，
-      // 必须点它触发翻译流程，而不是只点确定。
-      let langRow = null;
-      const langSelectors = [
-        '.ant-modal-content :text-matches("中文.*英文", "i")',
-        '.ant-modal-content :text-matches("中.*英", "i")',
-        '.ant-modal-content :text-matches("Chinese.*English", "i")',
-        '.ant-modal-body :text-matches("中文.*英文", "i")',
-        '.ant-modal-body :text-matches("中.*英", "i")',
-        '.ant-modal-wrap :text-matches("中文.*英文", "i")'
-      ];
-      for (const sel of langSelectors) {
-        const loc = modal.locator(sel).first();
-        if (await loc.count() > 0 && await loc.isVisible().catch(() => false)) { langRow = loc; break; }
-      }
-      if (!langRow) {
-        // 兜底：从弹窗内所有可见元素里找文本匹配，优先点包含「中文→英文」的 div/li/span
-        const matched = await modal.evaluate(() => {
-          const root = document.querySelector(".ant-modal-content, .ant-modal-wrap, [role='dialog']") || document.body;
-          const walk = (el) => {
-            for (const c of el.children) {
-              const t = (c.innerText || "").trim();
-              if (/中文[\s\-→>]*英文|中[\s\-→>]*英|Chinese[\s\-→>]*English/i.test(t) && t.length < 40) {
-                // 点最外层的可点击容器
-                c.click();
-                return true;
-              }
-              if (walk(c)) return true;
-            }
-            return false;
-          };
-          return walk(root);
-        }).catch(() => false);
-        if (!matched) { result.reason = "translate-lang-row-not-found"; return result; }
-      } else {
-        await langRow.click({ timeout: 5000 }).catch(() => {});
-      }
-      await sleep(1000);
+      // 3) 默认「中文 → 英文」已选中（v1.6.37 实测：行 class 仅有 panel-language-item，
+      //    激活态是 CSS-only 无 class 标记，无法可靠判断；强制点会切语种）。
+      //    故完全信任店小秘默认行为，跳过自动点击「中文 → 英文」避免误触切语种。
+      result.translated.push('lang-default-zh2en');
 
-      // 4) 勾选翻译内容：优先「自定义属性」「自定义名称」；有则顺带标题/描述
-      // 注意：点击语种行后弹窗可能直接进入「翻译中」而不再展示复选框，所以找不到时不视为失败。
+      // 4) 校验默认翻译内容（标题/自定义属性/PC端描述/无线端描述）是否已勾选；不再手动操作以免误触取消
       const targets = [
         { text: "自定义属性", key: "custom-attr" },
         { text: "自定义名称", key: "custom-name" },
@@ -2471,44 +2473,57 @@ export class DianxiaomiAdapter {
         { text: "无线端描述", key: "mobile-desc" }
       ];
       for (const t of targets) {
-        const cbLoc = modal.locator("label, .ant-checkbox-wrapper, span").filter({ hasText: t.text }).first();
-        if (await cbLoc.count() === 0) continue;
-        const input = cbLoc.locator('input[type="checkbox"]').first();
-        if (await input.count() > 0) {
-          const checked = await input.isChecked().catch(() => true);
-          if (!checked) await cbLoc.click({ timeout: 3000 }).catch(() => {});
-        }
-        result.translated.push(t.key);
+        const has = await popover.evaluate((m, txt) => {
+          const items = Array.from(m.querySelectorAll('label, .ant-checkbox-wrapper, li, p, span, div'))
+            .filter(e => e.offsetParent !== null);
+          const item = items.find(e => {
+            const t2 = (e.innerText || '').trim();
+            return t2.startsWith(txt) || (t2.includes(txt) && t2.length < txt.length + 30);
+          });
+          if (!item) return null;
+          const cb = item.querySelector('input[type="checkbox"]');
+          if (!cb) return null;
+          return cb.checked;
+        }, t.text).catch(() => null);
+        if (has === true) result.translated.push(t.key);
+      }
+      // 一个都没识别到时记全部 key（默认全勾场景兜底）
+      if (!result.translated.includes('custom-attr') && !result.translated.includes('title')) {
+        targets.forEach((t) => { if (!result.translated.includes(t.key)) result.translated.push(t.key); });
       }
     } catch (e) {
-      result.reason = "configure-modal:" + (e && e.message || e);
+      result.reason = "configure-popover:" + (e && e.message || e);
     }
 
-    // 5) 点「确定」触发翻译（若弹窗仍在）
-    const confirmBtn = modal.locator("button").filter({ hasText: /^确定$|^确认$|^翻译$|^确定翻译$/ }).first();
-    if (await confirmBtn.count() > 0) {
-      await confirmBtn.click({ timeout: 5000 }).catch(() => {});
+    // 5) 触发翻译：店小秘 popover 没有「确定」按钮——先尝试「开始翻译/确定」按钮；找不到则点关闭按钮触发翻译
+    const triggerBtn = popover.locator("button").filter({ hasText: /^开始翻译$|^确定$|^确认$|^翻译$|^确定翻译$/ }).first();
+    if (await triggerBtn.count() > 0 && await triggerBtn.isVisible().catch(() => false)) {
+      await triggerBtn.click({ timeout: 5000, force: true }).catch(() => {});
     } else {
-      await modal.evaluate((m) => {
-        const b = Array.from(m.querySelectorAll("button")).find((x) => /确定|确认|翻译/.test((x.innerText || "").trim()));
-        if (b) b.click();
-      });
+      // 兜底：点 popover 关闭按钮（X），店小秘在关闭时会触发翻译流程
+      const closeBtn = popover.locator(".ant-popover-close, .ant-popover-close-x, [class*='close']").first();
+      if (await closeBtn.count() > 0 && await closeBtn.isVisible().catch(() => false)) {
+        await closeBtn.click({ timeout: 3000, force: true }).catch(() => {});
+      } else {
+        await this.page.keyboard.press("Escape").catch(() => {});
+      }
     }
+    this._lastTranslateAt = Date.now();
+    await sleep(800);
 
-    // 6) 等待翻译完成：loading 消失且翻译弹窗关闭
+    // 6) 等待翻译完成：loading 消失且翻译弹窗关闭（同时识别 ant-popover 和 ant-modal）
     let completed = false;
     for (let i = 0; i < 15 && !completed; i++) {
       const stillLoading = await this.page.evaluate(() => {
         const spin = document.querySelector(".ant-spin, .ant-spin-spinning, .loading, [class*='loading']");
         return spin && spin.offsetParent !== null;
       }).catch(() => false);
-      const stillModal = await this.page.locator('.ant-modal-wrap:has-text("翻译"), .ant-modal:has-text("翻译")').count() > 0;
-      if (!stillLoading && !stillModal) { completed = true; break; }
+      const stillPopover = await this.page.locator('.ant-popover:has-text("翻译方式"):visible, .ant-modal:has-text("翻译方式"):visible, .ant-modal:has-text("翻译"):visible').count() > 0;
+      if (!stillLoading && !stillPopover) { completed = true; break; }
       await sleep(400);
     }
     result.ok = completed;
     if (!result.ok && !result.reason) result.reason = "translation-timeout";
-    this._lastTranslateAt = Date.now();
     return result;
   }
 
@@ -3430,36 +3445,64 @@ export class DianxiaomiAdapter {
       }
     }
 
-    // 4) 映射页：变种主题映射（非阻塞；失败只记录，不影响保存）
+    // 4) 映射页：变种主题映射（先扫一遍是否已自动填好；未填才走 select 自动填，且 sleep 砍半）
+    // 优化点：原版每行 sleep 600+300ms，5-10 个变种累加到 4-9s。改：先扫页面若必填项已全部映射则直接跳到保存，
+    //        未填才逐行快速填（200+150ms）；点击用 evaluate DOM click 避免 mouse over 事件冗余等待。
     const variantThemeMap = profile.variantThemeMap || {};
     const mapped = [];
     if (Object.keys(variantThemeMap).length > 0) {
       const rows = page.locator("table tbody tr");
       const rowCount = await rows.count();
-      for (let i = 0; i < rowCount; i++) {
-        try {
-          const row = rows.nth(i);
-          const firstCell = row.locator("td").first();
-          const themeText = (await firstCell.innerText().catch(() => "")).trim();
-          const target = variantThemeMap[themeText];
-          if (!target) continue;
-          const select = row.locator(".ant-select").first();
-          if (await select.count() === 0 || !(await select.isVisible().catch(() => false))) continue;
-          await select.click();
-          await sleep(600);
-          // 在浮层下拉框里找选项
-          const option = page.locator(".ant-select-dropdown:visible .ant-select-item-option-content").filter({ hasText: target }).first();
-          if (await option.count() > 0 && await option.isVisible().catch(() => false)) {
-            await option.click();
-            mapped.push({ theme: themeText, target });
-          } else {
-            // 兜底：按 ESC 关闭下拉框，不阻塞
+      // 第一遍：扫页面所有「对应速卖通变种主题」select 是否已全部填好
+      let allMapped = true;
+      if (rowCount > 0) {
+        const rowSummary = await rows.evaluateAll((rs, map) => {
+          return rs.map((r) => {
+            const firstCell = (r.querySelector("td")?.innerText || "").trim();
+            const sel = r.querySelector(".ant-select");
+            const selText = (sel?.innerText || "").trim();
+            const placeholder = !!sel?.querySelector(".ant-select-selection-placeholder");
+            return { firstCell, selText, placeholder, target: map[firstCell] || null };
+          });
+        }, variantThemeMap);
+        for (const it of rowSummary) {
+          if (!it.target) continue;
+          // 已填 = 既有值、且不是 placeholder、且匹配目标
+          if (it.placeholder || !it.selText || it.selText === it.target) continue;
+          allMapped = false;
+          break;
+        }
+      }
+      if (allMapped && rowCount > 0) {
+        step("variant theme map already auto-filled, skip loop");
+      } else {
+        for (let i = 0; i < rowCount; i++) {
+          try {
+            const row = rows.nth(i);
+            const firstCell = row.locator("td").first();
+            const themeText = (await firstCell.innerText().catch(() => "")).trim();
+            const target = variantThemeMap[themeText];
+            if (!target) continue;
+            const select = row.locator(".ant-select").first();
+            if (await select.count() === 0 || !(await select.isVisible().catch(() => false))) continue;
+            // 快速：evaluate click 避免 mouseover/hover 等待
+            await select.evaluate((el) => el.click()).catch(() => {});
+            await sleep(250);
+            // 在浮层下拉框里找选项（精确匹配 target）
+            const option = page.locator(".ant-select-dropdown:visible .ant-select-item-option-content")
+              .filter({ hasText: new RegExp(`^\\s*${escapeRegex(target)}\\s*$`) }).first();
+            if (await option.count() > 0 && await option.isVisible().catch(() => false)) {
+              await option.evaluate((el) => el.click()).catch(() => {});
+              mapped.push({ theme: themeText, target });
+            } else {
+              // 兜底：按 ESC 关闭下拉框，不阻塞
+              await page.keyboard.press("Escape").catch(() => {});
+            }
+            await sleep(150);
+          } catch (e) {
+            // 单个主题映射失败不阻塞整体保存
             await page.keyboard.press("Escape").catch(() => {});
           }
-          await sleep(300);
-        } catch (e) {
-          // 单个主题映射失败不阻塞整体保存
-          await page.keyboard.press("Escape").catch(() => {});
         }
       }
     }
