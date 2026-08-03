@@ -100,7 +100,43 @@ export class ChatGptAdapter {
     }
     async createBlankChat() {
         // 创建新对话需要重新导航到首页，不跳过已有 URL
-        return this.navigateWithRetry(CHATGPT_URL, () => false);
+        const url = await this.navigateWithRetry(CHATGPT_URL, () => false);
+        // 关键：domcontentloaded 不等 React 替换完页面，批量模式下上一行的 stop-button DOM
+        // 仍可能残留在 composer 节点上，导致下一行 sendPromptOnce 的 waitForSendReady 误判。
+        // 主动等 stop-button 消失（30s）+ 二次确认 URL 不在会话内（防止被 ChatGPT 重定向到旧对话）。
+        await this._settleBlankChat(url, 30_000);
+        return this.page ? this.page.url() : url;
+    }
+    // 等待 createBlankChat 后的页面真正"稳"：URL 不在 c/ 会话内 + stop 按钮不可见。
+    // 设计：批量模式 row N 完成后，row N+1 立即 createBlankChat 时，旧 chat 的 composer
+    // 仍可能在 DOM 里短暂残留 stop-button，必须等 React 把页面替换成新 chat 才放行。
+    async _settleBlankChat(fallbackUrl, timeoutMs = 30_000) {
+        const page = await this.requirePage();
+        const stop = this.stopButton(page);
+        const deadline = Date.now() + timeoutMs;
+        let lastDiag = "";
+        while (Date.now() < deadline) {
+            const currentUrl = page.url();
+            const stopVisible = await stop.isVisible().catch(() => false);
+            const inConversation = /^https:\/\/chatgpt\.com\/c\//.test(currentUrl);
+            if (!stopVisible && !inConversation) return;
+            if (inConversation) {
+                // 被 ChatGPT 重定向到旧 chat，强制再次跳回首页
+                try { await page.goto(CHATGPT_URL, { waitUntil: "domcontentloaded", timeout: 15_000 }); }
+                catch { /* 允许后续重试 */ }
+            }
+            if (stopVisible) {
+                lastDiag = `stop-button 仍可见，已等 ${Math.round((timeoutMs - (deadline - Date.now())) / 1000)}s`;
+                // 主动点 stop（如可点）加速 ChatGPT 把页面切到 send 态
+                await this.clickStopSafely(page);
+            }
+            await page.waitForTimeout(600);
+        }
+        // 即使超时，也只告警不抛错——下一道 waitForSendReady 仍会兜底。
+        // 强行抛错会污染 createBlankChat 的契约（旧调用方认为它只是导航）。
+        if (lastDiag) {
+            console.warn(`[chatgpt] _settleBlankChat 软超时：${lastDiag}（继续走 waitForSendReady 兜底）`);
+        }
     }
     async openChat(chatUrl) {
         await this.launch();
@@ -572,7 +608,9 @@ export class ChatGptAdapter {
             }).catch(() => {});
             await page.keyboard.insertText(prompt);
             // 先等 send 态就绪（处理上一行仍在生成的 stop 态），再用 waitFor 兜底可见性
-            await this.waitForSendReady(page, 60_000);
+            // 超时 60s 太短：批量 row N 刚完成时 row N+1 立即进来，旧 chat 的 stop-button
+            // 残留时间偶发 > 60s（尤其 full_listing 走完 MVP4 作图后）；提到 180s 留缓冲。
+            await this.waitForSendReady(page, 180_000);
             const sendButton = this.sendButton(page);
             await sendButton.waitFor({ state: "visible", timeout: 5_000 });
             await this.dismissOverlays(page);
