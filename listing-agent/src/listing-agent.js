@@ -47,7 +47,7 @@ export class ListingAgent {
 
     // Stage 3 · VALIDATE + 自纠错循环
     const autoFixLog = [];
-    const maxRounds = Math.max(0, request.options.maxAutoFixRounds || 3);
+    const maxRounds = request.options.maxAutoFixRounds;
     let lastReport = null;
     let lastMissing = [];
 
@@ -60,14 +60,14 @@ export class ListingAgent {
         log.push("validate", `第 ${round} 轮通过（score=${report.qualityScore}）`);
         return this._buildResult("success", profileKey, facts, report, autoFixLog, log, request);
       }
-      if (round === maxRounds) break;
+      if (round === maxRounds || report.blockers.some(b => b.fixable === false)) break;
 
       facts = await this._autoFix({ facts, missing, profile, request, round, autoFixLog, log });
     }
 
     // 自纠错耗尽：区分「可解但用尽」与「需人工」
     const unresolvable = lastMissing.filter((m) => !m.fixable);
-    const status = unresolvable.length
+    const status = unresolvable.length || !lastReport?.completeness.ok || !lastReport?.schemaValid
       ? "needs_human"
       : "success_with_warnings";
     if (unresolvable.length) {
@@ -129,7 +129,11 @@ export class ListingAgent {
 
   async _buildResult(status, profileKey, facts, report, autoFixLog, log, request) {
     let publish = { status: "skipped" };
-    if (request.options.publish && (status === "success" || status === "success_with_warnings") && this.publisher) {
+    const canSubmit = report?.schemaValid === true && report?.completeness?.ok === true && !report?.blockers?.length;
+    if (request.options.publish && !canSubmit) {
+      publish = { status: "blocked", errors: (report?.blockers ?? []).map(b => b.message) };
+    }
+    if (request.options.publish && canSubmit && (status === "success" || status === "success_with_warnings") && this.publisher) {
       try {
         publish = await this.publisher.publish(facts, {
           mode: request.options.publishMode,

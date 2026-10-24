@@ -98,7 +98,10 @@ export async function generateStage({ request, facts, profile, ai, workspace }) 
   } catch (e) {
     throw new Error("AI 返回无法解析为 facts JSON: " + (e && e.message ? e.message : e));
   }
+  const sourceProvenance = facts.meta?.provenance;
   facts = normalizeDianxiaomiFacts(parsed);
+  // 生成内容不能清除导入资料原有的复核要求和证据缺口。
+  if (sourceProvenance) facts.meta.provenance = structuredClone(sourceProvenance);
 
   // 注入主图：优先 input.images 文件名；否则用工作区扫描结果
   if (images && images.length) {

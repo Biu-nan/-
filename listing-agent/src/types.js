@@ -97,6 +97,9 @@ export function normalizeRequest(req) {
     overrides: {},
     ...req.input,
   };
+  if (!Number.isInteger(options.maxAutoFixRounds) || options.maxAutoFixRounds < 0 || options.maxAutoFixRounds > 3) {
+    throw new Error("maxAutoFixRounds 必须是 0–3 的整数");
+  }
   return { profileKey, input, options };
 }
 

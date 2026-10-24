@@ -72,10 +72,17 @@ export async function validateStage({ facts, profile }) {
     }
   }
 
+  const blockers = [
+    ...hardErrors.map(e => ({ code: "SCHEMA_INVALID", path: e.instancePath || "/", message: e.message, fixable: false })),
+    ...missing.map(m => ({ code: "MISSING_FIELD", message: m.label, fixable: m.fixable })),
+  ];
+  const reviewRequired = facts.meta?.provenance?.reviewRequired;
+  if (reviewRequired !== undefined && reviewRequired !== false) {
+    blockers.push({ code: "SOURCE_REVIEW_REQUIRED", path: "/meta/provenance/reviewRequired", message: "来源资料尚需人工复核", fixable: false });
+  }
   const qualityScore = computeQuality(facts, missing);
-  const unresolvable = missing.filter((m) => !m.fixable).length;
   // 所有缺项（含可自纠错的）清零 + 无 schema 硬错误，才算通过；否则交由自纠错循环处理。
-  const ok = schemaValid && missing.length === 0;
+  const ok = schemaValid && blockers.length === 0;
 
   const report = {
     schemaValid,
@@ -87,6 +94,7 @@ export async function validateStage({ facts, profile }) {
     },
     qualityScore,
     warnings: additionalWarnings,
+    blockers,
   };
 
   return { report, missing };

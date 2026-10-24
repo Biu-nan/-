@@ -28,6 +28,9 @@ export function normalizeDianxiaomiFacts(raw) {
         meta: { source: "ai_extracted", confirmed: false, createdAt: now, updatedAt: now }
     };
     if (raw && typeof raw === "object") {
+        if (raw.meta?.provenance && typeof raw.meta.provenance === "object" && !Array.isArray(raw.meta.provenance)) {
+            base.meta.provenance = structuredClone(raw.meta.provenance);
+        }
         if (raw.title) {
             base.title.zh = raw.title.zh ? String(raw.title.zh) : base.title.zh;
             base.title.en = raw.title.en ? String(raw.title.en) : base.title.en;
