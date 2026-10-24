@@ -1,7 +1,6 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { STATE_FILE } from "./config.js";
 import { normalizeGenerationQcResult } from "./storyboard-gate-service.js";
+import { readCheckedJson, writeCheckedJson } from "./reliability/json-store.js";
 const initialState = () => ({
     stage: "IDLE",
     message: "等待启动",
@@ -47,14 +46,30 @@ function normalizePersistedError(error, promptPackQc) {
 export class StateStore {
     state = initialState();
     updateObserver;
+    pending = Promise.resolve();
+    starting = new Set();
+    constructor({ stateFile = STATE_FILE } = {}) {
+        this.stateFile = stateFile;
+    }
+    enqueue(operation) {
+        const next = this.pending.then(operation);
+        this.pending = next.catch(() => undefined);
+        return next;
+    }
+    persist(value) {
+        return writeCheckedJson(this.stateFile, value, { validate: isValidState });
+    }
     setUpdateObserver(observer) {
         this.updateObserver = observer;
     }
     async load() {
-        try {
-            const data = JSON.parse(await readFile(STATE_FILE, "utf8"));
-            const promptPackQc = normalizeGenerationQcResult(data.promptPackQc) ?? data.promptPackQc;
-            this.state = {
+        return this.enqueue(async () => {
+            const loaded = await readCheckedJson(this.stateFile, { validate: isValidState });
+            let next = initialState();
+            if (loaded.found) {
+                const data = loaded.value;
+                const promptPackQc = normalizeGenerationQcResult(data.promptPackQc) ?? data.promptPackQc;
+                next = {
                 ...initialState(),
                 ...data,
                 promptPackQc,
@@ -77,35 +92,51 @@ export class StateStore {
                 pauseRequested: false,
                 browserStarted: false,
                 updatedAt: new Date().toISOString()
-            };
-        }
-        catch {
-            this.state = initialState();
-        }
-        await this.save();
-        return this.get();
+                };
+                if (loaded.recovered) next.message = `已从有效快照恢复；${next.message}`;
+            }
+            await this.persist(next);
+            this.state = next;
+            return this.get();
+        });
     }
     get() {
-        return structuredClone(this.state);
+        const view = structuredClone(this.state);
+        // running兼作旧入口的会话互斥。先同步预留启动，不提前发布阶段/产物状态。
+        if (this.starting.has("workflow")) view.running = true;
+        if (this.starting.has("selection")) view.selection = { ...view.selection, running: true };
+        return view;
     }
     async update(patch) {
-        this.state = {
-            ...this.state,
-            ...patch,
-            updatedAt: new Date().toISOString()
-        };
-        await this.save();
-        await this.notifyObserver();
-        return this.get();
+        const snapshot = structuredClone(patch);
+        const claims = [];
+        if (snapshot.running === true && !this.state.running) claims.push("workflow");
+        if (snapshot.selection?.running === true && !this.state.selection?.running) claims.push("selection");
+        if (claims.some(key => this.starting.has(key))) throw new Error("当前已有任务正在启动");
+        for (const key of claims) this.starting.add(key);
+        return this.enqueue(async () => {
+            const next = {
+                ...this.state,
+                ...snapshot,
+                updatedAt: new Date().toISOString()
+            };
+            await this.persist(next);
+            this.state = next;
+            await this.notifyObserver();
+            return this.get();
+        }).finally(() => { for (const key of claims) this.starting.delete(key); });
     }
     async reset(message = "等待导入下一个产品") {
-        this.state = {
-            ...initialState(),
-            message
-        };
-        await this.save();
-        await this.notifyObserver();
-        return this.get();
+        return this.enqueue(async () => {
+            const next = {
+                ...initialState(),
+                message
+            };
+            await this.persist(next);
+            this.state = next;
+            await this.notifyObserver();
+            return this.get();
+        });
     }
     async notifyObserver() {
         if (!this.updateObserver)
@@ -120,8 +151,11 @@ export class StateStore {
             .catch((error) => console.warn("Product profile observer warning:", error instanceof Error ? error.message : String(error)));
     }
     async save() {
-        await mkdir(path.dirname(STATE_FILE), { recursive: true });
-        await writeFile(STATE_FILE, `${JSON.stringify(this.state, null, 2)}\n`, "utf8");
+        return this.enqueue(() => this.persist(this.state));
     }
+}
+function isValidState(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value) &&
+        typeof value.stage === "string" && value.stage.length > 0 && typeof value.running === "boolean";
 }
 //# sourceMappingURL=state-store.js.map
