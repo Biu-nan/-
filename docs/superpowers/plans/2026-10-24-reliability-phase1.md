@@ -32,11 +32,11 @@
 
 **Interfaces:** validateStage产出blockers；run返回validation及needs_human；publisher只在schemaValid、completeness.ok且无blockers时调用。maxAutoFixRounds为0–3整数，默认3。normalize保留provenance；AI补全不得清除原有复核要求。
 
-- [ ] 添加类型错误、复核保留、0次修复、非法轮数、正常提交的行为测试。
-- [ ] 运行测试，确认错误分支的预期失败。
-- [ ] 实现最小门禁和来源透传；不放宽Schema硬错误。
-- [ ] 运行node --test listing-agent/test/*.test.js，预期全部通过。
-- [ ] 记录验证并提交本任务涉及文件。
+- [x] 添加类型错误、复核保留、0次修复、非法轮数、正常提交的行为测试。
+- [x] 运行测试，确认错误分支的预期失败。
+- [x] 实现最小门禁和来源透传；不放宽Schema硬错误。
+- [x] 运行node --test listing-agent/test/*.test.js，预期全部通过。
+- [x] 记录验证并提交本任务涉及文件。
 
 ### Task 2: 视觉QC与候选隔离
 
@@ -44,11 +44,11 @@
 
 **Interfaces:** composeQcResult聚合已有确定性/视觉判定；buildLocalQc返回局部覆盖结果；isQcDeliverable只接受完整通过。runner复用以上接口，unverified不当passed、不因QC缺覆盖持续重复生图，产物计数只统计合格交付。
 
-- [ ] 添加低总分/分项、缺缩略图、本地覆盖不足、尺寸失败、缓存旧误通过和正常通过测试。
-- [ ] 运行测试，确认当前实现的预期失败。
-- [ ] 提取并接入判定，两个本地兜底分支共用同一策略；移出未合格候选时修正交付路径。
-- [ ] 运行node --test dist/test/visual-qc-safety.test.js，预期全部通过。
-- [ ] 记录验证并提交本任务涉及文件。
+- [x] 添加低总分/分项、缺缩略图、本地覆盖不足、尺寸失败、缓存旧误通过和正常通过测试。
+- [x] 运行测试，确认当前实现的预期失败。
+- [x] 提取并接入判定，两个本地兜底分支共用同一策略；移出未合格候选时修正交付路径。
+- [x] 运行node --test dist/test/visual-qc-safety.test.js，预期全部通过。
+- [x] 记录验证并提交本任务涉及文件。
 
 ### Task 3: 主状态安全保存与恢复
 
@@ -56,16 +56,16 @@
 
 **Interfaces:** readCheckedJson(file,{validate})返回{found,value,recovered,preservedPath}；writeCheckedJson(file,value,{validate})执行进程内同路径串行的原子保存和有效快照。StateStore构造可传stateFile用于独立实例；正常调用保持兼容，持久化成功后才更新内存。
 
-- [ ] 添加损坏原件保留、有快照恢复、无效结构、并发更新、保存失败内存不前进及正常暂停恢复测试。
-- [ ] 先在独立目录运行，确认不是由误读真实运行数据产生的失败。
-- [ ] 实现JSON校验、独占临时文件/文件同步/替换、最后有效快照、串行状态变更。
-- [ ] 运行node --test dist/test/state-store.test.js，预期全部通过。
-- [ ] 运行完整根测试及Listing测试，逐项对照既有失败；新增回归必须通过。
-- [ ] 记录验证并提交本任务涉及文件。
+- [x] 添加损坏原件保留、有快照恢复、无效结构、并发更新、保存失败内存不前进及正常暂停恢复测试。
+- [x] 先在独立目录运行，确认不是由误读真实运行数据产生的失败。
+- [x] 实现JSON校验、独占临时文件/文件同步/替换、最后有效快照、串行状态变更。
+- [x] 运行node --test dist/test/state-store.test.js，预期全部通过。
+- [x] 运行完整根测试及Listing测试，逐项对照既有失败；新增回归必须通过。
+- [x] 记录验证并提交本任务涉及文件。
 
 ### Task 4: 独立审查与私有交付
 
-**Files:** 本计划进度、私有备份回执和阶段验证报告。
+**Files:** 本计划进度、私有备份回执、阶段验证报告和package.json的test:reliability检查入口。
 
 **Interfaces:** 审查本分支相对373dbcb的本次修改，不包含用户浏览器适配器改动；固定备份标签不移动。
 
