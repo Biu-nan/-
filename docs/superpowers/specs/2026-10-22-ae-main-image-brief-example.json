@@ -1,0 +1,173 @@
+{
+  "schema_version": "draft-1",
+  "status": "DRAFT_NOT_APPROVED_FOR_GENERATION",
+  "framework_ref": "2026-10-22-ae-visual-design-standard-v1-draft.md",
+  "product_id": "903932105044",
+  "sku_id": "5761489960647",
+  "image_id": "01",
+  "role": "HERO",
+  "placement": "AliExpress current store primary image; exact profile pending",
+  "platform_profile_ref": {
+    "status": "UNVERIFIED",
+    "market": "AliExpress global intended; current store configuration not verified",
+    "seller_mode": "UNKNOWN",
+    "category": "UNKNOWN",
+    "source": null,
+    "formal_compliance": "UNKNOWN"
+  },
+  "sales_task": "一眼识别桔色笑脸花朵挂件，明确售卖对象，支持有效点击",
+  "customer_question": "卖的是什么，外观是否是我想要的挂件？",
+  "conversion_hypothesis": {
+    "mechanism": "减少黑包和大标题干扰，把真实商品变成第一视觉主体，预期降低售卖对象误解",
+    "target_metrics": [
+      "qualified_clicks",
+      "orders_per_1000_attributed_impressions"
+    ],
+    "causal_effect_verified": false,
+    "market_sample_validation": "NOT_RUN"
+  },
+  "source_refs": [
+    {
+      "file": "D:\\ecom-translator\\output\\未成功上架产品\\韩国东大门爱小雏菊布艺笑脸花朵钥匙扣挂饰棒棒糖包包挂件高级感_903932105044_images__20261001T124144\\主图_01.jpg",
+      "sha256": "F2AFB8B44D8E5E2BD76B829265520E9CA203CE83A0AACCBA7607F26B30123619",
+      "authority": "visual identity only; not measured dimensions or package proof"
+    },
+    {
+      "file": "D:\\ecom-translator\\output\\未成功上架产品\\韩国东大门爱小雏菊布艺笑脸花朵钥匙扣挂饰棒棒糖包包挂件高级感_903932105044_images__20261001T124144\\主图_02.jpg",
+      "sha256": "499BFE807D3F169CFBF9A7BCD2B0FFA44D40EF4DF50B6877135992966D76FE88",
+      "authority": "visual identity only; not measured dimensions or package proof"
+    },
+    {
+      "file": "D:\\ecom-translator\\output\\未成功上架产品\\韩国东大门爱小雏菊布艺笑脸花朵钥匙扣挂饰棒棒糖包包挂件高级感_903932105044_images__20261001T124144\\描述图_03.jpg",
+      "sha256": "F498F226BCBDAD8091C719C9E46B42B411F8F098107740D8BB0076AB924147B7",
+      "authority": "visual identity only; not measured dimensions or package proof"
+    }
+  ],
+  "visual_proof": [
+    "六片桔色布艺花瓣及黄色笑脸",
+    "橙绿白斑双股绳",
+    "银色心形扣和连接五金",
+    "棕色单环、滑扣、尾端",
+    "橙色心形棒棒糖挂件"
+  ],
+  "composition_blueprint": {
+    "first_focus": "花朵与笑脸",
+    "secondary_focus": "完整挂件连接与绳尾",
+    "background": "clean light neutral candidate; subject to applicable platform profile",
+    "layout": "单件集中展示；维持有证据的真实姿态，不拉伸，不以裁掉配件放大花朵",
+    "props": [],
+    "prop_misunderstanding_gate": "FAIL if interpreted as selling a bag"
+  },
+  "product_scale": {
+    "measurement": "whole_product_longest_span_excluding_props_and_shadow",
+    "initial_span_fraction_range": [
+      0.75,
+      0.9
+    ],
+    "edge_margin_fraction_range": [
+      0.05,
+      0.1
+    ],
+    "rule_level": "TEST_HYPOTHESIS_NOT_PLATFORM_POLICY",
+    "core_recognition": "separate flower and smiley recognition check; no fixed universal area percentage"
+  },
+  "crop_safe_area": {
+    "all_identity_components_visible": true,
+    "platform_crop_behavior": "UNVERIFIED",
+    "no_stretch": true
+  },
+  "text_hierarchy": {
+    "mode": "NONE",
+    "exact_copy": [],
+    "reason": "当前初版首图通过真实外观识别，不新增海报式类目标题",
+    "policy_scope": "project initial choice, not universal AliExpress text ban"
+  },
+  "style_contract_ref": {
+    "status": "PROVISIONAL_PENDING_MARKET_RESEARCH",
+    "candidate": "干净浅底真实摄影",
+    "selected_from_three_market_styles": false
+  },
+  "identity_constraints": {
+    "petals": 6,
+    "variant": "桔色",
+    "face": "yellow center, black oval eyes, curved smile",
+    "additional_components_must_match_references": true,
+    "hidden_structure": "do not invent",
+    "package_contents": "UNKNOWN"
+  },
+  "forbidden_changes": [
+    "新增棕色回环",
+    "重画为大体积多层绿色绕结",
+    "心形扣失去真实直杆开合结构",
+    "臆造或重构绳尾",
+    "裁掉关键配件",
+    "改变实物颜色或比例",
+    "虚构包装、尺寸、材质或产地"
+  ],
+  "production_method": {
+    "preference": "real_product_composite",
+    "capability_verified_for_this_brief": false,
+    "backend_direction": "official local App Server with native image generation; no independent image API",
+    "default_programmatic_text_overlay": false,
+    "native_imagegen_is_not_proof_of_pixel_preservation": true
+  },
+  "preview_conditions": {
+    "internal_test_widths_px": [
+      160,
+      320
+    ],
+    "brief_recognition_seconds": 3,
+    "official_platform_sizes": false,
+    "actual_preview_tests_run": false,
+    "full_resolution_identity_check_separate": true
+  },
+  "pass_fail": {
+    "hard_fail": [
+      "wrong SKU or changed identity",
+      "selling object misidentified",
+      "important component cropped",
+      "unsupported claim or included-item implication",
+      "critical text error",
+      "core feature not recognizable in target thumbnail"
+    ],
+    "pending_blocks_formal_release": [
+      "platform profile unverified",
+      "design brief not approved",
+      "generation method not verified",
+      "required visual QC not performed",
+      "initial required human review not passed"
+    ]
+  },
+  "unique_information": "当前SKU完整外观与主要辨识特征",
+  "prior_image_difference": "first asset; later assets must supply new purchase-decision information",
+  "design_scoring": {
+    "status": "NOT_SCORED",
+    "scale_max": 5,
+    "weights": {
+      "subject": 25,
+      "hierarchy": 20,
+      "evidence": 20,
+      "mobile": 20,
+      "style": 15
+    },
+    "initial_threshold": 85,
+    "threshold_status": "UNVALIDATED_PROJECT_HYPOTHESIS",
+    "minimum_dimension_scores": {
+      "subject": 4,
+      "hierarchy": 3,
+      "evidence": 3,
+      "mobile": 4,
+      "style": 3
+    },
+    "hard_fail_overrides_score": true
+  },
+  "approval_state": {
+    "design": "DRAFT",
+    "generation_authorized": false,
+    "platform_compliance": "UNKNOWN",
+    "ai_visual_qc": "NOT_RUN",
+    "human_review": "NOT_RUN",
+    "production_accepted": false
+  },
+  "old_run_limit_reset": false
+}

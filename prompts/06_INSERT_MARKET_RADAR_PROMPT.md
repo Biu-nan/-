@@ -193,6 +193,7 @@
 
 - `officialFrontImageUrl` 必须尽量输出可直接打开的图片直链，URL 末尾或响应内容应为 `.jpg / .jpeg / .png / .webp` 图片资源。
 - 产品详情页、品牌官网商品页、零售商页面必须放入 `officialProductUrl`，不要放入 `officialFrontImageUrl`。
+- `officialProductUrl` **严禁**使用 ChatGPT 界面内部引用占位（`sourceRef:turn...`、`<source>` 标签、`[n]` 角标文字等）。这些不是真实 URL，前端会判为无效并显示“未提供”。只接受 `https://` 开头的完整商品页 URL。
 - 优先选择正面、白底、无遮挡、无模特、无复杂场景的包型图片。
 - 不得使用社媒截图、Logo 图、拼图、带模特穿搭图作为优先图片。
 - 如果没有找到官网或可信白底正面图，必须写：`Not found / needs manual sourcing`。
@@ -714,6 +715,7 @@ P1 表示：有机会，但不应抢占第一批尺寸匹配资源。
 - `bagModel + sizeVersion + officialProductUrl` 必须能用于识别重复候选。
 - `officialProductUrl` 为**必填**：只要找到该包型的任意官方产品页 / 品牌商品页 / 可信零售商商品页，都必须写入此字段，不得整批留空。若确实找不到任何产品页，才写 `Not found / needs manual sourcing`。
 - 产品页（.html / 商品详情页）只能写入 `officialProductUrl`，**严禁**写入 `officialFrontImageUrl`；`officialFrontImageUrl` 只接受图片直链（.jpg / .jpeg / .png / .webp）。
+- **反例（禁止）**：`"officialProductUrl": "sourceRef:turn979449search1"` 是 ChatGPT 搜索结果的内部引用标记，**不是 URL**，前端无法打开也不会展示。即使聊天界面提示“不允许裸露 URL”，机器 JSON 仍必须写完整 `https://` 真实商品页 URL。若确实拿不到整 URL，写 `Not found / needs manual sourcing`，**不要用 sourceRef 占位**。
 - JSON 只用于后台解析；不要省略字段，不要添加注释。
 
 ```text

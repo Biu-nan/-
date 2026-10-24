@@ -1,13 +1,16 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { LISTING_CONTENT_PROMPT_FILE, INSERT_LISTING_CONTENT_PROMPT_FILE, INSERT_PROMPT_FILE, INSERT_MARKET_RADAR_PROMPT_FILE, MARKET_VISUAL_AUDIT_PROMPT_V2, MARKET_VISUAL_AUDIT_V2_PROMPT_FILE, PLANNING_PROMPT_FILE, PROMPTS_DIR, SINGLE_IMAGE_PROMPT_GENERATOR_V2, SINGLE_IMAGE_PROMPT_V2_FILE, VISUAL_PLANNING_PROMPT_V2, VISUAL_PLANNING_V2_PROMPT_FILE, VISUAL_STRATEGY_COMPRESSION_PROMPT_FILE, VISUAL_STRATEGY_COMPRESSION_PROMPT_V1, RESEARCH_PROMPT_FILE, SEO_KEYWORDS_PROMPT_FILE, SELECTION_PROMPT_FILE } from "./config.js";
+import { LISTING_CONTENT_PROMPT_FILE, INSERT_LISTING_CONTENT_PROMPT_FILE, INSERT_PROMPT_FILE, INSERT_MARKET_RADAR_PROMPT_FILE, MARKET_VISUAL_AUDIT_PROMPT_V2, MARKET_VISUAL_AUDIT_V2_PROMPT_FILE, PLANNING_PROMPT_FILE, PLANNING_BATCH_NO_RESEARCH_PROMPT_FILE, PROMPTS_DIR, SINGLE_IMAGE_PROMPT_GENERATOR_V2, SINGLE_IMAGE_PROMPT_V2_FILE, VISUAL_PLANNING_PROMPT_V2, VISUAL_PLANNING_V2_PROMPT_FILE, VISUAL_STRATEGY_COMPRESSION_PROMPT_FILE, VISUAL_STRATEGY_COMPRESSION_PROMPT_V1, RESEARCH_PROMPT_FILE, SEO_KEYWORDS_PROMPT_FILE, SELECTION_PROMPT_FILE, CHARM_PROMPT_FILE, CHARM_LISTING_CONTENT_PROMPT_FILE } from "./config.js";
 export const PROMPT_KINDS = [
     "research",
     "planning",
+    "planningNoResearch",
     "seoKeywords",
     "listingContent",
     "luxuryInsert",
     "insertMarketRadar",
     "insertListingContent",
+    "bagCharm",
+    "bagCharmListingContent",
     "marketVisualAuditV2",
     "visualStrategyCompression",
     "visualPlanningV2",
@@ -18,11 +21,14 @@ function promptPath(kind) {
     const paths = {
         research: RESEARCH_PROMPT_FILE,
         planning: PLANNING_PROMPT_FILE,
+        planningNoResearch: PLANNING_BATCH_NO_RESEARCH_PROMPT_FILE,
         seoKeywords: SEO_KEYWORDS_PROMPT_FILE,
         listingContent: LISTING_CONTENT_PROMPT_FILE,
         luxuryInsert: INSERT_PROMPT_FILE,
         insertMarketRadar: INSERT_MARKET_RADAR_PROMPT_FILE,
         insertListingContent: INSERT_LISTING_CONTENT_PROMPT_FILE,
+        bagCharm: CHARM_PROMPT_FILE,
+        bagCharmListingContent: CHARM_LISTING_CONTENT_PROMPT_FILE,
         marketVisualAuditV2: MARKET_VISUAL_AUDIT_V2_PROMPT_FILE,
         visualStrategyCompression: VISUAL_STRATEGY_COMPRESSION_PROMPT_FILE,
         visualPlanningV2: VISUAL_PLANNING_V2_PROMPT_FILE,
@@ -44,11 +50,14 @@ function promptLabel(kind) {
     const labels = {
         research: "市场调研",
         planning: "视觉规划",
+        planningNoResearch: "批量视觉规划（无联网调研）",
         seoKeywords: "SEO 关键词",
         listingContent: "Listing 文案",
         luxuryInsert: "奢侈包内胆 7 图",
         insertMarketRadar: "内胆每日市场选款",
         insertListingContent: "内胆 Listing 文案",
+        bagCharm: "包包挂件 6 图",
+        bagCharmListingContent: "包包挂件 Listing 文案",
         marketVisualAuditV2: "市场视觉调研 v2",
         visualStrategyCompression: "视觉策略裁剪",
         visualPlanningV2: "视觉规划 v2",
@@ -129,7 +138,15 @@ export function isOutlineOnlyPlanningText(text) {
         /现在开始输出第\s*1/i,
         /将分\s*\d+\s*次/i,
         /由于该任务包含完整\s*A\s*\+\s*B\s*\+\s*C/i,
-        /单次回复长度会超过输出限制/i
+        /单次回复长度会超过输出限制/i,
+        /将在下一条消息/i,
+        /下一条消息开始/i,
+        /下一条消息给出/i,
+        /我会分条发送/i,
+        /现在正式开始/i,
+        /接下来开始输出/i,
+        /我将在.*继续/i,
+        /将在.*连续输出/i
     ];
     const hasOutlineSignal = outlineSignals.some((re) => re.test(text));
     if (!hasOutlineSignal)

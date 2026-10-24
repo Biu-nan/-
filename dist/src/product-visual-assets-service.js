@@ -1,9 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
 import { copyFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { IMAGE_GENERATION_LOG_FILE, PRODUCT_PROFILE_FILE, PRODUCT_VISUAL_ASSETS_DIR, PRODUCT_VISUAL_ASSETS_FILE } from "./config.js";
+import { IMAGE_GENERATION_LOG_FILE, PRODUCT_FACT_FILE, PRODUCT_PROFILE_FILE, PRODUCT_VISUAL_ASSETS_DIR, PRODUCT_VISUAL_ASSETS_FILE } from "./config.js";
 import { hashBuffer, scanProductImages } from "./image-files.js";
 const ROLE_ORDER = ["front", "side", "back"];
+// 逐张生图不需要、也不应重复上传整套商品资料。保留三张身份参考图即可锁定
+// 正面、侧面和背面（无对应角色时按导入优先级回退），避免 20 张源图 × 10 张
+// 生成图迅速耗尽 ChatGPT 附件额度。
+const MAX_GENERATION_REFERENCE_IMAGES = 3;
 function nowIso() {
     return new Date().toISOString();
 }
@@ -59,11 +63,10 @@ function stableSetId(productId, hashes) {
         .slice(0, 16);
     return `vrs_${digest}`;
 }
-async function readCurrentProductId(profileFile) {
+async function readProductId(file) {
     try {
-        const raw = await readFile(profileFile, "utf8");
-        const profile = JSON.parse(raw);
-        return profile.productId;
+        const raw = await readFile(file, "utf8");
+        return JSON.parse(raw).productId;
     }
     catch {
         return undefined;
@@ -75,7 +78,8 @@ export class ProductVisualAssetsService {
         visualAssetsFile: PRODUCT_VISUAL_ASSETS_FILE,
         visualAssetsDir: PRODUCT_VISUAL_ASSETS_DIR,
         generationLogFile: IMAGE_GENERATION_LOG_FILE,
-        productProfileFile: PRODUCT_PROFILE_FILE
+        productProfileFile: PRODUCT_PROFILE_FILE,
+        productFactsFile: PRODUCT_FACT_FILE
     }) {
         this.paths = paths;
     }
@@ -83,7 +87,10 @@ export class ProductVisualAssetsService {
         return (this.paths.scanProductImages ?? scanProductImages)();
     }
     async currentProductId() {
-        return readCurrentProductId(this.paths.productProfileFile);
+        // 旧工作流可能只成功落盘 product-facts.json；不能因此让 MVP4 在已有
+        // 产品事实、图片和 Prompt Pack 的情况下失去身份绑定。
+        return (await readProductId(this.paths.productProfileFile)) ??
+            (await readProductId(this.paths.productFactsFile));
     }
     async rebuildCurrentReferenceSet(productId = "current-product") {
         const images = await this.scanImages();
@@ -164,7 +171,17 @@ export class ProductVisualAssetsService {
         const front = activeImages.find((image) => image.role === "front");
         if (!front)
             warnings.push("未标记 front 图，已使用第一张 active source image 作为主参考图");
-        for (const image of activeImages) {
+        const rolePriority = new Map([["front", 0], ["side", 1], ["back", 2], ["detail", 3]]);
+        const generationReferences = activeImages
+            .map((image, index) => ({ image, index }))
+            .sort((left, right) => (rolePriority.get(left.image.role) ?? 9) -
+                (rolePriority.get(right.image.role) ?? 9) || left.index - right.index)
+            .slice(0, MAX_GENERATION_REFERENCE_IMAGES)
+            .map(({ image }) => image);
+        if (activeImages.length > generationReferences.length) {
+            warnings.push(`生图仅使用 ${generationReferences.length}/${activeImages.length} 张高优先级身份参考图，以控制 ChatGPT 附件额度`);
+        }
+        for (const image of generationReferences) {
             const file = await readFile(image.storage_path).catch(() => undefined);
             if (!file)
                 throw new Error(`缺少可用产品源图：${image.original_filename}`);
@@ -181,9 +198,9 @@ export class ProductVisualAssetsService {
             image_number: String(input.image_number).padStart(2, "0"),
             prompt_version: input.prompt_version ?? "v1",
             image_prompt: input.image_prompt,
-            reference_image_asset_ids: activeImages.map((image) => image.asset_id),
-            reference_image_paths: activeImages.map((image) => image.storage_path),
-            reference_image_hashes: activeImages.map((image) => image.sha256),
+            reference_image_asset_ids: generationReferences.map((image) => image.asset_id),
+            reference_image_paths: generationReferences.map((image) => image.storage_path),
+            reference_image_hashes: generationReferences.map((image) => image.sha256),
             active_reference_set_id: assets.active_reference_set_id,
             identity_lock_version: assets.identity_lock_version,
             warnings

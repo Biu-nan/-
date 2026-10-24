@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>控制塔 · 一跨而境 AI 运营控制平面</title>
+<link rel="stylesheet" href="/styles.css?v=20260731-6" />
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; background: #F5F7FA; color: #1A2A3A; }
+  .tower-header { display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; background: #fff; border-bottom: 1px solid #E2E8F0; }
+  .tower-header h1 { font-size: 18px; margin: 0; }
+  .tower-sub { margin: 4px 0 0; font-size: 12px; color: #667; }
+  .tower-live { font-size: 12px; color: #667; display: flex; align-items: center; gap: 6px; }
+  #liveDot { width: 8px; height: 8px; border-radius: 50%; background: #CBD5E1; }
+  #liveDot.ok { background: #22a06b; }
+  #liveDot.err { background: #e24b4a; }
+  .tower-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px 24px; }
+  .panel { background: #fff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 16px; }
+  .panel h2 { font-size: 14px; margin: 0 0 12px; }
+  .sys-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .chip { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: #EFF4FB; border: 1px solid #D6E4F5; color: #1F5C99; }
+  .chip.warn { background: #FBF1E2; border-color: #F0D9B0; color: #854F0B; }
+  .chip.bad { background: #FCEBEB; border-color: #F3C1C1; color: #A32D2D; }
+  .batch-block { margin-bottom: 14px; }
+  .batch-block h3 { font-size: 13px; margin: 0 0 8px; color: #334; }
+  .overall { font-size: 12px; color: #667; margin-bottom: 8px; }
+  .item { margin-bottom: 8px; }
+  .item-top { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
+  .bar { height: 6px; background: #EDF1F6; border-radius: 4px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: #378ADD; }
+  .bar.done > i { background: #22a06b; }
+  .bar.fail > i { background: #e24b4a; }
+  .bar.pend > i { background: #CBD5E1; }
+  .bar.skip > i { background: #EF9F27; }
+  .tag { font-size: 11px; padding: 1px 7px; border-radius: 6px; }
+  .tag.run { background: #E6F1FB; color: #185FA5; }
+  .tag.done { background: #EAF3DE; color: #3B6D11; }
+  .tag.fail { background: #FCEBEB; color: #A32D2D; }
+  .tag.pend { background: #F1EFE8; color: #5F5E5A; }
+  .tag.skip { background: #FAEEDA; color: #854F0B; }
+  .sop-list { display: flex; flex-direction: column; gap: 10px; }
+  .sop { border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 12px; }
+  .sop-top { display: flex; justify-content: space-between; align-items: center; }
+  .sop-name { font-size: 13px; font-weight: 500; }
+  .sop-cat { font-size: 11px; padding: 1px 7px; border-radius: 6px; background: #EFF4FB; color: #1F5C99; }
+  .sop-desc { font-size: 12px; color: #556; margin-top: 4px; }
+  .recon-box { font-size: 13px; color: #556; }
+  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 6px; background: #FAEEDA; color: #854F0B; margin-bottom: 10px; }
+  .recon-list { margin: 8px 0 0; padding-left: 18px; font-size: 12px; color: #556; }
+  .audit-list { display: flex; flex-direction: column; gap: 6px; max-height: 460px; overflow: auto; }
+  .audit-item { font-size: 12px; border-bottom: 1px dashed #EDF1F6; padding: 5px 0; }
+  .audit-item .t { color: #94a3b8; font-size: 11px; margin-right: 8px; }
+  .audit-item .type { color: #185FA5; }
+  .tower-footer { padding: 16px 24px 28px; }
+  .tower-footer h3 { font-size: 13px; margin: 0 0 12px; color: #854F0B; }
+  .implicit-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .imp { background: #FAF6EF; border: 1px solid #EAD2AC; border-radius: 10px; padding: 12px; }
+  .imp-name { font-size: 13px; font-weight: 500; color: #633806; }
+  .imp-desc { font-size: 12px; color: #9A6B3E; margin-top: 4px; }
+  @media (max-width: 900px) { .tower-grid { grid-template-columns: 1fr; } .implicit-strip { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+  <header class="tower-header">
+    <div>
+      <h1>控制塔 · 显性逻辑</h1>
+      <p class="tower-sub">一跨而境 AI 运营控制平面 — 实时运行轨迹 / SOP 资产 / 审计（隐性引擎见底部）</p>
+    </div>
+    <div class="tower-live"><span id="liveDot"></span><span id="liveText">连接中…</span></div>
+  </header>
+
+  <main class="tower-grid">
+    <section class="panel" id="panel-trajectory">
+      <h2>① 控制塔大盘 · 实时任务轨迹</h2>
+      <div id="sysStrip" class="sys-strip"></div>
+      <div id="batchList" class="batch-list"></div>
+    </section>
+
+    <section class="panel" id="panel-sop">
+      <h2>② SOP 资产索引</h2>
+      <div id="sopList" class="sop-list"></div>
+    </section>
+
+    <section class="panel" id="panel-recon">
+      <h2>③ 店铺经营对账</h2>
+      <div id="reconBox" class="recon-box"></div>
+    </section>
+
+    <section class="panel" id="panel-audit">
+      <h2>④ 审计 &amp; 运行轨迹</h2>
+      <div id="auditList" class="audit-list"></div>
+    </section>
+  </main>
+
+  <footer class="tower-footer">
+    <h3>隐性逻辑 · 驱动上述显性产物的引擎（Phase 4 接入）</h3>
+    <div id="implicitStrip" class="implicit-strip"></div>
+  </footer>
+
+  <script src="/tower.js?v=20260805-1" defer></script>
+</body>
+</html>

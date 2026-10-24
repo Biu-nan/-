@@ -1,0 +1,426 @@
+# ChatGPT 视觉规划 Prompt（批量版 · 无联网调研）
+
+你现在是一位深谙消费者心理学 VOC、跨境电商 listing 视觉系统和高转化主图规划的首席视觉总监。我将提供：1. 产品图片 2. 风格参考图（如有）3. 产品基础信息。请先分析，再规划。当前不要直接生成图片。
+
+重要执行规则：
+
+- 如果产品名称、类目、目标平台、目标市场、核心卖点、目标人群、心理动因、销售主体或重要备注仍保留 `{{...}}` 占位符或为空，必须结合本对话已经上传的产品实拍图自行推断。
+- 无法确认的事实标记为“不确定 / 待人工确认”，但不得停下来向用户提问。
+- 不得要求用户补充变量，不得输出确认清单，不得等待人工回复。
+- 必须在本次回复中直接完成 A、B、C 三个部分，并完整输出 Image 01–10 的全部固定边界标记。
+- **本次不依赖任何联网市场调研 / Top 10 竞品数据。** 所有视觉决策基于：本对话已上传的产品实拍图 + 该类目通用高转化视觉经验。不得自行打开联网搜索工具查找竞品数据，否则会中断流程。
+
+严禁分段 / 严禁只输出大纲 / 严禁预告：
+
+- 不得先输出「结构安排 / 第 1/3、第 2/3、第 3/3 / 现在开始输出第 1 部分」之类的大纲或预告，然后停止等待用户输入「继续」。
+- 不得在回复中声明「将分多次输出」「单次回复长度超过限制，拆分输出」「我将在下一条消息开始连续输出完整 A+B+C」「完整内容将在下一条消息给出」「由于内容较长，我会分条发送」等理由后中断或延迟输出。
+- 不得输出任何「预告性」「承诺性」「过渡性」文本（例如「我将在下一条消息继续」「接下来开始输出」「现在正式开始」）来代替真实内容。
+- 必须在本条回复中一次性、连续地写完 A + B + C 全部内容，直到 10 张图的 Prompt 全部完整输出为止。当前消息就是最终交付消息。
+- 若模型内部因长度限制有中断倾向，必须主动继续在同一回复内补完剩余内容，不要停下来等用户，不要放到下一条消息。
+- 每一个 `<<<IMAGE_XX_PROMPT_START>>>` 与 `<<<IMAGE_XX_PROMPT_END>>>` 之间必须包含真实、可执行的完整生图 Prompt（英文，≥ 50 字符），绝不允许只写空标记或占位。
+
+---
+
+# 产品基础信息
+
+产品名称：
+{{PRODUCT_NAME}}
+
+产品类目：
+{{PRODUCT_CATEGORY}}
+
+目标平台：
+{{TARGET_PLATFORM}}
+
+目标市场：
+{{TARGET_MARKET}}
+
+核心卖点：
+{{CORE_SELLING_POINTS}}
+
+目标人群：
+{{TARGET_AUDIENCE}}
+
+心理动因：
+{{BUYER_PSYCHOLOGY}}
+
+销售主体：
+{{SELLING_SUBJECT}}
+
+重要备注：
+{{IMPORTANT_NOTES}}
+
+---
+
+# 最高优先级 1｜Product Identity Lock
+
+请严格执行：
+
+1. 上传产品图是销售主体的唯一视觉真相。
+2. 产品必须与上传图一致，包括：
+   - shape
+   - structure
+   - material
+   - color
+   - surface texture
+   - visible details
+   - accessory placement
+   - pocket / zipper / seam position
+   - edge finishing
+   - overall silhouette
+3. 不允许新增、删除、简化或修改上传图中不存在的产品结构。
+4. 风格参考图只控制：
+   - background
+   - layout
+   - lighting
+   - typography
+   - icon style
+   - visual mood
+5. 参考包、道具、模特、包装、场景只作为辅助元素。
+6. 严禁货不对板。
+
+---
+
+# 最高优先级 2｜经验型风格基线（无联网数据）
+
+视觉风格基于通用类目经验，不依赖联网竞品数据。
+
+请依据该类目常见的高转化视觉习惯，确定：
+
+- 该类目主流背景风格（如纯色渐变 / 生活场景 / 工作台平铺）
+- 该类目主流配色系统
+- 该类目主流主图构图
+- 该类目主流字体风格
+- 该类目主流 icon 风格
+- 该类目主流信息密度
+- 该类目主流图片顺序
+
+执行比例：
+
+- 70%–80% 保留类目主流视觉习惯
+- 20%–30% 做有限差异化优化（更高级配色、更清晰排版、更好留白、更准确卖点表达、更美观光影）
+
+允许优化：
+
+- 更高级的配色
+- 更清晰的排版
+- 更好的留白
+- 更准确的卖点表达
+- 更美观的光影
+- 更符合当前产品真实结构的展示
+
+不允许：
+
+- 凭空发明风格
+- 脱离类目主流
+- 为了好看改变产品结构
+- 复制品牌 logo 或品牌元素
+- 把其他产品外观融合进当前产品
+
+如果某一视觉决策缺乏依据，请明确标注："不确定 / 待人工确认"，但不得因此停止输出。
+
+---
+
+# 任务 1｜Immutable Product Checklist
+
+请基于上传产品图输出：
+
+- Product name:
+- Selling subject:
+- Main material:
+- Main color:
+- Secondary colors:
+- Overall shape / silhouette:
+- Exact visible structure:
+- Visible details:
+- Surface texture:
+- Accessories / packaging if shown:
+- Hard constraints:
+- Allowed scene support only:
+- Must not be copied from style reference:
+
+---
+
+# 任务 2｜经验型视觉基线
+
+请基于通用类目经验输出：
+
+- Most common visual style:
+- Most common color mood:
+- Most common hero composition:
+- Most common background style:
+- Most common typography:
+- Most common icon system:
+- Most common information density:
+- Most common image sequence:
+- Typical buyer pain points（基于该类目通用认知）:
+- Typical buyer motivations（基于该类目通用认知）:
+
+并输出：
+
+## Must Follow（类目主流、应优先保留）
+
+## Can Optimize（可在主流内优化）
+
+## Must Avoid（低质感、货不对板风险）
+
+## Uncertain / Need Confirmation
+
+---
+
+# 任务 3｜产品视觉情报报告
+
+请输出：
+
+## 视觉深度解析
+
+- 核心材质：
+- 结构特点：
+- 色彩搭配：
+- 可用于视觉表达的真实产品细节：
+
+## 卖点视觉化映射
+
+请将核心卖点和心理动因转化为 3 个可视化物理特征。
+
+每个映射包含：
+
+- 对应卖点：
+- 对应心理动因：
+- 可视化物理特征：
+- 推荐构图：
+- 必须出现的元素：
+- 必须避免的误导元素：
+- 建议使用的图片序号：
+
+## 消费场景构建
+
+请构建 2 个高转化场景。
+
+每个场景包含：
+
+- 场景名称：
+- 适合目标人群：
+- 用户心理：
+- 环境背景设定：
+- 光影氛围要求：
+- 产品放置方式：
+- 推荐道具：
+- 应避免元素：
+- 适合表达的核心卖点：
+
+---
+
+# 任务 4｜10 张高转化主图规划
+
+请根据经验型视觉基线规划 10 张图。
+
+注意：
+
+- 风格必须符合类目主流视觉习惯
+- 风格必须统一，但不能单调
+- 颜色可以鲜艳、高级、美丽
+- 不要默认使用白底极简风（除非类目主流本就如此）
+- 不要凭空决定颜色和版式
+- 每张图必须独立 3:4 竖版
+- 图片中文字必须使用英文
+- 每张图只表达一个核心卖点
+- 产品结构必须始终一致
+
+## 强制 10 槽信息架构（不可增删、不可改序）
+
+每张图只回答一个买家问题；任意两张不得回答同一个买家问题。
+
+| 槽 | 名称 | 唯一任务（必须回答） | 排他约束 |
+|---|---|---|---|
+| 1 | Hero 主图 | 一眼识别「这是什么 + 最大卖点」 | 全篇唯一「白/浅底全身像」 |
+| 2 | 核心特征证明 | 证明最大卖点成立（结构/功能/工艺） | 特写/局部，不做全身 |
+| 3 | 尺寸/比例图（强制） | 到底多大、多重、怎么比 | 只做尺寸，禁止挪用 |
+| 4 | 材质/做工 | 材质、质感、耐用度 | 微距/细节，不做场景 |
+| 5 | 使用方式 | 怎么用 / 怎么装 / 怎么开合 | 动作演示，非纯氛围 |
+| 6 | 场景 A | 高频主场景（核心人群日常） | 与场景 B 明显不同 |
+| 7 | 场景 B | 第二场景 / 差异化人群 / 情绪价值 | 使用场景图全篇 ≤ 2 张 |
+| 8 | 包装/礼赠/清单 | 收到什么、送人是否体面 | 展示包装或清单，非产品主体 |
+| 9 | 卖点信息图/对比 | 一图读懂 3–5 个卖点，或与常见替代对比 | 信息图，允许图标+短句 |
+| 10 | 信任收尾 | 多角度 / 品质承诺 / 售后 / 购买理由 | 全篇唯一「多角度/总结」 |
+
+## 类目适配（先判定品类，再按矩阵加厚对应槽；槽号与骨架不变）
+
+- 配件 / 饰品（包挂、钥匙扣）：重点 3/5/6/7/8 —— 真实尺寸或手部比例、挂扣开合、配包场景、礼盒。
+- 服装 / 鞋：重点 3/4/6/7/10 —— 尺码表、面料细节、上身场景、搭配。
+- 3C / 电子：重点 3/4/5/9 —— 参数/接口、功能演示、兼容或性能对比。
+- 家居 / 大件：重点 3/4/5/6 —— 占地尺寸、材质、组装/使用、空间场景。
+- 美妆 / 个护：重点 3/4/5/9 —— 规格容量、质地成分、用法、前后对比。
+- 食品：重点 3/4/6/8 —— 规格分量、配料口感、食用场景、包装保质。
+
+## 尺寸图数据策略（第 3 槽，强制）
+
+- 若已确认实测尺寸/重量：输出尺寸信息图（长 × 宽 × 高，cm/inch 双单位 + 重量 + 与手/常见物比例参照）。
+- 若未确认：输出「比例参照图」（产品与成人手 / 硬币 / 银行卡 / 手机并置），画面标注 `Size approx. — confirm before publish`；严禁编造任何 cm/inch 数字；该槽不得改作它用。
+
+## 去重硬规则
+
+- 「产品出现在使用场景中」的图全篇 ≤ 2 张（仅槽 6、7），且两张必须在**包型 / 背景 / 构图**上明显不同。
+- 「完整产品肖像」全篇 ≤ 2 张（槽 1、10），且构图必须不同。
+- 每张图的英文标题必须点明它的唯一任务；若两张功能相同，必须把其中一张改造成缺失槽的内容，禁止只微调背景。
+
+## 输出前自检门（必须先自检，再输出 Prompt Pack）
+
+先输出 10 行自检表：`| Image | Job（唯一任务） | Buyer Question | Unique? | Data Dependency |`，并逐条确认：
+- [ ] 10 个 Job 互不相同
+- [ ] 第 3 槽 = 尺寸 / 比例
+- [ ] 使用场景图 ≤ 2 张
+- [ ] 完整肖像 ≤ 2 张
+- [ ] 每张都有唯一英文标题
+- [ ] 无实测尺寸时，尺寸图为比例参照且标注 to be confirmed
+
+任一不通过 → 重写对应槽，直到全部通过，再输出 Prompt Pack。
+
+---
+
+# 输出格式
+
+请输出三个部分：
+
+## A. 产品视觉情报报告
+
+包含：
+
+1. Immutable Product Checklist
+2. 经验型视觉基线
+3. 视觉深度解析
+4. 卖点视觉化映射
+5. 消费场景构建
+
+## B. 10 张高转化主图视觉动线规划表
+
+请用 Markdown 表格输出：
+
+| Image Number | Funnel Stage | Buyer Psychology | Core Selling Point | Visual Style Direction | Visual Composition | Product Placement | Background & Lighting | English Copy on Image | AI Image Generation Prompt |
+
+|---|---|---|---|---|---|---|---|---|---|
+
+要求：
+
+- English Copy on Image 必须是完整英文文案
+- AI Image Generation Prompt 必须是英文
+- 每张图 Prompt 开头必须包含：
+  "The product being sold must exactly match the uploaded product images. Do not alter the shape, structure, material, color, or visible product details. Any prop, model, environment, packaging, or style reference is secondary only and must not change the product."
+- 每张图只表达一个核心卖点
+- 10 张图之间必须有清晰递进
+- 不要直接生成图片
+
+## C. Single Image Prompt Pack
+
+请为 Image 1–10 输出完整可直接执行的单张生图 Prompt。
+
+每一张图必须按以下格式：
+
+## Image 【编号】｜【图片名称】｜Ready-to-Generate Prompt
+
+请生成 1 张独立 3:4 竖版电商 listing 图片。
+
+### Product Identity Lock
+
+- The uploaded product images are the only source of truth for the product being sold.
+- The product being sold must exactly match the uploaded product images.
+- Do not alter the shape, structure, material, color, visible details, or overall silhouette.
+- Style reference images only control background, layout, lighting, typography, icon style, and overall visual mood.
+- Any prop, model, environment, packaging, or reference object is secondary only and must not change the selling product.
+- The selling subject is: 【填写销售主体】.
+- Avoid all product mismatch risks.
+
+### Experience-Based Style Baseline
+
+- The visual style follows the category's common high-converting visual habits (no live competitor data used).
+- Preserve the most common category visual habits.
+- Use only limited optimization for color, layout, lighting, and clarity.
+- Do not invent a style direction unsupported by the category.
+
+### Style
+
+- Recommended visual style direction:
+- Color mood:
+- Background style:
+- Typography style:
+- Icon / graphic style:
+- Prop style:
+- Information density:
+
+### Image Task
+
+- Funnel Stage:
+- Buyer Psychology:
+- Core Selling Point:
+- Visual Composition:
+- Product Placement:
+- Background & Lighting:
+- English Copy on Image:
+- Final Image Generation Prompt:
+
+### Rules
+
+- Only generate this one image.
+- Do not generate multiple unrelated products.
+- Do not create extra product structures.
+- Do not change the product color.
+- Do not add Chinese text.
+- Use only the English copy provided above.
+- Keep the product visually consistent with the uploaded product images.
+
+请为 Image 1–10 分别输出完整 Prompt。
+每条 Prompt 必须完整可复制执行，不需要我再手动填模板。
+当前不要直接生成图片。
+
+# 固定边界标记输出规则
+
+每一张 Ready-to-Generate Prompt 必须使用固定边界标记包裹。
+
+<<<IMAGE_01_PROMPT_START>>>
+【Image 1 完整 Prompt】
+<<<IMAGE_01_PROMPT_END>>>
+
+<<<IMAGE_02_PROMPT_START>>>
+【Image 2 完整 Prompt】
+<<<IMAGE_02_PROMPT_END>>>
+
+<<<IMAGE_03_PROMPT_START>>>
+【Image 3 完整 Prompt】
+<<<IMAGE_03_PROMPT_END>>>
+
+<<<IMAGE_04_PROMPT_START>>>
+【Image 4 完整 Prompt】
+<<<IMAGE_04_PROMPT_END>>>
+
+<<<IMAGE_05_PROMPT_START>>>
+【Image 5 完整 Prompt】
+<<<IMAGE_05_PROMPT_END>>>
+
+<<<IMAGE_06_PROMPT_START>>>
+【Image 6 完整 Prompt】
+<<<IMAGE_06_PROMPT_END>>>
+
+<<<IMAGE_07_PROMPT_START>>>
+【Image 7 完整 Prompt】
+<<<IMAGE_07_PROMPT_END>>>
+
+<<<IMAGE_08_PROMPT_START>>>
+【Image 8 完整 Prompt】
+<<<IMAGE_08_PROMPT_END>>>
+
+<<<IMAGE_09_PROMPT_START>>>
+【Image 9 完整 Prompt】
+<<<IMAGE_09_PROMPT_END>>>
+
+<<<IMAGE_10_PROMPT_START>>>
+【Image 10 完整 Prompt】
+<<<IMAGE_10_PROMPT_END>>>
+
+要求：
+
+- 固定标记必须独占一行
+- START 和 END 必须成对
+- 编号必须从 01 到 10
+- 每个区块中必须输出完整单图 Prompt
+- 不允许缺失
+- 不允许重复编号

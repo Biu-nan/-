@@ -4,6 +4,23 @@
 
 你的任务不是直接生成图片，而是严格按照本文件为 Image 01–07 输出七条完整、独立、可直接执行的英文生图 Prompt。不得摘要、改写、合并或省略任何图片要求。
 
+# 输出执行铁律（最高优先级 · 自动化兼容）
+
+由于 7 条完整 Prompt 总长度会超过单条消息限制，**必须严格按以下 3 次输出完成**，每次只输出指定区块：
+
+- **第 1 次：只输出 Image 01、02、03 三个完整区块**
+- **第 2 次：只输出 Image 04、05、06 三个完整区块**
+- **第 3 次：只输出 Image 07 一个完整区块**
+
+每次输出必须遵守：
+
+1. **只输出本次指定区块**，严禁输出其他 Image 编号或区块。
+2. **同一次回复内完整输出本次所有指定区块**，严禁分段、严禁预告、严禁解释、严禁输出大纲。
+3. 每一个 `<<<IMAGE_XX_PROMPT_START>>>` 与 `<<<IMAGE_XX_PROMPT_END>>>` 之间必须是真实、可执行的完整英文生图 Prompt（≥ 50 字符），绝不允许只写空标记或占位。
+4. 如果当前回复确实放不下本次指定区块，允许适度压缩非关键修饰词，但必须保留：产品身份锁、构图、背景、颜色/材质约束、负面约束、比例和质量要求。
+5. 编号必须从 01 到 07，不允许缺失、重复或输出额外 Image 编号。
+6. 当前回复不得直接生成图片。
+
 ## 当前冻结产品事实
 
 {{FROZEN_FACTS}}
@@ -29,6 +46,12 @@
 12. 内胆确认重量低于 55g 时才允许使用 `LIGHTER THAN AN EGG` 和鸡蛋重量对比；否则必须使用 `ULTRA LIGHTWEIGHT DESIGN`，不得展示虚构秤重数字。
 13. 每个输出区块必须是一条完整英文 Prompt，必须包含产品身份锁、构图、文案、负面约束、比例和质量要求。
 14. 当前回复不得直接生成图片。
+15. **【内胆颜色硬锁定 · 防货不对版】** 这是最高优先级铁律，违反则整条 Prompt Pack 作废：
+    - 7 条 Prompt 中**每一个**提到内胆颜色的位置，必须与上传的 SKU 内胆参考图**完全一致**。
+    - 必须先用一句完整指令明确写明内胆颜色（例如：`The organizer insert color must be bright vivid red (hex #E60012), exactly matching the uploaded SKU reference image. Do NOT change the color. NOT beige. NOT tan. NOT brown.`）。
+    - **禁止**基于训练数据假设默认色（如 LV organizer 的米色/驼色/棕色）。模型偏好米色是已知偏见，必须用显式否定项压制：`NOT beige`, `NOT tan`, `NOT brown`, `NOT default color`, `do NOT change the color`, `color must remain as uploaded`。
+    - 颜色措辞必须准确：如果是红色就写 `bright red / vivid red / crimson / hex #E60012`；如果是米色就写 `beige / tan / oat`；不得模糊使用 `neutral` / `soft` / `natural` 等训练默认色词。
+    - **禁止**在任何 Prompt 中出现 `tan/beige felt organizer color` 这类未经参考图验证的默认描述——这种描述在 LV organizer 训练数据里占多数，正是货不对版的元凶。
 
 ## Image 01｜白底极简奢华主图
 
@@ -41,6 +64,9 @@
 - 背景必须为纯白无限背景 `RGB 255,255,255`。
 - 使用柔和、漫射、高调专业摄影棚光线和真实轻柔接触阴影，墙面不得出现阴影。
 - 产品必须保持与上传图一致，不得改变颜色、结构、材质、Logo、五金或轮廓。
+- **【内胆颜色强制锁定指令 · 本条 Prompt 必须包含以下原话或等价描述】**：
+  `The organizer insert color must be bright vivid red (hex #E60012), exactly matching the uploaded SKU reference image. Do NOT change the color. NOT beige. NOT tan. NOT brown. NOT default color. The insert's color is fixed and non-negotiable.`
+  （如果参考图实际颜色不是红色，必须把 `bright vivid red (hex #E60012)` 替换成参考图的实际颜色，但 `NOT beige / NOT tan / NOT brown / NOT default color / color must remain as uploaded` 这几句否定项必须保留——除非参考图本身就是米色/驼色/棕色）
 - 顶部中央主标题必须为：
   "{{PRODUCT_NAME}} ORGANIZER INSERT"
 - 主标题下方副标题必须为：

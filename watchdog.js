@@ -130,6 +130,16 @@ let child = null;
 let consecutiveFail = 0;
 async function main() {
   log(`看门狗启动 (node=${NODE}, host=${HOST}, port=${PORT})`);
+
+  // 登录自启动时通常没有现成服务。此前会先经历两轮健康检查，
+  // 导致用户要等待约半分钟网站才开始监听。端口空闲时可安全立即拉起。
+  const initialProbe = await probeStatus();
+  if (!initialProbe.ok && !getPidOnPort()) {
+    log("启动时未发现工作台服务，立即拉起...");
+    startServer();
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+
   while (true) {
     const probe = await probeStatus();
     if (probe.ok) {

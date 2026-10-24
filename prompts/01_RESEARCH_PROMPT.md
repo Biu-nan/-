@@ -1,6 +1,6 @@
 请基于本对话中已经上传的产品实拍图完成联网市场调研
 
-# Chrome AI Top 10 Listing Visual Audit Prompt
+# Chrome AI Top 3 Listing Visual Audit Prompt
 
 你现在是一位资深跨境电商市场分析师和电商视觉研究员。 请基于以下产品信息，使用 Chrome / Google / Amazon / SHEIN / Etsy / Walmart / Shopify 独立站进行联网检索。 产品名称：
 {{PRODUCT_NAME}}
@@ -73,9 +73,9 @@
 
 ---
 
-# 任务 2｜筛选 Top 10 高表现 Listing
+# 任务 2｜筛选 Top 3 高表现 Listing
 
-优先选择：
+只筛选 3 个样本，优先选择：
 - 同款产品
 - 高度相似产品
 - 搜索结果靠前产品
@@ -91,9 +91,9 @@
 
 ---
 
-# 任务 3｜Top 10 Listing Visual Audit
+# 任务 3｜Top 3 Listing Visual Audit
 
-请逐个输出：
+请逐个输出（仅 3 行）：
 
 | Rank | Product Title | Platform | Link | Observable Performance Signal | Main Background Style | Main Color Mood | Hero Composition | Typography Style | Icon Style | Information Density | Common Image Sequence | Main Selling Points | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -102,7 +102,7 @@
 
 # 任务 4｜视觉元素频次统计
 
-请统计前 10 listing 中以下元素的出现次数：
+请统计前 3 listing 中以下元素的出现次数：
 
 ## Background Style Frequency
 - White studio background:
@@ -219,6 +219,7 @@
 
 # 输出要求
 
+- **联网检索约束**：每个检索关键词最多打开 2–3 个高排名结果页面，优先 Top 3 搜索结果，不要穷举搜索所有网站或逐页翻找；总体只需凑齐 3 个高质量样本即可停止搜索，不要为凑数反复检索。
 - 必须基于真实页面或可验证搜索结果
 - 不要编造销量
 - 不要编造竞品

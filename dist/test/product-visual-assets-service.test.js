@@ -69,6 +69,55 @@ describe("product visual assets service", () => {
             await rm(root, { recursive: true, force: true });
         }
     });
+    it("falls back to product-facts identity when the legacy product profile is absent", async () => {
+        const { root, service } = await tempService();
+        try {
+            const factsFile = path.join(root, "product-facts.json");
+            await writeFile(factsFile, JSON.stringify({ productId: "facts-product-1" }));
+            service.paths.productFactsFile = factsFile;
+            await unlink(service.paths.productProfileFile);
+            assert.equal(await service.currentProductId(), "facts-product-1");
+            const payload = await service.validateGenerationInput({
+                image_number: 1,
+                image_prompt: "single product hero image"
+            });
+            assert.equal(payload.product_id, "facts-product-1");
+        }
+        finally {
+            await rm(root, { recursive: true, force: true });
+        }
+    });
+    it("limits each image generation to three prioritized identity references", async () => {
+        const { root, service } = await tempService();
+        try {
+            const sourceDir = path.join(root, "source");
+            const names = ["front.png", "side.png", "back.png", "detail.png"];
+            const images = await Promise.all(names.map(async (name, index) => {
+                const buffer = Buffer.concat([png1x1, Buffer.from([index])]);
+                const sourcePath = path.join(sourceDir, name);
+                await writeFile(sourcePath, buffer);
+                return {
+                    path: sourcePath,
+                    name,
+                    size: buffer.length,
+                    sha256: createHash("sha256").update(buffer).digest("hex")
+                };
+            }));
+            service.paths.scanProductImages = async () => images;
+            const assets = await service.rebuildCurrentReferenceSet("product-1");
+            const payload = await service.validateGenerationInput({
+                product_id: "product-1",
+                image_number: 1,
+                image_prompt: "single product hero image"
+            });
+            assert.equal(payload.reference_image_paths.length, 3);
+            assert.deepEqual(payload.reference_image_asset_ids, assets.source_images.slice(0, 3).map((image) => image.asset_id));
+            assert.match(payload.warnings.join("\n"), /3\/4/);
+        }
+        finally {
+            await rm(root, { recursive: true, force: true });
+        }
+    });
     it("writes traceable image generation log records", async () => {
         const { root, service } = await tempService();
         try {

@@ -1,0 +1,347 @@
+{
+  "marketplace": "amazon-a-plus",
+  "version": "1.0",
+  "source": "Amazon A+ Content module specs, 2026（olifant / focalflow / ecombuddha / flapen 交叉核对）",
+  "globalRules": {
+    "fileFormat": "JPEG",
+    "maxBytes": 2097152,
+    "colorMode": "RGB (sRGB)",
+    "minDpi": 72,
+    "textInPixels": "允许 ≤12 词英文短文案/图标进图（A+ 卖点格的设计要素），但必须高对比、375px 宽下可读；禁止价格/竞品/功效/限时表述；段落式长文仍放 A+ 文案字段",
+    "banned": [
+      "价格/折扣/最好/最便宜等价格类表述",
+      "竞品品牌名或隐性对比",
+      "电话/邮箱/网址/社媒等联系信息",
+      "健康/医疗/功效宣称（无临床证明）",
+      "限时/仅剩 N 件等时效性表述"
+    ],
+    "mobileFirst": "70%+ 买家用手机看；每图只讲一件事，缩略宽度下仍可读",
+    "noGalleryReuse": "A+ 用的图要单独拍/单独生成，不直接复用 Listing 画廊图",
+    "realism": "必须像真实产品摄影：自然光影、真实材质纹理、可见使用痕迹。禁止 CGI 感、塑料感、过度完美、悬浮产品+渐变背景",
+    "sceneExpression": "每张图必须能读出环境信息（桌面/手持/光线方向/道具）。首屏与场景模块尤其要有场景叙事",
+    "fidelity": "产品形状/颜色/结构与参考图一致；3D 打印层纹必须保留，不得光滑化"
+  },
+  "moduleOrder": [
+    "hero-banner",
+    "feature-trio",
+    "feature-quad-line",
+    "scene-set",
+    "detail-macro",
+    "detail-text-sidebar",
+    "comparison-chart",
+    "brand-story"
+  ],
+  "orderRationale": [
+    "第 1 模块 hero-banner：审美型产品首屏必须是场景大图（不是白底图），一屏让人想拥有",
+    "第 2 模块 feature-trio：每格回答一个买家的问句，图标/特写 + 短文案",
+    "第 3 模块 scene-set：真实使用瞬间与桌面陈列，建立场景代入",
+    "第 4 模块 detail-macro：打印层纹与做工，回答'质感到底怎样'",
+    "第 5 模块 comparison-chart：自家款式差异，帮买家自选（缺数据则不做）",
+    "品牌故事与详文模块按需追加，总模块数不超过 5（Basic A+ 上限）"
+  ],
+  "modules": {
+    "hero-banner": {
+      "label": "Standard Image Header（品牌头图）",
+      "images": [
+        {
+          "slot": "hero",
+          "size": [
+            970,
+            600
+          ],
+          "aspect": "970:600",
+          "role": "真实桌面/办公场景主视觉：产品是画面主角，有环境叙事（笔记本、绿植、人手等），自然光影；可带一句 ≤12 词 overlay"
+        }
+      ],
+      "textPlacements": 0,
+      "copyHint": "只有图，没有 A+ 文案位；overlay 文字进像素，需 ≤6 词",
+      "requires": [],
+      "priority": 1
+    },
+    "feature-trio": {
+      "label": "Standard Three Image & Text（三图卖点）",
+      "images": [
+        {
+          "slot": "feat1",
+          "size": [
+            300,
+            300
+          ],
+          "aspect": "1:1",
+          "role": "卖点 1 配图：只证明一个卖点，主体明确"
+        },
+        {
+          "slot": "feat2",
+          "size": [
+            300,
+            300
+          ],
+          "aspect": "1:1",
+          "role": "卖点 2 配图"
+        },
+        {
+          "slot": "feat3",
+          "size": [
+            300,
+            300
+          ],
+          "aspect": "1:1",
+          "role": "卖点 3 配图"
+        }
+      ],
+      "textPlacements": 3,
+      "copyHint": "3 个标题 + 3 段正文，每段 ≤300 字符；标题用问句引出卖点",
+      "requires": [],
+      "priority": 2
+    },
+    "feature-quad-line": {
+      "label": "Standard Four Image & Text（四图卖点）",
+      "images": [
+        {
+          "slot": "feat1",
+          "size": [
+            220,
+            220
+          ],
+          "aspect": "1:1",
+          "role": "卖点 1 配图"
+        },
+        {
+          "slot": "feat2",
+          "size": [
+            220,
+            220
+          ],
+          "aspect": "1:1",
+          "role": "卖点 2 配图"
+        },
+        {
+          "slot": "feat3",
+          "size": [
+            220,
+            220
+          ],
+          "aspect": "1:1",
+          "role": "卖点 3 配图"
+        },
+        {
+          "slot": "feat4",
+          "size": [
+            220,
+            220
+          ],
+          "aspect": "1:1",
+          "role": "卖点 4 配图"
+        }
+      ],
+      "textPlacements": 4,
+      "copyHint": "4 个标题 + 4 段正文，每段 ≤150 字符",
+      "requires": [],
+      "priority": 3
+    },
+    "detail-text-sidebar": {
+      "label": "Standard Single Image & Sidebar（细节图 + 详文）",
+      "images": [
+        {
+          "slot": "main",
+          "size": [
+            300,
+            400
+          ],
+          "aspect": "3:4",
+          "role": "细节/材质主图，竖构图"
+        },
+        {
+          "slot": "sidebar",
+          "size": [
+            350,
+            175
+          ],
+          "aspect": "2:1",
+          "role": "辅助小图：用以说明文字里的某个细节"
+        }
+      ],
+      "textPlacements": 6,
+      "copyHint": "最多 6 个文本位：1 标题 + 1 副标题 + 4 条要点，正文 ≤500 字符",
+      "requires": [],
+      "priority": 4
+    },
+    "single-image-highlights": {
+      "label": "Standard Single Image & Highlights（单图 + 亮点）",
+      "images": [
+        {
+          "slot": "main",
+          "size": [
+            300,
+            300
+          ],
+          "aspect": "1:1",
+          "role": "产品主体图，配合 3 个副标题 + 最多 8 条要点"
+        }
+      ],
+      "textPlacements": 2,
+      "copyHint": "1 标题 + 3 副标题 + 8 条要点",
+      "requires": [],
+      "priority": 5
+    },
+    "image-light-text": {
+      "label": "Standard Image & Light Text Overlay（横幅 + 浅色文字）",
+      "images": [
+        {
+          "slot": "banner",
+          "size": [
+            970,
+            300
+          ],
+          "aspect": "97:30",
+          "role": "横向宽幅场景图，右侧留出浅色文字区"
+        }
+      ],
+      "textPlacements": 1,
+      "copyHint": "标题 ≤150 字符；文字位置留在浅色区，不要压在高对比主体上",
+      "requires": [],
+      "priority": 6
+    },
+    "comparison-chart": {
+      "label": "Standard Comparison Chart（对比表）",
+      "images": [
+        {
+          "slot": "item1",
+          "size": [
+            150,
+            300
+          ],
+          "aspect": "1:2",
+          "role": "自家款式 1 竖图"
+        },
+        {
+          "slot": "item2",
+          "size": [
+            150,
+            300
+          ],
+          "aspect": "1:2",
+          "role": "自家款式 2 竖图"
+        },
+        {
+          "slot": "item3",
+          "size": [
+            150,
+            300
+          ],
+          "aspect": "1:2",
+          "role": "自家款式 3 竖图"
+        }
+      ],
+      "textPlacements": 2,
+      "copyHint": "只与自家其它款式对比，禁止出现竞品名；对比行写买家真正在意的属性",
+      "requires": [
+        "至少 2 个自家款式/变体"
+      ],
+      "priority": 7
+    },
+    "brand-story": {
+      "label": "Brand Story（品牌故事）",
+      "images": [
+        {
+          "slot": "background",
+          "size": [
+            1464,
+            625
+          ],
+          "aspect": "1464:625",
+          "role": "品牌故事轮播背景（手工/产地/工艺真实感）"
+        },
+        {
+          "slot": "card1",
+          "size": [
+            362,
+            453
+          ],
+          "aspect": "0.8:1",
+          "role": "品牌故事卡 1"
+        },
+        {
+          "slot": "card2",
+          "size": [
+            362,
+            453
+          ],
+          "aspect": "0.8:1",
+          "role": "品牌故事卡 2"
+        }
+      ],
+      "textPlacements": 3,
+      "copyHint": "3 个品牌故事文本位；保持真实、未过度修饰",
+      "requires": [
+        "品牌信息（可选但建议）"
+      ],
+      "priority": 8
+    },
+    "scene-set": {
+      "label": "使用场景组（Scene Set）",
+      "images": [
+        {
+          "slot": "scene1",
+          "size": [
+            300,
+            300
+          ],
+          "aspect": "1:1",
+          "role": "真实使用瞬间：产品在被使用/被把玩，有手或有人，环境明确"
+        },
+        {
+          "slot": "scene2",
+          "size": [
+            300,
+            300
+          ],
+          "aspect": "1:1",
+          "role": "桌面陈列/送礼场景：产品在真实生活空间里，氛围明确"
+        }
+      ],
+      "textPlacements": 2,
+      "copyHint": "2 个标题 + 2 段正文；标题用问句引出卖点",
+      "requires": [],
+      "priority": 4
+    },
+    "detail-macro": {
+      "label": "细节材质（Detail Macro）",
+      "images": [
+        {
+          "slot": "detail",
+          "size": [
+            300,
+            300
+          ],
+          "aspect": "1:1",
+          "role": "微距细节：3D 打印层纹、眼睛结构、花盆做工，层纹必须清晰可见"
+        }
+      ],
+      "textPlacements": 1,
+      "copyHint": "1 个标题 + 1 段正文",
+      "requires": [],
+      "priority": 5
+    }
+  },
+  "selectionRules": [
+    "默认使用 defaultModuleSet（5 模块 9 图）；Basic A+ 上限 5 个模块，不得超",
+    "必须包含 hero-banner；必须包含至少 1 个卖点模块",
+    "hero-banner 与 scene-set 必须是场景图，不得用白底/影棚图充数",
+    "有 ≥2 个自家款式才允许 comparison-chart；缺尺寸/规格数据时禁用依赖规格的模块",
+    "事实数据不足时宁可少一个模块，不用编造内容填充"
+  ],
+  "questionStyle": {
+    "enabled": true,
+    "rule": "每个卖点标题必须是一个买家会问出口的问句（How/Why/What/Can/Does/Which），正文第一句直接给答案；允许 ≤12 词英文短文案进图",
+    "example": "How does it help you focus? — The press-action pop gives your hands a 2-second reset."
+  },
+  "defaultModuleSet": [
+    "hero-banner",
+    "feature-trio",
+    "scene-set",
+    "detail-macro",
+    "comparison-chart"
+  ],
+  "defaultImageBudget": 9
+}

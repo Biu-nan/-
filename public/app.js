@@ -126,6 +126,7 @@ const elements = {
   metricPhase: document.querySelector("#metricPhase"),
   metricGenerated: document.querySelector("#metricGenerated"),
   overallProgressText: document.querySelector("#overallProgressText"),
+  heroErrorBanner: document.querySelector("#heroErrorBanner"),
   folderInput: document.querySelector("#folderInput"),
   imageDropZone: document.querySelector("#imageDropZone"),
   folderHint: document.querySelector("#folderHint"),
@@ -152,7 +153,12 @@ const elements = {
   nextProductButton: document.querySelector("#nextProductButton"),
   archiveHint: document.querySelector("#archiveHint"),
   generationSteps: document.querySelector("#generationSteps"),
+  imageFrameworkPanel: document.querySelector("#imageFrameworkPanel"),
   outputGallery: document.querySelector("#outputGallery"),
+  ecomConnectorStatus: document.querySelector("#ecomConnectorStatus"),
+  ecomLaunchButton: document.querySelector("#ecomLaunchButton"),
+  ecomImportButton: document.querySelector("#ecomImportButton"),
+  ecomConnectorList: document.querySelector("#ecomConnectorList"),
   researchPrompt: document.querySelector("#researchPrompt"),
   planningPrompt: document.querySelector("#planningPrompt"),
   seoKeywordsPrompt: document.querySelector("#seoKeywordsPrompt"),
@@ -393,6 +399,9 @@ const elements = {
   recoverMarketRadarButton: document.querySelector("#recoverMarketRadarButton"),
   insertListingEntryCard: document.querySelector("#insertListingEntryCard"),
   enterInsertListingButton: document.querySelector("#enterInsertListingButton"),
+  charmListingEntryCard: document.querySelector("#charmListingEntryCard"),
+  listingEntryCardsRow: document.querySelector("#listingEntryCardsRow"),
+  enterCharmListingButton: document.querySelector("#enterCharmListingButton"),
   gotoSelectionRadarFromEntryLink: document.querySelector("#gotoSelectionRadarFromEntryLink"),
   insertMarketRadarMeta: document.querySelector("#insertMarketRadarMeta"),
   reExtractNotebookButton: document.querySelector("#reExtractNotebookButton"),
@@ -483,6 +492,9 @@ let lastDesignVariantSignature;
 let lastLinerUploadSignature;
 let latestPayload;
 let latestChatgptWaiting = null;
+/* 上一次渲染到的 stage：用于「失败时才自动展开任务坞」的边沿触发，
+   避免每 1s 的 refresh 反复展开/折叠同一状态。 */
+let lastRenderedStage;
 let insertProfileVisible = false;
 let selectedArchivedProfile;
 let selectedOperationProductId;
@@ -2575,6 +2587,38 @@ const phaseLabels = {
   MVP5: "全部完成"
 };
 
+/* 运行阶段 → 顶部指标卡文案。
+   此前只按 completedPhase 取值，FAILED 会落到「待开始」，与「从未运行」完全一样，
+   导致后台已失败但界面看上去像「没运行」。这里补齐阶段级映射。 */
+const stageLabels = {
+  FAILED: "已失败",
+  PAUSED: "已暂停",
+  READY_FOR_LOGIN: "待登录",
+  VALIDATING_INPUT: "校验素材",
+  CREATING_CHAT: "新建对话",
+  UPLOADING_IMAGES: "上传图片",
+  SENDING_PROMPT: "发送 Prompt",
+  WAITING_FOR_RESPONSE: "等待回复",
+  RESEARCHING: "市场调研",
+  PLANNING: "视觉规划",
+  GENERATING_IMAGES: "生成图片",
+  WRITING_LISTING: "撰写 Listing"
+};
+
+/* 顶部「当前阶段」统一取值：失败/暂停等异常态优先，避免被误读成「待开始」。 */
+function currentStageLabel(state, busy) {
+  if (!state) return "待开始";
+  if (state.stage === "FAILED") return stageLabels.FAILED;
+  if (state.stage === "PAUSED") return stageLabels.PAUSED;
+  if (state.stage === "READY_FOR_LOGIN") {
+    return state.completedPhase ? phaseLabels[state.completedPhase] : stageLabels.READY_FOR_LOGIN;
+  }
+  if (busy && state.stage && stageLabels[state.stage]) {
+    return stageLabels[state.stage];
+  }
+  return phaseLabels[state.completedPhase] || (busy ? "运行中" : "待开始");
+}
+
 function workflowProgress(state) {
   if (state.completedPhase === "MVP5") return 100;
   if (
@@ -4446,13 +4490,43 @@ function renderSecretaryResponse(body) {
   const draft = result.draft_command ? JSON.stringify(result.draft_command, null, 2) : "暂无草稿";
   if (secretary.intent) secretary.intent.textContent = result.interpreted_intent || "已收到指令";
   if (secretary.nextAction) secretary.nextAction.textContent = result.suggested_next_action || "生成本地草稿";
-  if (secretary.risk) secretary.risk.textContent = result.risk_level || "-";
+  if (secretary.risk) {
+    secretary.risk.textContent = result.risk_escalated
+      ? `${result.risk_level}（模型判 ${result.risk_model}，已按规则抬高）`
+      : result.risk_level || "-";
+  }
   if (secretary.confirmation) secretary.confirmation.textContent = result.requires_confirmation ? "需要确认" : "不需要确认";
   if (secretary.raw) secretary.raw.textContent = JSON.stringify(body, null, 2);
-  appendSecretaryMessage(
-    "agent",
-    `${result.suggested_next_action || "已生成占位结果"}。风险等级：${result.risk_level || "-"}。可执行草稿：${draft}`
-  );
+  if (result.reply) {
+    appendSecretaryMessage("agent", result.reply);
+  } else {
+    appendSecretaryMessage(
+      "agent",
+      `${result.suggested_next_action || "已生成占位结果"}。风险等级：${result.risk_level || "-"}。可执行草稿：${draft}`
+    );
+  }
+  renderSecretaryModelNotice(result.model);
+}
+
+// 模型状态行复用同一个节点：每轮只更新文本并移到末尾，避免累积成噪声。
+function renderSecretaryModelNotice(model) {
+  const secretary = secretaryElements();
+  if (!secretary.messageList || !model) return;
+  let notice = secretary.messageList.querySelector(".secretary-model-notice");
+  if (!notice) {
+    notice = document.createElement("p");
+    notice.className = "secretary-model-notice";
+  }
+  if (model.degraded) {
+    notice.textContent = `⚠ 模型未生效，已降级为本地草稿：${model.reason || "未知原因"}`;
+  } else if (model.used) {
+    notice.textContent = `模型：${model.name}｜${model.latency_ms}ms`;
+  } else {
+    notice.remove();
+    return;
+  }
+  secretary.messageList.append(notice);
+  secretary.messageList.scrollTop = secretary.messageList.scrollHeight;
 }
 
 async function loadTodayDashboardProjection() {
@@ -4647,7 +4721,13 @@ function renderProductionConsole(state, availableImages, busy, queueLocked) {
   insertBtn.title = "切换到奢侈包内胆 Listing 制作流程";
   insertBtn.textContent = "内胆 Listing";
   insertBtn.addEventListener("click", () => void selectWorkflowMode("luxury_insert"));
-  modeSwitch.append(modeLabel, fullBtn, seoBtn, insertBtn);
+  const charmBtn = document.createElement("button");
+  charmBtn.type = "button";
+  charmBtn.className = "mode-option";
+  charmBtn.title = "切换到包包挂件 Listing 制作流程";
+  charmBtn.textContent = "挂件 Listing";
+  charmBtn.addEventListener("click", () => void selectWorkflowMode("bag_charm"));
+  modeSwitch.append(modeLabel, fullBtn, seoBtn, insertBtn, charmBtn);
 
   /* ── 指标卡片 ── */
   const metrics = document.createElement("div");
@@ -4657,7 +4737,7 @@ function renderProductionConsole(state, availableImages, busy, queueLocked) {
       ? "SEO 完成"
       : seoOnly && state?.researchCompleted
         ? "调研完成"
-        : (phaseLabels[state?.completedPhase] || (busy ? "运行中" : "待开始"));
+        : currentStageLabel(state, busy);
   const genWaiting = latestChatgptWaiting && latestChatgptWaiting.active;
   const waitedSec = genWaiting ? Math.floor((Date.now() - latestChatgptWaiting.startedAt) / 1000) : 0;
   metrics.innerHTML =
@@ -5297,6 +5377,10 @@ function render(payload) {
   const overallProgress = workflowProgress(state);
   const providerName = state.provider === "gemini" ? "Gemini" : "ChatGPT";
   const insertMode = state.workflowMode === "luxury_insert";
+  const charmMode = state.workflowMode === "bag_charm";
+  /* 仅当用户主动进入挂件模式（charmUiActive）且服务端确为 bag_charm 时才渲染挂件控制台；
+     即使服务端状态残留为 bag_charm，只要用户没主动停留，也一律隐藏，避免污染其他页面 */
+  const showCharm = charmUiActive && charmMode;
   const seoOnly = state.standardWorkflowGoal === "seo_content_only";
   const queueLocked =
     queue.status === "running" ||
@@ -5336,11 +5420,35 @@ function render(payload) {
   }
 
   document.body.classList.toggle("insert-mode", insertMode);
-  /* 上品视图内：非 luxury_insert 模式时显示「进入内胆 Listing 设计」入口卡片 */
-  elements.insertListingEntryCard?.classList.toggle(
+  /* 上品视图内：非 luxury_insert / bag_charm 模式时显示入口卡片行（内胆 + 挂件并排） */
+  elements.listingEntryCardsRow?.classList.toggle(
     "hidden",
-    !!insertMode
+    !!insertMode || showCharm
   );
+  /* ── 包包挂件（Bag Charm）Listing 自动制作控制台 ── */
+  const charmWorkspace = ensureCharmWorkspace();
+  if (showCharm) {
+    document.body.classList.add("charm-mode");
+    charmWorkspace.classList.remove("hidden");
+    renderCharmConsole(state);
+    /* 侧栏标题更新为挂件模式 */
+    const title = document.getElementById("workspacePanelTitle");
+    if (title) title.textContent = "包包挂件 Listing";
+    const subtitle = document.getElementById("workspacePanelSubtitle");
+    if (subtitle) subtitle.textContent = "暗黑合成主图 + 加字海报 + Listing 文案";
+    return; /* ← 提前返回，跳过后续标准模式的布局计算，避免干扰 */
+  } else {
+    document.body.classList.remove("charm-mode");
+    const pc = document.getElementById("productionConsole");
+    if (pc) pc.classList.remove("hidden");
+    elements.viewPanels.forEach((panel) => panel.classList.remove("hidden"));
+    charmWorkspace.classList.add("hidden");
+    /* 侧栏标题恢复（从挂件模式退出时） */
+    const title = document.getElementById("workspacePanelTitle");
+    if (title && title.textContent === "包包挂件 Listing") title.textContent = "今日指挥台";
+    const subtitle = document.getElementById("workspacePanelSubtitle");
+    if (subtitle) subtitle.textContent = "AI 总控入口";
+  }
   const activeViewBeforeRender = activeViewName();
   elements.insertWorkspace.classList.toggle(
     "hidden",
@@ -5396,7 +5504,7 @@ function render(payload) {
       ? "SEO 完成"
       : seoOnly && state.researchCompleted
         ? "调研完成"
-        : phaseLabels[state.completedPhase] || (busy ? "运行中" : "待开始");
+        : currentStageLabel(state, busy);
   elements.metricGenerated.textContent = seoOnly ? "已跳过" : `${generatedCount}/10`;
   elements.overallProgressText.textContent = `${Math.round(overallProgress)}%`;
   elements.chatStatus.textContent = state.chatUrl
@@ -5479,6 +5587,20 @@ function render(payload) {
 
   elements.errorBox.classList.toggle("hidden", !state.error);
   elements.errorBox.textContent = state.error || "";
+
+  /* 失败可见性（2026-10-23）：
+     此前失败原因只写在右下角默认收起的 #errorBox 里，顶部指标还显示「待开始 0%」，
+     用户完全看不出后台其实跑过并失败了。现在做三件事：
+     ① 错误顶到首屏横幅；② 失败时自动展开任务坞；③ 记录上一次的 stage，避免重复展开。 */
+  const showHeroError = Boolean(state.error) && state.stage === "FAILED";
+  if (elements.heroErrorBanner) {
+    elements.heroErrorBanner.classList.toggle("hidden", !showHeroError);
+    elements.heroErrorBanner.textContent = showHeroError ? state.error : "";
+  }
+  if (showHeroError && lastRenderedStage !== "FAILED") {
+    setTaskDockExpanded(true);
+  }
+  lastRenderedStage = state.stage;
   const queueRunning = queue.status === "running" || queue.status === "preparing";
   const queuePausedCurrent = queue.status === "paused" && Boolean(queue.currentTaskId);
   const hasCurrentProduct =
@@ -5680,6 +5802,8 @@ function render(payload) {
   elements.nextProductButton.disabled =
     busy || queueLocked || !state.chatUrl || !completedAtLeast(state, "MVP5");
 
+  renderImageFrameworkPanel(state.imageFrameworkReport);
+
   elements.outputGallery.replaceChildren(
     ...outputFiles.map((file) => {
       const link = document.createElement("a");
@@ -5692,6 +5816,22 @@ function render(payload) {
       const label = document.createElement("span");
       label.textContent = file.name;
       link.append(image, label);
+      // 单图重生成：仅对 Image_NN.jpg 提供，避免整套 10 张重来
+      const imageMatch = /^Image_(\d{2})\./i.exec(file.name || "");
+      if (imageMatch && !seoOnly && completedAtLeast(state, "MVP3")) {
+        const number = Number(imageMatch[1]);
+        const regenButton = document.createElement("button");
+        regenButton.type = "button";
+        regenButton.className = "output-card-regen";
+        regenButton.textContent = busy ? "生成中…" : "↻ 重生成";
+        regenButton.disabled = busy || queueLocked;
+        regenButton.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          regenerateSingleListingImage(number);
+        });
+        link.append(regenButton);
+      }
       return link;
     })
   );
@@ -5720,6 +5860,52 @@ function render(payload) {
     insertOutputFiles,
     busy
   );
+}
+
+const IMAGE_FRAMEWORK_JOB_LABEL = {
+  size: "尺寸", hero: "主图", scene: "场景", material: "材质",
+  usage: "使用", package: "包装", infographic: "信息图", trust: "信任", other: "其他"
+};
+
+function renderImageFrameworkPanel(framework) {
+  const panel = elements.imageFrameworkPanel;
+  if (!panel) return;
+  const slots = framework && Array.isArray(framework.slots) ? framework.slots : [];
+  if (!slots.length) {
+    panel.classList.add("hidden");
+    panel.replaceChildren();
+    return;
+  }
+  panel.classList.remove("hidden");
+  const head = document.createElement("div");
+  head.className = "image-framework-head";
+  head.textContent = "10 图框架";
+  const wrap = document.createElement("div");
+  wrap.className = "image-framework-slots";
+  for (const slot of slots) {
+    const chip = document.createElement("span");
+    chip.className = "image-framework-slot";
+    const num = document.createElement("b");
+    num.textContent = String(slot.num).padStart(2, "0");
+    chip.append(num, ` ${IMAGE_FRAMEWORK_JOB_LABEL[slot.job] || slot.job}`);
+    wrap.append(chip);
+  }
+  const status = document.createElement("span");
+  const ok = framework.ok !== false && !(framework.violations || []).length;
+  status.className = `image-framework-status ${ok ? "ok" : "bad"}`;
+  status.textContent = ok
+    ? "✓ 框架校验通过（尺寸图已就位）"
+    : `✗ ${(framework.violations || []).join("；")}`;
+  panel.replaceChildren(head, wrap, status);
+}
+
+async function regenerateSingleListingImage(number) {
+  try {
+    await request(`/api/run/image/${number}`, { method: "POST" });
+    // 进度由每秒轮询自动刷新，无需手动重绘
+  } catch (error) {
+    window.alert(`重生成 Image ${number} 失败：${error.message}`);
+  }
 }
 
 function setProfileInputValue(element, value) {
@@ -11532,6 +11718,31 @@ function blcEscapeHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
+// 上架进度「重试失败上架」：分别重试引用路径和采集箱路径的失败项
+async function blcAutoUploadRetry() {
+  const aus = batchListingCreateState.autoUploadStatus;
+  if (!aus) { alert("没有上架任务记录"); return; }
+  const refFailed = (aus.refSummary && (aus.refSummary.failed > 0)) || false;
+  const colFailed = (aus.colSummary && (aus.colSummary.failed > 0)) || false;
+  if (!refFailed && !colFailed) { alert("当前没有失败的上架项可重试"); return; }
+  try {
+    // 引用路径有失败项 → 调 batch-retry
+    if (refFailed) {
+      await request("/api/dianxiaomi/batch-retry", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    }
+    // 采集箱路径有失败项 → 调 collect-batch-retry
+    if (colFailed) {
+      await request("/api/dianxiaomi/collect-batch-retry", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    }
+    // 标记 auto-upload 重新运行中，让轮询刷新 UI
+    if (batchListingCreateState.autoUploadStatus) {
+      batchListingCreateState.autoUploadStatus = { ...batchListingCreateState.autoUploadStatus, status: "running", running: true };
+    }
+  } catch (e) {
+    alert("重试失败上架失败：" + (e && e.message ? e.message : e));
+  }
+}
+
 // 上架阶段实时进度卡片：制作完成后「制作并上架」会自动串行跑引用 + 采集箱两条路径，
 // 这里把后端合并进 autoUploadStatus 的总进度 / 逐行状态 / 汇总实时展示出来（以前只有一句静态「正在上架」）。
 function renderAutoUploadCard() {
@@ -11539,12 +11750,47 @@ function renderAutoUploadCard() {
   const aus = st.autoUploadStatus;
   if (!aus || !st.autoUploadVisible) return "";
   const items = Array.from(st.autoUploadItems.values());
-  const statusLabel = { running: "上架进行中", done: "上架完成", failed: "上架失败" }[aus.status] || (aus.running ? "上架进行中" : "上架");
-  const progress = (typeof st.autoUploadProgress === "number") ? st.autoUploadProgress : 0;
+  // 总体状态标签：优先用 summary 判断真实终态（即使 status 还在 running）
   const sm = st.autoUploadSummary;
+  const isReallyDone = !aus.running && sm && sm.total > 0 && (sm.success + sm.failed + sm.skipped >= sm.total);
+  const statusLabel = isReallyDone ? "上架完成"
+    : { running: "上架进行中", done: "上架完成", failed: "上架失败" }[aus.status] || (aus.running ? "上架进行中" : "上架");
+  // 总进度：所有已处理项（含 failed）占比，不再只算 done+skipped
+  const totalItems = items.length;
+  const processedCount = items.filter((it) => it.status === "done" || it.status === "failed" || it.status === "skipped").length;
+  const progress = totalItems ? Math.round((processedCount / totalItems) * 100) : ((typeof st.autoUploadProgress === "number") ? st.autoUploadProgress : 0);
   const refJob = aus.refJobId ? `引用任务 <code>${blcEscapeHtml(aus.refJobId)}</code>` : "";
   const colJob = aus.colJobId ? `采集箱任务 <code>${blcEscapeHtml(aus.colJobId)}</code>` : "";
   const jobLine = [refJob, colJob].filter(Boolean).join(" ｜ ");
+  const isRunning = aus.status === "running" || (aus.running !== false);
+  const hasFailedItems = items.some((it) => it.status === "failed");
+  // 重试按钮可见条件：不在运行中 + 有失败项
+  const showRetry = !isRunning && hasFailedItems;
+
+  // 每行进度条按状态着色：done/skipped=绿满, failed=红满(或红空表示失败), running=蓝渐变实际值, idle=灰0
+  const itemBar = (it) => {
+    const pct = Math.max(0, Math.min(100, it.progress || 0));
+    const s = it.status || "idle";
+    let bg, w;
+    if (s === "done") { bg = "#16a34a"; w = 100; }
+    else if (s === "skipped") { bg = "#6b7280"; w = 100; }
+    else if (s === "failed") { bg = "#dc2626"; w = 100; } // 红色满条：处理完毕但失败
+    else if (s === "running") { bg = "linear-gradient(90deg,#2997ff,#60a5fa)"; w = Math.max(pct, 8); }
+    else { bg = "#d1d5db"; w = 0; }
+    return `<div class="progress"><span style="width:${w}%;background:${bg}"></span></div>`;
+  };
+
+  // 每行阶段文本：有 currentStage 就显示；running 但无阶段显示「处理中…」；终态显示状态文案
+  const itemStage = (it) => {
+    if (it.currentStage) return blcEscapeHtml(it.currentStage);
+    const s = it.status || "idle";
+    if (s === "running") return '<span style="color:#2997ff">处理中…</span>';
+    if (s === "done") return '<span style="color:#16a34a">已完成</span>';
+    if (s === "failed") return '<span style="color:#dc2626">处理失败</span>';
+    if (s === "skipped") return '<span style="color:#6b7280">已跳过</span>';
+    return "";
+  };
+
   const rowsHtml = items.length ? `
     <div class="bl-table-wrap">
       <table class="bl-table">
@@ -11554,28 +11800,36 @@ function renderAutoUploadCard() {
             <tr class="${it.status === "failed" || it.status === "skipped" ? "status-failed" : ""}">
               <td>${blcEscapeHtml(it.productName)}</td>
               <td><span class="bl-badge ${it.status || "idle"}">${BLC_STATUS_LABEL[it.status] || "待处理"}</span></td>
-              <td>${blcEscapeHtml(it.currentStage || "")}</td>
-              <td><div class="progress"><span style="width:${Math.max(0, Math.min(100, it.progress || 0))}%"></span></div></td>
+              <td>${itemStage(it)}</td>
+              <td>${itemBar(it)}</td>
               <td class="bl-reason">${blcEscapeHtml(it.reason || "")}</td>
             </tr>`).join("")}
         </tbody>
       </table>
     </div>` : `<div class="bl-hint">正在准备上架任务…</div>`;
   const summaryHtml = (sm && sm.total) ? `<div class="bl-summary">📤 上架：成功 ${sm.success} · 失败 ${sm.failed} · 跳过 ${sm.skipped} / 共 ${sm.total}</div>` : "";
+
+  // 总进度条也按终态着色
+  let progressBg = "#2997ff";
+  if (isReallyDone) {
+    progressBg = sm && sm.failed > 0 && sm.success === 0 ? "#dc2626" : (sm && sm.failed > 0 ? "#f59e0b" : "#16a34a");
+  }
+
   return `
     <div class="bl-card" style="border-left:3px solid #2997ff">
       <div class="bl-overview">
         <div class="bl-overview-icon">📤</div>
         <div class="bl-overview-text">
-          <b>上架进度</b>：${blcEscapeHtml(statusLabel)}（制作完成，后端自动带入并上架，无需操作）
+          <b>上架进度</b>：${blcEscapeHtml(statusLabel)}
           ${jobLine ? `<div class="bl-overview-sub">${jobLine}</div>` : ""}
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px;margin:10px 0">
-        <div class="progress" style="height:10px;flex:1"><span style="width:${progress}%"></span></div>
+        <div class="progress" style="height:10px;flex:1"><span style="width:${progress}%;background:${progressBg};transition:width 0.5s ease"></span></div>
         <span style="font-weight:700;min-width:44px;text-align:right">${progress}%</span>
       </div>
       ${summaryHtml}
+      ${showRetry ? `<div style="margin:10px 0"><button id="blc-auto-upload-retry" class="bl-btn primary">↻ 重试失败上架</button></div>` : ""}
       ${rowsHtml}
     </div>`;
 }
@@ -11682,6 +11936,7 @@ function renderBatchListingCreate() {
   document.getElementById("blc-start")?.addEventListener("click", () => void blcStart(false));
   document.getElementById("blc-start-upload")?.addEventListener("click", () => void blcStart(true));
   document.getElementById("blc-retry")?.addEventListener("click", () => void blcRetry());
+  document.getElementById("blc-auto-upload-retry")?.addEventListener("click", () => void blcAutoUploadRetry());
   document.getElementById("blc-goto-upload")?.addEventListener("click", () => {
       batchListingCreateState.ctaDismissed = true;
       switchView("batch-listing");
@@ -12344,6 +12599,9 @@ async function removeLinerDetailImage(variantId, imageName, button) {
 }
 
 async function selectWorkflowMode(mode) {
+  /* 前端主导的挂件 UI 标志：仅用户主动进入挂件模式时为真，
+     刷新页面或切回其他模式都会自动复位，避免服务端残留状态污染其他页面 */
+  charmUiActive = mode === "bag_charm";
   try {
     await request("/api/workflow-mode", {
       method: "PUT",
@@ -13225,6 +13483,10 @@ elements.resetInsertMarketRadarButton.addEventListener("click", () => {
 elements.enterInsertListingButton?.addEventListener("click", () => {
   void selectWorkflowMode("luxury_insert");
 });
+/* ── 上品视图入口：进入包包挂件 Listing 设计 ── */
+elements.enterCharmListingButton?.addEventListener("click", () => {
+  void selectWorkflowMode("bag_charm");
+});
 elements.gotoSelectionRadarFromEntryLink?.addEventListener("click", (event) => {
   event.preventDefault();
   /* 先切到 luxury_insert 模式再进 selection-radar（选款视图需要该模式） */
@@ -13234,6 +13496,249 @@ elements.gotoSelectionRadarFromEntryLink?.addEventListener("click", (event) => {
     switchView("selection-radar");
   }
 });
+/* ══ 包包挂件（Bag Charm）Listing 自动制作控制台 ══ */
+let charmRefs = null;
+let charmDisplaySync = {};
+let charmUiActive = false;
+function syncCharmInput(input, value, key) {
+  if (!input) return;
+  if (document.activeElement === input) return;
+  if (charmDisplaySync[key] === value) return;
+  charmDisplaySync[key] = value;
+  if (input.value !== value) input.value = value;
+}
+function syncCharmCheckbox(input, checked, key) {
+  if (!input) return;
+  if (document.activeElement === input) return;
+  if (charmDisplaySync[key] === checked) return;
+  charmDisplaySync[key] = checked;
+  if (input.checked !== checked) input.checked = checked;
+}
+function ensureCharmWorkspace() {
+  let ws = document.getElementById("charmWorkspace");
+  if (!ws) {
+    ws = document.createElement("section");
+    ws.id = "charmWorkspace";
+    ws.className = "charm-workspace hidden";
+    const anchor = document.getElementById("insertWorkspace");
+    (anchor ? anchor.parentElement : document.body).appendChild(ws);
+  }
+  return ws;
+}
+function charmEl(tag, attrs = {}, children = []) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v == null) continue;
+    if (k === "class") node.className = v;
+    else if (k === "text") node.textContent = v;
+    else if (k === "html") node.innerHTML = v;
+    else if (k.startsWith("on") && typeof v === "function") node.addEventListener(k.slice(2).toLowerCase(), v);
+    else node.setAttribute(k, String(v));
+  }
+  for (const c of [].concat(children)) {
+    if (c == null || c === false) continue;
+    node.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+  }
+  return node;
+}
+function charmRequest(url, opts) {
+  const options = { method: "POST", ...(opts || {}) };
+  return fetch(url, options)
+    .then((r) => {
+      if (!r.ok) return r.json().then((e) => { throw new Error(e.error || r.status); }).catch(() => { throw new Error(String(r.status)); });
+      return r.json().catch(() => ({}));
+    })
+    .then((data) => { void refreshTwice(); return data; })
+    .catch((err) => { alert("操作失败：" + (err && err.message ? err.message : err)); });
+}
+function charmUploadFiles(url, fileInput) {
+  const files = fileInput.files;
+  if (!files || !files.length) return;
+  const fd = new FormData();
+  for (const f of files) fd.append("images", f);
+  fetch(url, { method: "POST", body: fd })
+    .then((r) => { if (!r.ok) return r.json().then((e) => { throw new Error(e.error || r.status); }); return r.json(); })
+    .then(() => { fileInput.value = ""; void refreshTwice(); })
+    .catch((err) => { alert("上传失败：" + (err && err.message ? err.message : err)); });
+}
+function renderCharmGrid(container, names, deleteBase) {
+  container.replaceChildren();
+  for (const name of names) {
+    const img = charmEl("img", { src: "/api/charm/image/" + encodeURIComponent(name), class: "charm-thumb", loading: "lazy" });
+    img.onerror = () => { img.src = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="84" height="84" viewBox="0 0 84 84"><rect width="84" height="84" fill="#f1f5f9"/><text x="42" y="46" text-anchor="middle" font-size="11" fill="#94a3b8">加载失败</text></svg>'); };
+    const del = charmEl("button", { class: "charm-thumb-del", title: "删除", text: "×", type: "button", onclick: () => charmRequest(`${deleteBase}/${encodeURIComponent(name)}`, { method: "DELETE" }) });
+    container.appendChild(charmEl("div", { class: "charm-thumb-wrap" }, [img, del]));
+  }
+  if (!names.length) container.appendChild(charmEl("span", { class: "charm-empty", text: "（暂无）" }));
+}
+function renderCharmOutputGrid(container, numbers) {
+  container.replaceChildren();
+  for (const n of [...numbers].sort((a, b) => a - b)) {
+    const name = `Image_${String(n).padStart(2, "0")}.png`;
+    const img = charmEl("img", { src: "/api/charm/output/" + name, class: "charm-out-thumb", loading: "lazy" });
+    img.onerror = () => { img.style.opacity = "0.3"; };
+    container.appendChild(charmEl("div", { class: "charm-out-wrap" }, [img, charmEl("span", { class: "charm-out-label", text: "Image " + n })]));
+  }
+  if (!numbers.length) container.appendChild(charmEl("span", { class: "charm-empty", text: "（尚未生成）" }));
+}
+function buildCharmConsole() {
+  const ws = ensureCharmWorkspace();
+  ws.replaceChildren();
+  const R = {};
+  /* Hero */
+  R.taskId = charmEl("strong", { id: "charmTaskId", text: "待创建" });
+  R.pauseBtn = charmEl("button", { id: "charmPauseButton", class: "button warning", type: "button", text: "暂停", onclick: () => charmRequest("/api/run/pause") });
+  R.resumeBtn = charmEl("button", { id: "charmResumeButton", class: "button secondary", type: "button", text: "从断点继续", onclick: () => charmRequest("/api/charm/run/resume") });
+  ws.appendChild(charmEl("div", { class: "charm-hero" }, [
+    charmEl("div", {}, [
+      charmEl("span", { class: "hero-kicker", text: "BAG CHARM LISTING WORKFLOW" }),
+      charmEl("h2", { text: "从吊坠参考图到暗黑合成主图 + 加字海报 + Listing 文案。" }),
+      charmEl("p", { text: "上传吊坠参考图与手提包场景图 → 生成 Image 01–06 → 产出速卖通 Listing 文案 → 归档，并在店小秘复用箱包配件（Pendant）上架模板。" })
+    ]),
+    charmEl("div", { class: "charm-hero-actions" }, [
+      charmEl("div", { class: "insert-task-id" }, [charmEl("small", { text: "TASK ID" }), R.taskId]),
+      R.pauseBtn, R.resumeBtn
+    ])
+  ]));
+  R.status = charmEl("div", { class: "charm-status", id: "charmStatus", text: "就绪" });
+  ws.appendChild(R.status);
+  /* Step 1: 参考图 */
+  R.refInput = charmEl("input", { id: "charmRefInput", type: "file", accept: ".jpg,.jpeg,.png,.webp", multiple: "multiple" });
+  R.refInput.addEventListener("change", () => charmUploadFiles("/api/charm/ref-images", R.refInput));
+  R.refUrls = charmEl("textarea", { id: "charmRefUrls", placeholder: "每行一个公开图片直链，最多 12 条。", spellcheck: "false" });
+  R.refUrlImport = charmEl("button", { id: "charmRefUrlImport", class: "text-button", type: "button", text: "通过 URL 导入" });
+  R.refUrlImport.addEventListener("click", () => {
+    const urls = R.refUrls.value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    if (!urls.length) return;
+    charmRequest("/api/charm/ref-image-urls", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ urls }) });
+  });
+  R.refGrid = charmEl("div", { class: "charm-grid", id: "charmRefGrid" });
+  ws.appendChild(charmEl("article", { class: "insert-step-card" }, [
+    charmEl("header", {}, [charmEl("span", { text: "01" }), charmEl("div", {}, [charmEl("h3", { text: "上传吊坠参考图" }), charmEl("p", { text: "上传与最终吊坠一致的清晰参考图（Image 01 主体），可多张。" })])]),
+    charmEl("label", { class: "upload-zone compact" }, [R.refInput, charmEl("span", { class: "upload-icon", text: "＋" }), charmEl("strong", { text: "上传吊坠参考图" }), charmEl("span", { text: "支持 jpg/png/webp，可多选" })]),
+    charmEl("div", { class: "compact-url-import" }, [charmEl("strong", { text: "或通过图片 URL 导入" }), R.refUrls, R.refUrlImport]),
+    R.refGrid
+  ]));
+  /* Step 2: 场景图 */
+  R.contextInput = charmEl("input", { id: "charmContextInput", type: "file", accept: ".jpg,.jpeg,.png,.webp", multiple: "multiple" });
+  R.contextInput.addEventListener("change", () => charmUploadFiles("/api/charm/context-images", R.contextInput));
+  R.contextGrid = charmEl("div", { class: "charm-grid", id: "charmContextGrid" });
+  ws.appendChild(charmEl("article", { class: "insert-step-card" }, [
+    charmEl("header", {}, [charmEl("span", { text: "02" }), charmEl("div", {}, [charmEl("h3", { text: "上传手提包场景图" }), charmEl("p", { text: "上传手提包图片（Image 01 背景手提包 + Image 03 场景）。可选。" })])]),
+    charmEl("label", { class: "upload-zone compact" }, [R.contextInput, charmEl("span", { class: "upload-icon", text: "＋" }), charmEl("strong", { text: "上传手提包场景图" }), charmEl("span", { text: "支持 jpg/png/webp，可多选" })]),
+    R.contextGrid
+  ]));
+  /* Step 3: 基础信息 */
+  R.productName = charmEl("input", { id: "charmProductName", type: "text", placeholder: "例如 Luxury Gold Heart Pendant Charm" });
+  R.brand = charmEl("input", { id: "charmBrand", type: "text", placeholder: "例如 ANNORA" });
+  R.material = charmEl("input", { id: "charmMaterial", type: "text", placeholder: "例如 Zinc Alloy + Cubic Zirconia" });
+  R.type = charmEl("input", { id: "charmType", type: "text", value: "Pendant", placeholder: "Pendant" });
+  R.claimDispatch = charmEl("input", { id: "charmClaimDispatch", type: "checkbox" });
+  R.claimReturns = charmEl("input", { id: "charmClaimReturns", type: "checkbox" });
+  R.metaSave = charmEl("button", { id: "charmMetaSave", class: "button secondary", type: "button", text: "保存基础信息" });
+  R.metaSave.addEventListener("click", () => {
+    const body = {
+      productName: R.productName.value,
+      brand: R.brand.value,
+      material: R.material.value,
+      type: R.type.value || "Pendant",
+      claims: { dispatch48h: R.claimDispatch.checked, returns7Day: R.claimReturns.checked }
+    };
+    charmRequest("/api/charm/meta", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  });
+  ws.appendChild(charmEl("article", { class: "insert-step-card" }, [
+    charmEl("header", {}, [charmEl("span", { text: "03" }), charmEl("div", {}, [charmEl("h3", { text: "产品基础信息" }), charmEl("p", { text: "用于 {{PRODUCT_NAME}} 与冻结事实，决定文案与加字海报标题。" })])]),
+    charmEl("div", { class: "charm-meta-grid" }, [
+      charmEl("div", { class: "charm-field" }, [charmEl("label", { text: "产品名（PRODUCT_NAME）*" }), R.productName]),
+      charmEl("div", { class: "charm-field" }, [charmEl("label", { text: "品牌" }), R.brand]),
+      charmEl("div", { class: "charm-field" }, [charmEl("label", { text: "材质" }), R.material]),
+      charmEl("div", { class: "charm-field" }, [charmEl("label", { text: "类型" }), R.type])
+    ]),
+    charmEl("div", { class: "charm-claims" }, [
+      charmEl("label", {}, [R.claimDispatch, "48h Dispatch"]),
+      charmEl("label", {}, [R.claimReturns, "7-Day Returns"])
+    ]),
+    charmEl("div", { class: "flow-action-bar", style: "margin-top:12px" }, [R.metaSave])
+  ]));
+  /* Step 4: Prompt Pack */
+  R.promptPackStatus = charmEl("span", { id: "charmPromptPackStatus", class: "charm-empty", text: "等待参考图 + 产品名" });
+  R.promptPackBtn = charmEl("button", { id: "charmPromptPackBtn", class: "button primary", type: "button", text: "生成 Image 01–06 Prompt Pack" });
+  R.promptPackBtn.addEventListener("click", () => charmRequest("/api/charm/run/prompts"));
+  ws.appendChild(charmEl("article", { class: "insert-step-card" }, [
+    charmEl("header", {}, [charmEl("span", { text: "04" }), charmEl("div", {}, [charmEl("h3", { text: "生成 6 图 Prompt Pack" }), charmEl("p", { text: "向 AI 会话发送模板，生成暗黑合成主图(含加字海报) + 5 张配套的编号 Prompt。" })])]),
+    charmEl("div", { class: "flow-action-bar" }, [R.promptPackBtn, R.promptPackStatus])
+  ]));
+  /* Step 5: 逐张生图 */
+  R.imageProgress = charmEl("span", { id: "charmImageProgress", class: "charm-empty", text: "已完成 0/6" });
+  R.genImagesBtn = charmEl("button", { id: "charmGenImagesBtn", class: "button primary", type: "button", text: "逐张生成 6 张图片" });
+  R.genImagesBtn.addEventListener("click", () => charmRequest("/api/charm/run/images"));
+  R.outputGrid = charmEl("div", { class: "charm-grid", id: "charmOutputGrid" });
+  ws.appendChild(charmEl("article", { class: "insert-step-card" }, [
+    charmEl("header", {}, [charmEl("span", { text: "05" }), charmEl("div", {}, [charmEl("h3", { text: "逐张生成 Listing 图片" }), charmEl("p", { text: "恢复 AI 会话，按编号逐张生成 1:1 图，支持断点续跑。" })])]),
+    charmEl("div", { class: "flow-action-bar" }, [R.genImagesBtn, R.imageProgress]),
+    R.outputGrid
+  ]));
+  /* Step 6: Listing 文案 */
+  R.listingStatus = charmEl("span", { id: "charmListingStatus", class: "charm-empty", text: "等待 6 图完成" });
+  R.listingBtn = charmEl("button", { id: "charmListingBtn", class: "button primary", type: "button", text: "生成 Listing 文案" });
+  R.listingBtn.addEventListener("click", () => charmRequest("/api/charm/run/listing-content"));
+  R.listingText = charmEl("pre", { id: "charmListingText", class: "charm-text-block hidden" });
+  ws.appendChild(charmEl("article", { class: "insert-step-card" }, [
+    charmEl("header", {}, [charmEl("span", { text: "06" }), charmEl("div", {}, [charmEl("h3", { text: "生成 Listing 文案" }), charmEl("p", { text: "产出标题、属性词、详情页文案（含固定边界便于解析）。" })])]),
+    charmEl("div", { class: "flow-action-bar" }, [R.listingBtn, R.listingStatus]),
+    R.listingText
+  ]));
+  /* Step 7: 归档 */
+  R.archiveBtn = charmEl("button", { id: "charmArchiveBtn", class: "button primary", type: "button", text: "归档开发包" });
+  R.archiveBtn.addEventListener("click", () => charmRequest("/api/charm/archive"));
+  R.archiveStatus = charmEl("span", { id: "charmArchiveStatus", class: "charm-empty", text: "" });
+  ws.appendChild(charmEl("article", { class: "insert-step-card" }, [
+    charmEl("header", {}, [charmEl("span", { text: "07" }), charmEl("div", {}, [charmEl("h3", { text: "归档" }), charmEl("p", { text: "把 6 图、Prompt Pack 与文案归档到「已完成产品」，即可在店小秘选「包包挂件」上架。" })])]),
+    charmEl("div", { class: "flow-action-bar" }, [R.archiveBtn, R.archiveStatus])
+  ]));
+  charmRefs = R;
+}
+function updateCharmConsole(state) {
+  const charm = state.bagCharm || {};
+  const busy = Boolean(state.running || state.autoRun);
+  const R = charmRefs;
+  if (!R) return;
+  R.status.textContent = state.message || (charm.taskId ? "就绪" : "请上传吊坠参考图并填写产品名");
+  R.taskId.textContent = charm.taskId || "待创建";
+  renderCharmGrid(R.refGrid, charm.refImageNames || [], "/api/charm/ref-images");
+  renderCharmGrid(R.contextGrid, charm.contextImageNames || [], "/api/charm/context-images");
+  syncCharmInput(R.productName, charm.productName || "", "productName");
+  syncCharmInput(R.brand, charm.brand || "", "brand");
+  syncCharmInput(R.material, charm.material || "", "material");
+  syncCharmInput(R.type, charm.type || "Pendant", "type");
+  syncCharmCheckbox(R.claimDispatch, Boolean(charm.claims && charm.claims.dispatch48h), "dispatch48h");
+  syncCharmCheckbox(R.claimReturns, Boolean(charm.claims && charm.claims.returns7Day), "returns7Day");
+  const hasRef = (charm.refImageNames || []).length > 0;
+  const hasName = Boolean((charm.productName || "").trim());
+  const ppValid = Boolean(charm.promptPackValid);
+  const done = (charm.generatedImageNumbers || []).length;
+  R.promptPackBtn.disabled = busy || !hasRef || !hasName || ppValid;
+  R.genImagesBtn.disabled = busy || !ppValid;
+  R.listingBtn.disabled = busy || done < 6;
+  R.archiveBtn.disabled = busy || done < 6 || !charm.listingContentGenerated;
+  R.pauseBtn.disabled = !busy;
+  R.resumeBtn.disabled = busy || !charm.taskId;
+  R.imageProgress.textContent = `已完成 ${done}/6`;
+  R.promptPackStatus.textContent = ppValid ? "Prompt Pack 已生成 ✓" : (hasRef && hasName ? "可以生成" : "等待参考图 + 产品名");
+  R.listingStatus.textContent = charm.listingContentGenerated ? "文案已生成 ✓" : (done >= 6 ? "可以生成" : "等待 6 图完成");
+  renderCharmOutputGrid(R.outputGrid, charm.generatedImageNumbers || []);
+  if (charm.listingContentGenerated && charm.listingContentText) {
+    R.listingText.textContent = charm.listingContentText;
+    R.listingText.classList.remove("hidden");
+  } else {
+    R.listingText.classList.add("hidden");
+  }
+  R.archiveStatus.textContent = charm.archiveDirectory ? ("已归档：" + charm.archiveDirectory) : "";
+}
+function renderCharmConsole(state) {
+  if (!charmRefs) buildCharmConsole();
+  updateCharmConsole(state);
+}
 /* 从当前 ChatGPT 对话导入市场雷达结果（已生成但网页未显示时救回） */
 elements.importCurrentChatMarketRadarButton?.addEventListener("click", async () => {
   const btn = elements.importCurrentChatMarketRadarButton;
@@ -13839,3 +14344,107 @@ void loadProductLibrary();
 renderDailyCockpit();
 setInterval(refresh, 1_000);
 setInterval(tickDailyCockpit, 1_000);
+
+// ── ecom-translator 连接器（单向导入：ecom → 一跨而境）────────────────────
+let ecomConnectorBusy = false;
+
+async function refreshEcomConnector() {
+  if (ecomConnectorBusy || !elements.ecomConnectorStatus) return;
+  ecomConnectorBusy = true;
+  try {
+    const status = await request("/api/ecom/status");
+    const alive = Boolean(status?.service?.alive);
+    const el = elements.ecomConnectorStatus;
+    el.textContent = status?.exists
+      ? `${status.productCount} 个产品 · 控制台${alive ? "在线" : "未启动"}`
+      : "未找到 ecom 目录";
+    el.classList.toggle("ok", Boolean(status?.exists && alive));
+    el.classList.toggle("bad", Boolean(!status?.exists));
+    const products = status?.exists ? (await request("/api/ecom/products")).products || [] : [];
+    renderEcomConnectorList(products);
+  }
+  catch {
+    if (elements.ecomConnectorStatus) elements.ecomConnectorStatus.textContent = "连接器不可用";
+  }
+  finally {
+    ecomConnectorBusy = false;
+  }
+}
+
+function renderEcomConnectorList(products) {
+  const list = elements.ecomConnectorList;
+  if (!list) return;
+  if (!products.length) {
+    list.replaceChildren();
+    return;
+  }
+  const rows = products.slice(0, 8).map((product) => {
+    const row = document.createElement("div");
+    row.className = "ecom-connector-row";
+    const name = document.createElement("span");
+    name.className = "ecom-connector-name";
+    name.textContent = product.name;
+    name.title = product.folder;
+    const meta = document.createElement("span");
+    meta.className = "ecom-connector-meta";
+    meta.textContent = `${product.imageCount} 图${product.hasListing ? " · 有 Listing" : ""}${product.reviewRequired ? " · 待复核" : ""}`;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "text-button";
+    button.textContent = "导入";
+    button.addEventListener("click", () => importEcomProduct(product.folder));
+    row.append(name, meta, button);
+    return row;
+  });
+  list.replaceChildren(...rows);
+}
+
+async function importEcomProduct(folder) {
+  try {
+    const body = await request("/api/ecom/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folder })
+    });
+    const result = body?.results?.[0];
+    window.alert(`导入结果：${result?.status || "未知"}${result?.reason ? `\n${result.reason}` : ""}${result?.targetDir ? `\n${result.targetDir}` : ""}`);
+    void refreshEcomConnector();
+  }
+  catch (error) {
+    window.alert(`导入失败：${error.message}`);
+  }
+}
+
+async function importAllEcomProducts() {
+  if (!window.confirm("把 ecom output/ 下的全部产品导入到「已完成产品/」？已导入且内容一致会自动跳过。")) return;
+  try {
+    const body = await request("/api/ecom/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ all: true })
+    });
+    const summary = (body?.results || []).reduce((acc, result) => {
+      acc[result.status] = (acc[result.status] || 0) + 1;
+      return acc;
+    }, {});
+    window.alert(`导入完成：${JSON.stringify(summary)}`);
+    void refreshEcomConnector();
+  }
+  catch (error) {
+    window.alert(`导入失败：${error.message}`);
+  }
+}
+
+function launchEcomConsole() {
+  request("/api/ecom/launch", { method: "POST" })
+    .then((body) => {
+      window.open(body.url, "_blank", "noopener");
+      if (!body.alive) window.alert(body.hint || "ecom 控制台未启动");
+    })
+    .catch((error) => window.alert(`打开失败：${error.message}`));
+}
+
+elements.ecomLaunchButton?.addEventListener("click", launchEcomConsole);
+elements.ecomImportButton?.addEventListener("click", importAllEcomProducts);
+setInterval(refreshEcomConnector, 10_000);
+void refreshEcomConnector();

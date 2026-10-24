@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f5f5f7" />
     <title>一跨而境｜AI 跨境电商工作台</title>
-    <link rel="stylesheet" href="/styles.css?v=20260731-6" />
+    <link rel="stylesheet" href="/styles.css?v=20261024-3" />
     <script>
       // 致命错误兜底：任何未捕获错误 / Promise 拒绝都显示到页面顶部红条，避免白屏无提示
       (function () {
@@ -32,6 +32,31 @@
         });
       })();
     </script>
+  <style>
+    .charm-workspace { padding: 24px 20px; background: var(--bg-primary, #ffffff); min-height: calc(100vh - 120px); }
+    .charm-workspace.hidden { display: none; }
+    /* 挂件模式激活时，确保底层内容完全不透出 */
+    body.charm-mode .main-workspace > :not(#charmWorkspace) { display: none !important; }
+    body.charm-mode #charmWorkspace { display: block !important; }
+    .charm-hero { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 18px; }
+    .charm-hero h2 { margin: 6px 0; }
+    .charm-hero-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .charm-status { margin: 0 0 16px; padding: 10px 14px; border-radius: 8px; background: var(--surface, #f4f6fb); border: 1px solid var(--border, #e2e8f0); font-size: 13px; color: var(--text-secondary, #475569); }
+    .charm-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+    .charm-thumb-wrap { position: relative; width: 84px; height: 84px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border, #e2e8f0); }
+    .charm-thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .charm-thumb-del { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; line-height: 18px; border: none; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; cursor: pointer; font-size: 14px; }
+    .charm-out-wrap { width: 120px; border: 1px solid var(--border, #e2e8f0); border-radius: 8px; overflow: hidden; background: #000; }
+    .charm-out-thumb { width: 100%; display: block; }
+    .charm-out-label { display: block; text-align: center; font-size: 11px; padding: 4px 0; color: var(--text-secondary, #475569); }
+    .charm-empty { color: var(--text-muted, #94a3b8); font-size: 12px; }
+    .charm-meta-grid { display: grid; grid-template-columns: repeat(2, minmax(160px, 1fr)); gap: 12px; margin: 10px 0; }
+    .charm-field label { display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px; color: var(--text-secondary, #475569); }
+    .charm-field input[type=text] { width: 100%; padding: 8px 10px; border: 1px solid var(--border, #cbd5e1); border-radius: 8px; font-size: 13px; }
+    .charm-claims { display: flex; gap: 18px; margin-top: 8px; }
+    .charm-claims label { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+    .charm-text-block { white-space: pre-wrap; font-size: 12px; max-height: 280px; overflow: auto; background: var(--surface, #f8fafc); border: 1px solid var(--border, #e2e8f0); border-radius: 8px; padding: 10px; margin-top: 8px; }
+  </style>
   </head>
   <body>
     <div class="app-shell">
@@ -56,14 +81,16 @@
       </aside>
 
       <main class="workspace main-workspace">
+        <p id="heroErrorBanner" class="hero-error-banner hidden" role="alert"></p>
         <header id="productionTopbar" class="topbar hidden">
           <div>
             <p class="eyebrow">AI 跨境电商视觉与 Listing 工作台</p>
             <h1>让一个商品，完整走向全球。</h1>
-            <div class="mode-switch" aria-label="选择业务模式">
-              <button class="mode-option active" data-mode="standard_listing">标准 Listing</button>
-              <button class="mode-option" data-mode="luxury_insert">奢侈包内胆设计</button>
-            </div>
+              <div class="mode-switch" aria-label="选择业务模式">
+                <button class="mode-option active" data-mode="standard_listing">标准 Listing</button>
+                <button class="mode-option" data-mode="luxury_insert">奢侈包内胆设计</button>
+                <button class="mode-option" data-mode="bag_charm">包包挂件设计</button>
+              </div>
             <div id="standardGoalSwitch" class="goal-switch" aria-label="选择标准 Listing 任务目标">
               <button class="goal-option active" data-goal="full_listing">完整 Listing</button>
               <button class="goal-option" data-goal="seo_content_only">仅 SEO 与商品文案</button>
@@ -1144,7 +1171,8 @@
                   <button class="flow-primary-action" type="button" data-flow-step="planning">保存并进入市场调研</button>
                 </div>
               </div>
-              <div id="insertListingEntryCard" class="insert-listing-entry-card hidden">
+              <div class="listing-entry-cards-row hidden" id="listingEntryCardsRow">
+              <div id="insertListingEntryCard" class="insert-listing-entry-card">
                 <span class="entry-card-kicker">LUXURY INSERT WORKFLOW</span>
                 <h3>制作内胆 Listing</h3>
                 <p>从每日选款雷达选中包型 → 目标外包识别 → 内胆方案设计 → 冻结 SKU → 生成 7 张 Listing 主图与文案。适用于毛毡内胆 / 包中包 / handbag organizer insert 品类。</p>
@@ -1152,6 +1180,15 @@
                   <button id="enterInsertListingButton" class="button primary" type="button">进入内胆 Listing 设计</button>
                   <a href="#" id="gotoSelectionRadarFromEntryLink" class="text-link">先去每日选款雷达 →</a>
                 </div>
+              </div>
+              <div id="charmListingEntryCard" class="insert-listing-entry-card">
+                <span class="entry-card-kicker">BAG CHARM LISTING WORKFLOW</span>
+                <h3>制作包包挂件 Listing</h3>
+                <p>上传吊坠参考图 + 手提包场景图 → 暗黑合成主图与加字海报（Image 01）→ 配套 5 张 → 生成 Listing 文案 → 归档，并在店小秘复用箱包配件（Pendant）上架模板。适用于吊坠 / 包挂 / Bag Charm 品类。</p>
+                <div class="entry-card-actions">
+                  <button id="enterCharmListingButton" class="button primary" type="button">进入包包挂件 Listing 设计</button>
+                </div>
+              </div>
               </div>
             </div>
           </section>
@@ -1329,6 +1366,18 @@
               <div><span class="section-index">05</span><h2>Listing 图片生成</h2></div>
               <p>Image 1–10 严格逐张生成和保存，中断后可以从已完成编号继续。</p>
             </div>
+            <div class="panel ecom-connector-panel">
+              <div class="ecom-connector-head">
+                <strong>ecom-translator 连接器</strong>
+                <span id="ecomConnectorStatus" class="ecom-connector-status">检测中…</span>
+              </div>
+              <p class="ecom-connector-hint">从这里跳转运行 1688 采集 / 图片翻译；完成后一键导入到一跨而境（只交接，不合并）。</p>
+              <div class="ecom-connector-actions">
+                <button id="ecomLaunchButton" class="button" type="button">打开 ecom 控制台</button>
+                <button id="ecomImportButton" class="button primary" type="button">导入已完成产品</button>
+              </div>
+              <div id="ecomConnectorList" class="ecom-connector-list"></div>
+            </div>
             <div class="panel">
               <div id="imagesSkipNotice" class="skip-notice hidden">
                 当前模式已跳过 Listing 图片生成，不会消耗生图额度。
@@ -1337,6 +1386,7 @@
               <button id="imagesButton" class="button primary wide">
                 开始生成 Listing 图片
               </button>
+              <div id="imageFrameworkPanel" class="image-framework-panel hidden"></div>
               <div id="outputGallery" class="output-gallery"></div>
               <div class="flow-action-bar" data-production-step="images">
                 <p class="step-next-hint">下一步：把完成的图文资产接入上架草稿。</p>
@@ -2371,7 +2421,7 @@
         <div id="secretaryMessageList" class="secretary-message-list" aria-live="polite">
           <article class="secretary-message agent">
             <strong>秘书待命</strong>
-            <p>本轮不接大模型 API，只生成本地 command 草稿和结构化占位建议。</p>
+            <p>已接入模型意图编译：只生成待确认草稿，不执行任何动作。模型不可用时会降级为本地占位建议。</p>
           </article>
         </div>
         <div id="secretaryOutput" class="secretary-action-card">
@@ -2451,6 +2501,6 @@
     </aside>
 
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
-    <script src="/app.js?v=20260802-3" defer></script>
+    <script src="/app.js?v=20261024-3" defer></script>
   </body>
 </html>

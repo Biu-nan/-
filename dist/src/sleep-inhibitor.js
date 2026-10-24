@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { platform } from "node:os";
 export class SleepInhibitor {
     process;
     activeTasks = 0;
@@ -22,6 +23,10 @@ export class SleepInhibitor {
     acquire() {
         this.activeTasks += 1;
         if (this.process)
+            return;
+        // caffeinate 仅存在于 macOS。Windows 上此前每个后台任务都会触发 ENOENT，
+        // 既无法防休眠又会持续刷错；Windows 直接跳过，任务本身不受影响。
+        if (platform() !== "darwin")
             return;
         const child = spawn("/usr/bin/caffeinate", ["-i"], {
             stdio: "ignore"

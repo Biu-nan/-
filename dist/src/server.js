@@ -1,16 +1,19 @@
 import { spawn } from "node:child_process";
-import { appendFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { access, appendFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import express from "express";
 import multer from "multer";
-import { HOST, OUTPUT_DIR, INSERT_BAG_IMAGES_DIR, INSERT_LINER_IMAGES_DIR, INSERT_OUTPUT_DIR, PORT, PRODUCT_IMAGES_DIR, PRODUCT_ROOT, PROMPTS_DIR, PROJECT_ROOT, COMPLETED_PRODUCTS_DIR, HIDDEN_DATA_DIR, PUBLIC_DIR, USER_DATA_DIR } from "./config.js";
+import { HOST, OUTPUT_DIR, INSERT_BAG_IMAGES_DIR, INSERT_LINER_IMAGES_DIR, INSERT_OUTPUT_DIR, PORT, PRODUCT_IMAGES_DIR, PRODUCT_ROOT, PRODUCT_PROFILE_FILE, PROMPTS_DIR, PROJECT_ROOT, COMPLETED_PRODUCTS_DIR, HIDDEN_DATA_DIR, PUBLIC_DIR, USER_DATA_DIR, CHARM_REF_IMAGES_DIR, CHARM_CONTEXT_IMAGES_DIR, CHARM_OUTPUT_DIR } from "./config.js";
 import { DIANXIAOMI_TEMPLATE_PRODUCT_ID, PRODUCT_FACT_FILE, DIANXIAOMI_CATEGORY_PROFILES, getDianxiaomiProfile, isXiangBaoProfile } from "./config.js";
 import { normalizeDianxiaomiFacts, buildProductFactsFallback } from "./dianxiaomi-facts.js";
 import { AutomationService } from "./automation-service.js";
 import { ChatGptAdapter } from "./chatgpt-adapter.js";
 import { GeminiAdapter } from "./gemini-adapter.js";
 import { importImagesToDirectory, importImageUrlsToDirectory, removeImageFromDirectory, scanImages } from "./directory-images.js";
+import { buildHandoff, importHandoff, listEcomProductSummaries, probeEcomService, scanEcomProducts } from "./ecom-connector.js";
 import { LuxuryInsertService } from "./luxury-insert-service.js";
+import { BagCharmService } from "./bag-charm-service.js";
+import { CharmListingWorkspaceService } from "./charm-listing-workspace-service.js";
 import { SelectionService } from "./product-selection-service.js";
 import { NotebookLmAdapter } from "./notebooklm-adapter.js";
 import { clearProductImages, importProductImageUrls, importProductImages, removeProductImage, scanProductImages } from "./image-files.js";
@@ -25,12 +28,15 @@ import { OperationService } from "./operation-service.js";
 import { DailyOperationService } from "./daily-operation-service.js";
 import { OperatorService } from "./operator-service.js";
 import { HiddenDataLoopService } from "./hidden-data-loop-service.js";
+import { compileSecretaryIntent, resolveEffectiveRisk, computeRiskFloor } from "./secretary-model.js";
 import { ProductVisualAssetsService } from "./product-visual-assets-service.js";
 import { P0ProtocolService } from "./p0-protocol-service.js";
 import { DianxiaomiAdapter } from "./dianxiaomi-adapter.js";
 import { ResearchService } from "./research-service.js";
 import { ResearchStore } from "./research-store.js";
 import { registerBatchListingCreateRoutes, isListingCreateRunning, getLatestListingCreateJob, readInputWorkbook, recoverListingCreateState, listingCreateRunState } from "./batch-listing-create.js";
+// Listing Agent 集成入口（双形态：HTTP 优先，进程内兜底）。详见 listing-agent/README.md。
+import { ListingAgentClient } from "../../listing-agent/src/agent-client.js";
 
 // The WorkBuddy runtime injects a "safe-delete" shim (genie-safe-delete.cjs) that
 // intercepts fs.rm and throws SAFE_DELETE_BULK_CONFIRM_REQUIRED once the per-turn
@@ -48,6 +54,9 @@ console.error("[startup] safe-delete bulk guard disabled:",
     "TOOL_CALL_ID=", JSON.stringify(process.env.CODEBUDDY_TOOL_CALL_ID));
 
 const app = express();
+
+// Listing Agent 客户端单例（双形态：默认 HTTP 调独立服务 http://localhost:${AGENT_PORT}，不可达回退进程内）。
+const agentClient = new ListingAgentClient();
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: {
@@ -70,6 +79,8 @@ const adapters = {
 const visualAssetsService = new ProductVisualAssetsService();
 const standardService = new AutomationService(store, adapters, visualAssetsService);
 const insertService = new LuxuryInsertService(store, adapters, new NotebookLmAdapter());
+const bagCharmService = new BagCharmService(store, adapters);
+const charmListingWorkspaceService = new CharmListingWorkspaceService();
 const selectionService = new SelectionService(store, adapters);
 const sleepInhibitor = new SleepInhibitor();
 const productProfiles = new ProductProfileService();
@@ -738,22 +749,51 @@ app.post("/api/secretary/chat", async (request, response) => {
     const riskLevel = ["L0", "L1", "L2", "L3"].includes(request.body?.risk_level)
         ? request.body.risk_level
         : "L1";
+    // 大模型只做意图编译，产出草稿；不执行任何动作。
+    // 失败/未配置凭据时降级为原占位逻辑，秘书不会因此不可用。
+    const compiled = await compileSecretaryIntent({ message, pageContext, riskLevel });
+    const intent = compiled.ok ? compiled.data : null;
+    // 风险下限对模型结果与降级结果一视同仁：高风险措辞不会被漏判。
+    const effectiveRisk = resolveEffectiveRisk(intent?.risk_level ?? riskLevel, message);
+    const commandType = intent?.command_type ?? "secretary.chat.command";
     const draftCommand = await hiddenDataLoopService.createCommand({
-        type: "secretary.chat.command",
+        type: commandType,
         source: "secretary",
         payload: {
             message,
             page_context: pageContext,
-            risk_level: riskLevel
+            risk_level: effectiveRisk,
+            model_intent: intent
+                ? {
+                    interpreted_intent: intent.interpreted_intent,
+                    suggested_next_action: intent.suggested_next_action,
+                    risk_level: intent.risk_level,
+                    risk_model: intent.risk_model,
+                    risk_floor: intent.risk_floor,
+                    risk_escalated: intent.risk_escalated,
+                    reason: intent.reason
+                }
+                : null,
+            model: compiled.ok
+                ? { provider: "api", name: compiled.model, latency_ms: compiled.latency_ms, degraded: false }
+                : { provider: "api", name: null, latency_ms: compiled.latency_ms ?? 0, degraded: true, reason: compiled.reason }
         }
     });
     response.json({
-        interpreted_intent: message || "未输入指令",
-        suggested_next_action: "已生成本地 command 草稿，等待人工确认下一步。",
+        interpreted_intent: intent?.interpreted_intent || message || "未输入指令",
+        reply: intent?.reply || "已生成本地 command 草稿，等待人工确认下一步。",
+        suggested_next_action: intent?.suggested_next_action || "已生成本地 command 草稿，等待人工确认下一步。",
         related_context: pageContext,
         draft_command: draftCommand,
-        risk_level: riskLevel,
-        requires_confirmation: riskLevel !== "L0"
+        risk_level: effectiveRisk,
+        risk_model: intent?.risk_model ?? null,
+        risk_floor: intent?.risk_floor ?? computeRiskFloor(message),
+        risk_escalated: intent?.risk_escalated === true,
+        requires_confirmation: effectiveRisk !== "L0",
+        model: compiled.ok
+            ? { used: true, name: compiled.model, latency_ms: compiled.latency_ms }
+            : { used: false, name: null, latency_ms: compiled.latency_ms ?? 0, degraded: true, reason: compiled.reason },
+        snapshot: intent?.snapshot ?? null
     });
 });
 app.get("/api/commands", async (_request, response) => {
@@ -948,15 +988,34 @@ function rejectIfQueueLocked(response) {
     });
     return true;
 }
+// ChatGPT 首页会在浏览器健康检查后被临时写入 chatUrl；它不是产品对话，
+// 不应阻止下一行清空/导入图片。只有实际会话 URL 才需要锁定事实源。
+function hasActiveProductConversation(state) {
+    const url = String(state?.chatUrl ?? "");
+    return /^https:\/\/chatgpt\.com\/c\//.test(url) ||
+        /^https:\/\/gemini\.google\.com\/app\//.test(url);
+}
 async function abandonStandaloneCurrentProduct() {
     const state = store.get();
     if (state.running || state.autoRun) {
         throw new Error("请先暂停当前任务，并等待它进入安全暂停状态后再遗弃");
     }
-    const hasCurrentProduct = Boolean(state.chatUrl) ||
+    // 判定是否有可遗弃商品：优先以磁盘上是否存在真实产品档案(product-profile.json)为准，
+    // 否则在状态字段(imageCount/chatUrl/completedPhase)被异常清空时会误判为"没有可遗弃的商品"
+    // 而拒绝遗弃（此前诊断过程中已触发该问题）。内存字段仅作为辅助判定。
+    let hasCurrentProduct = Boolean(state.chatUrl) ||
         Boolean(state.completedPhase) ||
         Boolean(state.luxuryInsert?.taskId) ||
         state.imageCount > 0;
+    if (!hasCurrentProduct) {
+        try {
+            await access(PRODUCT_PROFILE_FILE);
+            hasCurrentProduct = true;
+        }
+        catch {
+            // 无产品档案，确认无可遗弃商品
+        }
+    }
     if (!hasCurrentProduct) {
         throw new Error("当前没有可遗弃的商品");
     }
@@ -1659,7 +1718,7 @@ app.post("/api/import-images", upload.array("images"), async (request, response,
         if (rejectIfQueueLocked(response))
             return;
         const state = store.get();
-        if (state.running || state.autoRun || state.chatUrl) {
+        if (state.running || state.autoRun || hasActiveProductConversation(state)) {
             response.status(409).json({
                 error: state.running || state.autoRun
                     ? "流程运行中，不能修改产品图片"
@@ -1689,7 +1748,7 @@ app.post("/api/import-image-urls", async (request, response) => {
         if (rejectIfQueueLocked(response))
             return;
         const state = store.get();
-        if (state.running || state.autoRun || state.chatUrl) {
+        if (state.running || state.autoRun || hasActiveProductConversation(state)) {
             response.status(409).json({
                 error: state.running || state.autoRun
                     ? "流程运行中，不能修改产品图片"
@@ -1722,7 +1781,7 @@ app.delete("/api/images/:name", async (request, response) => {
     if (rejectIfQueueLocked(response))
         return;
     const state = store.get();
-    if (state.running || state.autoRun || state.chatUrl) {
+    if (state.running || state.autoRun || hasActiveProductConversation(state)) {
         response.status(409).json({
             error: state.running || state.autoRun
                 ? "流程运行中，不能删除产品图片"
@@ -1744,7 +1803,7 @@ app.delete("/api/images", async (_request, response) => {
     if (rejectIfQueueLocked(response))
         return;
     const state = store.get();
-    if (state.running || state.autoRun || state.chatUrl) {
+    if (state.running || state.autoRun || hasActiveProductConversation(state)) {
         response.status(409).json({
             error: state.running || state.autoRun
                 ? "流程运行中，不能清空产品图片"
@@ -1794,12 +1853,13 @@ app.put("/api/workflow-mode", async (request, response) => {
     if (rejectIfQueueLocked(response))
         return;
     const mode = String(request.body.mode ?? "");
-    if (!["standard_listing", "luxury_insert"].includes(mode)) {
+    if (!["standard_listing", "luxury_insert", "bag_charm"].includes(mode)) {
         response.status(400).json({ error: "未知业务模式" });
         return;
     }
     try {
-        response.json({ state: await insertService.selectMode(mode) });
+        const service = mode === "bag_charm" ? bagCharmService : insertService;
+        response.json({ state: await service.selectMode(mode) });
     }
     catch (error) {
         response.status(409).json({
@@ -2579,6 +2639,78 @@ app.post("/api/insert/archive", async (_request, response) => {
         });
     }
 });
+/* ???? Listing ??????????????????????????????? */
+app.get("/api/charm-listing/profiles", async (_request, response) => {
+    response.json({ profiles: await charmListingWorkspaceService.profiles() });
+});
+app.post("/api/products/import", queueUpload.single("workbook"), async (request, response) => {
+    try {
+        let items = [];
+        if (request.file) {
+            const workbook = XLSX.read(request.file.buffer, { type: "buffer" });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            items = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+        }
+        else {
+            const raw = request.body?.items ?? request.body?.products ?? request.body;
+            if (Array.isArray(raw)) items = raw;
+            else if (typeof raw === "string") items = JSON.parse(raw);
+            else if (raw && typeof raw === "object") items = [raw];
+        }
+        if (!items.length) { response.status(400).json({ error: "????????????Excel/CSV???" }); return; }
+        const jobs = await charmListingWorkspaceService.createProducts(items);
+        response.status(201).json({ jobs, count: jobs.length });
+    } catch (error) { response.status(400).json({ error: error instanceof Error ? error.message : String(error) }); }
+});
+app.post("/api/listing-jobs", async (request, response) => {
+    try {
+        const raw = request.body?.items ?? request.body?.products ?? request.body;
+        const jobs = await charmListingWorkspaceService.createProducts(Array.isArray(raw) ? raw : [raw]);
+        response.status(201).json({ jobs, count: jobs.length });
+    } catch (error) { response.status(400).json({ error: error instanceof Error ? error.message : String(error) }); }
+});
+app.get("/api/listing-jobs", async (_request, response) => { response.json({ jobs: await charmListingWorkspaceService.listJobs() }); });
+app.get("/api/listing-jobs/:id", async (request, response) => {
+    const job = await charmListingWorkspaceService.job(request.params.id);
+    if (!job) { response.status(404).json({ error: "Listing?????" }); return; }
+    response.json({ job });
+});
+app.patch("/api/products/:id/facts", async (request, response) => {
+    try { response.json({ product: await charmListingWorkspaceService.updateFacts(request.params.id, request.body ?? {}) }); }
+    catch (error) { response.status(400).json({ error: error instanceof Error ? error.message : String(error) }); }
+});
+app.post("/api/listing-jobs/:id/run", async (request, response) => {
+    try { response.json({ job: await charmListingWorkspaceService.run(request.params.id) }); }
+    catch (error) { response.status(400).json({ error: error instanceof Error ? error.message : String(error) }); }
+});
+app.post("/api/listing-jobs/:id/retry", async (request, response) => {
+    try {
+        await charmListingWorkspaceService.log(request.params.id, "retry_requested", { stage: request.body?.stage ?? "current" });
+        response.json({ job: await charmListingWorkspaceService.run(request.params.id) });
+    } catch (error) { response.status(400).json({ error: error instanceof Error ? error.message : String(error) }); }
+});
+app.get("/api/review-queue", async (_request, response) => {
+    const jobs = await charmListingWorkspaceService.listJobs();
+    response.json({ jobs: jobs.filter((job) => job.status === "REVIEW_REQUIRED") });
+});
+app.post("/api/listing-jobs/:id/approve", async (request, response) => {
+    try { response.json({ job: await charmListingWorkspaceService.approve(request.params.id, request.body?.approvedBy) }); }
+    catch (error) { response.status(400).json({ error: error instanceof Error ? error.message : String(error) }); }
+});
+app.post("/api/listing-jobs/:id/publish", async (request, response) => {
+    try { response.json({ job: await charmListingWorkspaceService.requestPublish(request.params.id, request.body?.approvalToken) }); }
+    catch (error) { response.status(400).json({ error: error instanceof Error ? error.message : String(error) }); }
+});
+app.get("/api/publish-attempts/:id", async (request, response) => {
+    const job = await charmListingWorkspaceService.job(request.params.id);
+    if (!job?.publishAttempt) { response.status(404).json({ error: "??????" }); return; }
+    response.json({ publishAttempt: job.publishAttempt, job });
+});
+app.post("/api/listing-jobs/:id/publish-receipt", async (request, response) => {
+    try { response.json({ job: await charmListingWorkspaceService.recordPublishReceipt(request.params.id, request.body ?? {}) }); }
+    catch (error) { response.status(400).json({ error: error instanceof Error ? error.message : String(error) }); }
+});
+
 app.post("/api/insert/run/resume", async (_request, response) => {
     if (rejectIfQueueLocked(response))
         return;
@@ -2589,6 +2721,180 @@ app.post("/api/insert/run/resume", async (_request, response) => {
     runBackground(() => insertService.resume());
     response.status(202).json({ accepted: true });
 });
+/* ══ 包包挂件（Bag Charm）Listing 自动制作管线路由 ══ */
+app.post("/api/charm/ref-images", upload.array("images"), async (request, response, next) => {
+    try {
+        if (rejectIfQueueLocked(response))
+            return;
+        if (store.get().workflowMode !== "bag_charm") {
+            response.status(409).json({ error: "当前不是包包挂件模式" });
+            return;
+        }
+        const result = await bagCharmService.uploadRefImages(request.files ?? []);
+        response.json(result);
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.delete("/api/charm/ref-images/:name", async (request, response) => {
+    try {
+        if (rejectIfQueueLocked(response))
+            return;
+        if (store.get().workflowMode !== "bag_charm") {
+            response.status(409).json({ error: "当前不是包包挂件模式" });
+            return;
+        }
+        response.json(await bagCharmService.removeRefImage(request.params.name));
+    }
+    catch (error) {
+        response.status(400).json({
+            error: error instanceof Error ? error.message : String(error)
+        });
+    }
+});
+app.post("/api/charm/ref-image-urls", async (request, response) => {
+    try {
+        if (rejectIfQueueLocked(response))
+            return;
+        if (store.get().workflowMode !== "bag_charm" || store.get().running) {
+            response.status(409).json({ error: "当前不能修改吊坠参考图" });
+            return;
+        }
+        const urls = Array.isArray(request.body.urls) ? request.body.urls.map(String) : [];
+        response.json({ result: await bagCharmService.importRefImageUrls(urls) });
+    }
+    catch (error) {
+        response.status(400).json({
+            error: error instanceof Error ? error.message : String(error)
+        });
+    }
+});
+app.post("/api/charm/context-images", upload.array("images"), async (request, response, next) => {
+    try {
+        if (rejectIfQueueLocked(response))
+            return;
+        if (store.get().workflowMode !== "bag_charm") {
+            response.status(409).json({ error: "当前不是包包挂件模式" });
+            return;
+        }
+        const result = await bagCharmService.uploadContextImages(request.files ?? []);
+        response.json(result);
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.delete("/api/charm/context-images/:name", async (request, response) => {
+    try {
+        if (rejectIfQueueLocked(response))
+            return;
+        if (store.get().workflowMode !== "bag_charm") {
+            response.status(409).json({ error: "当前不是包包挂件模式" });
+            return;
+        }
+        response.json(await bagCharmService.removeContextImage(request.params.name));
+    }
+    catch (error) {
+        response.status(400).json({
+            error: error instanceof Error ? error.message : String(error)
+        });
+    }
+});
+app.put("/api/charm/meta", async (request, response) => {
+    try {
+        if (rejectIfQueueLocked(response))
+            return;
+        if (store.get().workflowMode !== "bag_charm") {
+            response.status(409).json({ error: "当前不是包包挂件模式" });
+            return;
+        }
+        response.json({ charm: await bagCharmService.updateCharmMeta(request.body ?? {}) });
+    }
+    catch (error) {
+        response.status(400).json({
+            error: error instanceof Error ? error.message : String(error)
+        });
+    }
+});
+app.post("/api/charm/run/prompts", async (_request, response) => {
+    if (rejectIfQueueLocked(response))
+        return;
+    if (store.get().running) {
+        response.status(409).json({ error: "当前已有任务正在运行" });
+        return;
+    }
+    void sleepInhibitor.run(() => bagCharmService.buildPromptPack());
+    response.status(202).json({ accepted: true });
+});
+app.post("/api/charm/run/images", async (_request, response) => {
+    if (rejectIfQueueLocked(response))
+        return;
+    if (store.get().running) {
+        response.status(409).json({ error: "当前已有任务正在运行" });
+        return;
+    }
+    void sleepInhibitor.run(() => bagCharmService.generateImages());
+    response.status(202).json({ accepted: true });
+});
+app.post("/api/charm/run/listing-content", async (_request, response) => {
+    if (rejectIfQueueLocked(response))
+        return;
+    if (store.get().running) {
+        response.status(409).json({ error: "当前已有任务正在运行" });
+        return;
+    }
+    void sleepInhibitor.run(() => bagCharmService.generateListingContent());
+    response.status(202).json({ accepted: true });
+});
+app.post("/api/charm/archive", async (_request, response) => {
+    try {
+        if (rejectIfQueueLocked(response))
+            return;
+        if (store.get().running) {
+            response.status(409).json({ error: "当前已有任务正在运行" });
+            return;
+        }
+        response.json({ state: await bagCharmService.archiveCompletedCharm() });
+    }
+    catch (error) {
+        response.status(400).json({
+            error: error instanceof Error ? error.message : String(error)
+        });
+    }
+});
+app.post("/api/charm/run/resume", async (_request, response) => {
+    if (rejectIfQueueLocked(response))
+        return;
+    if (store.get().running) {
+        response.status(409).json({ error: "当前已有任务正在运行" });
+        return;
+    }
+    runBackground(() => bagCharmService.resume());
+    response.status(202).json({ accepted: true });
+});
+app.get("/api/charm/output/:name", (request, response) => {
+    const name = request.params.name;
+    if (!/^Image_0[1-6]\.(png|jpe?g|webp)$/i.test(name)) {
+        response.status(400).json({ error: "无效挂件输出文件名" });
+        return;
+    }
+    response.sendFile(path.join(CHARM_OUTPUT_DIR, name));
+});
+app.get("/api/charm/image/:name", async (request, response) => {
+    const name = request.params.name;
+    const candidates = [
+        ...(await scanImages(CHARM_REF_IMAGES_DIR)),
+        ...(await scanImages(CHARM_CONTEXT_IMAGES_DIR, { preserveDuplicates: true }))
+    ];
+    const image = candidates.find((candidate) => candidate.name === name);
+    if (!image) {
+        response.status(404).json({ error: "挂件任务图片不存在" });
+        return;
+    }
+    response.sendFile(image.path);
+});
+
 app.post("/api/browser/check", async (_request, response) => {
     response.json({ state: await standardService.recheck() });
 });
@@ -2654,6 +2960,116 @@ app.post("/api/run/images", async (_request, response) => {
     runBackground(() => standardService.generateImages());
     response.status(202).json({ accepted: true });
 });
+app.post("/api/run/image/:number", async (request, response) => {
+    if (rejectIfQueueLocked(response))
+        return;
+    if (store.get().running || store.get().autoRun) {
+        response.status(409).json({ error: "当前已有任务正在运行" });
+        return;
+    }
+    const number = Number(request.params.number);
+    if (!Number.isInteger(number) || number < 1 || number > 10) {
+        response.status(400).json({ error: "图片编号必须是 1–10 的整数" });
+        return;
+    }
+    runBackground(async () => {
+        try {
+            await standardService.regenerateSingleImage(number);
+        }
+        catch (error) {
+            console.warn(`[image] 单图重生成失败 Image ${number}:`, error?.message || error);
+        }
+    });
+    response.status(202).json({ accepted: true, image: number });
+});
+// ── ecom-translator 连接器（单向：ecom → 一跨而境）──────────────────────────
+// 不合并两套系统：只做「跳转运行 + 交接清单导入」。root 可用 ECOM_TRANSLATOR_ROOT 覆盖。
+const ECOM_LEDGER = path.join(HIDDEN_DATA_DIR, "ecom-handoffs", "ledger.json");
+// 路径可配置：env > 项目根 .ecom-connector.json > vendor 默认。
+// 用配置文件是因为 watchdog spawn 不继承 env，改路径不该要求重启。
+async function resolveEcomConfig() {
+    let fileConfig = {};
+    try {
+        fileConfig = JSON.parse(await readFile(path.join(PROJECT_ROOT, ".ecom-connector.json"), "utf8"));
+    }
+    catch {
+        // 没有配置文件时用默认
+    }
+    return {
+        root: process.env.ECOM_TRANSLATOR_ROOT || fileConfig.root || path.join(PROJECT_ROOT, "vendor", "ecom-translator"),
+        consoleUrl: process.env.ECOM_CONSOLE_URL || fileConfig.consoleUrl || "http://127.0.0.1:8765"
+    };
+}
+
+app.get("/api/ecom/status", async (_request, response) => {
+    const config = await resolveEcomConfig();
+    const [summaries, service] = await Promise.all([
+        listEcomProductSummaries(config.root).catch(() => ({ outputDir: null, products: [] })),
+        probeEcomService(config.consoleUrl)
+    ]);
+    response.json({
+        root: config.root,
+        outputDir: summaries.outputDir,
+        exists: Boolean(summaries.exists),
+        productCount: summaries.products.length,
+        consoleUrl: config.consoleUrl,
+        service
+    });
+});
+
+app.get("/api/ecom/products", async (_request, response) => {
+    const config = await resolveEcomConfig();
+    const summaries = await listEcomProductSummaries(config.root).catch(() => ({ outputDir: null, products: [] }));
+    response.json({ outputDir: summaries.outputDir, products: summaries.products });
+});
+
+app.post("/api/ecom/launch", async (_request, response) => {
+    const config = await resolveEcomConfig();
+    const service = await probeEcomService(config.consoleUrl);
+    response.json({
+        url: config.consoleUrl,
+        alive: service.alive,
+        hint: service.alive
+            ? "ecom 控制台已在运行"
+            : "未检测到 ecom 控制台。请先启动 ecom-translator 的「跨境运营控制台.bat」，再刷新本面板。"
+    });
+});
+
+app.post("/api/ecom/import", async (request, response) => {
+    if (store.get().running) {
+        response.status(409).json({ error: "当前有任务在运行，请稍后再导入" });
+        return;
+    }
+    const body = request.body ?? {};
+    const all = Boolean(body.all);
+    const dryRun = Boolean(body.dryRun);
+    const folder = body.folder ? String(body.folder) : "";
+    const config = await resolveEcomConfig();
+    const { products } = await scanEcomProducts(config.root).catch(() => ({ products: [] }));
+    const targets = all ? products : products.filter((product) => product.folder === folder);
+    if (!targets.length) {
+        response.status(404).json({ error: folder ? `未找到 ecom 产品：${folder}` : "ecom output/ 下没有可导入的产品" });
+        return;
+    }
+    const results = [];
+    for (const target of targets) {
+        try {
+            const handoff = await buildHandoff(target.productDir);
+            const result = await importHandoff({
+                handoff,
+                targetRoot: COMPLETED_PRODUCTS_DIR,
+                ledgerPath: ECOM_LEDGER,
+                dryRun
+            });
+            results.push({ folder: target.folder, status: result.status, targetDir: result.targetDir, reason: result.reason });
+        }
+        catch (error) {
+            results.push({ folder: target.folder, status: "ERROR", error: error?.message || String(error) });
+        }
+    }
+    response.json({ ok: true, results });
+});
+
 app.post("/api/run/seo-listing", async (_request, response) => {
     if (rejectIfQueueLocked(response))
         return;
@@ -2802,15 +3218,32 @@ app.post("/api/product/next", async (_request, response) => {
                 });
                 return;
             }
+            // 三个工作目录必须清空才能开始下一个内胆任务。fs.rm 被 safe-delete shim
+            // 拦截走回收站，目录里有其它进程占用的产物时 trash 会失败（Windows 上
+            // "Some operations were aborted"），导致整个 next 接口 500。按项目里其它
+            // 模块的通行做法，把目录整体 rename 到 .reset.<ts> 旁路 shim，再 mkdir 新目录。
+            const stamped = Date.now();
+            const reinitDir = async (targetDir, label) => {
+                try {
+                    await access(targetDir);
+                }
+                catch {
+                    await mkdir(targetDir, { recursive: true });
+                    return;
+                }
+                const backup = `${targetDir}.reset.${stamped}-${label}`;
+                try {
+                    await rename(targetDir, backup);
+                }
+                catch (renameError) {
+                    console.warn(`[insert/next] rename ${targetDir} → ${backup} 失败：${renameError?.message || renameError}；继续 mkdir 覆盖`);
+                }
+                await mkdir(targetDir, { recursive: true });
+            };
             await Promise.all([
-                rm(INSERT_BAG_IMAGES_DIR, { recursive: true, force: true }),
-                rm(INSERT_LINER_IMAGES_DIR, { recursive: true, force: true }),
-                rm(INSERT_OUTPUT_DIR, { recursive: true, force: true })
-            ]);
-            await Promise.all([
-                mkdir(INSERT_BAG_IMAGES_DIR, { recursive: true }),
-                mkdir(INSERT_LINER_IMAGES_DIR, { recursive: true }),
-                mkdir(INSERT_OUTPUT_DIR, { recursive: true })
+                reinitDir(INSERT_BAG_IMAGES_DIR, "bag"),
+                reinitDir(INSERT_LINER_IMAGES_DIR, "liner"),
+                reinitDir(INSERT_OUTPUT_DIR, "output")
             ]);
             const reset = await store.reset("上一内胆任务已归档，可从市场雷达候选池继续选择，或上传下一个目标外包");
             const nextState = await store.update({
@@ -3477,7 +3910,9 @@ const batchRunState = {
   finishedAt: null,
   overallProgress: 0,
   summary: null, // { success, failed, skipped, total }
-  items: {} // name -> { name, status, progress, reason, log:[] }
+  items: {}, // name -> { name, status, progress, reason, log:[] }
+  rows: [], // 最近一次 apply 的原始行（供「重试失败项」重建）
+  lastOperationId: null
 };
 
 async function detectCategory(dir) {
@@ -3556,6 +3991,47 @@ app.post("/api/dianxiaomi/batch-apply", async (request, response) => {
     response.json({ ok: true, jobId: batchRunState.jobId, accepted: true });
   }
   catch (error) {
+    response.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
+// 引用批量「重试失败项」：扫描当前 failed 项，用已持久化的原始行（可被前端传入的最新编辑覆盖）
+// 仅重跑失败项，done/skipped 项与整体进度保留（仿照采集箱 collect-batch-retry）。
+app.post("/api/dianxiaomi/batch-retry", async (request, response) => {
+  try {
+    if (batchRunState.running) {
+      return response.status(409).json({ ok: false, error: "引用批量上架正在运行" });
+    }
+    if (collectBatchRunState.running) {
+      return response.status(409).json({ ok: false, error: "采集箱批量上架正在运行" });
+    }
+    if (!batchRunState.rows || !batchRunState.rows.length) {
+      return response.status(400).json({ ok: false, error: "未找到原始行数据（可能服务重启过），请重新开始上架" });
+    }
+    const retryableItems = Object.values(batchRunState.items).filter((it) => it.status === "failed" || it.status === "skipped");
+    if (!retryableItems.length) {
+      return response.status(400).json({ ok: false, error: "当前没有失败/跳过项可重试" });
+    }
+    // 可选：前端传入最新编辑后的失败行（覆盖店铺/品牌/变种参数等）
+    const passed = (request.body && Array.isArray(request.body.rows)) ? request.body.rows : [];
+    const overrides = {};
+    for (const r of passed) {
+      if (r && r.packageName) {
+        overrides[r.packageName] = {
+          category: r.category || "auto",
+          store: (r.store || "").toString().trim(),
+          brand: (r.brand || "").toString().trim(),
+          variantParams: (r.variantParams || "").toString().trim(),
+          stockType: (r.stockType || "").toString().trim(),
+          referenceProductId: (r.referenceProductId || "").toString().trim(),
+          enabled: r.enabled !== false
+        };
+      }
+    }
+    batchRunState.jobId = `batch-${Date.now()}`;
+    runBackground(() => runBatchListing(batchRunState.rows, { retry: true, overrides }));
+    response.json({ ok: true, jobId: batchRunState.jobId, accepted: true, retryCount: retryableItems.length });
+  } catch (error) {
     response.status(500).json({ error: error instanceof Error ? error.message : String(error) });
   }
 });
@@ -4467,17 +4943,18 @@ async function normalizeCollectBatchRunningState() {
   return false;
 }
 
-async function runBatchListing(rows) {
+async function runBatchListing(rows, opts = {}) {
+  const retryMode = !!(opts && opts.retry);
   batchRunState.running = true;
-  batchRunState.jobId = `batch-${Date.now()}`;
-  batchRunState.startedAt = Date.now();
-  batchRunState.finishedAt = null;
-  batchRunState.summary = null;
-  batchRunState.items = {};
-  batchRunState.overallProgress = 0;
-  const targets = rows.filter((r) => r.enabled !== false && r.packageName);
-  const total = targets.length;
-  let success = 0, failed = 0, skipped = 0, done = 0;
+  if (!retryMode) {
+    batchRunState.jobId = `batch-${Date.now()}`;
+    batchRunState.startedAt = Date.now();
+    batchRunState.finishedAt = null;
+    batchRunState.summary = null;
+    batchRunState.items = {};
+    batchRunState.overallProgress = 0;
+    batchRunState.rows = rows; // 持久化原始行，供「重试失败项」重建
+  }
   const snapshot = async () => {
     try {
       await writeFile(
@@ -4487,174 +4964,196 @@ async function runBatchListing(rows) {
       );
     } catch { /* ignore */ }
   };
-  for (const row of targets) {
-    const name = row.packageName;
-    const dir = path.join(COMPLETED_PRODUCTS_DIR, name);
-    const item = { name, status: "running", progress: 0, reason: "", log: [] };
-    batchRunState.items[name] = item;
-    const log = (m) => item.log.push(`[${new Date().toISOString()}] ${m}`);
-    log(`开始处理包: ${name}`);
-    // 校验包目录 + product-facts.json
-    let factsFile = null;
-    try {
-      await readFile(path.join(dir, "product-facts.json"), "utf8");
-      factsFile = path.join(dir, "product-facts.json");
-    } catch {
-      item.status = "skipped";
-      item.reason = "缺少 product-facts.json";
-      item.progress = 100;
-      skipped++; done++;
-      batchRunState.overallProgress = total ? Math.round((done / total) * 100) : 100;
-      await snapshot();
-      continue;
-    }
-    const key = (row.category && row.category !== "auto") ? row.category : await detectCategory(dir);
-    try {
-      let profile = dianxiaomiAdapter.setProfile(key);
-      log(`类目 profile: ${profile.key}`);
-      // 批量自定义覆盖（来自表格的店铺/备货类型/品牌/变种参数）：克隆 profile 避免污染全局配置
-      profile = JSON.parse(JSON.stringify(profile));
-      if (row.store) { profile.fixed.storeName = row.store; log(`覆盖店铺: ${row.store}`); }
-      if (row.stockType) { profile.fixed.stockType = row.stockType; log(`覆盖备货类型: ${row.stockType}`); }
-      dianxiaomiAdapter.profile = profile;
 
-      const facts = normalizeDianxiaomiFacts(JSON.parse(await readFile(factsFile, "utf8")));
-      // 品牌覆盖（乳贴类目品牌由模板派生，仅记录意图；箱包类目可被 trySetBrand 采用）
-      if (row.brand) { facts.brand = row.brand; log(`覆盖品牌: ${row.brand}`); }
-      // 变种参数覆盖：乳贴解析颜色/尺寸 → 重建 SKU 组合矩阵；箱包解析颜色映射 → 勾选颜色+自定义名+每色图
-      if (row.variantParams) {
-        const vp = parseVariantParams(row.variantParams);
-        const cm = parseColorMap(row.variantParams);
-        const baseMatrix = (facts.variants && Array.isArray(facts.variants.matrix)) ? facts.variants.matrix : [];
-        if (isXiangBaoProfile(profile)) {
-          if (cm.length) {
-            const colorImages = {};
-            for (const c of cm) if (c.image) colorImages[c.color] = c.image;
-            facts.variants = Object.assign({}, facts.variants || {}, {
-              colors: cm.map((c) => c.color),
-              sizes: [],
-              matrix: [],
-              colorMap: cm,
-              colorImages
-            });
-            log(`箱包类目颜色映射覆盖: ${JSON.stringify(cm.map((c) => ({ color: c.color, custom: c.customName, img: c.image })))}`);
-          } else if (vp.colors.length || vp.sizes.length) {
-            facts.variants = Object.assign({}, facts.variants || {}, {
-              colors: vp.colors,
-              sizes: vp.sizes,
-              matrix: [],
-              dimensions: []
-            });
-            log(`箱包类目颜色勾选: colors=${JSON.stringify(vp.colors)} sizes=${JSON.stringify(vp.sizes)}`);
-          }
-        } else {
-          const colors = vp.colors.length ? vp.colors : (facts.variants && facts.variants.colors) || [];
-          const sizes = vp.sizes.length ? vp.sizes : (facts.variants && facts.variants.sizes) || [];
-          const matrix = buildVariantMatrix(colors, sizes, baseMatrix);
-          facts.variants = Object.assign({}, facts.variants || {}, {
-            colors, sizes, matrix, dimensions: []
-          });
-          log(`覆盖变种参数: colors=${JSON.stringify(colors)} sizes=${JSON.stringify(sizes)} matrix=${matrix.length}`);
-        }
-      }
-      const ready = checkDianxiaomiFactsReady(facts);
-      if (!ready.ok) {
-        item.status = "failed";
-        item.reason = "facts 不完整: " + (ready.message || "");
-        item.progress = 100;
-        failed++; done++;
-        batchRunState.overallProgress = total ? Math.round((done / total) * 100) : 100;
-        await snapshot();
-        continue;
-      }
-      dianxiaomiAdapter.setImageBaseDir(dir);
-      // 逐行自定义「引用商品ID」覆盖：表格填了就用行级 ID，否则用类目默认模板 ID
-      const refId = (row.referenceProductId && String(row.referenceProductId).trim()) || profile.templateProductId;
-      log("引用模板: " + refId + (row.referenceProductId ? " (行级自定义)" : ""));
-      // B-1: 顺序重组 —— 先开 create page + 选店铺 + 备货类型，再点引用模板，最后填 facts。
-      // 用户要求「店铺选择必须在引用模板的前一步执行」。
-      await dianxiaomiAdapter.openCreatePage();
-      if (row.store) {
-        const sr = await dianxiaomiAdapter.selectStoreByName(row.store);
-        log(`店铺选择: ${sr.ok ? sr.value : "FAIL " + sr.reason}`);
-      }
-      if (row.stockType) {
-        const sk = await dianxiaomiAdapter.selectStockingTypeByLabel(row.stockType);
-        log(`备货类型: ${sk.ok ? sk.value : "FAIL " + sk.reason}`);
-      }
-      await dianxiaomiAdapter.referenceProduct(refId);
-      // C-2: 引用路径分类更改——xlsx「category」列若是精确叶子类目标签（如「便携式折叠包」）而非已知
-      // profile key（如 xiangBao/xiangBaoFold/ruTie），则引用模板后点「更换分类」弹窗搜索替换。profile 仍走
-      // 上方 detectCategory / getDianxiaomiProfile 派生，分类选择是独立维度。
-      {
-        const rawCat = row.category && String(row.category).trim();
-        const isProfileKey = rawCat && DIANXIAOMI_CATEGORY_PROFILES[rawCat];
-        if (rawCat && rawCat !== "auto" && !isProfileKey) {
-          try {
-            const cc = await dianxiaomiAdapter.changeCategoryTo(rawCat);
-            log(`分类更改: ${cc.ok ? (cc.value || rawCat) : "FAIL " + (cc.reason || "")}`);
-          } catch (ccErr) {
-            log(`分类更改异常: ${ccErr && ccErr.message ? ccErr.message : ccErr}`);
-          }
-        }
-      }
-      item.progress = 25;
-      // fillFixedFields 已被 B-1 改 label-based；此处仍调用以兜底 profile 默认值
-      await dianxiaomiAdapter.fillFixedFields();
-      item.progress = 50;
-      // B-3: 引用路径默认 keepVariants=true 沿用引用模板变种；若用户表格「变种参数」列有填，
-      // server.js:4398-4432 已重建 facts.variants.matrix，fillFromFacts 会按重建结果走 fillSkuRow setVal（非 click）。
-      const fillOpts = {
-        keepVariants: row.variantOn !== true,
-        productTemplate: row.productTemplate || profile.defaultProductTemplate
-      };
-      const applied = await dianxiaomiAdapter.fillFromFacts(facts, fillOpts);
-      // 记录图片/字段应用结果到日志，方便前端排错
-      for (const a of applied) {
-        if (a.ok === false) log(`${a.field}: FAIL ${a.reason || ""}`);
-        else if (a.skipped) log(`${a.field}: SKIP ${a.reason || ""}`);
-      }
-      item.progress = 80;
-      const saved = await dianxiaomiAdapter.save();
-      dianxiaomiAdapter.resetImageBaseDir();
-      // 关键修复：applied 数组里的 critical fields（主图 / PC端 / 无线端描述）任一 FAIL 即整体判 failed。
-      // 这是「店小秘后台只有占位图、没详情页」假成功的根因——之前只看 save().saved，忽略了 applied。
-      const criticalFailures = applied.filter((a) => (a.field === "images" || a.field === "description.pc" || a.field === "description.mobile") && a.ok === false);
-      const readbackIssues = (saved && Array.isArray(saved.hardIssues) && saved.hardIssues.length) ? saved.hardIssues : [];
-      const criticalFailed = criticalFailures.length > 0 || readbackIssues.length > 0;
-      if (saved && saved.saved && !criticalFailed) {
-        item.status = "done";
-        item.reason = saved.url || saved.message || "已存草稿";
-        item.progress = 100;
-        success++;
-      } else if (saved && saved.saved && criticalFailed) {
-        // save() 自报成功但读回校验或 applied 有 critical FAIL → 强制 failed，并把硬证据写进 reason
-        const failList = criticalFailures.map((a) => `${a.field}(${a.reason || "no-reason"})`).concat(readbackIssues.map((s) => `readback:${s}`));
-        item.status = "failed";
-        item.reason = `店小秘保存成功但页面实际为空: ${failList.join("; ")}`;
-        item.progress = 100;
-        failed++;
-      } else {
-        item.status = "failed";
-        item.reason = (saved && (saved.error || saved.message || JSON.stringify(saved))) || "save 返回非 ok";
-        item.progress = 100;
-        failed++;
-      }
-    } catch (e) {
-      try { dianxiaomiAdapter.resetImageBaseDir(); } catch { /* ignore */ }
-      item.status = "failed";
-      item.reason = e instanceof Error ? e.message : String(e);
-      item.progress = 100;
-      failed++;
+  // 重试模式：仅重跑 failed/skipped 项，保留 done 项与整体进度（仿照采集箱 collect-batch-retry）
+  if (retryMode) {
+    const rowsById = new Map((batchRunState.rows || []).map((r) => [r.packageName, r]));
+    const overrides = (opts && opts.overrides) || {};
+    const targets = Object.values(batchRunState.items)
+      .filter((it) => (it.status === "failed" || it.status === "skipped") && rowsById.has(it.name))
+      .map((it) => Object.assign({}, rowsById.get(it.name), overrides[it.name] || {}));
+    const total = Object.keys(batchRunState.items).length || targets.length;
+    let done = Object.values(batchRunState.items).filter((it) => it.status === "done").length;
+    for (const row of targets) {
+      const name = row.packageName;
+      const item = batchRunState.items[name];
+      if (!item) continue;
+      item.status = "running";
+      item.progress = 0;
+      item.reason = "";
+      item.log = Array.isArray(item.log) ? item.log : [];
+      item.log.push(`[${new Date().toISOString()}] ↻ 重试失败项`);
+      await processBatchReferenceRow(row, total,
+        () => { done++; batchRunState.overallProgress = total ? Math.round((done / total) * 100) : 100; snapshot(); },
+        (_s, _f, _sk) => {} // retry 模式下 summary 在循环外统一计算
+      );
     }
-    done++;
-    batchRunState.overallProgress = total ? Math.round((done / total) * 100) : 100;
+    batchRunState.running = false;
+    dianxiaomiAdapter.setStage("idle", "");
+    batchRunState.finishedAt = Date.now();
+    const all = Object.values(batchRunState.items);
+    batchRunState.summary = {
+      success: all.filter((it) => it.status === "done").length,
+      failed: all.filter((it) => it.status === "failed").length,
+      skipped: all.filter((it) => it.status === "skipped").length,
+      total: all.length
+    };
     await snapshot();
+    return;
+  }
+
+  // 正常模式：全量执行
+  const targets = rows.filter((r) => r.enabled !== false && r.packageName);
+  const total = targets.length;
+  let success = 0, failed = 0, skipped = 0, done = 0;
+  for (const row of targets) {
+    await processBatchReferenceRow(row, total, () => { done++; batchRunState.overallProgress = total ? Math.round((done / total) * 100) : 100; snapshot(); }, (s, f, sk) => { success += s; failed += f; skipped += sk; });
   }
   batchRunState.running = false;
+  dianxiaomiAdapter.setStage("idle", "");
   batchRunState.finishedAt = Date.now();
   batchRunState.summary = { success, failed, skipped, total };
   await snapshot();
+}
+
+// 引用上架单行处理逻辑（供 runBatchListing 正常模式 for-loop 与 retry 模式共同复用）
+async function processBatchReferenceRow(row, total, onProgress, addSummary) {
+  const name = row.packageName;
+  const dir = path.join(COMPLETED_PRODUCTS_DIR, name);
+  // 复用已有 item（retry 模式）或新建（正常模式）
+  const item = batchRunState.items[name] || { name, status: "running", progress: 0, reason: "", log: [] };
+  item.status = "running";
+  item.progress = 0;
+  batchRunState.items[name] = item;
+  const log = (m) => item.log.push(`[${new Date().toISOString()}] ${m}`);
+  log(`开始处理包: ${name}`);
+  // 校验包目录 + product-facts.json
+  let factsFile = null;
+  try {
+    await readFile(path.join(dir, "product-facts.json"), "utf8");
+    factsFile = path.join(dir, "product-facts.json");
+  } catch {
+    item.status = "skipped";
+    item.reason = "缺少 product-facts.json";
+    item.progress = 100;
+    addSummary(0, 0, 1);
+    onProgress();
+    return;
+  }
+  const key = (row.category && row.category !== "auto") ? row.category : await detectCategory(dir);
+  try {
+    let profile = dianxiaomiAdapter.setProfile(key);
+    log(`类目 profile: ${profile.key}`);
+    profile = JSON.parse(JSON.stringify(profile));
+    if (row.store) { profile.fixed.storeName = row.store; log(`覆盖店铺: ${row.store}`); }
+    if (row.stockType) { profile.fixed.stockType = row.stockType; log(`覆盖备货类型: ${row.stockType}`); }
+    dianxiaomiAdapter.profile = profile;
+
+    const facts = normalizeDianxiaomiFacts(JSON.parse(await readFile(factsFile, "utf8")));
+    if (row.brand) { facts.brand = row.brand; log(`覆盖品牌: ${row.brand}`); }
+    if (row.variantParams) {
+      const vp = parseVariantParams(row.variantParams);
+      const cm = parseColorMap(row.variantParams);
+      const baseMatrix = (facts.variants && Array.isArray(facts.variants.matrix)) ? facts.variants.matrix : [];
+      if (isXiangBaoProfile(profile)) {
+        if (cm.length) {
+          const colorImages = {};
+          for (const c of cm) if (c.image) colorImages[c.color] = c.image;
+          facts.variants = Object.assign({}, facts.variants || {}, {
+            colors: cm.map((c) => c.color), sizes: [], matrix: [], colorMap: cm, colorImages
+          });
+          log(`箱包类目颜色映射覆盖: ${JSON.stringify(cm.map((c) => ({ color: c.color, custom: c.customName, img: c.image })))}`);
+        } else if (vp.colors.length || vp.sizes.length) {
+          facts.variants = Object.assign({}, facts.variants || {}, {
+            colors: vp.colors, sizes: vp.sizes, matrix: [], dimensions: []
+          });
+          log(`箱包类目颜色勾选: colors=${JSON.stringify(vp.colors)} sizes=${JSON.stringify(vp.sizes)}`);
+        }
+      } else {
+        const colors = vp.colors.length ? vp.colors : (facts.variants && facts.variants.colors) || [];
+        const sizes = vp.sizes.length ? vp.sizes : (facts.variants && facts.variants.sizes) || [];
+        const matrix = buildVariantMatrix(colors, sizes, baseMatrix);
+        facts.variants = Object.assign({}, facts.variants || {}, { colors, sizes, matrix, dimensions: [] });
+        log(`覆盖变种参数: colors=${JSON.stringify(colors)} sizes=${JSON.stringify(sizes)} matrix=${matrix.length}`);
+      }
+    }
+    const ready = checkDianxiaomiFactsReady(facts);
+    if (!ready.ok) {
+      item.status = "failed";
+      item.reason = "facts 不完整: " + (ready.message || "");
+      item.progress = 100;
+      addSummary(0, 1, 0);
+      onProgress();
+      return;
+    }
+    dianxiaomiAdapter.setImageBaseDir(dir);
+    const refId = (row.referenceProductId && String(row.referenceProductId).trim()) || profile.templateProductId;
+    log("引用模板: " + refId + (row.referenceProductId ? " (行级自定义)" : ""));
+    await dianxiaomiAdapter.openCreatePage();
+    if (row.store) {
+      const sr = await dianxiaomiAdapter.selectStoreByName(row.store);
+      log(`店铺选择: ${sr.ok ? sr.value : "FAIL " + sr.reason}`);
+    }
+    if (row.stockType) {
+      const sk = await dianxiaomiAdapter.selectStockingTypeByLabel(row.stockType);
+      log(`备货类型: ${sk.ok ? sk.value : "FAIL " + sk.reason}`);
+    }
+    await dianxiaomiAdapter.referenceProduct(refId);
+    {
+      const rawCat = row.category && String(row.category).trim();
+      const isProfileKey = rawCat && DIANXIAOMI_CATEGORY_PROFILES[rawCat];
+      if (rawCat && rawCat !== "auto" && !isProfileKey) {
+        try {
+          const cc = await dianxiaomiAdapter.changeCategoryTo(rawCat);
+          log(`分类更改: ${cc.ok ? (cc.value || rawCat) : "FAIL " + (cc.reason || "")}`);
+        } catch (ccErr) {
+          log(`分类更改异常: ${ccErr && ccErr.message ? ccErr.message : ccErr}`);
+        }
+      }
+    }
+    item.progress = 25;
+    await dianxiaomiAdapter.fillFixedFields();
+    item.progress = 50;
+    const fillOpts = {
+      keepVariants: row.variantOn !== true,
+      productTemplate: row.productTemplate || profile.defaultProductTemplate
+    };
+    const applied = await dianxiaomiAdapter.fillFromFacts(facts, fillOpts);
+    for (const a of applied) {
+      if (a.ok === false) log(`${a.field}: FAIL ${a.reason || ""}`);
+      else if (a.skipped) log(`${a.field}: SKIP ${a.reason || ""}`);
+    }
+    item.progress = 80;
+    const saved = await dianxiaomiAdapter.save();
+    dianxiaomiAdapter.resetImageBaseDir();
+    const criticalFailures = applied.filter((a) => (a.field === "images" || a.field === "description.pc" || a.field === "description.mobile") && a.ok === false);
+    const readbackIssues = (saved && Array.isArray(saved.hardIssues) && saved.hardIssues.length) ? saved.hardIssues : [];
+    const criticalFailed = criticalFailures.length > 0 || readbackIssues.length > 0;
+    if (saved && saved.saved && !criticalFailed) {
+      item.status = "done";
+      item.reason = saved.url || saved.message || "已存草稿";
+      item.progress = 100;
+      addSummary(1, 0, 0);
+    } else if (saved && saved.saved && criticalFailed) {
+      const failList = criticalFailures.map((a) => `${a.field}(${a.reason || "no-reason"})`).concat(readbackIssues.map((s) => `readback:${s}`));
+      item.status = "failed";
+      item.reason = `店小秘保存成功但页面实际为空: ${failList.join("; ")}`;
+      item.progress = 100;
+      addSummary(0, 1, 0);
+    } else {
+      item.status = "failed";
+      item.reason = (saved && (saved.error || saved.message || JSON.stringify(saved))) || "save 返回非 ok";
+      item.progress = 100;
+      addSummary(0, 1, 0);
+    }
+  } catch (e) {
+    try { dianxiaomiAdapter.resetImageBaseDir(); } catch { /* ignore */ }
+    item.status = "failed";
+    item.reason = e instanceof Error ? e.message : String(e);
+    item.progress = 100;
+    addSummary(0, 1, 0);
+  }
+  onProgress();
 }
 
 app.use((error, _request, response, _next) => {
@@ -4665,6 +5164,62 @@ app.use((error, _request, response, _next) => {
             : error.message;
     response.status(500).json({ error: uploadError });
 });
+
+// ============================================================
+// Listing Agent 接驳路由（新增，非破坏性）
+// ------------------------------------------------------------
+// 这些 /api/listing/* 是「一跨而境 AI Listing Agent」的独立公开 API，
+// 与原有 4 个 batch/collect 路由并存、互不覆盖，永不下线。
+// - 直接经由 agentClient 调用 Agent：优先 HTTP 服务
+//   （node listing-agent/src/server.js，端口 AGENT_PORT 默认 3200），
+//   HTTP 不可达（ECONNREFUSED / fetch failed）时自动回退进程内直接
+//   import ListingAgent，无需起独立进程。
+// - 进程启动时只实例化轻量客户端；真正的 ChatGPT/店小秘 连接是惰性的
+//   （仅在使用 AI 生成/上架的请求中按需 launch），因此即便未登录 Chrome
+//   / 未起 Agent 服务，本服务启动不受影响，仅相关请求会返回 needs_human/failed。
+// - 环境变量 LISTING_AGENT_FORWARD=1 是为「改造原 4 个路由为薄转发层」
+//   预留的开关（见 README）；本块新增路由本身不依赖该开关，始终可用。
+// ============================================================
+
+// POST /api/listing/run  —— 完整执行：解析→生成→校验→（可选）上架
+app.post("/api/listing/run", async (request, response) => {
+  try {
+    const result = await agentClient.run(request.body || {});
+    response.status(200).json(result);
+  } catch (e) {
+    response.status(500).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+// POST /api/listing/validate —— 仅校验/归一化，不做 AI 生成与上架
+app.post("/api/listing/validate", async (request, response) => {
+  try {
+    const report = await agentClient.validate(request.body || {});
+    response.status(200).json(report);
+  } catch (e) {
+    response.status(500).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+// POST /api/listing/preview —— 生成但强制不上架（publish=false），用于预览产物
+app.post("/api/listing/preview", async (request, response) => {
+  try {
+    const result = await agentClient.preview(request.body || {});
+    response.status(200).json(result);
+  } catch (e) {
+    response.status(500).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+// GET /api/listing/status/:jobId —— MVP Agent 为同步执行，无异步任务队列，返回说明
+app.get("/api/listing/status/:jobId", (request, response) => {
+  response.status(501).json({
+    status: "not_implemented",
+    jobId: request.params.jobId,
+    message: "MVP Agent 采用同步执行模型，run/validate/preview 均已携带完整结果返回，无需轮询任务状态。",
+  });
+});
+
 const server = app.listen(PORT, HOST, () => {
     const displayHost = HOST === "0.0.0.0" ? "0.0.0.0" : HOST;
     console.log(`Server listening on http://${displayHost}:${PORT}`);

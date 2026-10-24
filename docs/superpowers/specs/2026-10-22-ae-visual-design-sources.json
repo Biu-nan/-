@@ -1,0 +1,99 @@
+{
+  "date": "2026-10-22",
+  "framework_status": "DRAFT",
+  "referenced_conversation": {
+    "title": "补齐套图设计标准",
+    "url": "https://chatgpt.com/c/6ada1e0d-fda0-83ee-bab2-b9db644cebc3",
+    "read_method": "user-referenced browser tab; visible rendered text",
+    "adopted": [
+      "sales task",
+      "visual proof",
+      "composition blueprint",
+      "product scale",
+      "text hierarchy",
+      "style contract",
+      "pass/fail",
+      "suite uniqueness"
+    ],
+    "excluded_as_other_task_context": [
+      "carrot SKU",
+      "A+ modules"
+    ]
+  },
+  "sources": [
+    {
+      "id": "P01",
+      "title": "AliExpress regional image requirements",
+      "url": "https://business.aliexpress-cis.com/help/article/images-requirements",
+      "kind": "regional_official_platform",
+      "read": true,
+      "scope": "seller.aliexpress.ru regional help, not established for current global store",
+      "adopted": "Role distinction and the need for scoped file/content rules",
+      "not_adopted": "Numerical limits, text/background policy and render restrictions as global-store policy"
+    },
+    {
+      "id": "F01",
+      "title": "The LIFT Model",
+      "url": "https://www.conversion.com/framework/the-lift-model/",
+      "kind": "framework_creator",
+      "read": true,
+      "adopted": "Value proposition, relevance, clarity, anxiety and distraction as hypothesis lenses",
+      "limitation": "No guaranteed product-specific uplift; urgency not automatically applied"
+    },
+    {
+      "id": "F02",
+      "title": "5 Principles of Visual Design in UX",
+      "url": "https://www.nngroup.com/articles/principles-visual-design/",
+      "kind": "primary_ux_research_guidance",
+      "read": true,
+      "adopted": "Scale, hierarchy, balance, contrast, Gestalt",
+      "limitation": "Adaptation to product-image design; not an AliExpress conversion experiment"
+    },
+    {
+      "id": "E01",
+      "title": "Product Lists & Search Results Thumbnail Best Practices",
+      "url": "https://baymard.com/research-articles/secondary-hover-information",
+      "kind": "primary_ecommerce_usability_research",
+      "read": true,
+      "adopted": "Different product-image roles answer different evaluation needs"
+    },
+    {
+      "id": "E02",
+      "title": "Provide at Least One In Scale Image",
+      "url": "https://baymard.com/research-articles/in-scale-product-images",
+      "kind": "primary_ecommerce_usability_research",
+      "read": true,
+      "adopted": "Context and truthful relative scale aid product evaluation",
+      "limitation": "Unknown prop dimensions do not justify numeric product dimensions"
+    },
+    {
+      "id": "E03",
+      "title": "Include Descriptive Text or Graphics for Some Product Images",
+      "url": "https://baymard.com/research-articles/product-images-descriptive-text",
+      "kind": "primary_ecommerce_usability_research",
+      "read": true,
+      "adopted": "Evidence callouts and mobile legibility; do not infer all first images need large text"
+    },
+    {
+      "id": "M01",
+      "title": "A Dirty Dozen: Twelve Common Metric Interpretation Pitfalls in Online Controlled Experiments",
+      "url": "https://www.microsoft.com/en-us/research/publication/a-dirty-dozen-twelve-common-metric-interpretation-pitfalls-in-online-controlled-experiments/",
+      "kind": "primary_research_paper",
+      "read": true,
+      "adopted": "Metric interpretation and experimental validity",
+      "limitation": "Not AliExpress-specific testing access or proof of conversion lift"
+    },
+    {
+      "id": "P02",
+      "title": "AliExpress Choice rule page discovered from official agreement",
+      "url": "https://rule.aliexpress.com/rule-channels/37978884/131480150",
+      "kind": "official_rule_link",
+      "read": false,
+      "status": "WEB_OPEN_FAILED_NO_RULE_TEXT_ADOPTED"
+    }
+  ],
+  "live_comparable_listing_visual_samples_collected": 0,
+  "online_experiments_run": 0,
+  "new_images_generated": 0,
+  "numerical_design_thresholds_status": "Internal hypotheses, not official rules or validated conversion predictors"
+}

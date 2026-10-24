@@ -1,0 +1,350 @@
+{
+  "version": "2.0",
+  "platform": "aliexpress",
+  "note": "改这里即改产出。口径来自 2026-10-22 Lance 提供的速卖通/店小秘图片规范：商品图最多 6 张、同一商品所有图片比例一致（1:1，≥800×800，≤2MB）；营销图为独立模块（1:1 白底 ≥800×800 ／ 3:4 场景 ≥750×1000）。",
+  "spec": {
+    "product": {
+      "module": "product",
+      "aspect": "1:1",
+      "ratioTolerance": 0.03,
+      "minWidth": 800,
+      "minHeight": 800,
+      "targetSize": "1000x1000",
+      "maxBytes": 2097152,
+      "minBytes": 60000,
+      "formats": [
+        "jpg",
+        "jpeg",
+        "png"
+      ],
+      "textRule": "无水印、无牛皮癣式贴字、无边框、无促销贴纸"
+    },
+    "marketing_white": {
+      "module": "marketing",
+      "aspect": "1:1",
+      "ratioTolerance": 0.03,
+      "minWidth": 800,
+      "minHeight": 800,
+      "targetSize": "1000x1000",
+      "maxBytes": 5242880,
+      "minBytes": 60000,
+      "formats": [
+        "jpg",
+        "jpeg",
+        "png"
+      ],
+      "textRule": "严格无任何文字、水印、促销贴纸、边框"
+    },
+    "marketing_scene": {
+      "module": "marketing",
+      "aspect": "3:4",
+      "ratioTolerance": 0.03,
+      "minWidth": 750,
+      "minHeight": 1000,
+      "targetSize": "1000x1334",
+      "maxBytes": 5242880,
+      "minBytes": 60000,
+      "formats": [
+        "jpg",
+        "jpeg",
+        "png"
+      ],
+      "textRule": "严格无任何文字、水印、促销贴纸、边框"
+    }
+  },
+  "heroScoring": {
+    "model": "hero-100",
+    "threshold": 80,
+    "dimensions": [
+      {
+        "key": "identification",
+        "label": "产品识别度",
+        "weight": 25,
+        "minRatio": 0.72,
+        "criterion": "缩成 160×160 后 1 秒内识别出商品类别、外形与核心特征"
+      },
+      {
+        "key": "attraction",
+        "label": "视觉吸引力",
+        "weight": 20,
+        "minRatio": 0.6,
+        "criterion": "色彩、质感、造型能快速吸引目标消费者"
+      },
+      {
+        "key": "differentiation",
+        "label": "差异化竞争力",
+        "weight": 20,
+        "minRatio": 0.6,
+        "criterion": "与同屏竞品并排时，有清晰可见的购买理由"
+      },
+      {
+        "key": "subject",
+        "label": "商品主体表现",
+        "weight": 15,
+        "minRatio": 0.6,
+        "criterion": "主体突出、构图完整、无遮挡、画面不杂乱"
+      },
+      {
+        "key": "authenticity",
+        "label": "真实性与信任感",
+        "weight": 10,
+        "minRatio": 0.7,
+        "criterion": "实物颜色、材质、比例、商品数量真实，不误导"
+      },
+      {
+        "key": "mobile",
+        "label": "移动端适配",
+        "weight": 10,
+        "minRatio": 0.6,
+        "criterion": "在 160×160 缩略图中仍能识别卖点"
+      }
+    ]
+  },
+  "slots": [
+    {
+      "id": "P1",
+      "module": "product",
+      "order": 1,
+      "specKey": "product",
+      "name": "视觉吸引图（首图）",
+      "role": "hero",
+      "primary": true,
+      "optional": false,
+      "purpose": "吸引精准点击：让买家在 0.5 秒内判断『这是什么 / 有什么吸引我 / 值不值得点进去』",
+      "primaryMetric": "CTR + 后续转化",
+      "background": "pure_white 或类目允许的浅色底",
+      "textPolicy": "forbidden",
+      "textAllowed": [],
+      "productScale": "70%-85%",
+      "mustShow": [
+        "完整产品主体",
+        "真实颜色与材质观感",
+        "一个主要视觉卖点"
+      ],
+      "mustNotShow": [
+        "任何文字/水印/边框/促销贴纸",
+        "抢眼的配饰或背景物",
+        "夸大尺寸",
+        "未包含的配件当销售主体"
+      ],
+      "composition": "主体居中或黄金分割，占有效画面 70%-85%，留白均匀，单一焦点",
+      "styleHint": "缩略图优先：宁可少元素，也要品类与造型一眼可辨；功能型偏清晰识别，装饰型可偏情绪",
+      "scoring": "hero-100",
+      "shot": "full"
+    },
+    {
+      "id": "P2",
+      "module": "product",
+      "order": 2,
+      "specKey": "product",
+      "name": "使用场景图",
+      "role": "lifestyle",
+      "primary": false,
+      "optional": false,
+      "purpose": "让买家形成使用想象，理解它在真实生活里的样子与尺寸参照",
+      "primaryMetric": "CVR",
+      "background": "real_scene",
+      "textPolicy": "forbidden",
+      "textAllowed": [],
+      "productScale": "40%-65%",
+      "mustShow": [
+        "真实使用环境",
+        "产品位置明显且为主体",
+        "可判断尺寸的参照物"
+      ],
+      "mustNotShow": [
+        "场景过于复杂",
+        "产品过小",
+        "模特抢镜",
+        "明显不真实的光影合成感"
+      ],
+      "composition": "三分法，产品落在交叉点，环境虚化但仍可辨识，自然光",
+      "styleHint": "纪实感胜过影楼摆拍；场景必须与目标人群真实生活一致",
+      "shot": "lifestyle"
+    },
+    {
+      "id": "P3",
+      "module": "product",
+      "order": 3,
+      "specKey": "product",
+      "name": "核心卖点图",
+      "role": "benefit",
+      "primary": false,
+      "optional": false,
+      "purpose": "用近景/特写把最重要的一个产品特征讲透，回答『凭什么买』",
+      "primaryMetric": "CVR",
+      "background": "neutral_light 或浅色块",
+      "textPolicy": "optional",
+      "textAllowed": [],
+      "productScale": "85%-100%",
+      "mustShow": [
+        "承担核心卖点的局部特写",
+        "该特征的工艺/结构细节"
+      ],
+      "mustNotShow": [
+        "同时讲 3 个以上卖点",
+        "编造不存在的功能",
+        "绝对化用语"
+      ],
+      "composition": "近景或微距，焦点落在卖点结构上，浅景深",
+      "styleHint": "一图一事；标注文字不遮挡产品",
+      "shot": "macro",
+      "focusHint": "the two white pop-eyes and the orange 3D-print layer lines immediately around them",
+      "cropExpected": true
+    },
+    {
+      "id": "P4",
+      "module": "product",
+      "order": 4,
+      "specKey": "product",
+      "name": "尺寸规格图",
+      "role": "dimension",
+      "primary": false,
+      "optional": false,
+      "purpose": "给出真实大小/重量/容量/适配范围，减少误购与退货",
+      "primaryMetric": "CVR + 退货率",
+      "background": "pure_white",
+      "textPolicy": "allowed",
+      "textAllowed": [
+        "长/宽/高/容量/重量数值",
+        "单位 cm 与 inch 并排"
+      ],
+      "productScale": "60%-75%",
+      "mustShow": [
+        "产品与三向尺寸线",
+        "与 product-facts 一致的真实数值"
+      ],
+      "mustNotShow": [
+        "编造尺寸",
+        "手绘歪斜标注",
+        "超出事实的容量宣称"
+      ],
+      "composition": "产品居左，尺寸线居右与下方，字号统一，留足标注空间",
+      "styleHint": "工程图式克制排版，不用营销浮夸风",
+      "shot": "diagram"
+    },
+    {
+      "id": "P5",
+      "module": "product",
+      "order": 5,
+      "specKey": "product",
+      "name": "品质细节图",
+      "role": "quality",
+      "primary": false,
+      "optional": false,
+      "purpose": "展示材料、做工、连接结构等可验证的质量信息，建立信任",
+      "primaryMetric": "CVR + 差评率",
+      "background": "neutral_light_gray",
+      "textPolicy": "optional",
+      "textAllowed": [],
+      "productScale": "85%-100%",
+      "mustShow": [
+        "缝线/材质纹理/连接结构等可验证细节",
+        "真实工艺，不虚构"
+      ],
+      "mustNotShow": [
+        "AI 编造的纹理",
+        "与参考图不符的材质表现"
+      ],
+      "composition": "微距近景，纹理走向清晰，光影拉出层次",
+      "styleHint": "高级感微距，拒绝塑料感与过度磨皮",
+      "shot": "macro",
+      "focusHint": "the orange 3D-print layer lines and the surface texture of the vegetable body",
+      "cropExpected": true
+    },
+    {
+      "id": "P6",
+      "module": "product",
+      "order": 6,
+      "specKey": "product",
+      "name": "购买确认图",
+      "role": "confirmation",
+      "primary": false,
+      "optional": true,
+      "purpose": "说明实际包含的配件、款式差异、颜色选择或使用限制，消除下单前最后疑问",
+      "primaryMetric": "CVR + 退款率",
+      "background": "pure_white",
+      "textPolicy": "allowed",
+      "textAllowed": [
+        "英文配件清单",
+        "款式/颜色差异标注",
+        "使用限制说明"
+      ],
+      "productScale": "45%-65%",
+      "mustShow": [
+        "完整配件组合",
+        "款式或颜色差异对比"
+      ],
+      "mustNotShow": [
+        "展示未包含的配件",
+        "模糊或多义表述"
+      ],
+      "composition": "阵列式平铺，配件与主体关系清楚，标注对齐",
+      "styleHint": "信息优先，一眼能数清到手有什么；类目无差异信息时可跳过本图",
+      "skipRule": "若产品无配件/无款式差异/无使用限制，可 --skip-slots P6，不要为凑数重复图片",
+      "shot": "flatlay"
+    },
+    {
+      "id": "MK1",
+      "module": "marketing",
+      "order": 1,
+      "specKey": "marketing_white",
+      "name": "白底营销图",
+      "role": "marketing_white",
+      "primary": false,
+      "optional": false,
+      "purpose": "争取平台搜索与推荐场景的曝光效率：让平台与消费者清楚识别实际出售的商品",
+      "primaryMetric": "曝光效率 + CTR",
+      "background": "pure_white",
+      "textPolicy": "forbidden",
+      "textAllowed": [],
+      "productScale": "70%-85%",
+      "mustShow": [
+        "商品完整、轮廓清楚",
+        "颜色真实",
+        "无遮挡"
+      ],
+      "mustNotShow": [
+        "复杂拼图",
+        "强行美化",
+        "花哨装饰",
+        "配件数量不符",
+        "任何文字/水印/贴纸/边框"
+      ],
+      "composition": "产品居中完整展示，纯白背景，轻微接触阴影",
+      "styleHint": "这是给平台算法看的图，不是详情页广告图；干净 > 好看",
+      "shot": "full"
+    },
+    {
+      "id": "MK2",
+      "module": "marketing",
+      "order": 2,
+      "specKey": "marketing_scene",
+      "name": "3:4 场景营销图",
+      "role": "marketing_scene",
+      "primary": false,
+      "optional": false,
+      "purpose": "竖版场景位素材：让消费者快速理解使用效果与购买价值",
+      "primaryMetric": "曝光效率 + CTR",
+      "background": "real_scene",
+      "textPolicy": "forbidden",
+      "textAllowed": [],
+      "productScale": "45%-65%",
+      "mustShow": [
+        "真实使用环境",
+        "商品位置明显",
+        "尺寸有参照"
+      ],
+      "mustNotShow": [
+        "场景过于复杂",
+        "商品太小",
+        "模特抢镜",
+        "明显不真实",
+        "任何文字/水印/贴纸/边框"
+      ],
+      "composition": "竖构图 3:4，产品置于视觉重心，环境服务于商品，上方留安全区",
+      "styleHint": "竖版构图与商品图区分，但视觉语言保持一致，避免像另一个人做的",
+      "shot": "lifestyle"
+    }
+  ]
+}

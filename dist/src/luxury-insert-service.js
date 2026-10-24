@@ -125,6 +125,18 @@ function candidateIdFor(data) {
 function isHttpUrl(value) {
     return /^https?:\/\//i.test(value.trim());
 }
+/* 识别 ChatGPT Web Search 内部引用 token 等“伪 URL”。
+   sourceRef:turn979449search1、<source> 标签、[n] 角标都不是真实 http(s) URL，
+   前端 isHttpUrl 判为非法 → 显示“未提供”。这里提前识别并置空 + 打 warn，避免误导。 */
+function isFakeProductUrl(value) {
+    const v = String(value ?? "").trim();
+    if (!v || !isHttpUrl(v))
+        return true;
+    return /sourceRef:/i.test(v) ||
+        /\bturn\d+search\d+/i.test(v) ||
+        /^<source/i.test(v) ||
+        /^\[\d+\]$/.test(v);
+}
 function looksLikeImageUrl(value) {
     return /^https?:\/\/.+\.(?:jpe?g|png|webp)(?:[?#].*)?$/i.test(value.trim());
 }
@@ -152,12 +164,19 @@ export function parseMarketRadarCandidates(text) {
         const sizeVersion = String(data.sizeVersion ?? "").trim();
         const rawOfficialProductUrl = String(data.officialProductUrl ?? "").trim();
         const rawOfficialFrontImageUrl = String(data.officialFrontImageUrl ?? "").trim();
+        /* productUrl 必须是真实 http(s) URL（非 sourceRef / <source> / 角标等伪 URL）。
+           若 AI 用 ChatGPT 内部引用令牌占位，提前置空 + 打 warn，避免前端误判为“已提供”却打不开。 */
+        const productUrlUsable = isHttpUrl(rawOfficialProductUrl) && !isFakeProductUrl(rawOfficialProductUrl);
+        if (rawOfficialProductUrl && !productUrlUsable) {
+            console.warn(`[MarketRadar] 候选 ${index + 1} (${brand || "?"} ${bagModel || "?"}) 的 officialProductUrl 不是真实 URL（${rawOfficialProductUrl}），已置空为未提供。`);
+        }
         /* 保留图片字段原始值（UI 自行判断是否为图片直链）。
            若 AI 把产品页 / 品牌页 URL 错放进图片字段，则救回到 officialProductUrl，
            避免链接被误判为 “Not found” 而永久丢失。 */
         const officialFrontImageUrl = rawOfficialFrontImageUrl;
-        const officialProductUrl = rawOfficialProductUrl ||
-            (isHttpUrl(rawOfficialFrontImageUrl) && !looksLikeImageUrl(rawOfficialFrontImageUrl)
+        const officialProductUrl = productUrlUsable
+            ? rawOfficialProductUrl
+            : (isHttpUrl(rawOfficialFrontImageUrl) && !looksLikeImageUrl(rawOfficialFrontImageUrl)
                 ? rawOfficialFrontImageUrl
                 : "");
         if (!bagModel || !brand || !bagFamily) {
@@ -1189,8 +1208,102 @@ ${IDENTIFICATION_DATA_END}
                 .replaceAll("{{CLAIMS}}", this.claimText(this.requireInsert()))
                 .replaceAll("{{PRODUCT_NAME}}", `${insert.brand} ${insert.bagFamily} ${primary.label}`);
             const fingerprint = "# Luxury Bag Organizer Image 01–07 Prompt Pack";
-            await this.ai.sendPromptOnce(prompt, fingerprint);
-            const text = await this.ai.waitForResponseAfterPrompt(fingerprint);
+            // 由于 7 图完整 Prompt 过长，ChatGPT 单次回复无法承载，分 3 批请求：
+            // 01-03、04-06、07。每批在同一会话内独立请求并等待，最后拼接成全 Prompt Pack。
+            const validateSelectedPromptPack = (packText, numbers) => {
+                const missing2 = [];
+                const short2 = [];
+                for (const idx of numbers) {
+                    const n = String(idx).padStart(2, "0");
+                    const start = `<<<IMAGE_${n}_PROMPT_START>>>`;
+                    const end = `<<<IMAGE_${n}_PROMPT_END>>>`;
+                    if (!packText.includes(start) || !packText.includes(end)) {
+                        missing2.push(n);
+                        continue;
+                    }
+                    const startIndex = packText.indexOf(start);
+                    const endIndex = packText.indexOf(end, startIndex + start.length);
+                    if (startIndex !== -1 && endIndex !== -1) {
+                        const body = packText.slice(startIndex + start.length, endIndex).trim();
+                        if (body.length < 50) {
+                            short2.push(n);
+                        }
+                    }
+                }
+                return { valid: missing2.length === 0 && short2.length === 0, missing: missing2, short: short2 };
+            };
+            const batches = [
+                { label: "Image 01–03", numbers: [1, 2, 3], full: true, prefix: "现在是第 1 次输出：请只输出 Image 01、02、03 三个完整区块。严禁输出 Image 04–07，不要解释。" },
+                { label: "Image 04–06", numbers: [4, 5, 6], full: false, prefix: "现在是第 2 次输出：请只输出 Image 04、05、06 三个完整区块。不要重复输出 Image 01–03，不要输出 Image 07，不要解释。" },
+                { label: "Image 07", numbers: [7], full: false, prefix: "现在是第 3 次输出：请只输出 Image 07 一个完整区块。不要重复输出 Image 01–06，不要解释。" }
+            ];
+            // ⚠️ 修复（2026-09-10）：ChatGPT composer 写入成本几乎全在换行上（≈300ms/行），
+            // 7 图模板 396 行约需 120s 才能写完。原先三批都重复发送 12k+ 字符完整模板，
+            // 写入耗时直接三倍，必然触发「编辑器写入超时」。改为：第 1 批发完整模板，
+            // 第 2/3 批复用同一会话上下文、只发精简续发指令；若精简版拿不到完整区块，
+            // 再退回完整模板重发一次兜底。
+            const CONTINUE_RULES = [
+                "沿用上方同一份《Luxury Bag Organizer Image 01–07 Prompt Pack》的全部约束，不要重新解释规则：",
+                "- 全局最高铁律与内胆颜色硬锁定（颜色必须与上传 SKU 内胆图一致，NOT beige / NOT tan / NOT brown / NOT default color）。",
+                "- 已上传的目标外包图和 SKU 内胆图是唯一视觉事实源，不得添加、删除或美化任何结构。",
+                "- 每张图必须包含免责声明：Bag for reference only. Selling insert only. Not affiliated with the referenced brand.",
+                "- 每个区块必须是完整、独立、可直接执行的英文生图 Prompt（≥50 字符），包含产品身份锁、构图、背景、固定英文文案、负面约束、1:1 正方形与高分辨率要求。",
+                "- 必须严格使用 <<<IMAGE_XX_PROMPT_START>>> / <<<IMAGE_XX_PROMPT_END>>> 固定边界，标记独占一行、成对出现。",
+                "- 图片内只允许英文，当前回复不得直接生成图片，不要输出大纲或解释。"
+            ].join("\n");
+            const requestBatch = async (batch, useFull) => {
+                const batchFingerprint = useFull ? `${fingerprint}::${batch.label}::full` : `${fingerprint}::${batch.label}`;
+                await this.store.update({
+                    stage: "INSERT_BUILDING_PROMPTS",
+                    running: true,
+                    message: `正在请求 ${batch.label} Prompt，并校验本批输出…${useFull ? "（完整模板重发）" : ""}`,
+                    error: undefined
+                });
+                // 关键：batchFingerprint 必须出现在实际发送文本里，
+                // 否则 waitForResponseAfterPrompt 反向查找 user 消息时匹配不到，会一直空等直到 22 分钟超时。
+                const batchPrompt = useFull || batch.full
+                    ? `${prompt}\n\n${batch.prefix}\n\n[本批指纹：${batchFingerprint}]`
+                    : `${CONTINUE_RULES}\n${batch.prefix}\n[本批指纹：${batchFingerprint}]`;
+                await this.ai.sendPromptOnce(batchPrompt, batchFingerprint);
+                let batchText = await this.ai.waitForResponseAfterPrompt(batchFingerprint);
+                // 单批兜底：ChatGPT 仍可能把 3 图再细分，自动续发补齐。
+                let batchContinue = 0;
+                const MAX_BATCH_CONTINUE = 2;
+                while (batchContinue < MAX_BATCH_CONTINUE) {
+                    const batchMissing = batch.numbers.filter((idx) => {
+                        const n = String(idx).padStart(2, "0");
+                        return !batchText.includes(`<<<IMAGE_${n}_PROMPT_START>>>`) || !batchText.includes(`<<<IMAGE_${n}_PROMPT_END>>>`);
+                    }).map((idx) => `Image ${String(idx).padStart(2, "0")}`);
+                    if (batchMissing.length === 0)
+                        break;
+                    const continueFingerprint = `${batchFingerprint}::continue${batchContinue + 1}`;
+                    const continuePrompt = [
+                        "请继续完成本次输出，不要停止、不要输出大纲或预告。",
+                        `还缺失以下区块：${batchMissing.join("、")}。`,
+                        "每个区块必须用 <<<IMAGE_XX_PROMPT_START>>>...<<<IMAGE_XX_PROMPT_END>>> 完整包裹，内容为完整可执行的英文生图 Prompt。",
+                        `本批续发指纹：${continueFingerprint}`
+                    ].join("\n");
+                    await this.ai.sendPromptOnce(continuePrompt, continueFingerprint);
+                    const append = await this.ai.waitForResponseAfterPrompt(continueFingerprint);
+                    batchText = `${batchText}\n${append}`;
+                    batchContinue += 1;
+                }
+                return batchText;
+            };
+            let text = "";
+            for (const batch of batches) {
+                let batchText = await requestBatch(batch, false);
+                let batchValidation = validateSelectedPromptPack(batchText, batch.numbers);
+                if (!batchValidation.valid && !batch.full) {
+                    // 精简续发没拿到完整区块 → 用完整模板重发一次兜底
+                    batchText = await requestBatch(batch, true);
+                    batchValidation = validateSelectedPromptPack(batchText, batch.numbers);
+                }
+                if (!batchValidation.valid) {
+                    throw new Error(`${batch.label} Prompt Pack 不完整，缺少/过短：${[...batchValidation.missing, ...batchValidation.short].join(", ")}`);
+                }
+                text = `${text}\n${batchText}`;
+            }
             const validation = validateNumberedPromptPack(text, 7);
             if (!validation.valid) {
                 throw new Error(`Image 01–07 Prompt Pack 不完整，缺少：${validation.missing.join(", ")}`);
@@ -1296,17 +1409,23 @@ ${IDENTIFICATION_DATA_END}
                     });
                     continue;
                 }
+                const imagePrompt = extractNumberedImagePrompt(insert.promptPackText, number, 7);
+                const command = `请生成 Image ${number}。\n\n${imagePrompt}\n\n只生成这一张独立 1:1 正方形电商图片。不要生成其他编号，不要解释。`;
+                const referenceImagePaths = insertGenerationReferenceImagePaths(insert, number, bagImages, linerImages);
                 await this.store.update({
                     luxuryInsert: { ...this.requireInsert(), currentImageNumber: number },
                     message: `正在生成内胆 Image ${number}/7`
                 });
+                console.log(`[insert.generateImages] 开始 Image ${number}/7，参考图路径：${JSON.stringify(referenceImagePaths)}`);
                 await this.ai.enableImageCreation();
+                console.log(`[insert.generateImages] Image ${number} 已启用图片创建`);
                 const previous = await this.ai.generatedImageCount();
-                const imagePrompt = extractNumberedImagePrompt(insert.promptPackText, number, 7);
-                const command = `请生成 Image ${number}。\n\n${imagePrompt}\n\n只生成这一张独立 1:1 正方形电商图片。不要生成其他编号，不要解释。`;
-                const referenceImagePaths = insertGenerationReferenceImagePaths(insert, number, bagImages, linerImages);
+                console.log(`[insert.generateImages] Image ${number} 当前已生成图片数：${previous}`);
+                console.log(`[insert.generateImages] Image ${number} 上传参考图 ${referenceImagePaths.length} 张`);
                 await this.ai.uploadImages(referenceImagePaths);
+                console.log(`[insert.generateImages] Image ${number} 参考图上传完成，发送作图 prompt`);
                 await this.ai.sendPromptOnce(command, `请生成 Image ${number}`);
+                console.log(`[insert.generateImages] Image ${number} prompt 已发送，等待生成并下载`);
                 await this.ai.waitForGeneratedImageAndDownload(previous, outputPath);
                 generated.add(number);
                 await this.store.update({

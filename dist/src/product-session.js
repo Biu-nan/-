@@ -1,4 +1,4 @@
-import { access, mkdir, rename, writeFile } from "node:fs/promises";
+import { access, cp, mkdir, readdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { ABANDONED_PRODUCTS_DIR, COMPLETED_PRODUCTS_DIR, INSERT_BAG_IMAGES_DIR, INSERT_LINER_IMAGES_DIR, INSERT_OUTPUT_DIR, OUTPUT_DIR, PRODUCT_ROOT, PRODUCT_IMAGES_DIR } from "./config.js";
 const FALLBACK_PRODUCT_NAME = "未命名产品";
@@ -120,15 +120,54 @@ export async function archiveCurrentProduct(state) {
     return destination;
 }
 export async function abandonCurrentProduct(state) {
-    const productName = state.workflowMode === "luxury_insert"
+    let productName = state.workflowMode === "luxury_insert"
         ? sanitizeProductName(`${state.luxuryInsert?.brand ?? ""} ${state.luxuryInsert?.bagFamily ?? "未命名内胆任务"}`)
         : extractChineseProductName(state);
+    // 兜底：内存 state 被异常清空时 extractChineseProductName 会落回"未命名产品"。
+    // 此时优先用磁盘上的 product-profile.json 的 displayName，避免遗弃目录名无意义。
+    if (productName === FALLBACK_PRODUCT_NAME) {
+        try {
+            const profilePath = path.join(PRODUCT_ROOT, "product-profile.json");
+            const profile = JSON.parse(await readFile(profilePath, "utf8"));
+            const fromProfile = profile?.identity?.displayName || profile?.displayName;
+            if (fromProfile)
+                productName = sanitizeProductName(fromProfile);
+        }
+        catch {
+            // 无 profile 时保持"未命名产品"
+        }
+    }
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     const destination = path.join(ABANDONED_PRODUCTS_DIR, `${productName}-${stamp}`);
     await mkdir(destination, { recursive: true });
-    // Move the whole current product tree atomically via rename (NOT fs.rm),
-    // so the safe-delete shim never blocks the abandon and the workspace is cleared reliably.
-    await rename(PRODUCT_ROOT, path.join(destination, "当前产品快照"));
+    // 关键修复：不要 rename 整个 PRODUCT_ROOT（当前产品/ 根目录）。
+    // 实测根目录常被 Windows 外部句柄（资源管理器/浏览器预览/索引）锁定，
+    // 导致 EPERM rename 失败、遗弃整批失败。改为逐个把根目录下子条目
+    // rename 到 destination，绕开锁；某条目若单独被锁则退化为 cp+rm，
+    // 保证遗弃一定成功且工作区被清空。
+    const entries = await readdir(PRODUCT_ROOT, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+        const src = path.join(PRODUCT_ROOT, entry.name);
+        const dest = path.join(destination, entry.name);
+        try {
+            await rename(src, dest);
+        }
+        catch (err) {
+            if (err && (err.code === "ENOENT" || err.code === "EPERM")) {
+                // 子条目被单独锁住：复制后删除源（删除失败也放行，避免阻塞遗弃）。
+                try {
+                    await cp(src, dest, { recursive: true });
+                    await removeEntry(src, entry.isDirectory()).catch(() => {});
+                }
+                catch (cpErr) {
+                    console.warn(`[abandon] 子条目迁移失败（非致命）: ${entry.name}`, cpErr && cpErr.message ? cpErr.message : cpErr);
+                }
+            }
+            else {
+                throw err;
+            }
+        }
+    }
     await writeFile(path.join(destination, "run-state.json"), `${JSON.stringify({
         ...state,
         running: false,
@@ -145,5 +184,15 @@ export async function abandonCurrentProduct(state) {
         mkdir(INSERT_OUTPUT_DIR, { recursive: true })
     ]);
     return destination;
+}
+async function removeEntry(target, isDir) {
+    if (isDir) {
+        const { rm } = await import("node:fs/promises");
+        await rm(target, { recursive: true, force: true });
+    }
+    else {
+        const { unlink } = await import("node:fs/promises");
+        await unlink(target).catch(() => {});
+    }
 }
 //# sourceMappingURL=product-session.js.map

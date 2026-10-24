@@ -99,6 +99,9 @@ async function ensureChrome(debugPort = CHROME_DEBUG_PORT) {
       "--no-first-run",
       "--no-default-browser-check",
       "--start-maximized",
+      // 关掉 Chrome 顶部「不受支持的命令行标记 / 正受自动化控制」信息条，
+      // 否则它会盖住工作台页面顶部、遮挡进度浮窗
+      "--disable-infobars",
       "https://www.dianxiaomi.com/"
     ], { detached: true, stdio: "ignore" });
     proc.unref();
@@ -316,39 +319,71 @@ export class DianxiaomiAdapter {
 
   // 清场：关掉所有可见的 ant-modal / ant-drawer / 残留 dropdown / 提示弹窗。
   // 流程内多步操作可能在主页面留下"图片白底 / 模板引用 / 列设置 / 筛选"等 dialog，挡后续点击。
-  async _dismissAllOverlays() {
+  // v1.6.38 增强：关闭按钮 click 可能不触发实际关闭（店小秘框架状态不同步），
+  //   故增加暴力兜底——直接将残留 overlay 从渲染流中移除（visibility:hidden + pointer-events:none），
+  //   并在多轮重试后最终 remove() DOM 节点（最后手段，避免死锁）。
+  async _dismissAllOverlays(maxRounds = 2) {
     if (!this.page || this.page.isClosed()) return;
     try {
-      // 1) 点所有可见 ant-modal 的关闭按钮
-      const modalCloseBtns = this.page.locator(".ant-modal-wrap:visible .ant-modal-close");
-      const mc = await modalCloseBtns.count();
-      for (let i = 0; i < mc; i++) {
-        await modalCloseBtns.nth(i).click({ force: true, timeout: 2000 }).catch(() => {});
-        await sleep(200);
-      }
-      // 2) 兜底：evaluate 暴力关掉所有可见 modal-wrap / drawer（保留 backdrop 无所谓）
-      await this.page.evaluate(() => {
-        const sel = [".ant-modal-wrap", ".ant-drawer", ".ant-popover"];
-        for (const s of sel) {
-          document.querySelectorAll(s).forEach((el) => {
-            try {
-              if (s === ".ant-popover") {
-                // popover 用 ESC 关
-                return;
-              }
-              // modal/drawer：先找关闭按钮 click，没有就强制隐藏
-              const close = el.querySelector(".ant-modal-close, .ant-drawer-close, [class*='close']");
-              if (close) { close.click(); return; }
-              el.style.display = "none";
-            } catch { /* ignore */ }
-          });
+      for (let round = 0; round < maxRounds; round++) {
+        // 1) 点所有可见 ant-modal 的关闭按钮
+        const modalCloseBtns = this.page.locator(".ant-modal-wrap:visible .ant-modal-close");
+        const mc = await modalCloseBtns.count();
+        for (let i = 0; i < mc; i++) {
+          await modalCloseBtns.nth(i).click({ force: true, timeout: 2000 }).catch(() => {});
+          await sleep(200);
         }
+        // 2) 兜底：evaluate 暴力关掉所有可见 modal-wrap / drawer（保留 backdrop 无所谓）
+        await this.page.evaluate(() => {
+          const sel = [".ant-modal-wrap", ".ant-drawer", ".ant-popover"];
+          for (const s of sel) {
+            document.querySelectorAll(s).forEach((el) => {
+              try {
+                if (s === ".ant-popover") {
+                  return;
+                }
+                // modal/drawer：先找关闭按钮 click，没有就强制隐藏
+                const close = el.querySelector(".ant-modal-close, .ant-drawer-close, [class*='close']");
+                if (close) { close.click(); return; }
+                // v1.6.38: display:none 可能被框架重置，用 inline style 强制脱离渲染流
+                el.style.setProperty("display", "none", "important");
+                el.style.setProperty("visibility", "hidden", "important");
+                el.style.setProperty("pointer-events", "none", "important");
+                el.style.setProperty("z-index", "-1", "important");
+              } catch { /* ignore */ }
+            });
+          }
+        }).catch(() => {});
+        // 3) 按 ESC 收尾（关残留 popover / dropdown）
+        await this.page.keyboard.press("Escape").catch(() => {});
+        await sleep(300);
+        await this.page.keyboard.press("Escape").catch(() => {});
+        await sleep(300);
+
+        // 4) 检查是否还有可见 overlay，有则下一轮更暴力
+        const remaining = await this.page.evaluate(() => {
+          const modals = document.querySelectorAll(".ant-modal-wrap, .ant-drawer");
+          let count = 0;
+          modals.forEach((el) => {
+            const s = getComputedStyle(el);
+            if (s.display !== "none" && s.visibility !== "hidden" && el.offsetParent !== null) count++;
+          });
+          return count;
+        }).catch(() => 0);
+        if (remaining === 0) break; // 干净了，退出
+      }
+
+      // 最终兜底：如果仍有残留 visible modal-wrap，直接 remove() DOM 节点（避免死锁）
+      await this.page.evaluate(() => {
+        document.querySelectorAll(".ant-modal-wrap, .ant-drawer").forEach((el) => {
+          try {
+            const s = getComputedStyle(el);
+            if (s.display !== "none" && s.visibility !== "hidden" && el.offsetParent !== null) {
+              el.remove();
+            }
+          } catch { /* ignore */ }
+        });
       }).catch(() => {});
-      // 3) 按 ESC 收尾（关残留 popover / dropdown）
-      await this.page.keyboard.press("Escape").catch(() => {});
-      await sleep(300);
-      await this.page.keyboard.press("Escape").catch(() => {});
-      await sleep(300);
     } catch { /* 静默吞错 — 本步为防御性清场 */ }
   }
 
@@ -1197,13 +1232,64 @@ export class DianxiaomiAdapter {
     // 兜底强制关闭弹窗：无线端描述用「新版模块编辑器」，店小秘不依赖其内容为保存前提
     // （save 读回已不校验 mobile），故无论是否生成成功都强制关窗，避免残留 modal 拦截
     // 后续字段点击（如备货类型下拉被 ant-modal-wrap 拦截导致 option-not-found）。
+    // v1.6.38: 多轮递进式清理——close btn → ESC → inline style → DOM remove
     if (!closed) {
       step("force-closing new-editor modal");
-      const x2 = modal.locator(".ant-modal-close, .ant-drawer-close, .smt-new-editor-close, [class*=close]").first();
-      if (await x2.count() > 0) await x2.click({ timeout: 5000, force: true }).catch(() => {});
-      await this.page.keyboard.press("Escape").catch(() => {});
-      await sleep(1200);
-      closed = (await genBtnLocator()).count() === 0;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        // Round 1-2: 点关闭按钮 + ESC
+        if (attempt < 2) {
+          const x2 = modal.locator(".ant-modal-close, .ant-drawer-close, .smt-new-editor-close, [class*=close]").first();
+          if (await x2.count() > 0) await x2.click({ timeout: 3000, force: true }).catch(() => {});
+          await this.page.keyboard.press("Escape").catch(() => {});
+          await sleep(800);
+        }
+        // Round 3: 暴力 inline style 隐藏（important 覆盖框架）
+        if (attempt === 2) {
+          await this.page.evaluate(() => {
+            document.querySelectorAll(".ant-modal-wrap, .ant-modal.smt-new-editor, .ant-drawer").forEach((el) => {
+              try {
+                el.style.setProperty("display", "none", "important");
+                el.style.setProperty("visibility", "hidden", "important");
+                el.style.setProperty("pointer-events", "none", "important");
+              } catch { /* ignore */ }
+            });
+          }).catch(() => {});
+          await sleep(500);
+        }
+        // Round 4: 连 backdrop 一起隐藏（有些 modal 的 wrap 本身不可见但 backdrop 还在挡）
+        if (attempt === 3) {
+          await this.page.evaluate(() => {
+            document.querySelectorAll(".ant-modal-wrap, .ant-modal-mask, [class*='mask']").forEach((el) => {
+              try { el.style.setProperty("display", "none", "important"); } catch { /* ignore */ }
+            });
+          }).catch(() => {});
+          await sleep(500);
+        }
+        // Round 5: 最终手段——直接 remove() 残留 modal DOM 节点
+        if (attempt >= 4) {
+          const removed = await this.page.evaluate(() => {
+            let count = 0;
+            document.querySelectorAll(".ant-modal-wrap, .ant-modal.smt-new-editor, .ant-drawer").forEach((el) => {
+              try {
+                const s = getComputedStyle(el);
+                if (s.display !== "none" && el.offsetParent !== null) { el.remove(); count++; }
+              } catch { /* ignore */ }
+            });
+            return count;
+          }).catch(() => 0);
+          step("DOM removed " + removed + " residual modals");
+          await sleep(500);
+        }
+
+        closed = (await genBtnLocator()).count() === 0;
+        if (closed) { step("modal closed at attempt " + (attempt + 1)); break; }
+      }
+      // 如果所有尝试都失败，调用 _dismissAllOverlays 做全量暴力清理
+      if (!closed) {
+        step("all attempts failed -> _dismissAllOverlays nuclear option");
+        await this._dismissAllOverlays(3);
+        closed = (await genBtnLocator()).count() === 0;
+      }
     }
     const mobileHasContent = await this.page.evaluate(() => {
       const i33 = window.CKEDITOR && window.CKEDITOR.instances["ckeditor33"];
@@ -1298,12 +1384,9 @@ export class DianxiaomiAdapter {
   }
 
   // 关闭可能残留的弹窗（点 X / Esc），避免拦截点击
+  // v1.6.38: 改为路由到 _dismissAllOverlays（含多轮递进清理 + DOM remove 兜底）
   async dismissModals() {
-    await this.page.evaluate(() => {
-      document.querySelectorAll(".ant-modal-close").forEach((c) => { try { c.click(); } catch { /* ignore */ } });
-    }).catch(() => {});
-    await this.page.keyboard.press("Escape").catch(() => {});
-    await sleep(300);
+    await this._dismissAllOverlays(2);
   }
 
   // 定位「图片选择器」面板：必须是 fixed/absolute 的 modal 覆盖层（排除 body/html），
@@ -1534,6 +1617,9 @@ export class DianxiaomiAdapter {
       if (facts.description.pc) applied.push({ field: "description.pc", ...(await this.fillCkeditorByLabel("PC端描述", facts.description.pc)) });
       const mbRes = await this.clickNewEditorThenGenerateFromPc();
       applied.push({ field: "description.mobile", ...mbRes });
+      // v1.6.38: mobileEditor 可能残留 ant-modal-wrap（店小秘框架关闭状态不同步），
+      // 必须在后续属性填充/图片上传前强制清场，否则所有 click 被拦截 → 卡死
+      await this._dismissAllOverlays(2);
     }
     // 5) 必填类目属性（空白页实测 option 文本，顺序尝试 id→label 定位）
     for (const a of (this.profile.requiredAttrs || DIANXIAOMI_REQUIRED_ATTRS)) {
@@ -1740,7 +1826,10 @@ export class DianxiaomiAdapter {
       this.setStage("采集箱上架·②AI板块");
       applied.push(...(await this.fillAiSections(facts, { collectMode })));
       // 2) 备货类型（必填，采集箱草稿不预填；模板未必包含，始终填一次，重复填无害）。
-      applied.push({ field: "stockingType", ...(await this.fillStockingType(this.profile.stockingType || "国内备货")) });
+      // 配置统一保存在 profile.fixed.stockType；此前这里错误回退到已失效的「国内备货」，
+      // 与 Choice 页面实际枚举「国内履约 / 海外备货」不一致，导致该必填项始终无法选中。
+      const stockingType = this.profile.stockingType || this.profile.fixed?.stockType || "国内履约";
+      applied.push({ field: "stockingType", ...(await this.fillStockingType(stockingType)) });
       this.setStage("采集箱上架·③备货类型");
       // 3) 物流属性：表格模板「物流属性」列优先，否则按 profile 强制选「普货」/默认「普货」。
       //    模板引用后也可能带错，重复填可确保最终值正确。
@@ -1931,6 +2020,8 @@ export class DianxiaomiAdapter {
       let mbRes = await this.clickNewEditorThenGenerateFromPc();
       if (!mbRes.ok) mbRes = await this.clickNewEditorThenGenerateFromPc();
       applied.push({ field: "description.mobile", ...mbRes });
+      // v1.6.38: 防御性清场——mobileEditor 残留弹窗会拦截后续 SKU/保存/markCollect 操作
+      await this._dismissAllOverlays(2);
     }
     // 5.5) 销售属性（颜色/尺寸）必填勾选：从 facts.variants 勾选分类 checkbox（点 label 触发 React onChange）。
     //       颜色为实操必填（靠颜色区分子 SKU）；尺寸按 facts 默认（One Size），并取消引用带出的多余尺寸。
@@ -3689,27 +3780,42 @@ export class DianxiaomiAdapter {
     const variantThemeMap = profile.variantThemeMap || {};
     const mapped = [];
     if (Object.keys(variantThemeMap).length > 0) {
+      // 解析 1688 变种主题文本 → 速卖通变种主题（Color/Size/Ships From）。
+      // 优先级：① 精确匹配（含归一化）② 子串模糊（键/值归一化后互相包含）③ 关键词启发式兜底。
+      // 这样即使 1688 主题写法略偏（「颜色(分类)」「主色系」「color」）也能正确对应，从而让 1688 SKU 颜色/尺寸沿用下来。
+      const resolveTheme = (themeText) => {
+        const norm = (s) => (s || "").replace(/[\s（）()]/g, "").toLowerCase();
+        const t = norm(themeText);
+        if (!t) return null;
+        if (variantThemeMap[themeText]) return variantThemeMap[themeText];
+        if (variantThemeMap[t]) return variantThemeMap[t];
+        for (const [k, v] of Object.entries(variantThemeMap)) {
+          const nk = norm(k);
+          if (!nk) continue;
+          if (t.includes(nk) || nk.includes(t)) return v;
+        }
+        if (/颜色|色|图案|花色|颜色风格|色彩/.test(themeText)) return "Color";
+        if (/尺码|尺寸|规格|容量|大小|型号|款式|种类|码数|尺/.test(themeText)) return "Size";
+        if (/发货|产地|仓库|来源地/.test(themeText)) return "Ships From";
+        return null;
+      };
       const rows = page.locator("table tbody tr");
       const rowCount = await rows.count();
-      // 第一遍：扫页面所有「对应速卖通变种主题」select 是否已全部填好
-      // 「已映射」= 必填项全部已填：selText 非空、不是 placeholder、且等于目标值。
-      // 之前的写法误把 selText===target 与 placeholder 都塞进 continue 分支，导致 placeholder=true（未填）也被 skip，
-      // allMapped 永远 = true → 循环永不填。即便配合下面的 for 兜底，placeholder 行也无法进入自动填。
       let allMapped = true;
       if (rowCount > 0) {
-        const rowSummary = await rows.evaluateAll((rs, map) => {
+        const rowSummary = await rows.evaluateAll((rs) => {
           return rs.map((r) => {
             const firstCell = (r.querySelector("td")?.innerText || "").trim();
             const sel = r.querySelector(".ant-select");
             const selText = (sel?.innerText || "").trim();
             const placeholder = !!sel?.querySelector(".ant-select-selection-placeholder");
-            return { firstCell, selText, placeholder, target: map[firstCell] || null };
+            return { firstCell, selText, placeholder };
           });
-        }, variantThemeMap);
+        });
         for (const it of rowSummary) {
-          if (!it.target) continue;
-          // 未填 或 已填不等于目标 → 视为未映射
-          if (it.placeholder || !it.selText || it.selText !== it.target) {
+          const target = resolveTheme(it.firstCell);
+          if (!target) continue; // 非变种轴（套餐/赠品等）不强制映射
+          if (it.placeholder || !it.selText || it.selText !== target) {
             allMapped = false;
             break;
           }
@@ -3723,26 +3829,25 @@ export class DianxiaomiAdapter {
             const row = rows.nth(i);
             const firstCell = row.locator("td").first();
             const themeText = (await firstCell.innerText().catch(() => "")).trim();
-            const target = variantThemeMap[themeText];
+            const target = resolveTheme(themeText);
             if (!target) continue;
             const select = row.locator(".ant-select").first();
             if (await select.count() === 0 || !(await select.isVisible().catch(() => false))) continue;
-            // 快速：evaluate click 避免 mouseover/hover 等待
+            // 已填且等于目标 → 跳过，避免重复点开下拉
+            const curText = (await select.innerText().catch(() => "")).trim();
+            if (curText === target) continue;
             await select.evaluate((el) => el.click()).catch(() => {});
             await sleep(250);
-            // 在浮层下拉框里找选项（精确匹配 target）
             const option = page.locator(".ant-select-dropdown:visible .ant-select-item-option-content")
               .filter({ hasText: new RegExp(`^\\s*${escapeRegex(target)}\\s*$`) }).first();
             if (await option.count() > 0 && await option.isVisible().catch(() => false)) {
               await option.evaluate((el) => el.click()).catch(() => {});
               mapped.push({ theme: themeText, target });
             } else {
-              // 兜底：按 ESC 关闭下拉框，不阻塞
               await page.keyboard.press("Escape").catch(() => {});
             }
             await sleep(150);
           } catch (e) {
-            // 单个主题映射失败不阻塞整体保存
             await page.keyboard.press("Escape").catch(() => {});
           }
         }
@@ -3750,6 +3855,9 @@ export class DianxiaomiAdapter {
     }
 
     // 5) 保存并进入下一步（共用 clickSaveAndNext 方法，采集/引用路径都可用）
+    // 选完变种主题后，若 ant-select 下拉未收起，clickSaveAndNext 内部会再清一次。
+    await page.keyboard.press("Escape").catch(() => {});
+    await sleep(200);
     await this.clickSaveAndNext();
 
     return { ok: true, url: this.page.url(), mapped, state };
@@ -3761,10 +3869,83 @@ export class DianxiaomiAdapter {
     await this.connect();
     let page = this.page;
     const context = page.context();
+
+    // ★ 关键修复：映射页选完类目/变种主题后，ant-select 下拉可能未关闭，
+    // 导致 Playwright 点击「保存，下一步」时报 "subtree intercepts pointer events"。
+    // 先强制关闭页面上的 ant-select 下拉：按 Escape + 点空白处 + 移除已展开的 dropdown DOM。
+    await page.keyboard.press("Escape").catch(() => {});
+    await page.locator("body").click({ position: { x: 10, y: 10 }, force: true }).catch(() => {});
+    await page.evaluate(() => {
+      document.querySelectorAll(".ant-select-dropdown, .ant-select-open").forEach((el) => {
+        el.dispatchEvent(new Event("blur", { bubbles: true }));
+        if (el.parentElement) el.parentElement.removeChild(el);
+      });
+      document.querySelectorAll(".ant-select").forEach((el) => el.classList.remove("ant-select-open", "ant-select-focused"));
+    }).catch(() => {});
+    await sleep(300);
+
     const newPagePromise = context.waitForEvent("page", { timeout: 10000 }).catch(() => null);
-    await page.locator("button").filter({ hasText: /保存[，并]?下一步|保存下一步/ }).first().click({ timeout: 8000 }).catch(() => {
-      return clickVisibleByText(page, "保存，下一步", 8000);
-    });
+
+    // 主点击：优先用 button 定位器；若被遮挡/拦截，退到 JS 直接点击 button 元素。
+    const clickViaLocator = async () => {
+      await page.locator("button").filter({ hasText: /保存[，并]?下一步|保存下一步/ }).first().click({ timeout: 6000 });
+    };
+    const clickViaText = async () => {
+      await clickVisibleByText(page, "保存，下一步", 6000);
+    };
+    const clickViaJs = async () => {
+      const clicked = await page.evaluate(() => {
+        const btns = Array.from(document.querySelectorAll("button"));
+        const target = btns.find((b) => /保存[，并]?下一步|保存下一步/.test((b.innerText || "").trim()));
+        if (target) {
+          target.scrollIntoView({ block: "center", inline: "center" });
+          target.click();
+          return true;
+        }
+        return false;
+      });
+      if (!clicked) throw new Error("未找到「保存，下一步」按钮（JS 兜底）");
+    };
+
+    const stillOnCategoryPage = async () => {
+      try {
+        const href = await page.evaluate(() => location.href);
+        const hasBtn = await page.locator("button").filter({ hasText: /保存[，并]?下一步|保存下一步/ }).count() > 0;
+        return /modifyCategory|category\/edit|smtChoice\/edit/i.test(href) && hasBtn;
+      } catch {
+        return false;
+      }
+    };
+
+    let clickOk = false;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        await clickViaLocator();
+        clickOk = true;
+      } catch {
+        try {
+          await clickViaText();
+          clickOk = true;
+        } catch {
+          try {
+            await clickViaJs();
+            clickOk = true;
+          } catch {
+            clickOk = false;
+          }
+        }
+      }
+      if (clickOk && !(await stillOnCategoryPage())) break;
+      // 仍在映射页：大概率下拉仍挡着，再清一次重试。
+      await page.keyboard.press("Escape").catch(() => {});
+      await page.locator("body").click({ position: { x: 10, y: 10 }, force: true }).catch(() => {});
+      await page.evaluate(() => {
+        document.querySelectorAll(".ant-select-dropdown").forEach((el) => { if (el.parentElement) el.parentElement.removeChild(el); });
+        document.querySelectorAll(".ant-select").forEach((el) => el.classList.remove("ant-select-open", "ant-select-focused"));
+      }).catch(() => {});
+      await sleep(500);
+    }
+
     const newPage = await awaitRealPage(newPagePromise, 8000);
     if (newPage && !newPage.isClosed()) {
       this.page = newPage;

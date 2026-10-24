@@ -1,9 +1,11 @@
-import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { OUTPUT_DIR, PLANNING_COMPLETION_PROMPT, PRODUCT_FACT_FILE, PRODUCT_FACT_PROMPT_FINGERPRINT, PRODUCT_IMAGES_DIR, PRODUCT_ROOT, TEST_PROMPT, singleImageCommand } from "./config.js";
+import { OUTPUT_DIR, PLANNING_COMPLETION_PROMPT, PRODUCT_FACT_FILE, PRODUCT_FACT_PROMPT_FINGERPRINT, PRODUCT_IMAGES_DIR, PRODUCT_ROOT, TEST_PROMPT, MODEL_PROFILES, singleImageCommand, IMAGE_REFERENCE_REFRESH_INTERVAL } from "./config.js";
 import { normalizeDianxiaomiFacts, buildProductFactsFallback } from "./dianxiaomi-facts.js";
+import { loadVerifiedText, productKeyOf, recordArtifact } from "./progress-manifest.js";
 import { scanProductImages } from "./image-files.js";
 import { extractImagePrompt, isOutlineOnlyPlanningText, readPrompt, validatePromptPack } from "./prompt-files.js";
+import { validateImageFramework } from "./image-framework.js";
 import { ProductVisualAssetsService } from "./product-visual-assets-service.js";
 const SEO_KEYWORDS_FINGERPRINT = "Google Ads SEO Keyword Research Prompt";
 const LISTING_CONTENT_FINGERPRINT = "AliExpress Listing Commercial Delivery Prompt";
@@ -146,6 +148,43 @@ export function isSeoContentReady(state) {
     return state.completedPhase === "MVP4" &&
         (state.generatedImageNumbers ?? []).length === 10;
 }
+/**
+ * B) verify-then-commit：断言一组产物文件存在且内容达到最小长度。
+ * 返回失败描述数组（空数组 = 通过），便于调用方决定阻断提交还是仅告警。
+ */
+export async function checkArtifacts(checks) {
+    const failed = [];
+    for (const check of checks) {
+        let len = 0;
+        try {
+            len = (await readFile(check.path, "utf8")).trim().length;
+        }
+        catch {
+            len = 0;
+        }
+        if (len < check.minLength) {
+            failed.push(`${path.basename(check.path)}=${len}字(<${check.minLength})`);
+        }
+    }
+    return failed;
+}
+/**
+ * B) verify-then-commit：product-facts 的标题 / 详情 / 主图三必填项校验。
+ * 与 server.js checkDianxiaomiFactsReady 口径一致，避免"文件在但内容空"。
+ */
+export function checkFactsReady(facts) {
+    const okTitle = !!(facts && facts.title && (facts.title.zh || facts.title.en));
+    const okDesc = !!(facts && facts.description && (facts.description.pc || facts.description.mobile));
+    const okImg = !!(facts && Array.isArray(facts.images && facts.images.main) && facts.images.main.length > 0);
+    const missing = [];
+    if (!okTitle)
+        missing.push("标题(title)");
+    if (!okDesc)
+        missing.push("详情页(description)");
+    if (!okImg)
+        missing.push("主图(images.main)");
+    return { ok: missing.length === 0, missing, okTitle, okDesc, okImg };
+}
 export class AutomationService {
     store;
     adapters;
@@ -179,7 +218,8 @@ export class AutomationService {
     }
     async hasUserPromptForFingerprints(fingerprints) {
         for (const fingerprint of fingerprints) {
-            if (await this.ai.hasUserPrompt(fingerprint))
+            // 严格匹配：只用 fingerprint 是否命中，避免把前一步回复误判为「本步 Prompt 已发」
+            if (await this.ai.hasUserPromptStrict(fingerprint))
                 return true;
         }
         return false;
@@ -206,6 +246,39 @@ export class AutomationService {
         }
         throw new Error(`等待已发送 Prompt 的回复超时：${fingerprints.join(" / ")}`);
     }
+    async waitForStageResponse(fingerprint, options = {}) {
+        const label = options.label ?? "当前阶段";
+        const waitOptions = {
+            shouldPause: () => Boolean(this.store.get().pauseRequested)
+        };
+        try {
+            return await this.ai.waitForResponseAfterPrompt(fingerprint, waitOptions);
+        }
+        catch (error) {
+            if (error?.code !== "CHATGPT_STOPPED_WITHOUT_OUTPUT") {
+                throw error;
+            }
+            // 原 Prompt 已确认发送但 ChatGPT 已停止且没有回复：不能重发原长 Prompt。
+            // 只追加一次带独立指纹的续写指令；再次失败交给人工审核，避免重复任务污染对话。
+            const recoveryFingerprint = `${fingerprint} · Workflow Recovery`;
+            const hasStrictPrompt = typeof this.ai.hasUserPromptStrict === "function"
+                ? this.ai.hasUserPromptStrict.bind(this.ai)
+                : this.ai.hasUserPrompt.bind(this.ai);
+            const recoveryAlreadySent = await hasStrictPrompt(recoveryFingerprint);
+            await this.store.update({
+                stage: options.recoveryStage ?? "RECOVERING_RESPONSE",
+                message: recoveryAlreadySent
+                    ? `${label}续写指令已存在，正在从断点等待回复…`
+                    : `${label}未返回内容，正在追加一次续写指令…`,
+                error: undefined
+            });
+            if (!recoveryAlreadySent) {
+                const recoveryPrompt = `# ${recoveryFingerprint}\n\n上一条「${label}」任务已发送，但 ChatGPT 在未输出结果前停止。请继续完成上一条任务，不要重复解释、不重做已完成内容，直接输出完整结果。输出结束时单独一行写：<STAGE_COMPLETE>。`;
+                await this.ai.sendPromptOnce(recoveryPrompt, recoveryFingerprint, options.modelProfile);
+            }
+            return await this.ai.waitForResponseAfterPrompt(recoveryFingerprint, waitOptions);
+        }
+    }
     async selectStandardWorkflowGoal(goal) {
         const state = this.store.get();
         if (state.workflowMode !== "standard_listing") {
@@ -214,7 +287,11 @@ export class AutomationService {
         if (state.running || state.autoRun) {
             throw new Error("流程运行中，不能切换任务目标");
         }
-        if (state.chatUrl || state.completedPhase) {
+        // 健康检查会把 ChatGPT 首页写入 chatUrl；首页没有承载当前商品的
+        // 对话上下文，不应阻塞批处理进入下一行。只有真实会话才锁定任务目标。
+        const hasActiveConversation = /^https:\/\/chatgpt\.com\/c\//.test(String(state.chatUrl ?? "")) ||
+            /^https:\/\/gemini\.google\.com\/app\//.test(String(state.chatUrl ?? ""));
+        if (hasActiveConversation || state.completedPhase) {
             throw new Error("当前商品已开始，不能切换任务目标");
         }
         return this.store.update({
@@ -250,10 +327,10 @@ export class AutomationService {
             if (!readiness.ready) {
                 return this.store.update({
                     browserStarted: true,
-                    message: `请先登录 ${this.providerName(provider)}，登录后点击“重新检查连接”`,
+                    message: this.readinessMessage(readiness.status, provider),
                     error: readiness.status === "verification_required"
                         ? `${this.providerName(provider)} 正在要求真人验证`
-                        : undefined
+                        : this.readinessError(readiness.status, provider)
                 });
             }
             await this.migrateCurrentProduct(adapter, state);
@@ -373,25 +450,64 @@ export class AutomationService {
             const readiness = await this.ai.checkReady();
             const provider = this.store.get().provider;
             const state = this.store.get();
+            const imageUploadReady = readiness.imageUpload?.ready;
+            const imageUploadReason = readiness.imageUpload?.reason;
+            // 运行期间的「重新检查连接」只能写健康快照。绝不能覆盖正在等待、
+            // 恢复或生成中的业务阶段，否则前端会显示“已登录、可开始”，后台却仍在执行。
+            if (state.running || state.autoRun) {
+                return this.store.update({
+                    browserStarted: readiness.ready,
+                    imageUploadReady,
+                    imageUploadReason,
+                    browserHealth: {
+                        status: readiness.status,
+                        ready: readiness.ready,
+                        checkedAt: new Date().toISOString()
+                    }
+                });
+            }
             if (readiness.ready &&
                 state.completedPhase &&
                 !this.isConversationUrl(provider, state.chatUrl ?? "")) {
                 await this.migrateCurrentProduct(this.ai, state);
                 return this.store.get();
             }
+            const uploadBlocked = readiness.ready && imageUploadReady === false;
             return this.store.update({
                 browserStarted: true,
-                chatUrl: this.isConversationUrl(provider, readiness.url)
+                // 浏览器健康检查只能确认登录，不能把用户当前打开的任意历史对话
+                // 认作“当前产品”的会话。否则空工作区在导入图片前执行检查，会被
+                // 误写 chatUrl，随后 import-images 因“商品已进入对话”被错误锁死。
+                chatUrl: state.chatUrl && this.isConversationUrl(provider, readiness.url)
                     ? readiness.url
-                    : this.store.get().chatUrl,
+                    : state.chatUrl,
                 stage: "READY_FOR_LOGIN",
-                message: this.readinessMessage(readiness.status, provider),
+                imageUploadReady,
+                imageUploadReason,
+                message: uploadBlocked
+                    ? `${this.providerName(provider)} 已登录，但图片上传入口不可用：${imageUploadReason}`
+                    : this.readinessMessage(readiness.status, provider),
                 error: readiness.status === "verification_required"
                     ? `请在普通 Chrome 中完成 ${this.providerName(provider)} 人机验证；程序不会尝试绕过验证。`
-                    : undefined
+                    : uploadBlocked
+                        ? `图片上传预检未通过：${imageUploadReason}`
+                        : readiness.ready
+                            ? undefined
+                            : this.readinessError(readiness.status, provider)
             });
         }
         catch (error) {
+            const current = this.store.get();
+            if (current.running || current.autoRun) {
+                return this.store.update({
+                    browserHealth: {
+                        status: "unavailable",
+                        ready: false,
+                        detail: error instanceof Error ? error.message : String(error),
+                        checkedAt: new Date().toISOString()
+                    }
+                });
+            }
             return this.fail(error);
         }
     }
@@ -412,6 +528,9 @@ export class AutomationService {
             listingContentText: undefined,
             researchCompleted: false,
             promptPackValid: undefined,
+            imageFrameworkReport: undefined,
+            imageFrameworkValid: undefined,
+            frameworkRetryAttempted: undefined,
             completedPhase: undefined,
             currentImageNumber: undefined,
             generatedImageNumbers: [],
@@ -434,10 +553,14 @@ export class AutomationService {
             });
             const readiness = await this.ai.checkReady();
             if (!readiness.ready) {
-                throw new Error(`${this.providerName(this.store.get().provider)} 未登录或输入框不可用`);
+                throw new Error(this.readinessError(readiness.status));
             }
             const chatUrl = await this.ai.createBlankChat();
             if (images.length > 0) {
+                const imageUpload = await this.ai.checkImageUploadReady();
+                if (!imageUpload.ready) {
+                    throw new Error(`ChatGPT 图片上传预检未通过：${imageUpload.reason}。本次未发送产品识别 Prompt，请稍后重试。`);
+                }
                 await this.store.update({
                     chatUrl,
                     stage: "UPLOADING_IMAGES",
@@ -449,13 +572,16 @@ export class AutomationService {
                 stage: "SENDING_PROMPT",
                 message: images.length ? "图片上传完成，正在发送测试 Prompt…" : "正在发送测试 Prompt…"
             });
-            await this.ai.sendPromptOnce(buildProductFactPrompt(this.store.get()), PRODUCT_FACT_PROMPT_FINGERPRINT);
+            await this.ai.sendPromptOnce(buildProductFactPrompt(this.store.get()), PRODUCT_FACT_PROMPT_FINGERPRINT, MODEL_PROFILES.identify);
             await this.store.update({
                 chatUrl: this.ai.currentUrl(),
                 stage: "WAITING_FOR_RESPONSE",
                 message: `Prompt 已发送，正在等待 ${this.providerName(this.store.get().provider)} 回复完成…`
             });
-            const responseText = await this.ai.waitForResponseAfterPrompt(PRODUCT_FACT_PROMPT_FINGERPRINT);
+            const responseText = await this.waitForStageResponse(PRODUCT_FACT_PROMPT_FINGERPRINT, {
+                label: "产品识别",
+                modelProfile: MODEL_PROFILES.identify
+            });
             await this.store.update({
                 stage: "COMPLETED",
                 message: "MVP 1 已完成",
@@ -470,6 +596,31 @@ export class AutomationService {
         catch (error) {
             await this.fail(error);
         }
+    }
+    /**
+     * 为「框架校验失败后重跑规划」准备全新对话：新建空白对话并重新上传产品图。
+     * 仅用于 continueThroughPlanning 的自动重跑，不重置 MVP1 事实/调研文本。
+     */
+    async prepareNewChatForPlanning() {
+        const images = await scanProductImages();
+        const readiness = await this.ai.checkReady();
+        if (!readiness.ready) {
+            throw new Error(this.readinessError(readiness.status));
+        }
+        const chatUrl = await this.ai.createBlankChat();
+        if (images.length > 0) {
+            const imageUpload = await this.ai.checkImageUploadReady();
+            if (!imageUpload.ready) {
+                throw new Error(`ChatGPT 图片上传预检未通过：${imageUpload.reason}。本次未重跑规划，请稍后重试。`);
+            }
+            await this.ai.uploadImages(images.map((image) => image.path));
+        }
+        await this.store.update({
+            chatUrl,
+            imageCount: images.length,
+            imageNames: images.map((image) => image.name),
+            message: `已新建对话并上传 ${images.length} 张产品图，准备重跑视觉规划…`
+        });
     }
     async continueThroughPlanning() {
         if (this.store.get().running) {
@@ -488,7 +639,11 @@ export class AutomationService {
             message: "正在恢复 MVP 1 商品对话…"
         });
         try {
-            const planningPromptTemplate = await readPrompt("planning");
+            // 批量模式跳过联网调研时，使用不引用 Top 10 / Chrome AI 的简化规划 Prompt，
+            // 从根上避免 ChatGPT 自行打开联网搜索去查找“市场数据”而再次卡死。
+            const planningPromptTemplate = existing.skipResearch
+                ? await readPrompt("planningNoResearch")
+                : await readPrompt("planning");
             const restoredChatUrl = await this.ai.openChat(existing.chatUrl);
             if (restoredChatUrl && restoredChatUrl !== existing.chatUrl) {
                 await this.store.update({ chatUrl: restoredChatUrl });
@@ -498,26 +653,37 @@ export class AutomationService {
                 researchText,
                 researchCompleted: true,
                 stage: "SENDING_PLANNING",
-                message: "市场调研完成，正在发送视觉规划 Prompt…"
+                message: existing.skipResearch
+                    ? "已跳过联网市场调研，正在发送基于产品图的视觉规划 Prompt…"
+                    : "市场调研完成，正在发送视觉规划 Prompt…"
             });
-            const planningPrompt = planningPromptTemplate.replace("{{CHROME_AI_REPORT}}", researchText);
-            let planningText = existing.planningText ??
-                (await this.ai.recoverCompletedResponse("Single Image Prompt Pack"));
+            // skipResearch 时使用无联网模板（无 {{CHROME_AI_REPORT}} 变量，无需替换）；
+            // 否则将市场调研报告注入规划 Prompt。
+            const planningPrompt = existing.skipResearch
+                ? planningPromptTemplate
+                : planningPromptTemplate.replace("{{CHROME_AI_REPORT}}", researchText);
+            let planningText = existing.planningText;
             if (!planningText) {
-                if (await this.ai.hasUserPrompt("Single Image Prompt Pack")) {
+                if (await this.ai.hasUserPromptStrict("Single Image Prompt Pack")) {
                     await this.store.update({
                         stage: "WAITING_FOR_PLANNING",
                         message: "检测到视觉规划 Prompt 已发送，正在从断点等待回复…"
                     });
-                    planningText = await this.ai.waitForResponseAfterPrompt("Single Image Prompt Pack");
+                    planningText = await this.waitForStageResponse("Single Image Prompt Pack", {
+                        label: "视觉规划",
+                        modelProfile: MODEL_PROFILES.planning
+                    });
                 }
                 else {
-                    await this.ai.sendPromptOnce(planningPrompt, "Single Image Prompt Pack");
+                    await this.ai.sendPromptOnce(planningPrompt, "Single Image Prompt Pack", MODEL_PROFILES.planning);
                     await this.store.update({
                         stage: "WAITING_FOR_PLANNING",
                         message: "视觉规划已发送，正在等待 Image 1–10 Prompt Pack…"
                     });
-                    planningText = await this.ai.waitForResponseAfterPrompt("Single Image Prompt Pack");
+                    planningText = await this.waitForStageResponse("Single Image Prompt Pack", {
+                        label: "视觉规划",
+                        modelProfile: MODEL_PROFILES.planning
+                    });
                 }
             }
             else {
@@ -547,12 +713,47 @@ export class AutomationService {
             if (!validation.valid) {
                 console.warn("[planning] Prompt Pack 校验未通过，缺失：", validation.missing.join(", "), "内容不足：", validation.short?.join(", ") || "无");
             }
+            // 10 图框架校验（v1.0 标准）：10 槽互异 + 第 3 槽 = 尺寸/比例 + 使用场景 ≤ 2。
+            // 不通过则硬拦截（FAILED），防止模型跑偏后仍进入出图、产出同质化图片。
+            const framework = validateImageFramework(planningText);
+            console.log("[planning] 10 图框架校验:", JSON.stringify({
+                ok: framework.ok,
+                violations: framework.violations,
+                warnings: framework.warnings,
+                slots: framework.slots.map((s) => `${s.num}:${s.job}`)
+            }));
+            if (!framework.ok) {
+                await this.store.update({
+                    planningText,
+                    imageFrameworkReport: framework,
+                    imageFrameworkValid: false
+                }).catch(() => { });
+                const alreadyRetried = Boolean(existing.frameworkRetryAttempted);
+                if (!alreadyRetried) {
+                    // 硬拦截不再变死路：自动开新对话重跑一次规划（同对话会被 hasUserPromptStrict 复用旧文本）。
+                    console.warn(`[planning] 10 图框架校验未通过，自动开新对话重跑一次：${framework.violations.join("；")}`);
+                    await this.store.update({
+                        frameworkRetryAttempted: true,
+                        stage: "SENDING_PLANNING",
+                        message: "10 图框架未通过，正在新建对话重跑规划（第 2 次）…"
+                    });
+                    await this.prepareNewChatForPlanning();
+                    // 清空 planningText 并释放 running，让递归调用在新对话里重新发送规划
+                    await this.store.update({ planningText: undefined, promptPackValid: undefined, running: false });
+                    return await this.continueThroughPlanning();
+                }
+                const frameworkError = new Error(`10 图框架校验未通过（已自动重跑 1 次仍失败）：${framework.violations.join("；")}。请人工检查规划后重跑。`);
+                frameworkError.code = "IMAGE_FRAMEWORK_INVALID";
+                throw frameworkError;
+            }
             await this.store.update({
                 stage: "COMPLETED",
-                message: validation.valid ? "MVP 2–3 已完成，Prompt Pack 校验通过" : "MVP 2–3 已完成，Prompt Pack 校验未通过（仍按用户设置放行，请在 MVP4 前确认内容完整）",
+                message: validation.valid ? "MVP 2–3 已完成，Prompt Pack 与 10 图框架校验通过" : "MVP 2–3 已完成，Prompt Pack 校验未通过（仍按用户设置放行，请在 MVP4 前确认内容完整）",
                 running: false,
                 // 不再强制写死 true：真实反映校验结果，MVP4 会据其兜底修复
                 promptPackValid: Boolean(validation.valid),
+                imageFrameworkReport: framework,
+                imageFrameworkValid: true,
                 completedPhase: "MVP3",
                 error: undefined,
                 interruptedStage: undefined,
@@ -658,28 +859,7 @@ export class AutomationService {
                     });
                     continue;
                 }
-                if (interruptedCurrentImage &&
-                    existing.stage !== "FAILED" &&
-                    (await this.ai.hasUserPrompt(`请生成 Image ${imageNumber}`))) {
-                    await this.store.update({
-                        stage: "DOWNLOADING_IMAGE",
-                        currentImageNumber: imageNumber,
-                        message: `Image ${imageNumber} 指令已发送，正在从断点等待并保存…`
-                    });
-                    await this.ai.waitForGeneratedImageAndDownload(generated.size, outputPath);
-                    generated.add(imageNumber);
-                    const resumedFiles = [
-                        ...(this.store.get().outputFiles ?? []),
-                        fileName
-                    ];
-                    await this.store.update({
-                        stage: "GENERATING_IMAGES",
-                        generatedImageNumbers: [...generated].sort((a, b) => a - b),
-                        outputFiles: [...new Set(resumedFiles)],
-                        message: `Image ${imageNumber} 已从断点恢复并下载`
-                    });
-                    continue;
-                }
+                // 先提取本图生图 Prompt（规划文本不完整时自动补全），供后续发送分支使用
                 let imagePrompt;
                 try {
                     imagePrompt = extractImagePrompt(existing.planningText, imageNumber);
@@ -707,26 +887,108 @@ export class AutomationService {
                     });
                     imagePrompt = extractImagePrompt(recovered.text, imageNumber);
                 }
+                // 断点恢复：若 ChatGPT 当前就在生成该图（stop 按钮可见），先等待完成；
+                // 超时则回落到下方“重新发送”分支，避免 hasUserPrompt 误判导致傻等。
+                if (interruptedCurrentImage) {
+                    const page = await this.ai.requirePage();
+                    const stopVisible = await this.ai.stopButton(page).isVisible().catch(() => false);
+                    if (stopVisible) {
+                        await this.store.update({
+                            stage: "DOWNLOADING_IMAGE",
+                            currentImageNumber: imageNumber,
+                            message: `Image ${imageNumber} 正在生成中，正在等待完成…`
+                        });
+                        try {
+                            await this.ai.waitForGeneratedImageAndDownload("", outputPath);
+                            generated.add(imageNumber);
+                            const resumedFiles = [
+                                ...(this.store.get().outputFiles ?? []),
+                                fileName
+                            ];
+                            await this.store.update({
+                                stage: "GENERATING_IMAGES",
+                                generatedImageNumbers: [...generated].sort((a, b) => a - b),
+                                outputFiles: [...new Set(resumedFiles)],
+                                message: `Image ${imageNumber} 已从断点恢复并下载`
+                            });
+                            continue;
+                        }
+                        catch {
+                            console.warn(`[automation] Image ${imageNumber} 断点等待超时，改走重新发送分支`);
+                        }
+                    }
+                }
                 await this.store.update({
                     stage: "GENERATING_IMAGES",
                     currentImageNumber: imageNumber,
                     message: `正在切换创建图片模式并生成 Image ${imageNumber}…`
                 });
-                await this.ai.enableImageCreation();
                 const generationInput = await this.visualAssets.validateGenerationInput({
                     image_number: imageNumber,
                     image_prompt: imagePrompt,
                     prompt_version: "single-image-v1"
                 });
-                await this.ai.uploadImages(generationInput.reference_image_paths);
-                const previousGeneratedImageCount = await this.ai.generatedImageCount();
-                const command = singleImageCommand(imageNumber, imagePrompt);
-                await this.ai.sendPromptOnce(command, `请生成 Image ${imageNumber}`);
-                await this.store.update({
-                    stage: "DOWNLOADING_IMAGE",
-                    message: `Image ${imageNumber} 已派发，正在等待生成并下载…`
-                });
-                await this.ai.waitForGeneratedImageAndDownload(previousGeneratedImageCount, outputPath);
+                // 单图生成超时重试：某张图 ChatGPT 未生成 / 选择器未命中时，最多重试 2 次（共 3 次尝试），
+                // 避免一张图卡死就让整批 10 张全部失败。
+                const MAX_IMAGE_ATTEMPTS = 3;
+                let imageSaved = false;
+                // 基线 = 最后一张生成图的 src（不是数量）。DOM 虚拟化会让数量抖动，
+                // 按数量判断会永远判不到新图（2026-10-24 真机 Image 3/4 即因此反复超时 FAILED）。
+                const imageTaskBaseline = await this.ai.generatedImageLastSrc();
+                for (let attempt = 0; attempt < MAX_IMAGE_ATTEMPTS && !imageSaved; attempt += 1) {
+                    if (attempt > 0) {
+                        await this.store.update({
+                            message: `Image ${imageNumber} 第 ${attempt} 次重试生成（前次超时未检测到图）…`
+                        });
+                        // 先短等待回收上一轮迟到出现的图（45s）；能回收就不再重复发送，避免刷屏与上下文膨胀。
+                        try {
+                            await this.ai.waitForGeneratedImageAndDownload(imageTaskBaseline, outputPath, 45_000);
+                            imageSaved = true;
+                            break;
+                        }
+                        catch {
+                            // 没有可用新图 → 继续走"重新发送"分支
+                        }
+                    }
+                    await this.ai.enableImageCreation();
+                    // 同一对话内产品图只上传一次（或按 IMAGE_REFERENCE_REFRESH_INTERVAL 定期刷新），
+                    // 避免 10 张图 × 3 张源图的重复提交撑大会话上下文、拉长上传耗时。
+                    // 用户反馈（2026-10-23）：「一个产品的对话框里面不用重复提交产品图片」。
+                    if (IMAGE_REFERENCE_REFRESH_INTERVAL > 0 &&
+                        imageNumber > 1 &&
+                        (imageNumber - 1) % IMAGE_REFERENCE_REFRESH_INTERVAL === 0) {
+                        this.ai.resetUploadedImages();
+                    }
+                    const upload = await this.ai.uploadImages(generationInput.reference_image_paths);
+                    // 基线统一用 imageTaskBaseline（不在每次重试重取，避免被迟到图推高）
+                    // 附件在「本条消息」还是「本对话历史」，Prompt 文案必须跟着变，
+                    // 否则模型会去找本条消息里并不存在的附件。
+                    const command = singleImageCommand(imageNumber, imagePrompt, { withImages: upload.attached });
+                    await this.ai.sendPromptOnce(command, `请生成 Image ${imageNumber}`, MODEL_PROFILES.image);
+                    await this.store.update({
+                        stage: "DOWNLOADING_IMAGE",
+                        message: `Image ${imageNumber} 已派发，正在等待生成并下载…`
+                    });
+                    try {
+                        await this.ai.waitForGeneratedImageAndDownload(imageTaskBaseline, outputPath);
+                        imageSaved = true;
+                    }
+                    catch (waitError) {
+                        if (attempt >= MAX_IMAGE_ATTEMPTS - 1) {
+                            throw waitError; // 3 次都失败 → 冒泡到 generateImages 的 catch，标记 FAILED
+                        }
+                        console.warn(`[automation] Image ${imageNumber} 生成超时，准备重试：${waitError?.message || waitError}`);
+                        // 清理可能残留的生成态，避免下一轮 sendPromptOnce 被 stop 按钮卡住
+                        try {
+                            const page = await this.ai.requirePage();
+                            await this.ai.clickStopSafely(page);
+                        }
+                        catch {
+                            // 忽略清理失败
+                        }
+                        await new Promise((resolve) => setTimeout(resolve, 2_000));
+                    }
+                }
                 generated.add(imageNumber);
                 const outputFiles = [...(this.store.get().outputFiles ?? []), fileName];
                 await this.store.update({
@@ -763,6 +1025,97 @@ export class AutomationService {
             await this.fail(error);
         }
     }
+    /**
+     * 单图重生成：只重新生成指定编号的一张图，不动其他 9 张、不改 completedPhase。
+     * 用于 UI 上对某张图不满意时单独重跑（避免整套 10 张重来）。
+     */
+    async regenerateSingleImage(imageNumber) {
+        const n = Number(imageNumber);
+        if (!Number.isInteger(n) || n < 1 || n > 10) {
+            throw new Error("图片编号必须是 1–10 的整数");
+        }
+        if (this.store.get().running) {
+            throw new Error("当前已有任务正在运行");
+        }
+        const existing = this.store.get();
+        if (!existing.planningText) {
+            throw new Error("尚未完成视觉规划，无法单图重生成");
+        }
+        if (!existing.chatUrl) {
+            throw new Error("尚未建立商品对话，无法单图重生成");
+        }
+        const imagePrompt = extractImagePrompt(existing.planningText, n);
+        const fileName = `Image_${String(n).padStart(2, "0")}.jpg`;
+        const outputPath = path.join(OUTPUT_DIR, fileName);
+        // 备份旧图（避免 waitForGeneratedImageAndDownload 因「文件已存在」直接返回）
+        await rename(outputPath, `${outputPath}.bak-${Date.now()}`).catch(() => { });
+        const generatedBefore = new Set(existing.generatedImageNumbers ?? []);
+        generatedBefore.delete(n);
+        await this.store.update({
+            running: true,
+            pauseRequested: false,
+            error: undefined,
+            interruptedStage: undefined,
+            stage: "GENERATING_IMAGES",
+            currentImageNumber: n,
+            generatedImageNumbers: [...generatedBefore].sort((a, b) => a - b),
+            outputFiles: (existing.outputFiles ?? []).filter((f) => f !== fileName),
+            message: `正在重新生成 Image ${n}…`
+        });
+        try {
+            await this.ai.openChat(existing.chatUrl);
+            const generationInput = await this.visualAssets.validateGenerationInput({
+                image_number: n,
+                image_prompt: imagePrompt,
+                prompt_version: "single-image-v1"
+            });
+            const MAX_ATTEMPTS = 3;
+            let saved = false;
+            for (let attempt = 0; attempt < MAX_ATTEMPTS && !saved; attempt += 1) {
+                if (attempt > 0) {
+                    await this.store.update({ message: `Image ${n} 第 ${attempt} 次重试…` });
+                }
+                await this.ai.enableImageCreation();
+                const upload = await this.ai.uploadImages(generationInput.reference_image_paths);
+                const baseline = await this.ai.generatedImageLastSrc();
+                const command = singleImageCommand(n, imagePrompt, { withImages: upload.attached });
+                await this.ai.sendPromptOnce(command, `请生成 Image ${n}`, MODEL_PROFILES.image);
+                await this.store.update({
+                    stage: "DOWNLOADING_IMAGE",
+                    message: `Image ${n} 已派发，正在等待生成并下载…`
+                });
+                try {
+                    await this.ai.waitForGeneratedImageAndDownload(baseline, outputPath);
+                    saved = true;
+                }
+                catch (waitError) {
+                    if (attempt >= MAX_ATTEMPTS - 1) {
+                        throw waitError;
+                    }
+                    await this.ai.clickStopSafely(await this.ai.requirePage()).catch(() => { });
+                    await new Promise((resolve) => setTimeout(resolve, 2000));
+                }
+            }
+            const done = new Set([...(this.store.get().generatedImageNumbers ?? []), n]);
+            const phase = this.store.get().completedPhase;
+            const finalStage = phase === "MVP4" || phase === "MVP5" ? "COMPLETED" : "GENERATING_IMAGES";
+            await this.store.update({
+                stage: finalStage,
+                running: false,
+                autoRun: false,
+                currentImageNumber: undefined,
+                generatedImageNumbers: [...done].sort((a, b) => a - b),
+                outputFiles: [...new Set([...(this.store.get().outputFiles ?? []), fileName])],
+                error: undefined,
+                interruptedStage: undefined,
+                message: `Image ${n} 已重新生成完成`
+            });
+        }
+        catch (error) {
+            await this.fail(error);
+            throw error;
+        }
+    }
     async generateSeoListingContent(shouldContinue = () => true) {
         if (this.store.get().running) {
             throw new Error("当前已有任务正在运行");
@@ -789,6 +1142,24 @@ export class AutomationService {
             if (restoredChatUrl && restoredChatUrl !== existing.chatUrl) {
                 await this.store.update({ chatUrl: restoredChatUrl });
             }
+            // 大对话降级：原对话若因内联生成图过多无法在浏览器端渲染线程（composer 缺失 /
+            // composer_unavailable），openChat 后依旧无法发送。降级到新建对话：重传源产品图 +
+            // 注入已抽取的产品事实，使 ChatGPT 在无原对话上下文时仍能产出完整 Listing 文案。
+            const readiness = await this.ai.checkReady().catch(() => ({ ready: false, status: "composer_unavailable" }));
+            let freshChatContext = "";
+            if (!readiness.ready || readiness.status === "composer_unavailable") {
+                console.warn("[seo] 原对话无法渲染，降级到新建对话生成 Listing 文案");
+                await this.ai.createBlankChat();
+                try {
+                    const srcImages = await scanProductImages();
+                    if (srcImages.length) {
+                        await this.ai.uploadImages(srcImages.map((image) => image.path));
+                    }
+                } catch (imgErr) {
+                    console.warn("[seo] 降级对话重传源图失败（继续，依赖注入事实）:", imgErr && imgErr.message);
+                }
+                freshChatContext = this.buildFreshChatFactsContext(existing);
+            }
             // 批量模式下跳过市场调研：不注入 researchText，直接基于产品事实生成 SEO/Listing
             const seoPrompt = (seoOnly && !existing.skipResearch)
                 ? `${seoPromptTemplate}
@@ -800,28 +1171,51 @@ ${existing.researchText ?? ""}
 
 请明确基于以上产品事实、市场调研和 VOC 生成关键词，不依赖视觉规划或生图结果。`
                 : seoPromptTemplate;
-            let seoKeywordText = existing.seoKeywordText ??
-                (await this.ai.recoverCompletedResponse(SEO_KEYWORDS_FINGERPRINT));
+            // 不使用 recoverCompletedResponse 预赋值：其「最后一条 assistant 兜底」会在首跑时把 MVP1 事实底稿误当成 SEO 词库，
+            // 导致 SEO / Listing 两个 Prompt 都被跳过，最终 03/04 两份文件都写成事实底稿（"只做了事实确定"）。
+            const manifestPath = path.join(PRODUCT_ROOT, "progress-manifest.json");
+            const productKey = productKeyOf(existing);
+            let seoKeywordText = existing.seoKeywordText;
             if (!seoKeywordText) {
-                if (await this.ai.hasUserPrompt(SEO_KEYWORDS_FINGERPRINT)) {
+                // C) 幂等对账：run-state 丢失但磁盘产物校验通过 → 直接复用，避免重复发送/生成。
+                const seoFromDisk = await loadVerifiedText(manifestPath, productKey, "seo_keywords").catch(() => null);
+                if (seoFromDisk && seoFromDisk.trim()) {
+                    seoKeywordText = seoFromDisk.trim();
+                    console.log("[manifest] SEO 词库经磁盘校验通过，复用（不重发 Prompt）");
+                    await this.store.update({ seoKeywordText, message: "SEO 词库已从磁盘 manifest 复用，跳过重复生成" });
+                }
+            }
+            if (!seoKeywordText) {
+                if (await this.ai.hasUserPromptStrict(SEO_KEYWORDS_FINGERPRINT)) {
                     await this.store.update({
                         stage: "WAITING_FOR_SEO_KEYWORDS",
                         message: "SEO Prompt 已发送，正在从断点等待完整词库…"
                     });
-                    seoKeywordText = await this.ai.waitForResponseAfterPrompt(SEO_KEYWORDS_FINGERPRINT);
+                    seoKeywordText = await this.waitForStageResponse(SEO_KEYWORDS_FINGERPRINT, {
+                        label: "SEO 关键词",
+                        modelProfile: MODEL_PROFILES.seo
+                    });
                 }
                 else {
                     await this.store.update({
                         stage: "SENDING_SEO_KEYWORDS",
-                        message: "正在启用网页搜索并发送 SEO 关键词 Prompt…"
+                        message: existing.skipResearch
+                            ? "正在发送 SEO 关键词 Prompt（批量模式不联网）…"
+                            : "正在启用网页搜索并发送 SEO 关键词 Prompt…"
                     });
-                    await this.enableWebSearchIfAvailable("SEO 关键词");
-                    await this.ai.sendPromptOnce(seoPrompt, SEO_KEYWORDS_FINGERPRINT);
+                    // 批量模式跳过市场调研时，不打开联网搜索开关，避免 ChatGPT 联网卡死。
+                    if (!existing.skipResearch) {
+                        await this.enableWebSearchIfAvailable("SEO 关键词");
+                    }
+                    await this.ai.sendPromptOnce(seoPrompt, SEO_KEYWORDS_FINGERPRINT, MODEL_PROFILES.seo);
                     await this.store.update({
                         stage: "WAITING_FOR_SEO_KEYWORDS",
                         message: "关键词研究已发送，正在等待完整词库…"
                     });
-                    seoKeywordText = await this.ai.waitForResponseAfterPrompt(SEO_KEYWORDS_FINGERPRINT);
+                    seoKeywordText = await this.waitForStageResponse(SEO_KEYWORDS_FINGERPRINT, {
+                        label: "SEO 关键词",
+                        modelProfile: MODEL_PROFILES.seo
+                    });
                 }
             }
             await this.store.update({
@@ -843,10 +1237,21 @@ ${existing.researchText ?? ""}
             }
             const listingPrompt = [
                 LISTING_CONTENT_FINGERPRINT,
+                freshChatContext,
                 listingPromptTemplate.replace("{{SEO_KEYWORD_REPORT}}", seoKeywordText)
-            ].join("\n\n");
-            let listingContentText = existing.listingContentText ??
-                (await this.recoverCompletedResponseForFingerprints(LISTING_CONTENT_FINGERPRINTS));
+            ].filter(Boolean).join("\n\n");
+            // 不使用 recoverCompletedResponseForFingerprints 预赋值：其底层 recover 的「最后一条 assistant 兜底」
+            // 会在首跑时把 MVP1/SEO 的回复误当成 Listing 文案，导致 Listing Prompt 被跳过。
+            let listingContentText = existing.listingContentText;
+            if (!listingContentText) {
+                // C) 幂等对账：Listing 文案磁盘校验通过则复用，避免重复发送。
+                const listingFromDisk = await loadVerifiedText(manifestPath, productKey, "listing_content").catch(() => null);
+                if (listingFromDisk && listingFromDisk.trim().length > 200) {
+                    listingContentText = listingFromDisk.trim();
+                    console.log("[manifest] Listing 文案经磁盘校验通过，复用（不重发 Prompt）");
+                    await this.store.update({ listingContentText, message: "Listing 文案已从磁盘 manifest 复用，跳过重复生成" });
+                }
+            }
             if (!listingContentText) {
                 if (await this.hasUserPromptForFingerprints(LISTING_CONTENT_FINGERPRINTS)) {
                     await this.store.update({
@@ -856,12 +1261,15 @@ ${existing.researchText ?? ""}
                     listingContentText = await this.waitForResponseAfterFingerprints(LISTING_CONTENT_FINGERPRINTS);
                 }
                 else {
-                    await this.ai.sendPromptOnce(listingPrompt, LISTING_CONTENT_FINGERPRINT);
+                    await this.ai.sendPromptOnce(listingPrompt, LISTING_CONTENT_FINGERPRINT, MODEL_PROFILES.listing);
                     await this.store.update({
                         stage: "WAITING_FOR_LISTING_CONTENT",
                         message: "Listing 文案 Prompt 已发送，正在等待完整交付内容…"
                     });
-                    listingContentText = await this.ai.waitForResponseAfterPrompt(LISTING_CONTENT_FINGERPRINT);
+                    listingContentText = await this.waitForStageResponse(LISTING_CONTENT_FINGERPRINT, {
+                        label: "Listing 文案",
+                        modelProfile: MODEL_PROFILES.listing
+                    });
                 }
             }
             await this.store.update({
@@ -874,6 +1282,23 @@ ${existing.researchText ?? ""}
                 writeFile(path.join(OUTPUT_DIR, "03_SEO_KEYWORDS.md"), `${seoKeywordText.trim()}\n`, "utf8"),
                 writeFile(path.join(OUTPUT_DIR, "04_LISTING_CONTENT.md"), `${listingContentText.trim()}\n`, "utf8")
             ]);
+            // C) 幂等 manifest：记录产物校验和，供断点对账/复用。
+            await Promise.all([
+                recordArtifact({ manifestPath, productKey, step: "seo_keywords", filePath: path.join(OUTPUT_DIR, "03_SEO_KEYWORDS.md") }),
+                recordArtifact({ manifestPath, productKey, step: "listing_content", filePath: path.join(OUTPUT_DIR, "04_LISTING_CONTENT.md") })
+            ]).catch((manifestErr) => console.warn("[manifest] 记录 SEO/Listing 产物失败（非致命）:", manifestErr && manifestErr.message));
+            // B) verify-then-commit：推进到 COMPLETED 之前先回读产物并断言内容非空。
+            // 把"状态绿、产物空"从"靠翻日志发现"变成"代码拦截"。阈值取保守下限，
+            // 正常 SEO 词库 ≥10k 字、Listing ≥13k 字，远高于此。
+            const artifactFailures = await checkArtifacts([
+                { path: path.join(OUTPUT_DIR, "03_SEO_KEYWORDS.md"), minLength: 200 },
+                { path: path.join(OUTPUT_DIR, "04_LISTING_CONTENT.md"), minLength: 500 }
+            ]);
+            if (artifactFailures.length) {
+                const verifyError = new Error(`MVP5 产物校验未通过（${artifactFailures.join("；")}），已阻止标记完成`);
+                verifyError.code = "ARTIFACT_VERIFY_FAILED";
+                throw verifyError;
+            }
             await this.store.update({
                 stage: "COMPLETED",
                 running: false,
@@ -904,6 +1329,20 @@ ${existing.researchText ?? ""}
             await this.fail(error);
         }
     }
+    buildFreshChatFactsContext(state) {
+        const blocks = [];
+        if (state.responseText) {
+            blocks.push("## 产品事实底稿（MVP1 识别）\n<<<FACTS_START>>>\n" + state.responseText + "\n<<<FACTS_END>>>");
+        }
+        if (state.researchText) {
+            blocks.push("## 市场调研 / VOC\n<<<RESEARCH_START>>>\n" + state.researchText + "\n<<<RESEARCH_END>>>");
+        }
+        if (state.objectiveInfo) {
+            blocks.push("## 用户补充参数\n" + state.objectiveInfo);
+        }
+        if (!blocks.length) return "";
+        return "以下为本次商品已完成的识别 / 调研资料，请作为「本对话中的产品识别、市场调研、视觉规划」上下文使用（替代原对话历史）：\n\n" + blocks.join("\n\n");
+    }
     /**
      * 桥接（Plan B）：MVP5 完成后，把产品事实(MVP1 responseText) + Listing 文案(MVP5 文本)
      * 发给 AI 整理成 normalizeDianxiaomiFacts 形状的 JSON，注入真实产品图文件名后写入
@@ -917,56 +1356,12 @@ ${existing.researchText ?? ""}
             console.warn("[product-facts] 无产品事实与 Listing 文案，跳过整理");
             return null;
         }
-        let facts;
-        let usedFallback = false;
-        try {
-            const prompt = [
-                PRODUCT_FACTS_STRUCTURE_FINGERPRINT,
-                "",
-                PRODUCT_FACTS_STRUCTURE_PROMPT,
-                "",
-                "## A) 产品事实提取（MVP1）",
-                "<<<FACTS_START>>>",
-                factText,
-                "<<<FACTS_END>>>",
-                "",
-                "## B) SEO / Listing 文案（MVP5）",
-                "<<<LISTING_START>>>",
-                listingContentText,
-                "<<<LISTING_END>>>",
-                "",
-                "请按上述要求输出符合形状的 JSON 代码块。"
-            ].join("\n");
-            await this.ai.sendPromptOnce(prompt, PRODUCT_FACTS_STRUCTURE_FINGERPRINT);
-            await this.store.update({
-                stage: "BUILDING_PRODUCT_FACTS",
-                message: "正在把 Listing 资料整理成 product-facts.json…"
-            });
-            const responseText = await this.ai.waitForResponseAfterPrompt(PRODUCT_FACTS_STRUCTURE_FINGERPRINT);
-            const parsed = JSON.parse(extractJsonBlock(responseText));
-            facts = normalizeDianxiaomiFacts(parsed);
-            // 强制使用 MVP5 Listing 里的 Clean Title 与 AEO 结构化五点描述（AI 可能未严格按 prompt 提取）
-            const cleanTitle = extractCleanTitle(listingContentText);
-            if (cleanTitle) {
-                facts.title.en = cleanTitle;
-                facts.title.zh = facts.title.zh || "";
-            }
-            const aeoSection = extractAeoSection(listingContentText);
-            if (aeoSection) {
-                facts.description.pc = aeoSection;
-                facts.description.mobile = aeoSection;
-            }
-        }
-        catch (aiErr) {
-            // AI 桥接静默失败（超时 / 聊天漂移 / 返回非 JSON）→ 改用本地兜底生成，保证文件一定产出。
-            console.warn("[product-facts] AI 桥接失败，改用本地兜底生成（非致命）:", aiErr && aiErr.message ? aiErr.message : aiErr);
-            usedFallback = true;
-            facts = await buildProductFactsFallback({ factText, listingContentText, baseDir: PRODUCT_ROOT });
-        }
-        // 主图优先使用 MVP4 AI 生成的 Listing 图（output/Image_01.png ...），而非原始 1688 产品图。
-        // 这样店小秘上品主图和详情页插图才是「系统做的图」；无生成图时才回退到 scanProductImages。
-        // 标准布局：生成图只在 output/，**不**复制到 产品图/。店小秘端通过 resolveImagePath(baseDir, filename)
-        // 自动在 output/ 与 产品图/ 之间兜底查找（.png/.jpg 后缀互换），所以源图与生成图天然隔离。
+        // 【修复】本地兜底优先：不依赖 ChatGPT（不联网、不写 composer），先算出可用 facts 并立即写盘。
+        // 保证即使 CDP 抖动 / 发送失败 / AI 桥接超时，product-facts.json 也一定产出，不再出现「MVP5 完成但缺文件」。
+        let facts = await buildProductFactsFallback({ factText, listingContentText, baseDir: PRODUCT_ROOT });
+        let usedFallback = true;
+        // 主图优先使用 MVP4 AI 生成的 Listing 图（output/Image_01.jpg ...），而非原始 1688 产品图。
+        // 标准布局：生成图只在 output/，不复制到 产品图/；店小秘端通过 resolveImagePath 自动兜底查找。
         try {
             const outFiles = await readdir(OUTPUT_DIR).catch(() => []);
             const generated = outFiles
@@ -986,27 +1381,135 @@ ${existing.researchText ?? ""}
         catch (_e) {
             // 无图或目录异常则保持空数组，引用上架时由 checkDianxiaomiFactsReady 拦截提示
         }
-        await mkdir(PRODUCT_ROOT, { recursive: true });
         const target = path.join(PRODUCT_ROOT, "product-facts.json");
-        await writeFile(target, `${JSON.stringify(facts, null, 2)}\n`, "utf8");
-        // 同步镜像到根目录 product-facts.json：店小秘 manual 面板的 upload-images / save-variants
-        // 与「上架」(dxReferenceApply，不带 facts) 都读此文件。若不镜像，桥接产物与面板事实文件
-        // 两处不一致，会导致不带 facts 的引用上架误用旧类目/旧标题（已踩坑：ruTie 旧档覆盖箱包新档）。
-        try {
-            await writeFile(PRODUCT_FACT_FILE, `${JSON.stringify(facts, null, 2)}\n`, "utf8");
+        const persistFacts = async () => {
+            await mkdir(PRODUCT_ROOT, { recursive: true });
+            await writeFile(target, `${JSON.stringify(facts, null, 2)}\n`, "utf8");
+            // 同步镜像到根目录 product-facts.json：店小秘 manual 面板与「上架」(dxReferenceApply，不带 facts)
+            // 都读此文件。不镜像会造成面板事实文件与桥接产物不一致（已踩坑：ruTie 旧档覆盖箱包新档）。
+            try {
+                await writeFile(PRODUCT_FACT_FILE, `${JSON.stringify(facts, null, 2)}\n`, "utf8");
+            }
+            catch (mirrorErr) {
+                console.warn("[product-facts] 镜像到根目录 product-facts.json 失败（非致命）:", mirrorErr);
+            }
+            // C) 幂等 manifest：记录 product-facts 校验和（本地兜底与 AI 覆盖写后都会更新）。
+            try {
+                await recordArtifact({
+                    manifestPath: path.join(PRODUCT_ROOT, "progress-manifest.json"),
+                    productKey: productKeyOf(state),
+                    step: "product_facts",
+                    filePath: target
+                });
+            }
+            catch (manifestErr) {
+                console.warn("[manifest] 记录 product-facts 失败（非致命）:", manifestErr && manifestErr.message);
+            }
+        };
+        // 1) 先把本地兜底版落盘 —— 下游一定拿得到文件。
+        await persistFacts();
+        // B) verify-then-commit：回读校验三必填项（标题/详情/主图），不过则不标就绪。
+        // 与 server.js checkDianxiaomiFactsReady 的口径一致，避免"文件在但内容空"。
+        {
+            let persisted = null;
+            try {
+                persisted = JSON.parse(await readFile(target, "utf8"));
+            }
+            catch {
+                persisted = null;
+            }
+            const factsCheck = checkFactsReady(persisted);
+            if (!factsCheck.ok) {
+                const verifyError = new Error(`product-facts.json 校验失败（缺少：${factsCheck.missing.join("、")}），已阻止标记就绪`);
+                verifyError.code = "ARTIFACT_VERIFY_FAILED";
+                throw verifyError;
+            }
         }
-        catch (mirrorErr) {
-            console.warn("[product-facts] 镜像到根目录 product-facts.json 失败（非致命）:", mirrorErr);
-        }
+        const localMainImages = Array.isArray(facts.images?.main) ? [...facts.images.main] : [];
         await this.store.update({
             productFactsReady: true,
-            productFactsFallback: usedFallback,
+            productFactsFallback: true,
             productFactsPath: target,
-            message: usedFallback
-                ? "MVP5 已完成（product-facts 为本地兜底版，可上架但建议人工复核标题/属性）"
-                : "MVP 5 已完成，product-facts.json 已生成（可上架店小秘）"
-        });
+            message: "MVP5 已完成（product-facts 为本地兜底版，可上架但建议人工复核标题/属性）"
+        }).catch(() => {});
+        // 2) AI 桥接仅作可选增强：带 120s 硬超时；成功则覆盖为结构化版并重写文件，失败/超时一律保留兜底版。
+        //    关键：AI 桥接不再阻塞主流程，也不会因为 CDP 挂死导致 product-facts.json 缺失。
+        const aiPromise = this.buildFactsViaAi(state, listingContentText);
+        aiPromise.catch(() => { }); // 超时后后台 AI 桥接若拒绝，避免未捕获拒绝
+        let bridgeTimer;
+        try {
+            const aiFacts = await Promise.race([
+                aiPromise,
+                new Promise((_, reject) => {
+                    bridgeTimer = setTimeout(() => reject(new Error("AI 桥接超时（120s）")), 120_000);
+                })
+            ]);
+            if (aiFacts) {
+                const aiMain = Array.isArray(aiFacts.images?.main) ? aiFacts.images.main : [];
+                aiFacts.images = aiFacts.images || {};
+                aiFacts.images.main = aiMain.length ? aiMain : localMainImages;
+                facts = aiFacts;
+                usedFallback = false;
+                await persistFacts();
+                await this.store.update({
+                    productFactsReady: true,
+                    productFactsFallback: false,
+                    productFactsPath: target,
+                    message: "MVP 5 已完成，product-facts.json 已生成（AI 结构化版，可上架店小秘）"
+                }).catch(() => {});
+            }
+        }
+        catch (aiErr) {
+            console.warn("[product-facts] AI 桥接未采用，保留本地兜底版（非致命）:", aiErr && aiErr.message ? aiErr.message : aiErr);
+        }
+        finally {
+            if (bridgeTimer)
+                clearTimeout(bridgeTimer);
+        }
         return facts;
+    }
+    /**
+     * AI 桥接（可选增强）：把产品事实(MVP1) + Listing 文案(MVP5) 交给 AI 整理成结构化 JSON。
+     * 仅在 generateProductFactsFile 已写好本地兜底版之后调用；失败/超时不影响文件存在。
+     */
+    async buildFactsViaAi(state, listingContentText) {
+        const factText = state?.responseText || "";
+        const prompt = [
+            PRODUCT_FACTS_STRUCTURE_FINGERPRINT,
+            "",
+            PRODUCT_FACTS_STRUCTURE_PROMPT,
+            "",
+            "## A) 产品事实提取（MVP1）",
+            "<<<FACTS_START>>>",
+            factText,
+            "<<<FACTS_END>>>",
+            "",
+            "## B) SEO / Listing 文案（MVP5）",
+            "<<<LISTING_START>>>",
+            listingContentText,
+            "<<<LISTING_END>>>",
+            "",
+            "请按上述要求输出符合形状的 JSON 代码块。"
+        ].join("\n");
+        await this.ai.sendPromptOnce(prompt, PRODUCT_FACTS_STRUCTURE_FINGERPRINT, MODEL_PROFILES.factsBridge);
+        const responseText = await this.waitForStageResponse(PRODUCT_FACTS_STRUCTURE_FINGERPRINT, {
+            label: "店小秘资料整理",
+            modelProfile: MODEL_PROFILES.factsBridge
+        });
+        const parsed = JSON.parse(extractJsonBlock(responseText));
+        const aiFacts = normalizeDianxiaomiFacts(parsed);
+        // 强制使用 MVP5 Listing 里的 Clean Title 与 AEO 结构化五点描述（AI 可能未严格按 prompt 提取）
+        const cleanTitle = extractCleanTitle(listingContentText);
+        if (cleanTitle) {
+            aiFacts.title.en = cleanTitle;
+            aiFacts.title.zh = aiFacts.title.zh || "";
+        }
+        const aeoSection = extractAeoSection(listingContentText);
+        if (aeoSection) {
+            aiFacts.description.pc = aeoSection;
+            aiFacts.description.mobile = aeoSection;
+        }
+        return aiFacts;
     }
     async syncFromChatGpt() {
         const before = this.store.get();
@@ -1064,23 +1567,25 @@ ${existing.researchText ?? ""}
             const v = validatePromptPack(text, 10);
             if (v.valid)
                 return { text, valid: true, rounds: round };
-            // 不是大纲/分段预告（例如产品信息缺失等），无法靠续写修复
-            if (!isOutlineOnlyPlanningText(text))
-                return { text, valid: v.valid, rounds: round };
+            // 只要没有完整 Prompt Pack，就尝试续写。ChatGPT 常见的「分段预告 / 大纲 / 承诺下一条回复」
+            // 都属于可续写场景；即便不是大纲，补一次「请直接输出完整内容」也不会造成破坏。
             const fp = round === 0 ? "视觉规划自动补全指令" : `规划续写${round}`;
             const continuation = round === 0
                 ? PLANNING_COMPLETION_PROMPT
-                : "请继续从上一个未完成的 Image 编号开始，严格按照 <<<IMAGE_XX_PROMPT_START>>>…<<<IMAGE_XX_PROMPT_END>>> 固定边界，把剩余的完整生图 Prompt 一次性输出完毕；严禁再次只输出大纲或分段预告。";
+                : "请继续从上一个未完成的 Image 编号开始，严格按照 <<<IMAGE_XX_PROMPT_START>>>…<<<IMAGE_XX_PROMPT_END>>> 固定边界，把剩余的完整生图 Prompt 一次性输出完毕；严禁再次只输出大纲、分段预告或'我将在下一条消息继续'等过渡文本。";
             await this.store.update({
                 stage: "SENDING_PLANNING",
                 message: `检测到规划仅输出大纲/分段预告，正在自动续写（第 ${round + 1}/${MAX_ROUNDS} 轮）…`
             });
-            await this.ai.sendPromptOnce(continuation, fp);
+            await this.ai.sendPromptOnce(continuation, fp, MODEL_PROFILES.planning);
             await this.store.update({
                 stage: "WAITING_FOR_PLANNING",
                 message: `规划续写指令已发送，正在等待完整 Prompt Pack（第 ${round + 1}/${MAX_ROUNDS} 轮）…`
             });
-            await this.ai.waitForResponseAfterPrompt(fp);
+            await this.waitForStageResponse(fp, {
+                label: "视觉规划续写",
+                modelProfile: MODEL_PROFILES.planning
+            });
             // 重读全量（锚定在规划 prompt，拼接其后所有 assistant 回复）
             text = await this.readFullPlanningText();
         }
@@ -1101,21 +1606,25 @@ ${existing.researchText ?? ""}
     async fail(error) {
         const message = error instanceof Error ? error.message : String(error);
         const current = this.store.get();
-        const recoverable = /Target page, context or browser has been closed|专用 Chrome 尚未启动|connectOverCDP|ECONNREFUSED|Chrome.*关闭|浏览器.*关闭/i.test(message);
+        const paused = error?.code === "WORKFLOW_PAUSED";
+        const recoverable = /Target page, context or browser has been closed|专用 Chrome 尚未启动|connectOverCDP|ECONNREFUSED|Chrome.*关闭|浏览器.*关闭|browser is not connected/i.test(message);
         const currentUrl = this.ai.currentUrl();
         return this.store.update({
-            stage: recoverable ? "PAUSED" : "FAILED",
+            stage: paused || recoverable ? "PAUSED" : "FAILED",
             interruptedStage: current.stage,
-            message: recoverable
+            message: paused
+                ? "任务已暂停，可从当前阶段继续"
+                : recoverable
                 ? "流程已暂停，重新打开 Chrome 后可从断点继续"
                 : "流程已停止，可修复后从断点继续",
             running: false,
+            autoRun: false,
             chatUrl: currentUrl && this.isConversationUrl(current.provider, currentUrl)
                 ? currentUrl
                 : this.isConversationUrl(current.provider, current.chatUrl ?? "")
                     ? current.chatUrl
                     : undefined,
-            error: message
+            error: paused ? undefined : message
         });
     }
     async resume() {
@@ -1183,10 +1692,20 @@ ${existing.researchText ?? ""}
         }
     }
     async ensureResearch(existing) {
-        const fingerprint = "Chrome AI Top 10 Listing Visual Audit Prompt";
+        const fingerprint = "Chrome AI Top 3 Listing Visual Audit Prompt";
+        // 批量模式 / 用户明确跳过市场调研：直接返回空报告，不触发联网搜索，避免 ChatGPT 搜索卡死导致整批阻塞。
+        if (existing.skipResearch) {
+            await this.store.update({
+                researchText: "",
+                researchCompleted: true,
+                message: "批量模式跳过联网市场调研，直接基于产品图片进行视觉规划"
+            });
+            return "";
+        }
         const researchPrompt = await readPrompt("research");
-        let researchText = existing.researchText ??
-            (await this.ai.recoverCompletedResponse(fingerprint));
+        // 不使用 recoverCompletedResponse 预赋值：其「最后一条 assistant 兜底」会在首跑时把前一步（MVP1）回复误当成市场调研结果，
+        // 导致本步真正要发的调研 Prompt 被跳过。改为只信任已落盘字段 + 严格判断「本步 Prompt 是否真的发过」。
+        let researchText = existing.researchText;
         if (researchText) {
             await this.store.update({
                 researchText,
@@ -1199,8 +1718,12 @@ ${existing.researchText ?? ""}
             stage: "WAITING_FOR_RESEARCH",
             message: "正在检查已发送的市场调研 Prompt…"
         });
-        if (await this.ai.hasUserPrompt(fingerprint)) {
-            researchText = await this.ai.waitForResponseAfterPrompt(fingerprint);
+        if (await this.ai.hasUserPromptStrict(fingerprint)) {
+            researchText = await this.waitForStageResponse(fingerprint, {
+                label: "市场调研",
+                recoveryStage: "RECOVERING_RESEARCH",
+                modelProfile: MODEL_PROFILES.research
+            });
         }
         else {
             await this.store.update({
@@ -1208,12 +1731,16 @@ ${existing.researchText ?? ""}
                 message: "正在启用网页搜索并发送市场调研 Prompt…"
             });
             await this.enableWebSearchIfAvailable("市场调研");
-            await this.ai.sendPromptOnce(researchPrompt, fingerprint);
+            await this.ai.sendPromptOnce(researchPrompt, fingerprint, MODEL_PROFILES.research);
             await this.store.update({
                 stage: "WAITING_FOR_RESEARCH",
                 message: "市场调研已发送，正在等待完整回复…"
             });
-            researchText = await this.ai.waitForResponseAfterPrompt(fingerprint);
+            researchText = await this.waitForStageResponse(fingerprint, {
+                label: "市场调研",
+                recoveryStage: "RECOVERING_RESEARCH",
+                modelProfile: MODEL_PROFILES.research
+            });
         }
         await this.store.update({
             researchText,
@@ -1228,7 +1755,30 @@ ${existing.researchText ?? ""}
         if (status === "verification_required") {
             return `${name} 检测到真人验证，请在普通 Chrome 中手动完成`;
         }
+        // composer_unavailable：页面能打开但找不到输入框。多为 CDP 断连后引用失效、
+        // 页面结构变化或页面未加载完成——都不是「没登录」，指引用户去登录只会浪费时间。
+        if (status === "composer_unavailable") {
+            return `${name} 页面已打开但输入框不可用，请检查 Chrome 标签页是否停留在 ChatGPT 对话界面，然后点击“重新检查”`;
+        }
         return `请在打开的普通 Chrome 中登录 ${name}，然后点击“重新检查”`;
+    }
+    /**
+     * 把 checkReady 的失败原因翻译成准确文案。
+     * 此前所有失败一律报「未登录或输入框不可用」，把 CDP 断连/页面未就绪
+     * 误报成登录问题，用户反复登录也无法恢复。
+     */
+    readinessError(status, provider = this.store.get().provider) {
+        const name = this.providerName(provider);
+        if (status === "verification_required") {
+            return `${name} 正在要求真人验证。请在打开的普通 Chrome 中手动完成，然后点击“重新检查”。`;
+        }
+        if (status === "composer_unavailable") {
+            return `${name} 页面已打开但输入框不可用：通常是 Chrome 调试连接断开或页面尚未加载完成。请确认 ChatGPT 标签页正常打开，点击“重新检查”重试。`;
+        }
+        if (status === "login_required") {
+            return `${name} 未登录。请在打开的普通 Chrome 中登录 ${name}，然后点击“重新检查”。`;
+        }
+        return `${name} 未登录或输入框不可用，请点击“重新检查”重试。`;
     }
     providerName(provider) {
         return provider === "gemini" ? "Gemini" : "ChatGPT";

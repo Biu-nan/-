@@ -421,7 +421,12 @@ async function runBatchListingCreate(jobId, rows, filePath, deps) {
                 }
             }, 1_000);
             try {
-                await standardService.runAll();
+                // 行级超时保护：单行最多 30 分钟，避免 ChatGPT 卡住导致整批无限等待。
+                const ROW_TIMEOUT_MS = 30 * 60 * 1000;
+                await Promise.race([
+                    standardService.runAll(),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error(`单行处理超时（${ROW_TIMEOUT_MS / 60000} 分钟），已自动终止`)), ROW_TIMEOUT_MS))
+                ]);
             }
             finally {
                 clearInterval(stageSyncInterval);
@@ -578,7 +583,12 @@ async function runBatchListingCreateRetry(jobId, filePath, deps) {
             }
             item.progress = 25;
 
-            await standardService.runAll();
+            // 行级超时保护：单行最多 30 分钟，避免 ChatGPT 卡住导致整批无限等待。
+            const ROW_TIMEOUT_MS = 30 * 60 * 1000;
+            await Promise.race([
+                standardService.runAll(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error(`单行处理超时（${ROW_TIMEOUT_MS / 60000} 分钟），已自动终止`)), ROW_TIMEOUT_MS))
+            ]);
             const stAfter = store.get();
             item.currentStage = stAfter.stage;
 
@@ -1003,9 +1013,10 @@ export function registerBatchListingCreateRoutes(app, deps) {
                 const brs = deps.getBatchRunState();
                 const crs = deps.getCollectRunState();
                 const upItems = [...(brs.items || []), ...(crs.items || [])];
-                const upDone = upItems.filter((it) => it.status === "done" || it.status === "skipped").length;
+                // 总进度：所有已处理项（含 done/skipped/failed）占比，不再只算 done+skipped
+                const upProcessed = upItems.filter((it) => it.status === "done" || it.status === "skipped" || it.status === "failed").length;
                 const upProgress = upItems.length
-                    ? Math.round((upDone / upItems.length) * 100)
+                    ? Math.round((upProcessed / upItems.length) * 100)
                     : (autoUploadStatus.status === "done" ? 100 : 0);
                 const upSummary = {
                     success: upItems.filter((it) => it.status === "done").length,

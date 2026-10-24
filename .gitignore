@@ -23,6 +23,7 @@ watchdog.out.log
 # ── 敏感 / 机器相关（绝不入库）──
 .chrome-profile/
 .workbuddy/
+.secretary-llm.json
 
 # ── 误创建 / 系统噪音 ──
 nul

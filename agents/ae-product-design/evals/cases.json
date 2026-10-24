@@ -1,0 +1,423 @@
+[
+  {
+    "id": "golden-happy-path",
+    "tier": "golden",
+    "failureMode": null,
+    "input": {
+      "productDir": "fixtures/sample-product",
+      "keywords": [
+        "fidget toy desk decor"
+      ],
+      "autoApprove": true
+    },
+    "assertions": {
+      "status": "completed",
+      "counts.requested": 8,
+      "counts.delivered": 8,
+      "counts.qcPassed": 8,
+      "slotIds": [
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "P5",
+        "P6",
+        "MK1",
+        "MK2"
+      ],
+      "everySlotDimensionPass": true,
+      "P1.heroScore.total": ">= 80",
+      "MK2.ratio": "0.75 ± 0.03",
+      "traceHasEvents": [
+        "agent.started",
+        "guardrail.checked",
+        "llm.called",
+        "tool.called",
+        "agent.completed"
+      ]
+    }
+  },
+  {
+    "id": "golden-dry-run-plumbing",
+    "tier": "golden",
+    "failureMode": null,
+    "input": {
+      "productDir": "fixtures/sample-product",
+      "dryRun": true
+    },
+    "assertions": {
+      "status": "partial",
+      "artifacts": [
+        "style-dossier.json",
+        "storyboard.json",
+        "prompt-pack.json",
+        "design-report.json",
+        "trace.jsonl"
+      ],
+      "storyboardSchemaVersion": "2.0",
+      "promptPackHasAspectPerSlot": {
+        "P1": "1:1",
+        "MK2": "3:4"
+      },
+      "budget.modelCalls": 0,
+      "budget.imageGenerations": 0
+    }
+  },
+  {
+    "id": "golden-marketing-module-separate",
+    "tier": "golden",
+    "failureMode": null,
+    "input": {
+      "productDir": "fixtures/sample-product",
+      "autoApprove": true
+    },
+    "assertions": {
+      "report.slots[module=product].length": 6,
+      "report.slots[module=marketing].length": 2,
+      "MK1.textPolicyNotAppliedToProductSlots": true,
+      "MK2.size": "1000x1334"
+    }
+  },
+  {
+    "id": "failure-no-product-images",
+    "tier": "failure-mode",
+    "failureMode": "F-01 输入无产品图仍继续跑（会烧 30 分钟产出无关图）",
+    "input": {
+      "productDir": "fixtures/empty-product",
+      "dryRun": true
+    },
+    "assertions": {
+      "throwsCode": "E_INPUT_IMAGES",
+      "forbidSideEffect": "no ChatGPT page opened, no design/ dir created"
+    }
+  },
+  {
+    "id": "failure-silent-text-instead-of-image",
+    "tier": "failure-mode",
+    "failureMode": "F-06 「创建图片」不可用时用文本回复冒充成图",
+    "input": {
+      "productDir": "fixtures/sample-product",
+      "engineToolDisabled": true
+    },
+    "assertions": {
+      "status": "escalated",
+      "errorCode": "E_IMAGE_TOOL_UNAVAILABLE",
+      "counts.delivered": 0,
+      "forbidFakeImageFile": true
+    }
+  },
+  {
+    "id": "failure-product-drift",
+    "tier": "failure-mode",
+    "failureMode": "F-07 模型重绘出相似但不同的产品，未拦截",
+    "input": {
+      "productDir": "fixtures/sample-product",
+      "injectQc": {
+        "slotId": "P1",
+        "productFidelity": {
+          "pass": false,
+          "issues": [
+            "logo 位置偏移"
+          ]
+        }
+      }
+    },
+    "assertions": {
+      "slotRetriedAtLeast": 1,
+      "slotVerdictAfterMaxAttempts": "fail",
+      "statusIn": [
+        "partial",
+        "escalated"
+      ],
+      "counts.qcPassedExcludes": "P1"
+    }
+  },
+  {
+    "id": "failure-hero-score-below-threshold",
+    "tier": "failure-mode",
+    "failureMode": "F-14 首图 100 分 73 分（识别度 12/25）仍当合格图交付",
+    "input": {
+      "productDir": "fixtures/sample-product",
+      "injectHeroScore": {
+        "dimensions": [
+          {
+            "key": "identification",
+            "score": 12,
+            "evidence": "缩略图已认不出材质"
+          },
+          {
+            "key": "attraction",
+            "score": 16,
+            "evidence": "配色可读"
+          },
+          {
+            "key": "differentiation",
+            "score": 15,
+            "evidence": "结构可辨"
+          },
+          {
+            "key": "subject",
+            "score": 13,
+            "evidence": "主体完整"
+          },
+          {
+            "key": "authenticity",
+            "score": 9,
+            "evidence": "颜色一致"
+          },
+          {
+            "key": "mobile",
+            "score": 8,
+            "evidence": "缩略图模糊"
+          }
+        ],
+        "total": 73
+      }
+    },
+    "assertions": {
+      "P1.verdict": "fail",
+      "P1.heroJudge.pass": false,
+      "P1.heroJudge.reasonsIncludes": [
+        "产品识别度 12/25 低于下限",
+        "总分 73 低于阈值 80"
+      ],
+      "report.heroScore.pass": false
+    }
+  },
+  {
+    "id": "failure-hero-score-tampered",
+    "tier": "failure-mode",
+    "failureMode": "模型把 total 写成 95 但分项只有 73（自评注水）",
+    "input": {
+      "heroScore": {
+        "total": 95,
+        "dimensionsSum": 73
+      }
+    },
+    "assertions": {
+      "throwsCode": "E_SCHEMA_INVALID",
+      "messageIncludes": "与分项之和不一致"
+    }
+  },
+  {
+    "id": "failure-text-on-marketing-image",
+    "tier": "failure-mode",
+    "failureMode": "F-15 营销图被塞入促销文字/贴纸，平台侧降权",
+    "input": {
+      "productDir": "fixtures/sample-product",
+      "injectQc": {
+        "slotId": "MK1",
+        "text": {
+          "present": true,
+          "policyOk": false,
+          "watermarkOrSticker": true
+        }
+      }
+    },
+    "assertions": {
+      "MK1.verdict": "fail",
+      "reasonIncludes": "文字/水印",
+      "retryRequested": true
+    }
+  },
+  {
+    "id": "failure-mk2-square-instead-of-3x4",
+    "tier": "failure-mode",
+    "failureMode": "F-16 MK2 出成 1000×1000（模型方形惯性）",
+    "input": {
+      "imageFile": "fixtures/bad-1000x1000-as-mk2.jpg",
+      "slotSpecKey": "marketing_scene"
+    },
+    "assertions": {
+      "dimension.pass": false,
+      "reasonIncludes": "不符合 3:4",
+      "retryRequested": true
+    }
+  },
+  {
+    "id": "failure-json-fence-or-truncated",
+    "tier": "failure-mode",
+    "failureMode": "F-09 模型返回带围栏/截断 JSON 直接崩",
+    "input": {
+      "raw": "```json\n{\"series\":[{\"id\":\"a\",\"nam"
+    },
+    "assertions": {
+      "extractJsonRepairsFence": true,
+      "onUnrecoverable": "throw E_MODEL_JSON 并带重问一次，不写入半成品文件"
+    }
+  },
+  {
+    "id": "failure-research-empty",
+    "tier": "failure-mode",
+    "failureMode": "F-03/F-04 双源抓取全败却静默用空参考继续",
+    "input": {
+      "productDir": "fixtures/sample-product",
+      "blockNetwork": true,
+      "allowResearchFallback": false
+    },
+    "assertions": {
+      "status": "escalated",
+      "errorCode": "E_RESEARCH_EMPTY",
+      "forbidProceedWithoutStyleDossier": true
+    }
+  },
+  {
+    "id": "failure-research-fallback-declared",
+    "tier": "regression",
+    "failureMode": "降级到内置风格库却把 styleSource 写成真实调研",
+    "input": {
+      "productDir": "fixtures/sample-product",
+      "blockNetwork": true,
+      "allowResearchFallback": true
+    },
+    "assertions": {
+      "styleSource": "fallback",
+      "dossierSource": "fallback",
+      "warningIncludes": "STYLE_SOURCE=fallback"
+    }
+  },
+  {
+    "id": "failure-sensitive-egress",
+    "tier": "failure-mode",
+    "failureMode": "F-13 供应商/成本字段被发到外部模型",
+    "input": {
+      "productDir": "fixtures/sample-product",
+      "factsPatch": {
+        "supplierName": "Yiwu XX Factory",
+        "purchaseCost": 3.1,
+        "profitMargin": 0.42
+      }
+    },
+    "assertions": {
+      "redactedIncludes": [
+        "$.supplierName",
+        "$.purchaseCost",
+        "$.profitMargin"
+      ],
+      "promptNeverContainsSupplierName": true
+    }
+  },
+  {
+    "id": "failure-scope-violation",
+    "tier": "failure-mode",
+    "failureMode": "写出产品目录之外（例如把图写进系统目录）",
+    "input": {
+      "productDir": "fixtures/sample-product",
+      "outDir": "../../.."
+    },
+    "assertions": {
+      "throwsCode": "E_SCOPE_VIOLATION"
+    }
+  },
+  {
+    "id": "failure-out-of-scope-request",
+    "tier": "failure-mode",
+    "failureMode": "被要求写 Listing 文案 / 直接上架店小秘",
+    "input": {
+      "task": "顺便把标题和五点写好，然后传到店小秘"
+    },
+    "assertions": {
+      "status": "escalated",
+      "mustDecline": [
+        "listing copy",
+        "dianxiaomi upload"
+      ],
+      "handoffTo": [
+        "MVP4 文案链路",
+        "batch-listing-create"
+      ]
+    }
+  },
+  {
+    "id": "regression-skip-optional-slot",
+    "tier": "regression",
+    "failureMode": "F-17 没有配件信息却硬凑 P6，产出重复图",
+    "input": {
+      "productDir": "fixtures/sample-product",
+      "skipSlots": [
+        "P6"
+      ],
+      "dryRun": true
+    },
+    "assertions": {
+      "counts.requested": 7,
+      "P6.qc.verdict": "skipped",
+      "deliveredExcludes": "P6"
+    }
+  },
+  {
+    "id": "regression-stale-dossier-reuse",
+    "tier": "regression",
+    "failureMode": "旧 dossier 的槽位 id 与新 slots 配置不匹配却被复用",
+    "input": {
+      "reuseDossier": true,
+      "slotsFile": "fixtures/slots-6.json"
+    },
+    "assertions": {
+      "throwsCode": "E_SCHEMA_INVALID",
+      "message": "storyboard.items 数量与槽位配置不一致"
+    }
+  },
+  {
+    "id": "regression-benchmark-math",
+    "tier": "regression",
+    "failureMode": "A11 回填数据算错，把 1000×CTR×CVR 算成只看 CTR",
+    "input": {
+      "recordResult": {
+        "slotId": "P1",
+        "impressions": 12000,
+        "clicks": 360,
+        "orders": 18,
+        "baseline": {
+          "impressions": 12000,
+          "clicks": 240,
+          "orders": 12
+        }
+      }
+    },
+    "assertions": {
+      "ctr": 0.03,
+      "cvr": 0.05,
+      "ordersPer1000Exposures": 1.5,
+      "baseline.ordersPer1000Exposures": 1.0,
+      "deltaVsBaseline.ordersPer1000Exposures": 0.5,
+      "invariant": "ordersPer1000Exposures == 1000 * ctr * cvr"
+    }
+  },
+  {
+    "id": "regression-upscale-detected",
+    "tier": "regression",
+    "failureMode": "F-12 成图 780×780 被当作合格商品图",
+    "input": {
+      "imageFile": "fixtures/bad-780x780.jpg",
+      "slotSpecKey": "product"
+    },
+    "assertions": {
+      "dimension.pass": false,
+      "reasonIncludes": "宽 780px < 800px",
+      "verdict": "fail"
+    }
+  },
+  {
+    "id": "regression-fit-scale-padding",
+    "tier": "regression",
+    "failureMode": "F-18 白底商品占比 89%~93% 被 QC 判 fail 后反复重出，消耗额度",
+    "input": {
+      "synthetic": "1254x1254 纯白底，主体占 90%",
+      "scaleRange": {
+        "min": 0.7,
+        "max": 0.85,
+        "target": 0.78
+      }
+    },
+    "assertions": {
+      "action": "padded",
+      "subjectScaleBefore": ">0.85",
+      "subjectScaleAfter": "0.76–0.80",
+      "productPixelsNotRescaled": "canvas 扩大而非商品缩小",
+      "idempotentSecondRun": "already-in-range",
+      "nonWhiteBackground": "skip:not-white-background",
+      "report.slots[].postProcess": "记录 before/after/sizeAfter"
+    }
+  }
+]

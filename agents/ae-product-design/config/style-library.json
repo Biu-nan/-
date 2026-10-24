@@ -1,0 +1,90 @@
+{
+  "version": "1.0",
+  "note": "仅当 Amazon + 速卖通双源抓取全败且 allowResearchFallback=true 时使用，报告里 styleSource 必须写 fallback。",
+  "series": [
+    {
+      "id": "ps-white-catalog",
+      "name": "白底目录",
+      "thesis": "跨境首图通用解，平台算法与买家都最认，风险最低",
+      "composition": "产品居中 80%，正视角，无道具",
+      "lighting": "双侧柔光箱，反差低，接触阴影极淡",
+      "background": "pure white #FFFFFF",
+      "palette": ["#FFFFFF", "#E8E8E8"],
+      "textDensity": "none",
+      "productScale": "80%",
+      "narrative": "params",
+      "bestFor": ["M1", "M2", "M4"],
+      "recommended": true
+    },
+    {
+      "id": "ps-texture-macro",
+      "name": "质感微距",
+      "thesis": "用细节证明工艺，支撑中高客单价的溢价理由",
+      "composition": "微距近景，纹理填满 2/3 画面",
+      "lighting": "单侧硬光拉出纹理走向，深阴影",
+      "background": "浅灰 #F2F2F0 台面",
+      "palette": ["#F2F2F0", "#33312E", "#B08D57"],
+      "textDensity": "labels",
+      "productScale": "95%",
+      "narrative": "texture",
+      "bestFor": ["M3"],
+      "recommended": false
+    },
+    {
+      "id": "ps-benefit-blocks",
+      "name": "卖点色块",
+      "thesis": "手机小屏可读，把三条卖点一次讲完，转化导向",
+      "composition": "产品居左 40%，卖点条居右纵向",
+      "lighting": "均匀棚光，产品清晰",
+      "background": "品牌色块（主色 70% + 白 30%）",
+      "palette": ["#0F3D3E", "#FFFFFF", "#E4B363"],
+      "textDensity": "benefit-bars",
+      "productScale": "45%",
+      "narrative": "params",
+      "bestFor": ["M6"],
+      "recommended": false
+    },
+    {
+      "id": "ps-warm-lifestyle",
+      "name": "暖调生活",
+      "thesis": "场景代入降低理解成本，适合家居与随身配饰",
+      "composition": "三分法，产品落交叉点，环境虚化",
+      "lighting": "窗侧自然光，暖白 4500K",
+      "background": "真实室内场景，原木与织物",
+      "palette": ["#F5EDE3", "#8A6B4F", "#3E3A35"],
+      "textDensity": "headline",
+      "productScale": "35%",
+      "narrative": "lifestyle",
+      "bestFor": ["S1"],
+      "recommended": false
+    },
+    {
+      "id": "ps-tech-grid",
+      "name": "参数网格",
+      "thesis": "工程感排版，适合功能件与工具类，可信度高",
+      "composition": "产品居中，四周细线标注与参数格",
+      "lighting": "顶部平光，无戏剧阴影",
+      "background": "极浅灰 #FAFAFA + 1px 细网格",
+      "palette": ["#FAFAFA", "#1A1A1A", "#2F6FED"],
+      "textDensity": "labels",
+      "productScale": "65%",
+      "narrative": "params",
+      "bestFor": ["M4", "M2"],
+      "recommended": false
+    },
+    {
+      "id": "ps-gift-set",
+      "name": "礼盒感",
+      "thesis": "提升馈赠场景转化，适合多件套与节日流量",
+      "composition": "产品与半开礼盒错落组合，俯 30°",
+      "lighting": "暖侧光带轻微轮廓光",
+      "background": "深色绒面或哑光纸感台面",
+      "palette": ["#1E1B18", "#C9A227", "#F6F1E7"],
+      "textDensity": "headline",
+      "productScale": "55%",
+      "narrative": "gifting",
+      "bestFor": ["S1", "M5"],
+      "recommended": false
+    }
+  ]
+}

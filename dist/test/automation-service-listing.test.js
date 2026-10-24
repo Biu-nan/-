@@ -100,6 +100,9 @@ class FakeAiAdapter {
     async hasUserPrompt(fingerprint) {
         return this.userPrompts.has(fingerprint);
     }
+    async hasUserPromptStrict(fingerprint) {
+        return this.userPrompts.has(fingerprint);
+    }
     async waitForResponseAfterPrompt(fingerprint) {
         return this.waitResponses.get(fingerprint) ?? "";
     }
@@ -185,6 +188,82 @@ describe("standard listing SEO and content handoff", () => {
         assert.equal(ai.prompts.length, 0);
         assert.equal(store.current.completedPhase, "MVP5");
         assert.equal(store.current.listingContentText, "recovered listing content");
+    });
+});
+describe("standard listing interruption recovery", () => {
+    it("uses one short recovery prompt when ChatGPT stops without output", async () => {
+        const store = new FakeStore(state({ stage: "WAITING_FOR_RESEARCH", running: true }));
+        const ai = new FakeAiAdapter();
+        ai.userPrompts.add("Research Prompt");
+        ai.waitForResponseAfterPrompt = async (fingerprint) => {
+            if (fingerprint === "Research Prompt") {
+                const error = new Error("ChatGPT 已停止思考但未返回回复：Research Prompt");
+                error.code = "CHATGPT_STOPPED_WITHOUT_OUTPUT";
+                throw error;
+            }
+            return "recovered research";
+        };
+        const service = new AutomationService(store, { chatgpt: ai, gemini: ai });
+        const result = await service.waitForStageResponse("Research Prompt", {
+            label: "市场调研",
+            recoveryStage: "RECOVERING_RESEARCH"
+        });
+        assert.equal(result, "recovered research");
+        assert.equal(ai.prompts.length, 1);
+        assert.match(ai.prompts[0], /上一条「市场调研」任务已发送/);
+        assert.match(ai.prompts[0], /Research Prompt · Workflow Recovery/);
+        assert.equal(store.current.stage, "RECOVERING_RESEARCH");
+    });
+    it("keeps an active workflow stage when checking browser health", async () => {
+        const store = new FakeStore(state({
+            stage: "WAITING_FOR_RESEARCH",
+            message: "正在等待市场调研回复…",
+            running: true,
+            autoRun: true,
+            chatUrl: "https://chatgpt.com/c/test"
+        }));
+        const ai = new FakeAiAdapter();
+        ai.checkReady = async () => ({
+            ready: true,
+            status: "ready",
+            url: "https://chatgpt.com/c/test",
+            imageUpload: { ready: true }
+        });
+        const service = new AutomationService(store, { chatgpt: ai, gemini: ai });
+        await service.recheck();
+        assert.equal(store.current.stage, "WAITING_FOR_RESEARCH");
+        assert.equal(store.current.message, "正在等待市场调研回复…");
+        assert.equal(store.current.browserHealth.status, "ready");
+    });
+    it("keeps an active workflow stage when browser health checking fails", async () => {
+        const store = new FakeStore(state({
+            stage: "WAITING_FOR_RESEARCH",
+            message: "正在等待市场调研回复…",
+            running: true,
+            autoRun: true
+        }));
+        const ai = new FakeAiAdapter();
+        ai.checkReady = async () => { throw new Error("Chrome CDP 断连"); };
+        const service = new AutomationService(store, { chatgpt: ai, gemini: ai });
+        await service.recheck();
+        assert.equal(store.current.stage, "WAITING_FOR_RESEARCH");
+        assert.equal(store.current.message, "正在等待市场调研回复…");
+        assert.equal(store.current.browserHealth.status, "unavailable");
+    });
+    it("maps a pause received during a response wait to PAUSED", async () => {
+        const store = new FakeStore(state({ stage: "WAITING_FOR_RESPONSE", running: true, pauseRequested: true }));
+        const ai = new FakeAiAdapter();
+        ai.waitForResponseAfterPrompt = async (_fingerprint, options) => {
+            assert.equal(options.shouldPause(), true);
+            const error = new Error("任务已暂停");
+            error.code = "WORKFLOW_PAUSED";
+            throw error;
+        };
+        const service = new AutomationService(store, { chatgpt: ai, gemini: ai });
+        await assert.rejects(() => service.waitForStageResponse("Prompt"), { code: "WORKFLOW_PAUSED" });
+        await service.fail(Object.assign(new Error("任务已暂停"), { code: "WORKFLOW_PAUSED" }));
+        assert.equal(store.current.stage, "PAUSED");
+        assert.equal(store.current.error, undefined);
     });
 });
 //# sourceMappingURL=automation-service-listing.test.js.map

@@ -49,12 +49,20 @@ export const OUTPUT_DIR = path.join(PRODUCT_ROOT, "output");
 export const INSERT_BAG_IMAGES_DIR = path.join(PRODUCT_ROOT, "目标外包图");
 export const INSERT_LINER_IMAGES_DIR = path.join(PRODUCT_ROOT, "内胆图");
 export const INSERT_OUTPUT_DIR = path.join(PRODUCT_ROOT, "内胆output");
+
+/* ── 包包挂件（Bag Charm / Pendant）Listing 自动制作管线目录 ──
+   参考图 = 吊坠/包挂实拍主图（用户提供的 6 张等）；场景图 = 可选的手提包/佩戴场景图（用于暗黑主图背景）。 */
+export const CHARM_REF_IMAGES_DIR = path.join(PRODUCT_ROOT, "挂件参考图");
+export const CHARM_CONTEXT_IMAGES_DIR = path.join(PRODUCT_ROOT, "挂件场景图");
+export const CHARM_OUTPUT_DIR = path.join(PRODUCT_ROOT, "挂件output");
 export const SELECTION_DIR = path.join(PROJECT_ROOT, "selection-output");
 export const SELECTION_CANDIDATES_FILE = path.join(PROJECT_ROOT, "selection-candidates.json");
 export const PROMPTS_DIR = path.join(PROJECT_ROOT, "prompts");
 export const INSERT_PROMPT_FILE = path.join(PROMPTS_DIR, "05_LUXURY_INSERT_PROMPT.md");
 export const INSERT_MARKET_RADAR_PROMPT_FILE = path.join(PROMPTS_DIR, "06_INSERT_MARKET_RADAR_PROMPT.md");
 export const INSERT_LISTING_CONTENT_PROMPT_FILE = path.join(PROMPTS_DIR, "07_INSERT_LISTING_CONTENT_PROMPT.md");
+export const CHARM_PROMPT_FILE = path.join(PROMPTS_DIR, "11_BAG_CHARM_IMAGE_PROMPT.md");
+export const CHARM_LISTING_CONTENT_PROMPT_FILE = path.join(PROMPTS_DIR, "12_BAG_CHARM_LISTING_CONTENT_PROMPT.md");
 export const SELECTION_PROMPT_FILE = path.join(PROMPTS_DIR, "08_PRODUCT_SELECTION_PROMPT.md");
 export const INSERT_STOCK_SHEET_RECORDS_FILE = path.join(PROJECT_ROOT, "insert-stock-sheet-records.json");
 export const GOOGLE_SHEETS_WEBHOOK_CONFIG_FILE = path.join(PROJECT_ROOT, "google-sheets-webhook.json");
@@ -64,6 +72,8 @@ export const CHROME_DEBUG_PORT = Number(process.env.CHROME_DEBUG_PORT ?? 9223);
 export const PUBLIC_DIR = path.join(PROJECT_ROOT, "public");
 export const RESEARCH_PROMPT_FILE = path.join(PROMPTS_DIR, "01_RESEARCH_PROMPT.md");
 export const PLANNING_PROMPT_FILE = path.join(PROMPTS_DIR, "02_VISUAL_PLANNING_PROMPT.md");
+// 批量模式跳过联网调研时使用的简化规划 Prompt（不引用 Top 10 / Chrome AI，避免触发 ChatGPT 联网搜索）
+export const PLANNING_BATCH_NO_RESEARCH_PROMPT_FILE = path.join(PROMPTS_DIR, "02B_VISUAL_PLANNING_BATCH_PROMPT.md");
 export const SEO_KEYWORDS_PROMPT_FILE = path.join(PROMPTS_DIR, "03_SEO_KEYWORDS_PROMPT.md");
 export const LISTING_CONTENT_PROMPT_FILE = path.join(PROMPTS_DIR, "04_LISTING_CONTENT_PROMPT.md");
 export const MARKET_VISUAL_AUDIT_V2_PROMPT_FILE = path.join(PROMPTS_DIR, "05_MARKET_VISUAL_AUDIT_V2_PROMPT.md");
@@ -88,6 +98,30 @@ export const CHATGPT_URL = "https://chatgpt.com/";
 // - CHATGPT_REASONING：推理档位，取值 低 / 中 / 高（默认「高」，确保 10 张图 Prompt Pack 一次性完整输出；中/低档 ChatGPT 倾向只给大纲）
 export const CHATGPT_MODEL = process.env.CHATGPT_MODEL || "GPT-5.6 Sol";
 export const CHATGPT_REASONING = process.env.CHATGPT_REASONING || "高";
+// 快档（速度优先）：简单/格式化类任务走更便宜更快的模型 + 低推理。
+// - CHATGPT_MODEL_FAST：如「智能极速」(Auto 速度档)；若账号无此选项，设成你常用的快模型子串。
+// - CHATGPT_REASONING_FAST：低推理档。
+export const CHATGPT_MODEL_FAST = process.env.CHATGPT_MODEL_FAST || "智能极速";
+export const CHATGPT_REASONING_FAST = process.env.CHATGPT_REASONING_FAST || "低";
+// 每个 Listing 任务的模型档位（由 automation-service 按调用点透传）。
+// 2026-10-24 Lance 明确要求：上品流程全程锁「GPT-5.6 Sol + 高推理」，不再按阶段降档。
+// 早期为省时间做过分档（identify/research/seo=中、image=低、factsBridge=快模型），
+// 实测代价更大：中/低档 ChatGPT 倾向只给大纲、漏项（视觉元素统计/作图 Prompt Pack 尤其明显），
+// 返工成本远高于推理耗时；factsBridge 走快模型时结构化字段缺项率也偏高。
+// 如需单点提速，只覆盖 env：CHATGPT_MODEL / CHATGPT_REASONING（全局统一改）。
+// ⚠️ 这里的 reasoning 必须与 CHATGPT_REASONING 同源，否则每次切换任务都会重开模型菜单。
+export const MODEL_PROFILES = {
+  identify:    { model: CHATGPT_MODEL, reasoning: CHATGPT_REASONING },
+  research:    { model: CHATGPT_MODEL, reasoning: CHATGPT_REASONING },
+  planning:    { model: CHATGPT_MODEL, reasoning: CHATGPT_REASONING },
+  image:       { model: CHATGPT_MODEL, reasoning: CHATGPT_REASONING },
+  seo:         { model: CHATGPT_MODEL, reasoning: CHATGPT_REASONING },
+  listing:     { model: CHATGPT_MODEL, reasoning: CHATGPT_REASONING },
+  factsBridge: { model: CHATGPT_MODEL, reasoning: CHATGPT_REASONING },
+};
+export function resolveModelProfile(key) {
+  return MODEL_PROFILES[key] || { model: CHATGPT_MODEL, reasoning: CHATGPT_REASONING };
+}
 export const NOTEBOOKLM_URL = "https://notebooklm.google.com/notebook/e8814b50-af7a-462a-be88-d267b56dbf91";
 
 // ===== 店小秘 ERP 自动化上品（乳贴 v1.0）=====
@@ -129,7 +163,13 @@ export const DIANXIAOMI_CATEGORY_PROFILES = {
       sizeTemplate: ""
     },
     category: "内衣配件（乳贴/乳垫/肩带等）(Women's Intimates Accessories)",
-    variantThemeMap: { "颜色": "Color", "尺码": "Size", "尺寸": "Size" },
+    variantThemeMap: {
+      "颜色": "Color", "颜色分类": "Color", "颜色图片": "Color", "颜色款式": "Color", "颜色系": "Color",
+      "主色": "Color", "花色": "Color", "图案": "Color", "颜色/图案": "Color",
+      "尺码": "Size", "尺寸": "Size", "规格": "Size", "型号": "Size", "大小": "Size",
+      "容量": "Size", "尺寸大小": "Size", "尺码规格": "Size", "款式": "Size", "种类": "Size",
+      "发货地": "Ships From", "产地": "Ships From", "发货仓库": "Ships From", "仓库": "Ships From"
+    },
     requiredAttrs: [
       { label: "高关注化学品", id: "rc_select_12", value: "天然未处理(None)" },
       { label: "产地（国家或地区）", id: "rc_select_13", value: "中国大陆(Origin)(Mainland China)" },
@@ -204,14 +244,22 @@ export const DIANXIAOMI_CATEGORY_PROFILES = {
     templateProductId: "1005012741652735",
     fixed: {
       storeName: "自营箱包全托2店",
-      stockType: "国内备货",
+      // 店小秘 Choice 当前实际选项为「国内履约 / 海外备货」；旧值「国内备货」
+      // 不在下拉中，会让自动化找不到备货类型并导致保存失败。
+      stockType: "国内履约",
       sizeTemplate: ""
     },
     category: "箱包配件(Bag Parts & Accessories)",
     // 店小秘「引用产品模板」默认模板名；采集箱/引用模式下若表格 productTemplate 列留空，
     // 则自动引用该模板，一次性带入海关监管属性/产品属性/物流属性/合规信息。
     defaultProductTemplate: "箱包配件-包饰",
-    variantThemeMap: { "颜色": "Color", "尺寸": "Size", "尺码": "Size", "型号": "Size" },
+    variantThemeMap: {
+      "颜色": "Color", "颜色分类": "Color", "颜色图片": "Color", "颜色款式": "Color", "颜色系": "Color",
+      "主色": "Color", "花色": "Color", "图案": "Color", "颜色/图案": "Color",
+      "尺寸": "Size", "尺码": "Size", "型号": "Size", "规格": "Size", "大小": "Size",
+      "容量": "Size", "尺寸大小": "Size", "尺码规格": "Size", "款式": "Size", "种类": "Size",
+      "发货地": "Ships From", "产地": "Ships From", "发货仓库": "Ships From", "仓库": "Ships From"
+    },
     // 引用模式引用自带清单（引用 1005012741652735 实测）：
     //   店铺/备货/分类/产品属性(NONE)/高关注化学品(无)/产地(中国大陆)/中国省份(浙江)/欧盟责任人/品牌制造商/型号/来源地/计件单位/海关监管属性(3)/来源URL/PC+无线描述 均已带出。
     // AI 只覆盖以下「属性信息」区块中引用未带出的空字段（类型/材质为空；品牌/产地引用已带，facts 提供则覆盖）。
@@ -275,7 +323,13 @@ export const DIANXIAOMI_CATEGORY_PROFILES = {
       sizeTemplate: ""
     },
     category: "箱包便携折叠包(Bag Parts & Accessories)",
-    variantThemeMap: { "颜色": "Color", "尺寸": "Size", "尺码": "Size", "型号": "Size" },
+    variantThemeMap: {
+      "颜色": "Color", "颜色分类": "Color", "颜色图片": "Color", "颜色款式": "Color", "颜色系": "Color",
+      "主色": "Color", "花色": "Color", "图案": "Color", "颜色/图案": "Color",
+      "尺寸": "Size", "尺码": "Size", "型号": "Size", "规格": "Size", "大小": "Size",
+      "容量": "Size", "尺寸大小": "Size", "尺码规格": "Size", "款式": "Size", "种类": "Size",
+      "发货地": "Ships From", "产地": "Ships From", "发货仓库": "Ships From", "仓库": "Ships From"
+    },
     requiredAttrs: [
       { label: "类型(Type)", id: "rc_select_13", value: "", factsKey: "type", aiSection: "attributes" },
       { label: "材质(Material)", id: "rc_select_15", value: "", factsKey: "material", aiSection: "attributes" },
@@ -316,6 +370,75 @@ export const DIANXIAOMI_CATEGORY_PROFILES = {
 # 规则
 1. 仅提取图片中**清晰可读/可见**的信息；不确定或图片无此信息时对应字段填 null 或省略，禁止编造。
 1.1 mainKeyword 必填：用该产品的英文核心搜索词（如 Foldable Bag），将作为型号(Model Number)与类型(Type)的填充值。
+2. 标题须符合速卖通搜索习惯，包含品类核心词。
+3. 不要输出 JSON 以外的任何解释文字。
+4. 本任务只提取图片事实，不联网、不生图。`
+  },
+
+  // 包包挂件 / 吊坠（Bag Charm / Pendant）—— 速卖通半托管 Choice，引用箱包配件模板。
+  // 复用箱包配件填写逻辑（categoryFamily=xiangBao）：变种板块人工填写，本系统只填 AI 生成板块 + 物流属性。
+  // 注意：templateProductId 暂复用 xiangBao 引用模板；如有专属「包挂/吊坠」引用模板产品，请替换为对应 ID。
+  bagCharm: {
+    key: "bagCharm",
+    label: "包包挂件",
+    url: DIANXIAOMI_URL_CHOICE,
+    templateProductId: "1005012741652735",
+    categoryFamily: "xiangBao",
+    fixed: {
+      storeName: "自营箱包全托2店",
+      stockType: "国内备货",
+      sizeTemplate: ""
+    },
+    category: "箱包配件(Bag Parts & Accessories)",
+    defaultProductTemplate: "箱包配件-包饰",
+    variantThemeMap: {
+      "颜色": "Color", "颜色分类": "Color", "颜色图片": "Color", "颜色款式": "Color", "颜色系": "Color",
+      "主色": "Color", "花色": "Color", "图案": "Color", "颜色/图案": "Color",
+      "尺寸": "Size", "尺码": "Size", "型号": "Size", "规格": "Size", "大小": "Size",
+      "容量": "Size", "尺寸大小": "Size", "尺码规格": "Size", "款式": "Size", "种类": "Size",
+      "发货地": "Ships From", "产地": "Ships From", "发货仓库": "Ships From", "仓库": "Ships From"
+    },
+    requiredAttrs: [
+      { label: "类型(Type)", id: "rc_select_13", value: "", factsKey: "type", aiSection: "attributes" },
+      { label: "材质(Material)", id: "rc_select_15", value: "", factsKey: "material", aiSection: "attributes" },
+      { label: "品牌(Brand Name)", id: "rc_select_11", factsKey: "brand", aiSection: "attributes", viaBrandTemplateSync: true },
+      { label: "产地（国家或地区）(Origin)", id: "rc_select_14", factsKey: "origin", aiSection: "attributes" }
+    ],
+    besteffortAttrs: [],
+    defaultMaterial: "",
+    logistics: "普货",
+    compliance: { euResponsible: "GET RICH", trResponsible: "", manufacturer: "Yiwu Sumu Arts and Crafts Co., Ltd" },
+    // 海关监管属性：箱包配件类目税率代码 8308909000 / 种类 其他。
+    customs: { mode: "添加全球海关监管属性", hsCode: "8308909000", kind: "其他" },
+    fillVariantSections: false,
+    factExtractFingerprint: "# 店小秘包包挂件产品事实提取 Agent v0.1",
+    factExtractPrompt: `# 店小秘包包挂件产品事实提取 Agent v0.1
+
+你正在为速卖通半托管（Choice）店小秘创建「包包挂件 / 吊坠 / Bag Charm / Pendant」产品（如 金属吊坠挂件 / 真皮包挂 / 钥匙扣式吊饰 等），请基于本对话上传的全部产品图片（实拍图/详情图/SKU 图/尺寸图/包装图），提取可直接填写店小秘表单的产品事实，并**只输出一个 JSON 对象**（不要用 markdown 代码块包裹，直接输出纯 JSON）。
+
+# 输出 JSON 结构（字段名不得更改；图片无法判断的填 null 或省略）
+
+{
+  "title": {
+    "zh": "中文标题（≤128 字，含核心关键词：包包挂件/吊坠/包挂/包饰配件）",
+    "en": "英文标题（≤128 字，速卖通风格，含 Bag Charm / Pendant / Bag Pendant / Handbag Charm 等关键词）"
+  },
+  "mainKeyword": "产品核心搜索关键词（英文，如 Bag Charm / Pendant），用于型号与类型等关键属性",
+  "brand": "品牌名；无品牌填 NONE",
+  "material": "主要材质（如 合金 Alloy / 不锈钢 Stainless Steel / 硅胶 Silicone / PU / 真皮 Leather），可多项用逗号分隔",
+  "type": "产品类型（对应店小秘「类型(Type)」下拉，如 包挂 Pendant / 吊坠 Pendant / 钥匙扣 Keychain），尽量用店小秘枚举词",
+  "origin": { "country": "产地国，如 中国大陆(Mainland China)", "province": "省份如 浙江(Zhejiang)" },
+  "description": {
+    "pc": "PC 端描述（卖点+参数，纯文本，可含换行）",
+    "mobile": "无线端描述（更口语短句）"
+  },
+  "compliance": { "euResponsible": "", "trResponsible": "", "manufacturer": "", "customsAttribute": "" }
+}
+
+# 规则
+1. 仅提取图片中**清晰可读/可见**的信息；不确定或图片无此信息时对应字段填 null 或省略，禁止编造。
+1.1 mainKeyword 必填：用该包包挂件产品的英文核心搜索词（如 Bag Charm），将作为型号(Model Number)与类型(Type)的填充值。
+1.2 type 强烈建议填 "包挂 Pendant"（或店小秘枚举中对应的包挂/吊坠词），以匹配本品类。
 2. 标题须符合速卖通搜索习惯，包含品类核心词。
 3. 不要输出 JSON 以外的任何解释文字。
 4. 本任务只提取图片事实，不联网、不生图。`
@@ -444,7 +567,7 @@ C. Single Image Prompt Pack
 的全部 20 个固定边界标记。
 
 每个区块必须包含完整、可直接执行的单图 Prompt。
-不要输出解释，不要再次询问，不要等待人工确认，当前不要直接生成图片。`;
+不要输出解释，不要再次询问，不要等待人工确认，不要输出"我将在下一条消息继续"等预告，当前不要直接生成图片。`;
 export const STORYBOARD_GATE_PROMPT = `# STORYBOARD_GATE_PROMPT
 
 你现在只做 Listing 生图前的 Storyboard Gate。
@@ -978,11 +1101,31 @@ export const LISTING_IMAGE_QC_PROMPT_V1 = `# Listing Image QC Prompt v1.0
 任何出现货不对板，直接 Reject。
 任何移动端主卖点不可读，最高不得超过 74 分。
 任何未确认承诺写成确定事实，最高不得超过 70 分。`;
-export function singleImageCommand(imageNumber, prompt) {
+/**
+ * 作图阶段产品参考图的强制刷新间隔（张）。
+ * 0 = 整个 10 张只上传一次，之后全程复用本对话历史里的图片附件。
+ *
+ * 背景（2026-10-23 用户反馈「一个产品的对话框里面不用重复提交产品图片」）：
+ * 旧实现每张图都重新附 3 张源图，10 张 × 3 张 = 30 次上传，27 次纯重复。
+ * 会话内此前消息的图片仍在模型上下文中，重复提交只会撑大上下文、拉长耗时。
+ *
+ * 若实际跑图发现长上下文导致产品特征漂移，可把此值调大（如 4 = Image 1/5/9 附图刷新），
+ * 代价是恢复少量重复上传。
+ */
+export const IMAGE_REFERENCE_REFRESH_INTERVAL = 0;
+export function singleImageCommand(imageNumber, prompt, options = {}) {
+    // withImages=false 表示本条消息不附产品图（同一对话早已上传过）。
+    // 此时必须引导模型去历史附件里找图，而不能沿用「本次消息已重新附上」的旧文案——
+    // 那会让模型去找本条消息里并不存在的附件，反而更容易生成错误图片。
+    const attached = options.withImages !== false;
+    const imageClause = attached
+        ? `本次消息已重新附上当前商品的源图片。必须以本次附件中的产品作为唯一产品主体和唯一视觉参考。
+如果无法识别附件，请不要继续生成错误图片，直接说明缺少可用产品参考图。`
+        : `本对话上方此前的消息中已附上当前商品的源图片。必须以那些历史附件中的产品作为唯一产品主体和唯一视觉参考。
+请先在本对话历史中定位产品源图，再生成图片；如果无法从历史附件中识别产品，请不要继续生成错误图片，直接说明缺少可用产品参考图。`;
     return `请生成 Image ${imageNumber}。
 
-本次消息已重新附上当前商品的源图片。必须以本次附件中的产品作为唯一产品主体和唯一视觉参考。
-如果无法识别附件，请不要继续生成错误图片，直接说明缺少可用产品参考图。
+${imageClause}
 
 严格使用下面的 Image ${imageNumber} Single Image Prompt：
 

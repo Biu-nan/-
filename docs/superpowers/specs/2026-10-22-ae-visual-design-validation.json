@@ -1,0 +1,23 @@
+{
+  "checks": {
+    "briefRequiredFields": true,
+    "weightsSum100": true,
+    "thresholdExplicitlyUnvalidated": true,
+    "noPrematureApproval": true,
+    "noResetToOldRun": true,
+    "referenceImagesMatchManifest": true,
+    "humanRejectionPreserved": true
+  },
+  "scope": {
+    "auditedSourceFilesChecked": 13,
+    "auditedSourceFilesChanged": [],
+    "sourceProductFilesChecked": 26,
+    "sourceProductFilesChanged": []
+  },
+  "pass": true,
+  "kind": "document and data consistency checks only",
+  "visualQcCalibrationRun": false,
+  "thumbnailRecognitionExperimentRun": false,
+  "onlineConversionExperimentRun": false,
+  "productionTestsRun": false
+}
