@@ -23,7 +23,7 @@ import {
   synthesizePromptPack,
   synthesizeStoryboard,
 } from "./planning.js";
-import { runQc } from "./qc.js";
+import { runQc, buildLocalQc, deterministicQc, isQcDeliverable } from "./qc.js";
 import { fitSubjectScale, parseScaleRange } from "./image-tools.js";
 import { slotDataReadiness } from "./readiness.js";
 import { auditImage, buildSkuLockText, identifyProduct } from "./vision-identify.js";
@@ -225,7 +225,58 @@ export async function runAgent(opts) {
     warnings: state.warnings,
   };
 
+  const holdCandidate = async (slot, slotState, file, qc) => {
+    assertWithin(outDir, file, "候选图片");
+    slotState.file = null;
+    slotState.candidateFile = file;
+    slotState.qc = qc;
+    slotState.status = qc?.verdict === "fail" ? "qc-failed" : "unverified";
+    await save(stateFile, state);
+    const candidatesDir = path.join(outDir, "candidates");
+    if (path.dirname(file) !== candidatesDir) {
+      await mkdir(candidatesDir, { recursive: true });
+      const isolated = path.join(candidatesDir, `${slot.id}_${Date.now()}_${randomUUID().slice(0, 8)}.jpg`);
+      // 隔离失败必须报错，不能留下交付目录中的假合格图。
+      await rename(file, isolated);
+      slotState.candidateFile = isolated;
+      await save(stateFile, state);
+    }
+  };
+
+  const acceptCandidate = async (slot, slotState, file, qc) => {
+    const target = path.join(designImageDir, `${slot.id}.jpg`);
+    if (file !== target) {
+      if (await access(target).then(() => true).catch(() => false)) {
+        throw new AgentError(CODES.GATE_REJECTED, `交付路径存在未经核验的文件：${slot.id}`);
+      }
+      await mkdir(designImageDir, { recursive: true });
+      await rename(file, target);
+    }
+    slotState.status = "passed";
+    slotState.file = target;
+    slotState.candidateFile = null;
+    slotState.qc = qc;
+    await save(stateFile, state);
+  };
+
   const finalize = async (status, extra = {}) => {
+    if (!opts.dryRun) {
+      for (const slot of requestedSlots) {
+        const slotState = state.slots[slot.id];
+        if (!slotState || (slotState.status === "passed" && isQcDeliverable(slotState.qc, slot))) continue;
+        const possible = [slotState.candidateFile, slotState.file, path.join(designImageDir, `${slot.id}.jpg`)];
+        const candidate = [];
+        for (const file of possible.filter(Boolean)) {
+          if (!candidate.includes(file) && await access(file).then(() => true).catch(() => false)) candidate.push(file);
+        }
+        slotState.file = null;
+        for (const file of candidate) {
+          await holdCandidate(slot, slotState, file, slotState.qc ?? { verdict: "unverified", reason: "任务中断，尚未完成检查" });
+        }
+        const reported = report.slots.find(s => s.id === slot.id);
+        if (reported) reported.file = null;
+      }
+    }
     report.status = status;
     report.budget = {
       modelCalls: tracer.modelCalls,
@@ -243,8 +294,9 @@ export async function runAgent(opts) {
         qc: { verdict: "skipped", reason: "手动跳过（--skip-slots）" },
       })),
     ];
-    const delivered = report.slots.filter((s) => s.file).length;
-    const qcPassed = report.slots.filter((s) => s.qc?.verdict === "pass").length;
+    const verifiedSlots = report.slots.filter(s => s.file && isQcDeliverable(s.qc, inputs.slots.find(slot => slot.id === s.id)));
+    const delivered = verifiedSlots.length;
+    const qcPassed = verifiedSlots.length;
     report.counts = { requested: requestedSlots.length, delivered, qcPassed };
     const hero = report.slots.find((s) => s.id === "P1");
     report.heroScore = hero?.qc?.heroScore
@@ -258,6 +310,21 @@ export async function runAgent(opts) {
   };
 
   const model = opts.dryRun ? null : new ModelClient({ tracer, agentId: "ae-product-design" });
+  const checkCandidate = async (slot, imageFile) => {
+    try {
+      return await runQc({ model, slot, imageFile, referenceImage: inputs.images[0],
+        spec: specMap[slot.specKey] ?? specMap.product, scoringConfig,
+        vision: opts.visionQc !== false, thumbDir, skuLock: skuLockText });
+    } catch (error) {
+      if (!/E_UPLOAD_UNAVAILABLE|附件|入口当前被禁用/.test(`${error?.code ?? ""} ${error?.message ?? ""}`) || !vision.available) throw error;
+      const audit = await auditImage({ generatedFile: imageFile,
+        referenceFile: vision.referenceFiles?.[0] ?? inputs.images[0], targetSku: vision.targetVariant,
+        expectedShot: slot.shot ?? "any", workDir: path.join(outDir, "vision", "audit") });
+      const deterministic = await deterministicQc(imageFile, specMap[slot.specKey] ?? specMap.product);
+      report.warnings.push(`${slot.id}_QC_FALLBACK_LOCAL: 局部检查仅保留候选，待补验`);
+      return buildLocalQc({ slot, dimension: deterministic.dimension, audit });
+    }
+  };
   const factsText = buildFactsText(inputs, { vision, skuLockText });
   const slotText = buildSlotText(requestedSlots, specMap);
   const keywords = buildKeywords(inputs.facts, opts.keywords ?? []);
@@ -426,6 +493,9 @@ export async function runAgent(opts) {
     for (const slot of requestedSlots) {
       const slotState = state.slots[slot.id] ?? { status: "pending", attempts: 0 };
       state.slots[slot.id] = slotState;
+      // 恢复文件是输入数据，先验证路径，再做文件读取或模型上传。
+      if (slotState.file) assertWithin(outDir, slotState.file, "历史交付图片");
+      if (slotState.candidateFile) assertWithin(outDir, slotState.candidateFile, "待补验图片");
       // 模型可在 storyboard 里显式跳过可选槽位（不为凑数量重复图片）
       // 数据就绪守卫：缺尺寸/配件信息时跳过，而不是让模型编造
       const readiness = slotDataReadiness(slot, inputs.facts);
@@ -457,7 +527,8 @@ export async function runAgent(opts) {
         await save(stateFile, state);
         continue;
       }
-      if (slotState.status === "passed" && slotState.file) {
+      if (slotState.status === "passed" && slotState.file && isQcDeliverable(slotState.qc, slot) &&
+          (await access(slotState.file).then(() => true).catch(() => false))) {
         report.slots.push({
           id: slot.id,
           module: slot.module,
@@ -474,6 +545,25 @@ export async function runAgent(opts) {
       const prompt = guardPrompt(pack.prompts.find((p) => p.slotId === slot.id)?.prompt ?? "", slot, { skuLock: skuLockText });
       let passed = false;
       let lastQc = null;
+
+      // 待补验候选与合格交付分开保存。恢复时先检查原候选，不再自动重新生图。
+      if (slotState.candidateFile && await access(slotState.candidateFile).then(() => true).catch(() => false)) {
+        budgetCheck();
+        lastQc = await checkCandidate(slot, slotState.candidateFile);
+        if (isQcDeliverable(lastQc, slot)) {
+          await acceptCandidate(slot, slotState, slotState.candidateFile, lastQc);
+          passed = true;
+        } else {
+          await holdCandidate(slot, slotState, slotState.candidateFile, lastQc);
+          if (lastQc.verdict === "unverified") failures.push(slot.id);
+        }
+        if (passed || lastQc.verdict === "unverified") {
+          report.slots.push({ id: slot.id, module: slot.module,
+            file: passed ? path.relative(outDir, slotState.file).replace(/\\/g, "/") : null,
+            attempts: slotState.attempts, qc: lastQc, width: lastQc.dimension?.width, height: lastQc.dimension?.height });
+          continue;
+        }
+      }
 
       // 每轮续跑允许再试 maxAttempts 次（attempts 只做累计记录），
       // 否则中断后 attempts 已达上限会导致该槽位永远无法重试。
@@ -492,6 +582,9 @@ export async function runAgent(opts) {
             productImages: referenceImages,
             attempt,
           });
+          slotState.candidateFile = imageFile;
+          slotState.file = null;
+          await save(stateFile, state);
           // 纯白底图主体占比校正：模型有撑满画面的惯性（实测 88%/93%），
           // 这里用确定性补白把占比拉回目标区间，商品像素不缩放、可重复执行。
           let postProcess = null;
@@ -511,52 +604,7 @@ export async function runAgent(opts) {
               });
             }
           }
-          try {
-            lastQc = await runQc({
-              model,
-              slot,
-              imageFile,
-              referenceImage: inputs.images[0],
-              spec: specMap[slot.specKey] ?? specMap.product,
-              scoringConfig,
-              vision: opts.visionQc !== false,
-              thumbDir,
-              skuLock: skuLockText,
-            });
-          } catch (qcError) {
-            // 云端 QC 同样要上传附件，配额耗尽时用本地视觉模型兜底（只覆盖 SKU/镜头/文字三项）
-            const quotaBlocked = /E_UPLOAD_UNAVAILABLE|附件|入口当前被禁用/.test(
-              `${qcError?.code ?? ""} ${qcError?.message ?? ""}`,
-            );
-            if (!quotaBlocked || !vision.available) throw qcError;
-            const audit = await auditImage({
-              generatedFile: imageFile,
-              referenceFile: vision.referenceFiles?.[0] ?? inputs.images[0],
-              targetSku: vision.targetVariant,
-              expectedShot: slot.shot ?? "any",
-              workDir: path.join(outDir, "vision", "audit"),
-            });
-            const localPass =
-              audit.available && audit.isTargetSku && audit.shotMatch && audit.hasText === false;
-            lastQc = {
-              slotId: slot.id,
-              module: slot.module,
-              dimension: { pass: true, source: "local-vl" },
-              sku: { pass: audit.isTargetSku, detected: audit.sku, issues: [] },
-              shotType: { present: audit.shotType, match: audit.shotMatch },
-              productFidelity: { pass: true, issues: [], source: "local-vl" },
-              background: { pass: true, source: "local-vl" },
-              text: { present: audit.hasText, policyOk: audit.hasText === false, source: "local-vl" },
-              composition: { pass: true, issues: [], source: "local-vl" },
-              verdict: localPass ? "pass" : "fail",
-              source: "local-vl",
-              coverage: ["sku", "shotType", "text"],
-              reason: localPass
-                ? "云端 QC 因附件配额不可用，改由本地视觉模型兜底判定（仅覆盖 SKU/镜头/文字）"
-                : `本地兜底判定不通过：${audit.notes || audit.reason || ""}`,
-            };
-            report.warnings.push(`${slot.id}_QC_FALLBACK_LOCAL: 云端 QC 因附件配额不可用，已用本地视觉模型兜底`);
-          }
+          lastQc = await checkCandidate(slot, imageFile);
           await save(path.join(outDir, "qc-report.json"), {
             runId,
             updatedAt: new Date().toISOString(),
@@ -565,16 +613,16 @@ export async function runAgent(opts) {
               lastQc,
             ],
           });
-          if (lastQc.verdict === "pass" || lastQc.verdict === "unverified") {
-            slotState.status = "passed";
-            slotState.file = imageFile;
-            slotState.qc = lastQc;
+          if (isQcDeliverable(lastQc, slot)) {
+            await acceptCandidate(slot, slotState, imageFile, lastQc);
             passed = true;
             break;
           }
-          slotState.status = "qc-failed";
-          slotState.qc = lastQc;
-          await save(stateFile, state);
+          await holdCandidate(slot, slotState, imageFile, lastQc);
+          // 缺少检查应等待补验，不能因为检查不可用而重复消耗生图次数。
+          if (lastQc.verdict === "unverified") {
+            break;
+          }
         } catch (error) {
           let err = asAgentError(error, CODES.UNKNOWN);
           // 附件入口被禁用多数是临时限流，不该被误判成"出图超时"
@@ -596,32 +644,12 @@ export async function runAgent(opts) {
                 expectedShot: slot.shot ?? "any",
                 workDir: path.join(outDir, "vision", "audit"),
               });
-              const localPass = audit.available && audit.isTargetSku && audit.shotMatch && audit.hasText === false;
-              if (localPass) {
-                slotState.status = "passed";
-                slotState.file = existing;
-                slotState.qc = {
-                  slotId: slot.id,
-                  module: slot.module,
-                  dimension: { pass: true, source: "local-vl" },
-                  sku: { pass: true, detected: audit.sku, issues: [] },
-                  shotType: { present: audit.shotType, match: true },
-                  productFidelity: { pass: true, issues: [], source: "local-vl" },
-                  background: { pass: true, source: "local-vl" },
-                  text: { present: false, policyOk: true, source: "local-vl" },
-                  composition: { pass: true, issues: [], source: "local-vl" },
-                  verdict: "pass",
-                  source: "local-vl",
-                  coverage: ["sku", "shotType", "text"],
-                  reason: "云端出图/QC 因附件配额中断，采用上一轮成图并由本地视觉模型兜底判定",
-                };
-                lastQc = slotState.qc;
-                passed = true;
-                report.warnings.push(
-                  `${slot.id}_QC_FALLBACK_LOCAL: 附件配额中断，改由本地视觉模型兜底判定并采纳已有成图`,
-                );
-                await save(stateFile, state);
-              }
+              const deterministic = await deterministicQc(existing, specMap[slot.specKey] ?? specMap.product);
+              lastQc = buildLocalQc({ slot, dimension: deterministic.dimension, audit });
+              await holdCandidate(slot, slotState, existing, lastQc);
+              report.warnings.push(`${slot.id}_QC_FALLBACK_LOCAL: 已有候选保留待补验，不作为合格交付`);
+              await save(stateFile, state);
+              break;
             }
           }
           if (passed) break; // 已用本地兜底采纳现成图，无需再试
@@ -702,18 +730,6 @@ export async function runAgent(opts) {
           })),
         };
       }
-    }
-
-    // 未通过的草稿移出 images/，避免被当成可上架文件误用
-    const rejectedDir = path.join(outDir, "rejected");
-    for (const slot of requestedSlots) {
-      const slotState = state.slots[slot.id];
-      if (!slotState || slotState.status === "passed" || slotState.status === "skipped") continue;
-      const draft = path.join(designImageDir, `${slot.id}.jpg`);
-      const exists = await access(draft).then(() => true).catch(() => false);
-      if (!exists) continue;
-      await mkdir(rejectedDir, { recursive: true });
-      await rename(draft, path.join(rejectedDir, `${slot.id}_attempt${slotState.attempts}.jpg`)).catch(() => {});
     }
 
     markStage(state, "generate", "done", { failures });
