@@ -14,6 +14,9 @@ dist.old/
 
 # ── 运行态 / 日志（频繁变动，不入库）──
 run-state.json
+run-state.json.backup
+run-state.json.corrupt-*
+run-state.json.*.tmp
 daily-waiting-items.json
 data-collection-tasks.json
 performance-snapshots.json
