@@ -1,5 +1,6 @@
 # ── 依赖（可由 npm install 还原）──
 node_modules/
+.worktrees/
 
 # ── 业务数据 / 生成产物（体积大、非代码，不入库）──
 users/
