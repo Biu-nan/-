@@ -4,6 +4,9 @@ import { OUTPUT_DIR, PLANNING_COMPLETION_PROMPT, PRODUCT_FACT_FILE, PRODUCT_FACT
 // 参考风格图：只参考风格，不参考产品信息。风格图永不计入产品图 / 身份锁 / 店小秘图源。
 import { buildStyleGenerationClause, buildStylePlanningBlock, extractStyleLockFromPlanning, scanStyleReferenceImages, writeStyleLock } from "./style-reference-service.js";
 import { normalizeDianxiaomiFacts, buildProductFactsFallback } from "./dianxiaomi-facts.js";
+// 2026-10-28：主路径标题提取兜底。此前本文件自带一份手写锚定正则，锚定失败时直接返回空，
+// 实测 450 份产物有 93 份（20.7%）提不到标题。改为锚定优先 + 解析层兜底后降到 6 份。
+import { extractTitle as extractTitleFromListing } from "./listing-contract.js";
 import { loadVerifiedText, productKeyOf, recordArtifact } from "./progress-manifest.js";
 import { scanProductImages } from "./image-files.js";
 import { extractImagePrompt, isOutlineOnlyPlanningText, readPrompt, validatePromptPack } from "./prompt-files.js";
@@ -56,9 +59,8 @@ B) SEO / Listing 文案（MVP5 交付）
 - **description.pc 与 description.mobile 必须优先取自 B) Listing 文案中「3.2 AEO 结构化五点描述 Bullet Points And Q And A」下的完整内容（包含 Basic Information、Core Selling Points、Q And A、WARM NOTE，保留其 markdown 结构）**。若该段落不存在，再退而组合 B) 中的其它属性与卖点段落。
 - images.main 不要填（后端会自动注入当前产品图文件名）。
 - 颜色 / 尺寸 / 价格 / 重量尽量从文本推断；推断不出就留空数组 / 空字符串。`;
-// 从 MVP5 Listing 文案中提取 Clean Title（3.1 算法标题 Clean Title）。
-// 匹配「3.1 算法标题 Clean Title」后的第一行非空文本。
-function extractCleanTitle(listingText) {
+// 锚定版：锁「3.1 算法标题 Clean Title」小节后的第一行非空文本（2026-10-28 之前的行为，原样保留）。
+function anchoredCleanTitle(listingText) {
     if (!listingText) return "";
     const match = listingText.match(/3\.1\s*[\s\S]*?算法标题\s*Clean Title[\s\S]*?\n\s*\n?\s*([^\n]+?)\s*\n/i);
     if (match && match[1]) {
@@ -72,6 +74,18 @@ function extractCleanTitle(listingText) {
         if (title.length >= 10) return title;
     }
     return "";
+}
+
+// 从 MVP5 Listing 文案中提取 Clean Title（3.1 算法标题 Clean Title）。
+// 分层：先锚定 3.1 小节（格式规整时行为与改造前完全一致），锚定失败才退到解析层全文扫描。
+// 为什么分两层而不是直接用解析层：两者语义不同——锚定版取「3.1 小节第一行」，
+// 解析层取「全文最佳标题（126–128 打分）」。直接替换会改变规整样本的结果。
+// 实测（tools/verify-title-mainpath.mjs，450 份真实产物）：救回 87、回归 0、
+// 提不到标题的从 93 降到 6，落在 126–128 区间的从 225 升到 286。
+function extractCleanTitle(listingText) {
+    const anchored = anchoredCleanTitle(listingText);
+    if (anchored) return anchored;
+    return extractTitleFromListing(listingText || "");
 }
 
 // 从 MVP5 Listing 文案中提取商品详情页内容（3.3 商品详情页内容 Product Detail Page）。
