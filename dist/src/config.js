@@ -45,6 +45,14 @@ export const TASK_STATE_FILE = path.join(HIDDEN_DATA_DIR, "task_state.json");
 export const TODAY_DASHBOARD_FILE = path.join(HIDDEN_DATA_DIR, "today_dashboard.json");
 export const QCLAW_STATE_FILE = path.join(HIDDEN_DATA_DIR, "qclaw_state.json");
 export const PRODUCT_IMAGES_DIR = path.join(PRODUCT_ROOT, "产品图");
+
+/* ── 参考风格图（Style Reference）──
+   只提供风格（背景 / 版式 / 光影 / 字体 / 图标 / 气质），不提供任何产品事实。
+   必须与「产品图」目录物理隔离：一旦混入 产品图/，会被 scanProductImages 当成源图，
+   从而进入身份锁、hash 校验和店小秘图源，造成货不对板。 */
+export const PRODUCT_STYLE_REF_DIR = path.join(PRODUCT_ROOT, "风格参考图");
+export const STYLE_LOCK_FILE = path.join(PRODUCT_ROOT, "style-lock.json");
+export const MAX_STYLE_REFERENCE_IMAGES = 3;
 export const OUTPUT_DIR = path.join(PRODUCT_ROOT, "output");
 export const INSERT_BAG_IMAGES_DIR = path.join(PRODUCT_ROOT, "目标外包图");
 export const INSERT_LINER_IMAGES_DIR = path.join(PRODUCT_ROOT, "内胆图");
@@ -98,6 +106,21 @@ export const CHATGPT_URL = "https://chatgpt.com/";
 // - CHATGPT_REASONING：推理档位，取值 低 / 中 / 高（默认「高」，确保 10 张图 Prompt Pack 一次性完整输出；中/低档 ChatGPT 倾向只给大纲）
 export const CHATGPT_MODEL = process.env.CHATGPT_MODEL || "GPT-5.6 Sol";
 export const CHATGPT_REASONING = process.env.CHATGPT_REASONING || "高";
+
+// ── 模型候选链（2026-10-26 增补，OS_UPGRADE_PLAN D1=C）──────────────────────
+// 按序尝试，取第一个能在菜单里精确命中的候选。默认「优先 5.6 Sol，缺失自动落 6 Sol」，
+// 这样官方下架 5.6 当天不会静默跑在旧模型上，而是自动切到 6 Sol 并留日志。
+// 每个候选必须是**完整模型名**（带变体）。只写 "GPT-6" 会被解析为 "GPT-6 Sol"；
+// 若该补全仍不存在则判为不可用，不做模糊包含匹配。
+export const CHATGPT_MODEL_CHAIN = (process.env.CHATGPT_MODEL_CHAIN
+  || `${CHATGPT_MODEL},GPT-6 Sol`)
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+// 严格模式（D2=A）：整条链都不可用 → 硬失败 MODEL_UNAVAILABLE，不静默降级。
+// 设为 0 可回退「告警后继续」（会产出劣质 listing，仅应急）。
+export const CHATGPT_MODEL_STRICT = process.env.CHATGPT_MODEL_STRICT !== "0";
 // 快档（速度优先）：简单/格式化类任务走更便宜更快的模型 + 低推理。
 // - CHATGPT_MODEL_FAST：如「智能极速」(Auto 速度档)；若账号无此选项，设成你常用的快模型子串。
 // - CHATGPT_REASONING_FAST：低推理档。
@@ -267,7 +290,11 @@ export const DIANXIAOMI_CATEGORY_PROFILES = {
       { label: "类型(Type)", id: "rc_select_13", value: "", factsKey: "type", aiSection: "attributes" },
       { label: "材质(Material)", id: "rc_select_15", value: "", factsKey: "material", aiSection: "attributes" },
       { label: "品牌(Brand Name)", id: "rc_select_11", factsKey: "brand", aiSection: "attributes", viaBrandTemplateSync: true },
-      { label: "产地（国家或地区）(Origin)", id: "rc_select_14", factsKey: "origin", aiSection: "attributes" }
+      { label: "产地（国家或地区）(Origin)", id: "rc_select_14", factsKey: "origin", aiSection: "attributes" },
+      // 中国省份：产地选「中国大陆」后**才出现**的联动必填项（2026-10-27 实测 rc_select_17）。
+      // 它没有 facts 字段（原产地恒为浙江/义乌），走 fillMandatoryAttribute 的候选兜底；
+      // 给 id 是为了让 applyAttribute 走 id 优先路径 —— 按 label 定位在联动字段上不稳。
+      { label: "中国省份(CN)", id: "rc_select_17", factsKey: "originProvince", aiSection: "attributes", preferLabel: true }
     ],
     besteffortAttrs: [],
     defaultMaterial: "",
@@ -334,7 +361,11 @@ export const DIANXIAOMI_CATEGORY_PROFILES = {
       { label: "类型(Type)", id: "rc_select_13", value: "", factsKey: "type", aiSection: "attributes" },
       { label: "材质(Material)", id: "rc_select_15", value: "", factsKey: "material", aiSection: "attributes" },
       { label: "品牌(Brand Name)", id: "rc_select_11", factsKey: "brand", aiSection: "attributes", viaBrandTemplateSync: true },
-      { label: "产地（国家或地区）(Origin)", id: "rc_select_14", factsKey: "origin", aiSection: "attributes" }
+      { label: "产地（国家或地区）(Origin)", id: "rc_select_14", factsKey: "origin", aiSection: "attributes" },
+      // 中国省份：产地选「中国大陆」后**才出现**的联动必填项（2026-10-27 实测 rc_select_17）。
+      // 它没有 facts 字段（原产地恒为浙江/义乌），走 fillMandatoryAttribute 的候选兜底；
+      // 给 id 是为了让 applyAttribute 走 id 优先路径 —— 按 label 定位在联动字段上不稳。
+      { label: "中国省份(CN)", id: "rc_select_17", factsKey: "originProvince", aiSection: "attributes", preferLabel: true }
     ],
     besteffortAttrs: [],
     defaultMaterial: "",
@@ -402,7 +433,11 @@ export const DIANXIAOMI_CATEGORY_PROFILES = {
       { label: "类型(Type)", id: "rc_select_13", value: "", factsKey: "type", aiSection: "attributes" },
       { label: "材质(Material)", id: "rc_select_15", value: "", factsKey: "material", aiSection: "attributes" },
       { label: "品牌(Brand Name)", id: "rc_select_11", factsKey: "brand", aiSection: "attributes", viaBrandTemplateSync: true },
-      { label: "产地（国家或地区）(Origin)", id: "rc_select_14", factsKey: "origin", aiSection: "attributes" }
+      { label: "产地（国家或地区）(Origin)", id: "rc_select_14", factsKey: "origin", aiSection: "attributes" },
+      // 中国省份：产地选「中国大陆」后**才出现**的联动必填项（2026-10-27 实测 rc_select_17）。
+      // 它没有 facts 字段（原产地恒为浙江/义乌），走 fillMandatoryAttribute 的候选兜底；
+      // 给 id 是为了让 applyAttribute 走 id 优先路径 —— 按 label 定位在联动字段上不稳。
+      { label: "中国省份(CN)", id: "rc_select_17", factsKey: "originProvince", aiSection: "attributes", preferLabel: true }
     ],
     besteffortAttrs: [],
     defaultMaterial: "",
@@ -1118,6 +1153,8 @@ export function singleImageCommand(imageNumber, prompt, options = {}) {
     // 此时必须引导模型去历史附件里找图，而不能沿用「本次消息已重新附上」的旧文案——
     // 那会让模型去找本条消息里并不存在的附件，反而更容易生成错误图片。
     const attached = options.withImages !== false;
+    // 参考风格图约束：只有用户提供过风格参考图时才由调用方传入，未提供时为空串 → 行为与旧版完全一致。
+    const styleClause = typeof options.styleClause === "string" ? options.styleClause.trim() : "";
     const imageClause = attached
         ? `本次消息已重新附上当前商品的源图片。必须以本次附件中的产品作为唯一产品主体和唯一视觉参考。
 如果无法识别附件，请不要继续生成错误图片，直接说明缺少可用产品参考图。`
@@ -1125,7 +1162,7 @@ export function singleImageCommand(imageNumber, prompt, options = {}) {
 请先在本对话历史中定位产品源图，再生成图片；如果无法从历史附件中识别产品，请不要继续生成错误图片，直接说明缺少可用产品参考图。`;
     return `请生成 Image ${imageNumber}。
 
-${imageClause}
+${imageClause}${styleClause ? `\n\n${styleClause}` : ""}
 
 严格使用下面的 Image ${imageNumber} Single Image Prompt：
 

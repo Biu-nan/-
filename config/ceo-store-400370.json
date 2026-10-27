@@ -1,0 +1,24 @@
+{
+  "schema": "ceo-store-config/v1",
+  "goal": {
+    "schema": "ceo-goal/v1", "goalId": "goal-store-400370-20261026", "version": 2,
+    "storeRef": { "platform": "aliexpress-choice", "environmentId": "400370" },
+    "period": { "fromDate": "2026-12-01", "toDate": "2026-12-31", "timeZone": "Asia/Shanghai" },
+    "targets": [
+      { "targetId": "daily-paid-items", "value": 200, "caliber": "sales.qty.total", "unit": "件", "window": "DAY", "metricStatus": "PENDING" },
+      { "targetId": "monthly-operating-profit-ex-quality-penalty", "value": 12000, "caliber": null, "unit": "CNY", "window": "MONTH", "metricStatus": "PENDING" }
+    ],
+    "deadline": null, "capacityMinutes": 300, "bufferMinutes": 60
+  },
+  "resourceConfirmation": {
+    "status": "USER_CONFIRMED", "operators": 1, "capacityMinutes": 300, "bufferMinutes": 60,
+    "availableMinutes": 240, "confirmedOn": "2026-10-26",
+    "source": "用户本会话确认：参与运营共1人；每人每天可投入300分钟；其中预留60分钟处理突发问题。",
+    "scope": "首店每日人工运营容量；不等于任务已执行或任务耗时已经实测。"
+  },
+  "resourceProposal": {
+    "status": "PROPOSED_SCENARIO", "operators": 1, "capacityMinutes": 120, "bufferMinutes": 30,
+    "basis": "Historical initial estimate only; superseded by goal capacity and resourceConfirmation. Not an active capacity limit or industry staffing standard.",
+    "references": ["https://help.asana.com/s/article/capacity-planning", "https://www.shopify.com/enterprise/blog/how-to-overcome-your-daily-operational-frustrations-to-focus-on-future-growth"]
+  }
+}

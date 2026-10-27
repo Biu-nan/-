@@ -64,3 +64,43 @@ dist/src/poll_runall.mjs
 
 # 说明：dist/ 是本项目真正的源码（无 src/），必须入库。
 # public/、prompts/、schemas/、根配置 JSON、package.json、watchdog.js、start-* 均入库。
+
+# ── 2026-10-27 备份前整理：探档脚本与临时产物 ──
+# 背景：'git status' 长期挂着 183 个未跟踪项，其中真正的工程文件只有
+# dist/src/listing-engine.js 等 10 个，其余全是调试痕迹。噪声会让
+# "这次改了什么"无法 review，也让备份体积失真。以下按"可重新生成 / 一次性探档"清理。
+#
+# 根目录 52 个下划线脚本全部是探档（实测：非下划线正式脚本 = 0 个）。
+# 若日后有正式工具，请去掉下划线前缀，不要在这里加例外。
+/_*.mjs
+/_*.cjs
+/.tmp-*
+/.tmp_*
+/tmp_proc.txt
+/verify_shangpin_tmp.xlsx
+/*.zip
+/probe_*.png
+/v37_*.png
+
+# 工具运行时目录（自动生成，不入库）
+.agent/
+.playwright-cli/
+
+# nawu-fetch 是独立项目，只入库配置与代码；运行产物不入库
+nawu-fetch/.tmp/
+nawu-fetch/*.zip
+
+# ── 运行时产物与一次性文件（2026-10-27 补）──
+# output/ 只存 visual-samples 等生成样例；业务数据另在 当前产品/ 商品队列/（已忽略）
+/output/
+/_input_*/
+/_test_*/
+/*.png
+/*.diff
+/insert-stock-sheet-records.json
+/纳物采购最新数据/
+/鑷姩鏀捐*
+# agent 的 design/ 是一次运行的产物（含 run-state / trace），不是源码
+/agents/**/fixtures/**/design/
+
+

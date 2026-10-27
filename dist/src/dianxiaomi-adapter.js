@@ -16,6 +16,9 @@ import fs from "node:fs";
 import { spawn } from "node:child_process";
 import net from "node:net";
 import { chromium } from "playwright-core";
+// 填充准确性原语（三态回读）。见该文件头部：写入与确认必须绑死，
+// 「点到了」「赋了值」都不算成功。目前只接在 fillSkuRow 上，其余字段逐步接入。
+import { fillInputVerified, noteUnverified } from "./dianxiaomi-verify.js";
 import {
   CHROME_DEBUG_PORT,
   DIANXIAOMI_URL,
@@ -147,6 +150,17 @@ function escapeRegex(s) {
   return String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// 在给定根定位器内按正则点按钮（getByText → button/a/span/div 兜底），返回是否点到。
+// 与 ecom-translator 的 clickText 同形：找不到就如实返回 false，让调用方决定是抛还是留痕。
+async function clickTextIn(root, re, timeout = 8000) {
+  let b = root.getByText(re).first();
+  if (await b.count() === 0) b = root.locator("button, a, span, div").filter({ hasText: re }).first();
+  if (await b.count() === 0) return false;
+  await b.click({ timeout }).catch(() => {});
+  await sleep(400);
+  return true;
+}
+
 // 等待并获取真实页面（过滤 about:blank）。供 clickSaveAndNext 等跨标签页跳转复用。
 async function awaitRealPage(promise, timeoutMs = 10000) {
   const start = Date.now();
@@ -163,6 +177,42 @@ async function awaitRealPage(promise, timeoutMs = 10000) {
   }
   return p.isClosed() ? null : p;
 }
+
+// SKU 行回读是否严格（A2 决策：供货价/编码/库存回读不一致即抛）。
+// 回滚开关：把 config/dianxiaomi-fill-strict.json 的 skuReadback 改成 "attention"，
+// 即降级为「只记 attention 不抛」，**不需要改代码、不需要重启**（每次上架请求读一次，
+// 与 .secretary-llm.json 同一模式）。生产改动必须有一个不用等我改代码的把手。
+function skuReadbackStrict() {
+  try {
+    const raw = fs.readFileSync(path.join(process.cwd(), "config", "dianxiaomi-fill-strict.json"), "utf8");
+    const cfg = JSON.parse(raw);
+    if (cfg && cfg.skuReadback === "attention") return false;
+  } catch { /* 文件不存在或格式错 → 按默认严格走 */ }
+  return true;
+}
+
+// 模板名前缀归一：店小秘模板名偶尔带「-星造」这类店铺后缀，而弹窗行文本是纯模板名。
+// 溯源：ecom-translator tools/dianxiaomi_draft_executor.mjs:131 templatePrefix。
+function templatePrefixOf(value) {
+  return String(value || "").replace(/\s+/g, " ").trim().replace(/[-—–]\s*星造$/, "");
+}
+
+// 店小秘「重要通知」类弹窗（登录后反复出现，会盖住第一个下拉框）
+//
+// 踩坑记录（来自 ecom-translator 的实测，一跨而境同样适用）：
+//   1) 这些弹窗是 position:fixed —— **offsetParent 恒为 null**，
+//      所以任何用 offsetParent 判可见性的兜底都会把它们当成"不存在"（本文件旧的
+//      `remaining` 判定就踩了这个坑），表现为点击 8 秒超时却看不出根因；
+//   2) 它们由 React 渲染，删掉 DOM 还会重新挂载 —— 所以必须**同时**注入 CSS 永久压制；
+//   3) 只压制通知类，绝不碰 .ant-modal-wrap（那可能是正在使用的库存编辑/物流属性对话框）。
+const NOTICE_OVERLAY_SELECTORS = [
+  ".notice-list-modal",
+  ".notice-list-modal--important",
+  ".notice-content__body",
+  ".notice-rich-content",
+];
+
+// 可见性判定统一不用 offsetParent（fixed 元素恒为 null，会把通知弹窗误判成不存在）。
 
 export class DianxiaomiAdapter {
   constructor(profile) {
@@ -322,10 +372,59 @@ export class DianxiaomiAdapter {
   // v1.6.38 增强：关闭按钮 click 可能不触发实际关闭（店小秘框架状态不同步），
   //   故增加暴力兜底——直接将残留 overlay 从渲染流中移除（visibility:hidden + pointer-events:none），
   //   并在多轮重试后最终 remove() DOM 节点（最后手段，避免死锁）。
+  // 压制店小秘「重要通知」弹窗：注入 CSS 永久压制 + 移除已挂载节点。
+  // 幂等，可在每次导航后 / 每次清场前重复调用（React 重新挂载也会被 CSS 挡掉）。
+  async _suppressNoticeOverlays() {
+    if (!this.page || this.page.isClosed()) return false;
+    try {
+      const css = `${NOTICE_OVERLAY_SELECTORS.join(", ")}{display:none!important;pointer-events:none!important;visibility:hidden!important}`;
+      await this.page.addStyleTag({ content: css }).catch(() => {});
+      await this.page.evaluate((sels) => {
+        for (const sel of sels) {
+          document.querySelectorAll(sel).forEach((n) => {
+            try { n.remove(); } catch { /* ignore */ }
+          });
+        }
+      }, NOTICE_OVERLAY_SELECTORS).catch(() => {});
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // 自检：通知弹窗必须已不可见。失败时点名是哪个选择器还在，
+  // 让下次失效一眼可诊断（否则表现只是"点击 8 秒超时"，看不出根因）。
+  async assertNoticeSuppressed() {
+    if (!this.page || this.page.isClosed()) return { ok: false, reason: "页面已关闭" };
+    try {
+      return await this.page.evaluate((sels) => {
+        const visible = (el) => {
+          const r = el.getBoundingClientRect();
+          if (r.width <= 0 || r.height <= 0) return false;
+          const s = window.getComputedStyle(el);
+          if (s.display === "none" || s.visibility === "hidden") return false;
+          if (Number(s.opacity || 1) <= 0.05) return false;
+          return true;
+        };
+        const still = new Set();
+        for (const sel of sels) {
+          document.querySelectorAll(sel).forEach((n) => { if (visible(n)) still.add(sel); });
+        }
+        return still.size
+          ? { ok: false, reason: `通知弹窗仍在显示（${[...still].join(", ")}）` }
+          : { ok: true, reason: "" };
+      }, NOTICE_OVERLAY_SELECTORS);
+    } catch (e) {
+      return { ok: false, reason: `自检脚本执行失败：${e?.message || e}` };
+    }
+  }
+
   async _dismissAllOverlays(maxRounds = 2) {
     if (!this.page || this.page.isClosed()) return;
     try {
       for (let round = 0; round < maxRounds; round++) {
+        // 0) 先压制「重要通知」弹窗（fixed + React 重挂载，只能 CSS 压）
+        await this._suppressNoticeOverlays();
         // 1) 点所有可见 ant-modal 的关闭按钮
         const modalCloseBtns = this.page.locator(".ant-modal-wrap:visible .ant-modal-close");
         const mc = await modalCloseBtns.count();
@@ -361,29 +460,55 @@ export class DianxiaomiAdapter {
         await sleep(300);
 
         // 4) 检查是否还有可见 overlay，有则下一轮更暴力
+        // ⚠️ 不能用 offsetParent 判可见：position:fixed 的元素 offsetParent 恒为 null，
+        // 会把通知/全屏浮层一律误判成"不存在"（旧实现踩过，表现为点击 8s 超时查不出根因）。
         const remaining = await this.page.evaluate(() => {
-          const modals = document.querySelectorAll(".ant-modal-wrap, .ant-drawer");
-          let count = 0;
-          modals.forEach((el) => {
+          const blocks = (el) => {
+            const r = el.getBoundingClientRect();
+            if (r.width <= 0 || r.height <= 0) return false;
             const s = getComputedStyle(el);
-            if (s.display !== "none" && s.visibility !== "hidden" && el.offsetParent !== null) count++;
+            if (s.display === "none" || s.visibility === "hidden") return false;
+            if (Number(s.opacity || 1) <= 0.05) return false;
+            // 已脱离交互的（被我们压制过的）不算拦住用户
+            if (s.pointerEvents === "none") return false;
+            return true;
+          };
+          let count = 0;
+          document.querySelectorAll(".ant-modal-wrap, .ant-drawer").forEach((el) => {
+            if (blocks(el)) count++;
           });
           return count;
         }).catch(() => 0);
         if (remaining === 0) break; // 干净了，退出
       }
 
-      // 最终兜底：如果仍有残留 visible modal-wrap，直接 remove() DOM 节点（避免死锁）
+      // 最终兜底：仍有拦交互的 modal-wrap/drawer → 直接 remove() DOM（避免死锁）
       await this.page.evaluate(() => {
+        const blocks = (el) => {
+          const r = el.getBoundingClientRect();
+          if (r.width <= 0 || r.height <= 0) return false;
+          const s = getComputedStyle(el);
+          if (s.display === "none" || s.visibility === "hidden") return false;
+          if (Number(s.opacity || 1) <= 0.05) return false;
+          if (s.pointerEvents === "none") return false;
+          return true;
+        };
         document.querySelectorAll(".ant-modal-wrap, .ant-drawer").forEach((el) => {
           try {
-            const s = getComputedStyle(el);
-            if (s.display !== "none" && s.visibility !== "hidden" && el.offsetParent !== null) {
-              el.remove();
-            }
+            if (blocks(el)) el.remove();
           } catch { /* ignore */ }
         });
       }).catch(() => {});
+
+      // 通知弹窗压制 + 自检收尾。
+      // 自检失败只告警不抛错：本方法整体是"尽力而为"的防御性清场，抛错会打死整批；
+      // 但必须留痕 —— 否则又变成"以为修好其实没生效"。
+      await this._suppressNoticeOverlays();
+      const noticeCheck = await this.assertNoticeSuppressed();
+      if (!noticeCheck.ok) {
+        console.warn(`[dianxiaomi] 通知弹窗压制未通过：${noticeCheck.reason}；`
+          + "请核对 NOTICE_OVERLAY_SELECTORS 是否仍匹配店小秘当前弹窗类名（页面可能已改版）。");
+      }
     } catch { /* 静默吞错 — 本步为防御性清场 */ }
   }
 
@@ -442,11 +567,46 @@ export class DianxiaomiAdapter {
     return r.idx;
   }
 
-  async openCreatePage() {
+  async openCreatePage(options = {}) {
     await this.connect();
-    await this.page.goto(this.profile.url || DIANXIAOMI_URL, { waitUntil: "domcontentloaded" });
+    const target = this.profile.url || DIANXIAOMI_URL;
+    // ★ 默认开**全新标签页**（2026-10-27 实证）。
+    // 为什么：在同一个标签页里反复 goto 同一个 SPA 路由，页面会累积脏状态 ——
+    // 实测同一个「引用产品 → 引用产品模板」操作，页面刚打开时能弹出「引用模版」弹窗，
+    // 在已被反复操作过的标签页里则**连裸鼠标坐标点击都不产生任何反应**
+    // （dropdown 正常展开、菜单项命中、elementFromPoint 就是菜单项本身、无遮罩，
+    //  但 .ant-modal-root 数量恒为 0 —— 前端直接不弹）。
+    // 每轮都换新标签，等于把"这次页面干不干净"这个变量从流程里彻底移除。
+    const wantFreshTab = options.freshTab !== false;
+    if (wantFreshTab && this.browser) {
+      let fresh = null;
+      try {
+        const ctx = this.browser.contexts()[0];
+        fresh = await ctx.newPage();
+        await fresh.goto(target, { waitUntil: "domcontentloaded", timeout: 45000 });
+        await fresh.waitForLoadState("networkidle").catch(() => {});
+        await sleep(1500);
+        const old = this.page;
+        this.page = fresh;
+        // 关掉旧标签（只关店小秘的，别碰用户其它页面）
+        if (old && old !== fresh && !old.isClosed()) {
+          try {
+            if ((old.url() || "").includes("dianxiaomi.com")) await old.close();
+          } catch { /* ignore */ }
+        }
+        await this._closeExtraDianxiaomiTabs();
+        await this._suppressNoticeOverlays();
+        return;
+      } catch (e) {
+        // 新标签失败就退回原标签导航，不让"开新页"本身变成新的故障点
+        if (fresh && !fresh.isClosed()) { await fresh.close().catch(() => {}); }
+      }
+    }
+    await this.page.goto(target, { waitUntil: "domcontentloaded" });
     await this.page.waitForLoadState("networkidle").catch(() => {});
     await sleep(1500);
+    // 整页导航会丢掉注入的压制样式，必须重新压一遍（通知弹窗是 fixed + React 重挂载）
+    await this._suppressNoticeOverlays();
   }
 
   // 引用现有产品（不保存）。引用后表单被模板源产品预填。
@@ -594,50 +754,320 @@ export class DianxiaomiAdapter {
   }
 
   // 展开 Ant Select 并选择指定文本值的选项
-  async selectAntSelectById(id, value) {
-    if (!value) return { skipped: true, reason: "empty-value" };
-    await this.connect();
-    // 先关闭可能存在的下拉
+  // 打开一个 Ant Select 的下拉，返回是否真的打开了。
+  // 2026-10-26 实测三条硬事实（店小秘 Choice 编辑页「欧盟责任人」）：
+  //   ① 用**鼠标坐标点击**选择器中心**打不开**下拉（页面无任何遮罩，坐标也在元素矩形内）；
+  //      对 `.ant-select-selector` 做 **DOM click** 才能稳定打开 —— 故 DOM click 优先，鼠标兜底。
+  //   ② 打开出来的浮层 **没有 id**：input 的 aria-controls 写着 form_item_msrEuId_list，
+  //      但 document.getElementById 取不到（该 id 不在浮层上）→ **不能按 aria 限定作用域**。
+  //      我第一版「按 listId 限定」就是照这个字段写的，结果命中 0 个选项。
+  //   ③ 页面里**残留着多个** .ant-select-dropdown（用过的都不删），其中一部分没有
+  //      ant-select-dropdown-hidden 类、只是尺寸被压成 0 —— 所以
+  //      `:not(.ant-select-dropdown-hidden)` 会同时命中好几个，读出
+  //      「全托自营A / 箱包配件 / 布(Fabric) / 国内履约」这种**拼接出来的假选项列表**
+  //      （我第一版探针同样被它骗过，三个字段读出的选项完全一样）。
+  //      正确判据是 **rect > 0（可见）**，并取最后一个（最近打开的）。
+  async _openSelectDropdown(sel) {
+    // 关闭残留下拉（这一步很重要：残留会让下面"标记新旧"失效，也会挡住点击）
     await this.page.mouse.click(5, 5).catch(() => {});
-    await sleep(400);
-    // 真实鼠标点击 Selector 中心展开
-    const box = await this.page.evaluate((selId) => {
-      const input = document.querySelector("#" + selId);
-      const sel = (input && input.closest(".ant-select")) || document.querySelector("#" + selId);
-      if (sel) sel.scrollIntoView({ block: "center" });
-      const trig = sel && (sel.querySelector(".ant-select-selector") || sel.querySelector(".ant-select-selection-search") || sel);
-      const r = (trig || sel).getBoundingClientRect();
+    await sleep(300);
+    // 给"已存在的可见下拉"打标记，点完之后没有标记的那个就是**本次新打开**的。
+    // 为什么需要它：`.ant-select-dropdown:visible` 同时会命中几个残留浮层，
+    // 只按 last() 取不一定是本次的；而往每个下拉里填搜索词又会污染别的控件状态
+    // （实测合规「品牌制造商」偶发回读为空就是这么来的）。
+    const markOld = () => this.page.evaluate(() => {
+      document.querySelectorAll(".ant-select-dropdown").forEach((d) => { try { d.dataset.ykOld = "1"; } catch { /* ignore */ } });
+    }).catch(() => {});
+    const freshIndex = () => this.page.evaluate(() => {
+      const vis = Array.from(document.querySelectorAll(".ant-select-dropdown")).filter((d) => {
+        const r = d.getBoundingClientRect();
+        return r.width > 0 && r.height > 0 && !d.classList.contains("ant-select-dropdown-hidden");
+      });
+      const fresh = vis.findIndex((d) => d.dataset.ykOld !== "1");
+      return fresh >= 0 ? fresh : (vis.length - 1);
+    }).catch(() => -1);
+
+    await markOld();
+    await sel.evaluate((s) => {
+      if (s.scrollIntoView) s.scrollIntoView({ block: "center" });
+      const trig = s.querySelector(".ant-select-selector") || s.querySelector(".ant-select-selection-search") || s;
+      trig.click();
+    }).catch(() => {});
+    await sleep(700);
+    if (await this._hasVisibleDropdown()) return { ok: true, index: await freshIndex() };
+
+    // 兜底：鼠标坐标点击
+    await markOld();
+    const box = await sel.evaluate((s) => {
+      if (s.scrollIntoView) s.scrollIntoView({ block: "center" });
+      const trig = s.querySelector(".ant-select-selector") || s;
+      const r = trig.getBoundingClientRect();
       return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
-    }, id);
-    await this.page.mouse.click(box.x, box.y);
-    await sleep(600);
-    // 搜索型下拉先输入值过滤
-    const searchInput = this.page.locator(".ant-select-dropdown:not(.ant-select-dropdown-hidden) input");
-    if (await searchInput.count()) {
-      try { await searchInput.first().fill(value); } catch {}
-      // 远程搜索下拉：输入后选项异步加载，等选项出现再匹配（最多 ~3s），避免竞态误判「未找到」
-      try {
-        await this.page
-          .locator(".ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option")
-          .first()
-          .waitFor({ state: "visible", timeout: 3000 });
-      } catch { /* 非远程搜索或已本地过滤，忽略 */ }
-      await sleep(300);
+    }).catch(() => null);
+    if (box) { await this.page.mouse.click(box.x, box.y).catch(() => {}); await sleep(700); }
+    const ok = await this._hasVisibleDropdown();
+    return { ok, index: ok ? await freshIndex() : -1 };
+  }
+
+  // 是否存在真实可见的下拉浮层（rect 判可见：这些浮层 position:fixed，offsetParent 恒 null）
+  async _hasVisibleDropdown() {
+    return await this.page.evaluate(() => Array.from(document.querySelectorAll(".ant-select-dropdown"))
+      .some((d) => {
+        const r = d.getBoundingClientRect();
+        return r.width > 0 && r.height > 0 && !d.classList.contains("ant-select-dropdown-hidden");
+      })).catch(() => false);
+  }
+
+  // 按 label 打开下拉并取**第一项**（必填属性兜底用）。
+  async _pickFirstOptionByLabel(labelKeyword) {
+    const handle = await this.page.evaluateHandle((kw) => {
+      const items = Array.from(document.querySelectorAll(".ant-form-item, [class*=form-item]"));
+      for (const item of items) {
+        const lab = item.querySelector(".ant-form-item-label label, label");
+        if (lab && String(lab.innerText || "").includes(kw)) {
+          const sel = item.querySelector(".ant-select");
+          if (sel) return sel;
+        }
+      }
+      return null;
+    }, labelKeyword);
+    const sel = handle.asElement();
+    if (!sel) return { ok: false, reason: "select-not-found" };
+    const opened = await this._openSelectDropdown(sel);
+    if (!opened || !opened.ok) return { ok: false, reason: "dropdown-not-opened" };
+    const dd = this.page.locator(".ant-select-dropdown:visible").nth(opened.index >= 0 ? opened.index : 0);
+    const opt = dd.locator(".ant-select-item-option-content");
+    if (!(await opt.count().catch(() => 0))) return { ok: false, reason: "no-options" };
+    const value = ((await opt.first().innerText().catch(() => "")) || "").trim();
+    await opt.first().click({ timeout: 5000 }).catch(() => {});
+    await sleep(300);
+    await this.page.mouse.click(5, 5).catch(() => {});
+    return { ok: true, value };
+  }
+
+  // 在**所有可见下拉**里找目标选项并点击（从最后打开的那个往前找）。
+  // 为什么不能只用 last()：上一步的下拉如果没关，`.ant-select-dropdown:visible` 会有多个，
+  // last() 不一定命中本次打开的那个 —— 表现就是"下拉明明开了却 option-not-found"。
+  async _chooseOptionInAnyVisibleDropdown(value, primaryIndex = -1) {
+    const escaped = escapeRegex(String(value));
+    const total = await this.page.locator(".ant-select-dropdown:visible").count().catch(() => 0);
+    if (!total) return { ok: false, reason: "no-visible-dropdown" };
+    const seen = [];
+    // 顺序：**先本次打开的那个**（primary），再其它可见下拉。
+    // 关键约束：只有 primary 允许**填搜索词** —— 往别人的下拉里写搜索词会改变那个控件的
+    // 内部过滤状态，下一次在它上面操作就取不到值了（实测合规「品牌制造商」偶发回读为空）。
+    const order = [];
+    if (primaryIndex >= 0 && primaryIndex < total) order.push(primaryIndex);
+    for (let i = total - 1; i >= 0; i -= 1) if (i !== primaryIndex) order.push(i);
+
+    const tryClick = async (dd, i) => {
+      const opt = dd.locator(".ant-select-item-option-content");
+      const texts = await opt.allInnerTexts().catch(() => []);
+      // 归一化后比较：店小秘的选项文本常与配置值差在**首尾标点/空格**上 ——
+      // 实测「Yiwu Sumu Arts and Crafts Co., Ltd.」比配置多一个句点，
+      // 用 `^值$` 的正则精确匹配必然落空，然后整条合规项被判"未选中"。
+      const normKey = (x) => String(x || "")
+        .toLowerCase()
+        .replace(/\s+/g, "")
+        .replace(/^[.,;:、。，；：()（）\[\]【】'"`]+/, "")
+        .replace(/[.,;:、。，；：()（）\[\]【】'"`]+$/, "");
+      const want = normKey(value);
+      let hitIdx = texts.findIndex((t) => normKey(t) === want);
+      if (hitIdx < 0) hitIdx = texts.findIndex((t) => normKey(t).includes(want) || want.includes(normKey(t)));
+      if (hitIdx >= 0) {
+        await opt.nth(hitIdx).click({ timeout: 5000 }).catch(() => {});
+        return { ok: true, value: (texts[hitIdx] || "").trim() || value, dropdownIndex: i };
+      }
+      return null;
+    };
+
+    for (const i of order) {
+      const dd = this.page.locator(".ant-select-dropdown:visible").nth(i);
+      let hit = await tryClick(dd, i);
+      if (hit) return hit;
+      if (i === primaryIndex) {
+        // 仅 primary：填搜索词再找一次（远程搜索下拉必须等选项加载）
+        const input = dd.locator("input").first();
+        if (await input.count().catch(() => 0)) {
+          // 搜索用**中文短词**（括号前的部分）而不是整串：
+          // 「中国省份」这类下拉是虚拟滚动 + 可搜索，首批只渲染 ~10 项，浙江根本不在其中；
+          // 而拿「浙江(Zhejiang)」整串去搜，页面侧通常按中文匹配，搜不到任何结果
+          // —— 表现就是"候选全都不存在"，实际上只是没滚到/没筛到。
+          const query = String(value).replace(/\(.*\)\s*$/, "").trim() || String(value);
+          await input.fill(query).catch(() => {});
+          await dd.locator(".ant-select-item-option").first().waitFor({ state: "visible", timeout: 3000 }).catch(() => {});
+          await sleep(300);
+          hit = await tryClick(dd, i);
+          if (hit) return hit;
+        }
+      }
+      const options = await dd.locator(".ant-select-item-option-content").allInnerTexts().catch(() => []);
+      if (options.length) seen.push({ dropdownIndex: i, options: options.slice(0, 6) });
     }
-    // 点匹配选项（精确优先，否则包含）
-    const optLocator = this.page.locator(".ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option-content");
-    const exact = optLocator.filter({ hasText: new RegExp(`^${value}$`) });
-    const contains = optLocator.filter({ hasText: value });
-    if (await exact.count()) {
-      await exact.first().click({ timeout: 5000 });
-    } else if (await contains.count()) {
-      await contains.first().click({ timeout: 5000 });
-    } else {
+    return { ok: false, reason: `option-not-found:${value}`, sampled: seen };
+  }
+  // 当前打开的那个下拉的作用域 locator（可见 + 最近打开的那个）
+  _openDropdownScope() {
+    return this.page.locator(".ant-select-dropdown:visible").last();
+  }
+
+  // 统一的「选择下拉值」核心 —— 照 ecom-translator chooseVerified(page,selector,value) 重写
+  // （draft_executor.mjs:397 → choose:240 → selectedEnumValue:287）。
+  // ecom 的流程极简：点控件 → 等 180ms → getByText(值, exact).last().click() → 回读 220ms。
+  // 我此前自造的「遍历所有下拉 + 逐个填搜索词 + 前缀/包含/归一化」那一套，等于把
+  // 一个已经稳定的抽象拆成六个可变点，结果修一处坏一处。现在收回到一处：
+  //   ① 定位控件：id 优先，其次 label
+  //   ② 打开：Playwright click（失败则清遮罩重试）
+  //   ③ 取选项：getByText 精确 → 宽松 →（仅当给了 allowSearch）中文短词搜索后重试
+  //   ④ 回读确认：input.value / .ant-select-selection-item 多候选取第一个非空
+  // 返回 {ok, value, readback, state}；不回读断言由调用方决定（strict 与否）。
+  async _chooseSelectCore({ id = "", label = "", value = "", allowSearch = true, settle = 220 } = {}) {
+    const wanted = String(value || "").replace(/\s+/g, " ").trim();
+    if (!wanted) return { ok: false, reason: "empty-value" };
+
+    // ① 定位控件：拿到一个可点的 Locator（input 本身即可打开下拉）
+    let target = null;
+    let controlLabel = "";
+    if (id) {
+      const byId = this.page.locator("#" + id).first();
+      if (await byId.count().catch(() => 0)) { target = byId; controlLabel = "#" + id; }
+    }
+    if (!target && label) {
+      const handle = await this.page.evaluateHandle((kw) => {
+        const items = Array.from(document.querySelectorAll(".ant-form-item, [class*=form-item]"));
+        for (const item of items) {
+          const lab = item.querySelector(".ant-form-item-label label, label");
+          if (lab && String(lab.innerText || "").includes(kw)) {
+            const sel = item.querySelector(".ant-select");
+            if (sel) return sel;
+          }
+        }
+        return null;
+      }, label).catch(() => null);
+      const el = handle && handle.asElement ? handle.asElement() : null;
+      if (el) {
+        const inputInside = el.asElement ? null : null;
+        // 在控件内找一个可点的 input（antd 的搜索输入在 select 内部）
+        const inner = await el.evaluate((selEl) => {
+          const i = selEl.querySelector("input");
+          if (i) { i.setAttribute("data-yk-target", "1"); return "input"; }
+          selEl.setAttribute("data-yk-target", "1");
+          return "self";
+        }).catch(() => "");
+        target = inner === "input" ? this.page.locator('[data-yk-target="1"]').first() : this.page.locator('[data-yk-target="1"]').first();
+        controlLabel = label;
+      }
+    }
+    if (!target) return { ok: false, reason: `select-not-found:${label || id}` };
+
+    // ②③ 打开 + 找到并点击 —— 合成一个**自验证**的重试，而不是"先确认打开、再去找选项"。
+    // 为什么必须合成：`_hasVisibleDropdown()` 只看"有没有任何一个可见下拉"，
+    // 而页面上常留着上一步的浮层，于是它恒为真 → 当前这个 select 根本没打开，
+    // 却在别人的下拉里找目标选项 → option-not-found（实测「GET RICH」就是这样）。
+    // 正确判据是「**目标选项能不能点到**」，用它同时验证"开没开"和"找没找到"。
+    const clickVisibleText = async (text) => {
+      const exact = this.page.getByText(text, { exact: true }).filter({ visible: true });
+      if (await exact.count().catch(() => 0)) { await exact.last().click({ timeout: 8000 }).catch(() => {}); return true; }
+      const loose = this.page.getByText(text).filter({ visible: true });
+      if (await loose.count().catch(() => 0)) { await loose.last().click({ timeout: 8000 }).catch(() => {}); return true; }
+      return false;
+    };
+    const fillSearch = async (token) => {
+      await target.fill(String(token)).catch(() => {});
+      await sleep(700);
+    };
+    const openers = [
+      ["click", async () => { await target.click({ timeout: 8000 }).catch(() => {}); }],
+      ["domSelectorClick", async () => {
+        await target.evaluate((el) => {
+          const box = el.closest && el.closest(".ant-select") ? el.closest(".ant-select") : el;
+          const trig = box.querySelector(".ant-select-selector") || box;
+          trig.click();
+        }).catch(() => {});
+      }],
+      ["mouseCenter", async () => {
+        const box = await target.evaluate((el) => {
+          const b = el.closest && el.closest(".ant-select") ? el.closest(".ant-select") : el;
+          const trig = b.querySelector(".ant-select-selector") || b;
+          const r = trig.getBoundingClientRect();
+          return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+        }).catch(() => null);
+        if (box) await this.page.mouse.click(box.x, box.y).catch(() => {});
+      }]
+    ];
+    const shortToken = wanted.replace(/\(.*\)\s*$/, "").trim();
+    let clicked = false;
+    for (const [how, open] of openers) {
       await this.page.mouse.click(5, 5).catch(() => {});
-      throw new Error(`Ant Select #${id} 未找到选项: ${value}`);
+      await sleep(200);
+      await open();
+      await sleep(600);
+      if (await clickVisibleText(wanted)) { clicked = true; break; }
+      // 虚拟滚动 / 远程搜索：在**控件自身输入框**里敲词（短词优先）后再找
+      if (allowSearch && shortToken && shortToken !== wanted) {
+        await fillSearch(shortToken);
+        if (await clickVisibleText(wanted)) { clicked = true; break; }
+      }
+      if (allowSearch) {
+        await fillSearch(wanted);
+        if (await clickVisibleText(wanted)) { clicked = true; break; }
+      }
+      // 最后兜底：可见 dropdown 内按归一化文本点（覆盖"选项文本与配置差标点"）
+      const normClick = await this.page.evaluate((want) => {
+        const norm = (x) => String(x || "").toLowerCase().replace(/\s+/g, "")
+          .replace(/^[.,;:、。，；：()（）\[\]【】'"`]+/, "").replace(/[.,;:、。，；:（）（）\[\]【】'"`]+$/, "");
+        const w = norm(want);
+        for (const d of document.querySelectorAll(".ant-select-dropdown")) {
+          if (getComputedStyle(d).display === "none") continue;
+          const nodes = Array.from(d.querySelectorAll("div"));
+          const hit = nodes.find((x) => x.children.length === 0 && norm(x.textContent) === w)
+            || nodes.find((x) => x.children.length === 0 && norm(x.textContent).includes(w));
+          if (hit) { hit.click(); return true; }
+        }
+        return false;
+      }, wanted).catch(() => false);
+      if (normClick) { clicked = true; break; }
     }
-    await sleep(400);
-    return { ok: true, id, value };
+    if (!clicked) return { ok: false, reason: `option-not-found:${wanted}（控件 ${controlLabel}；已试 click/domSelector/mouseCenter + 短词/整串搜索）` };
+    await sleep(settle);
+
+    // ④ 回读：ecom 的 selectedEnumValue 多候选
+    const readback = await this._readSelectValue({ id, label }).catch(() => "");
+    const okRead = readback ? (readback.includes(wanted) || wanted.includes(readback)) : false;
+    return { ok: true, value: readback || wanted, readback, state: readback ? (okRead ? "VERIFIED" : "MISMATCH") : "UNREADABLE" };
+  }
+
+  // 读下拉当前值（ecom selectedEnumValue：input.value 与 .ant-select-selection-item 都看）
+  async _readSelectValue({ id = "", label = "" } = {}) {
+    return await this.page.evaluate((args) => {
+      const pick = (node) => {
+        if (!node) return "";
+        const box = node.closest(".ant-select") || node.parentElement || node;
+        const cands = [
+          node.tagName === "INPUT" ? node.value : "",
+          String(node.querySelector && node.querySelector("input") ? node.querySelector("input").value : ""),
+          String(node.querySelector && node.querySelector(".ant-select-selection-item") ? node.querySelector(".ant-select-selection-item").textContent : ""),
+          String(box.querySelector && box.querySelector(".ant-select-selection-item") ? box.querySelector(".ant-select-selection-item").textContent : "")
+        ];
+        return (cands.find((x) => String(x || "").trim()) || "").trim();
+      };
+      if (args.id) return pick(document.getElementById(args.id));
+      const items = Array.from(document.querySelectorAll(".ant-form-item, [class*=form-item]"));
+      for (const item of items) {
+        const lab = item.querySelector(".ant-form-item-label label, label");
+        if (lab && String(lab.innerText || "").includes(args.label)) {
+          const v = pick(item.querySelector(".ant-select"));
+          if (v) return v;
+        }
+      }
+      return "";
+    }, { id, label }).catch(() => "");
+  }
+
+  async selectAntSelectById(id, value) {
+    const r = await this._chooseSelectCore({ id, value });
+    if (!r.ok) throw new Error(`Ant Select #${id} 选择失败：${r.reason}`);
+    return { ok: true, id, value: r.value, readback: r.readback, state: r.state };
   }
 
   // 选店铺名称（label 定位，引用模板前必须执行；类目选项依赖店铺先选）
@@ -735,14 +1165,64 @@ export class DianxiaomiAdapter {
       }
       try {
         const r = await this.selectAntSelectByLabel(label, value);
-        results.push({ field: label, ...r });
+        // 2026-10-26 加回读断言。溯源：ecom-translator draft_executor.mjs 的 selectCompliance。
+        // 那次事故的原话：用全页找文本点击，页面上别处也可能出现同样文字，点了不产生选中效果，
+        // 于是合规项一路报 SUCCESS、而草稿里仍是「请选择欧盟责任人」（人工核对才发现）。
+        // rc-select 的 input.value 恒为空，真实值只在 .ant-select-selection-item 里。
+        const readback = await this.readAntSelectByLabel(label);
+        if (!readback) {
+          results.push({
+            field: label,
+            ok: false,
+            reason: `未选中：页面回读为空（期望「${value}」）。下拉里可能没有这个选项，请核对合规主体是否属于本店真实资质。`
+          });
+          continue;
+        }
+        if (!readback.includes(String(value)) && !String(value).includes(readback)) {
+          results.push({
+            field: label,
+            ok: false,
+            reason: `回读不一致：期望「${value}」，页面读到「${readback}」。`,
+            readback
+          });
+          continue;
+        }
+        // 兜底选中（fallback）说明下拉里根本没有我们要的值，而页面上仍有值 ——
+        // 比留空好，但必须留痕，否则看起来像成功（ecom 同类事故的教训）。
+        if (r && r.fallback) {
+          results.push({
+            field: label,
+            ok: false,
+            reason: `下拉里没有「${value}」，已兜底选第一个可用项「${r.value}」；`
+              + `该下拉实际选项=${JSON.stringify((r.options || []).slice(0, 20))}；请核对合规主体是否属于本店真实资质。`,
+            readback
+          });
+          continue;
+        }
+        // 2026-10-26：r.ok 为 false 但 reason 为空时日志只剩「欧盟责任人: FAIL 」（空原因），
+        // 现场完全查不出是「下拉没这个选项」还是「控件定位失败」。这里补齐现场信息。
+        results.push({
+          field: label,
+          ...r,
+          readback,
+          ok: r && r.ok === true,
+          reason: (r && r.reason) ? r.reason
+            : (r && r.ok === true) ? ""
+              : `选择未确认：页面回读「${readback || "(空)"}」（期望「${value}」），且未提供失败原因(${JSON.stringify(r || {}).slice(0, 200)})`
+        });
       } catch (e) {
         // 若下拉选择失败，尝试当普通输入框填写
         try {
           const r = await this.fillInputByLabel(label, value);
           results.push({ field: label, ...r });
         } catch (_e2) {
-          results.push({ field: label, ok: false, reason: e.message });
+          // 2026-10-26：原来只报 e.message，而它常为空 → 日志里只有 `欧盟责任人: FAIL `（空原因），
+          // 现场完全查不出是「下拉里没这个选项」还是「控件定位失败」。两条信息都带上。
+          results.push({
+            field: label,
+            ok: false,
+            reason: `${(e && e.message) || "下拉选择失败"}；普通输入框兜底也失败：${(_e2 && _e2.message) || "未知"}`
+          });
         }
       }
     }
@@ -775,6 +1255,27 @@ export class DianxiaomiAdapter {
     const hsCode = customs.hsCode || "";
     const kind = customs.kind || "";
     try {
+      // 2026-10-26 照 ecom 的运营规则：海关监管属性**只对布(Fabric)类填**，其余材质不填。
+      // 溯源：ecom-translator draft_executor.mjs fillCustomsAttributes 开头。
+      // 原话：判据用**页面上的实际材质**，不是资料里的原始材质 —— 资料写「毛毡」时页面枚举里
+      // 没有这一项，执行器会按事实选成「假皮草(Faux Fur)」，那种产品不该进海关流程。
+      //
+      // 为什么这条对一跨尤其重要：一跨的海关实现是在「海关监管属性」区块里找
+      // radio / 税率代码 / 种类 三个控件，但真机探测显示该区块**只有标题**，
+      // 内部 formItems=[] radios=[]（内容其实在点「添加海关监管」打开的弹窗里）。
+      // 于是「种类」永远 select-not-found，而 `result.ok = fields.every(ok)` 把它判成 FAIL，
+      // 每轮都往日志里刷一条查不动的失败。按 ecom 规则先按材质分流，非布直接 skip。
+      const pageMaterial = await this.readAntSelectByLabel("材质").catch(() => "");
+      const materialText = pageMaterial || String(customs.material || "");
+      const isFabric = /布|fabric/i.test(materialText);
+      if (!isFabric) {
+        return {
+          ok: true,
+          skipped: true,
+          reason: `材质为「${materialText || "未读到"}」，非布(Fabric)，按运营规则不填海关属性`,
+          fields: [{ field: "海关监管属性-材质分流", ok: true, skipped: true, value: materialText }]
+        };
+      }
       // 1) 定位海关监管属性区块（可能在基本信息或属性信息 tab，先切属性信息兜底）
       await this.clickAnchorTab("属性信息").catch(() => {});
       await this.clickAnchorTab("基本信息").catch(() => {});
@@ -845,58 +1346,45 @@ export class DianxiaomiAdapter {
     return result;
   }
 
+  // 按 label 文本读 Ant Select 的**当前选中值**。
+  // 溯源：ecom-translator draft_executor.mjs selectCompliance 的 readValue。
+  // rc-select 的 input.value 恒为空，真实选中值只在 .ant-select-selection-item 的 title/文本里；
+  // 读不到返回空串（字段为空时 selection-item 根本不存在，这会白等默认超时）。
+  async readAntSelectByLabel(labelKeyword) {
+    await this.connect();
+    return this.page.evaluate((kw) => {
+      const items = Array.from(document.querySelectorAll(".ant-form-item, [class*=form-item]"));
+      for (const item of items) {
+        const label = item.querySelector(".ant-form-item-label label, label");
+        if (!label || !String(label.innerText || "").includes(kw)) continue;
+        const node = item.querySelector(".ant-select-selection-item");
+        if (!node) return "";
+        return String(node.getAttribute("title") || node.textContent || "").replace(/\s+/g, " ").trim();
+      }
+      return "";
+    }, labelKeyword).catch(() => "");
+  }
+
   // 按 label 文本定位 Ant Select 并选择值（避开动态 rc_select_X id）。
   // 用于选完产品属性模板后出现的类目专属属性（材质/颜色风格/内衣配件类型/产地等）。
   async selectAntSelectByLabel(labelKeyword, value) {
-    if (!value) return { ok: false, reason: "empty-value" };
-    await this.connect();
-    const handle = await this.page.evaluateHandle((kw) => {
-      const items = Array.from(document.querySelectorAll(".ant-form-item, [class*=form-item]"));
-      for (const item of items) {
-        const lab = item.querySelector(".ant-form-item-label label, label");
-        if (lab && lab.innerText.includes(kw)) {
-          const sel = item.querySelector(".ant-select");
-          if (sel) return sel;
-        }
-      }
-      return null;
-    }, labelKeyword);
-    const sel = handle.asElement();
-    if (!sel) return { ok: false, reason: "select-not-found:" + labelKeyword };
-    // 关闭可能残留的下拉
-    await this.page.mouse.click(5, 5).catch(() => {});
-    await sleep(300);
-    const box = await sel.evaluate((s) => {
-      const trig = s.querySelector(".ant-select-selector") || s;
-      const r = trig.getBoundingClientRect();
-      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
-    });
-    await this.page.mouse.click(box.x, box.y);
-    await sleep(500);
-    const searchInput = this.page.locator(".ant-select-dropdown:not(.ant-select-dropdown-hidden) input");
-    if (await searchInput.count()) {
-      try { await searchInput.first().fill(value); } catch { /* 非搜索型 */ }
-      await sleep(500);
+    const r = await this._chooseSelectCore({ label: labelKeyword, value });
+    if (!r.ok) {
+      // 找不到时把现场说清（沿用原诊断：是"没有该容器"还是"有容器但不是 select"）
+      const diagnose = await this.page.evaluate((kw) => {
+        const items = Array.from(document.querySelectorAll(".ant-form-item, [class*=form-item]"));
+        const hits = items.filter((it) => String(it.innerText || "").includes(kw)).slice(0, 4);
+        return {
+          hitCount: hits.length,
+          samples: hits.map((it) => ({
+            label: String((it.querySelector(".ant-form-item-label label, label") || {}).innerText || "").replace(/\s+/g, " ").trim().slice(0, 24),
+            hasSelect: Boolean(it.querySelector(".ant-select"))
+          }))
+        };
+      }, labelKeyword).catch(() => null);
+      return { ok: false, reason: `${r.reason}；${JSON.stringify(diagnose || {}).slice(0, 200)}` };
     }
-    const opt = this.page.locator(".ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option-content");
-    const exact = opt.filter({ hasText: new RegExp(`^${value}`) });
-    const contains = opt.filter({ hasText: value });
-    if (await exact.count()) await exact.first().click({ timeout: 5000 });
-    else if (await contains.count()) await contains.first().click({ timeout: 5000 });
-    else {
-      // 兜底：选第一个可用项（任意合法值优于留空，用于草稿兜底）
-      const firstOpt = opt.first();
-      if (await firstOpt.count()) {
-        const chosen = (await firstOpt.innerText().catch(() => "")).trim();
-        await firstOpt.click({ timeout: 5000 });
-        await sleep(400);
-        return { ok: true, label: labelKeyword, value: chosen, fallback: true };
-      }
-      await this.page.mouse.click(5, 5).catch(() => {});
-      return { ok: false, reason: "option-not-found:" + value };
-    }
-    await sleep(400);
-    return { ok: true, label: labelKeyword, value };
+    return { ok: true, label: labelKeyword, value: r.value, readback: r.readback, state: r.state };
   }
 
   // 按 label 文本定位并填充普通 input（标题等）
@@ -1088,6 +1576,27 @@ export class DianxiaomiAdapter {
       let ne = this.page.locator(".ant-form-item").filter({ hasText: /无线端描述/ }).getByText(/使用新版编辑器|新版编辑器/).first();
       if (await ne.count() === 0) ne = this.page.getByText(/使用新版编辑器|新版编辑器/).first();
       if (await ne.count() === 0) { result.reason = "no-new-editor-btn"; return result; }
+      // 2026-10-26 修复（真机实测 + ecom 同款坑）：编辑页**本来就勾在**「使用新版编辑器」上，
+      // antd radio 再点一次不产生 change，弹窗永远不出现 —— 一跨在编辑态必然报
+      // modal-not-opened(no-generate-btn)。实测 quoteEdit 页 radio 状态：
+      //   「不填写无线端描述」checked=false、「使用新版编辑器」checked=true。
+      // ecom 的解法（draft_executor.mjs openMobileEditor）：已勾选时先切到
+      // 「不填写无线端描述」，再点回来，change 才会真的触发。
+      const alreadyChecked = await ne.evaluate((node) => {
+        const holder = node.closest("label.ant-radio-wrapper") || node.parentElement;
+        return Boolean(holder && String(holder.className || "").includes("ant-radio-wrapper-checked"));
+      }).catch(() => false);
+      if (alreadyChecked) {
+        step("new-editor radio already checked -> switch away first");
+        const away = this.page.locator("label.ant-radio-wrapper").filter({ hasText: "不填写无线端描述" }).filter({ visible: true }).first();
+        if (await away.count()) {
+          await away.click({ timeout: 5000 }).catch((e) => step("switch away err: " + e.message));
+          await sleep(500);
+        }
+        else {
+          step("「不填写无线端描述」没有可见 radio，无法先切走（页面可能已改版）");
+        }
+      }
       await ne.click({ timeout: 8000 }).catch((e) => step("click err: " + e.message));
       await sleep(1500);
 
@@ -1122,9 +1631,14 @@ export class DianxiaomiAdapter {
     // 用短轮询等弹窗稳定出现，再点确定。
     let confirmModal = null;
     for (let i = 0; i < 10 && !confirmModal; i++) {
+      // 2026-10-27 对齐 ecom（draft_executor.mjs:566）：确认框只认**含「确定」按钮**的可见对话框。
+      // 原来靠 `hasText: /提示/` 兜底，而新媒体编辑器自身也可能含「提示」字样，
+      // 于是把编辑器当成确认框、在里面找「确定」白等 8 秒 —— 内容永远是 0 字。
+      // ecom 原话：编辑器自身也是一个 dialog，直接取 last() 在某些时序下会命中它。
       const candidates = [
-        this.page.locator(".ant-modal-confirm, .ant-modal-wrap, .ant-modal, [role='dialog']").filter({ hasText: /一键生成将会替换掉现有的无线端内容|确定一键生成吗/ }).first(),
-        this.page.locator(".ant-modal-confirm, .ant-modal-wrap, .ant-modal, [role='dialog']").filter({ hasText: /提示/ }).first()
+        this.page.locator("[role=dialog]:visible").filter({ has: this.page.getByRole("button", { name: /确\s*定/ }) }).last(),
+        this.page.locator(".ant-modal-confirm:visible").filter({ hasText: /一键生成将会替换掉现有的无线端内容|确定一键生成吗/ }).last(),
+        this.page.locator(".ant-modal-wrap:visible, .ant-modal:visible").filter({ hasText: /一键生成将会替换掉现有的无线端内容|确定一键生成吗/ }).last()
       ];
       for (const cand of candidates) {
         if (await cand.count() > 0 && await cand.isVisible().catch(() => false)) { confirmModal = cand; break; }
@@ -1176,18 +1690,34 @@ export class DianxiaomiAdapter {
 
     await sleep(3000);
 
-    // 4) 等弹窗内编辑器有内容（ckeditor33 = 无线端实例）
-    let w2 = 0, generated = false;
-    while (w2 < 15000 && !generated) {
-      generated = await this.page.evaluate(() => {
-        const i33 = window.CKEDITOR && window.CKEDITOR.instances["ckeditor33"];
-        if (i33 && (i33.getData() || "").length > 50) return true;
-        return false;
-      }).catch(() => false);
-      if (generated) break;
-      await sleep(1500); w2 += 1500;
+    // 4) 等内容真的渲染出来。
+    // 2026-10-26 修复：原实现只认 `window.CKEDITOR.instances["ckeditor33"]`，而店小秘
+    // 「新版模块编辑器」是自绘的 —— 既不是 iframe 也不是 contenteditable，更没有 CKEDITOR
+    // 实例，于是一路判定 generated=false（真机实测：ok=false 且 reason 为空，看不出原因）。
+    // ecom 的解法（draft_executor.mjs updateMobileDescription）：读 .smt-desc-content
+    // （位于 .smt-content-center 内）并轮询到 >400 字。
+    // **绝不能**读 .smt-content-left-bottom —— 那是左侧「添加模块」面板（"文字 0/30 图片 0/30"），
+    // 字数恒 >20，会让轮询立刻通过、在内容还没渲染时就点保存，草稿里无线端是空的，
+    // 而审计一路报 SUCCESS（ecom 用户实测到的就是这个现象）。
+    let generated = false;
+    let chars = 0;
+    for (let i = 0; i < 100; i += 1) {
+      chars = await modal.evaluate((el) => {
+        const content = el.querySelector && el.querySelector(".smt-desc-content, .desc-content-detail, .smt-content-center");
+        if (!content) return 0;
+        return String(content.innerText || "").replace(/\s+/g, "").length;
+      }).catch(() => 0);
+      if (!chars) {
+        chars = await this.page.evaluate(() => {
+          const content = document.querySelector(".smt-desc-content, .desc-content-detail, .smt-content-center");
+          if (!content) return 0;
+          return String(content.innerText || "").replace(/\s+/g, "").length;
+        }).catch(() => 0);
+      }
+      if (chars > 400) { generated = true; break; }
+      await sleep(300);
     }
-    step("generated=" + generated);
+    step("generated=" + generated + " chars=" + chars);
 
     // 5) 保存并关闭弹窗
     step("saving modal");
@@ -1228,7 +1758,17 @@ export class DianxiaomiAdapter {
     await sleep(2000);
 
     // 6) 验证弹窗已关闭且无线端字段有内容
-    let closed = (await genBtnLocator()).count() === 0;
+    // 2026-10-26 修复：closed 原先用 `count() === 0`（DOM 存在性）。店小秘关闭弹窗后
+    // **DOM 节点常常仍留在文档里**（只是不可见），于是 count 恒为 1 → 永远判成
+    // 「未关（残留 modal）」，接着触发 5 轮递进清理 + 核弹级 _dismissAllOverlays，
+    // 而实际上弹窗早就关了。判关闭必须看**可见性**（这些浮层是 position:fixed，
+    // offsetParent 恒为 null，用 offsetParent 判可见性会永远判成不存在；用 rect 判）。
+    const genBtnVisible = async () => {
+      const c = await genBtnLocator().count();
+      if (!c) return false;
+      return await genBtnLocator().isVisible().catch(() => false);
+    };
+    let closed = !(await genBtnVisible());
     // 兜底强制关闭弹窗：无线端描述用「新版模块编辑器」，店小秘不依赖其内容为保存前提
     // （save 读回已不校验 mobile），故无论是否生成成功都强制关窗，避免残留 modal 拦截
     // 后续字段点击（如备货类型下拉被 ant-modal-wrap 拦截导致 option-not-found）。
@@ -1281,19 +1821,23 @@ export class DianxiaomiAdapter {
           await sleep(500);
         }
 
-        closed = (await genBtnLocator()).count() === 0;
+        closed = !(await genBtnVisible());
         if (closed) { step("modal closed at attempt " + (attempt + 1)); break; }
       }
       // 如果所有尝试都失败，调用 _dismissAllOverlays 做全量暴力清理
       if (!closed) {
         step("all attempts failed -> _dismissAllOverlays nuclear option");
         await this._dismissAllOverlays(3);
-        closed = (await genBtnLocator()).count() === 0;
+        closed = !(await genBtnVisible());
       }
     }
     const mobileHasContent = await this.page.evaluate(() => {
       const i33 = window.CKEDITOR && window.CKEDITOR.instances["ckeditor33"];
       if (i33 && (i33.getData() || "").length > 50) return true;
+      // 2026-10-26：新版「模块编辑器」是自绘的，没有 CKEDITOR 实例 —— 只认 ckeditor33
+      // 会把这个字段永远判成空。内容画布在 .smt-desc-content 内。
+      const content = document.querySelector(".smt-desc-content, .desc-content-detail, .smt-content-center");
+      if (content && String(content.innerText || "").replace(/\s+/g, "").length > 50) return true;
       const items = Array.from(document.querySelectorAll(".ant-form-item"))
         .filter((it) => /无线端描述/.test((it.innerText || "").slice(0, 30)));
       const item = items[0];
@@ -1301,13 +1845,24 @@ export class DianxiaomiAdapter {
       const frame = item.querySelector("iframe");
       if (frame && frame.contentDocument && frame.contentDocument.body)
         return (frame.contentDocument.body.innerText || "").length > 50;
-      return item.innerText.length > 60;
+      // 2026-10-26：原来这里 `return item.innerText.length > 60` —— 而 .ant-form-item 的
+      // innerText 包含「无线端描述 / 使用新版编辑器 / 不填写无线端描述 / 根据PC端描述一键生成」
+      // 等标签文案，随便就超过 60 字，于是**恒为真**，日志永远显示「字段有内容」，
+      // 把「其实一个字都没生成」这件事完全掩盖掉。读不到真实内容就如实返回 false。
+      return false;
     }).catch(() => false);
 
     result.closed = closed;
     result.generated = generated;
     result.mobileHasContent = mobileHasContent;
     result.ok = closed && (mobileHasContent || generated);
+    // 2026-10-26：原来 ok=false 时**不设 reason**，日志里只有 `description.mobile: FAIL `（空原因），
+    // 现场完全判断不出是弹窗没关、还是内容没生成。现在把三个条件与最近几步都写进去。
+    if (!result.ok) {
+      result.reason = `无线端描述未确认：弹窗${closed ? "已关" : "未关（残留 modal）"}、`
+        + `生成${generated ? "成功" : `失败（内容 ${chars} 字 / 阈值 400）`}、`
+        + `字段${mobileHasContent ? "有内容" : "无内容"}；最近步骤：${result.steps.slice(-4).join(" → ")}`;
+    }
     step("done ok=" + result.ok + " closed=" + closed + " generated=" + generated + " mobileHasContent=" + mobileHasContent);
     return result;
   }
@@ -1426,6 +1981,33 @@ export class DianxiaomiAdapter {
   //   点「选择图片」打开图片选择器 → 在「本地图片」里用 #localFileUploadInp 上传单张 →
   //   在选择器网格里选中该图 → 点「确定」才加入主图区。input 为 single-file，故逐张上传。
   // 引用模板会带出旧主图，先清空再上传。
+  // 图片空间自检（对齐 ecom imageSpace/assertImageSpace，draft_executor.mjs:479-497）。
+  // 为什么必须在传图**之前**查：空间满时店小秘前端**一个上传请求都不发**（签名接口返回 code=-1），
+  // 表现就是"点了没反应/一直转"，很容易被误判成选择器失效或网络慢。
+  async assertImageSpace() {
+    const raw = await this.page.evaluate(async () => {
+      const body = "bucket=wxalbum&region=ap-shanghai&fileName=" + encodeURIComponent("space_probe_" + Date.now() + ".jpg");
+      const response = await fetch("/api/cos/getSign.json", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body
+      });
+      return await response.text();
+    }).catch(() => null);
+    if (raw === null) return { ok: true, message: "未能确认图片空间（不影响继续）" };
+    try {
+      const payload = JSON.parse(raw);
+      const node = payload && payload.data ? payload.data : {};
+      const code = node.code === undefined ? payload.code : node.code;
+      const message = String(node.msg || payload.msg || "").replace(/<[^>]+>/g, " ").trim();
+      if (code === -1) return { ok: false, message: message || "店小秘未签发上传签名（图片空间很可能已满）" };
+      return { ok: true, message };
+    } catch {
+      return { ok: true, message: "签名接口返回非 JSON，跳过空间检查" };
+    }
+  }
+
   async uploadProductImages(filePaths) {
     if (!Array.isArray(filePaths) || !filePaths.length) return { ok: false, reason: "no-files" };
     await this.connect();
@@ -1435,6 +2017,13 @@ export class DianxiaomiAdapter {
     const ulog = (...a) => { try { fs.mkdirSync(path.dirname(LOG), { recursive: true }); fs.appendFileSync(LOG, `[${new Date().toISOString()}] ` + a.map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join(" ") + "\n"); } catch { /* ignore */ } };
     try { fs.mkdirSync(path.dirname(LOG), { recursive: true }); fs.writeFileSync(LOG, ""); } catch { /* ignore */ }
     ulog("START upload count=", filePaths.length, "imageBaseDir=", this.imageBaseDir, filePaths.map((p) => path.basename(p)));
+
+    // 空间不足 → 直接判死并给出可执行的处置，而不是让后面 3 次 setFiles 都静默失败。
+    const space = await this.assertImageSpace();
+    ulog("IMAGE_SPACE", space.ok, space.message);
+    if (!space.ok) {
+      return { ok: false, reason: `图片空间不足：${space.message}（处理：店小秘 → 图片空间管理 删除不再需要的图片，或购买空间；清完再重跑，已完成的步骤不会重做）` };
+    }
 
     await this.dismissModals();
     const clearedMain = await this.clearImageThumbnails(".productMainImgModule");
@@ -1447,6 +2036,7 @@ export class DianxiaomiAdapter {
     });
 
     let okCount = 0;
+    const failed = [];
     for (let i = 0; i < filePaths.length; i += 1) {
       const fp = filePaths[i];
       if (!fp || !fs.existsSync(fp)) { ulog(`[${i}] SKIP missing file: ${fp}`); continue; }
@@ -1469,13 +2059,36 @@ export class DianxiaomiAdapter {
           ulog(`[${i}] no 本地图片 dropdown item`);
         }
       }
-      const fc = await fcPromise;
-      if (!fc) { ulog(`[${i}] NO filechooser captured`); continue; }
+      let fc = await fcPromise;
+      // ★ 2026-10-27 对齐 ecom（draft_executor.mjs:513 uploadLocal）：
+      // ecom 把 `waitForEvent('filechooser')` 的 promise **await 掉** —— 没等到就直接抛、
+      // 整个产品 ERROR。我们原来是 `if (!fc) { continue; }`，于是一张图静默丢掉，
+      // 返回的 ok 还说自己成功了（实测 3 张只进 2 张、反复出现）。
+      // 这里改成：失败**重试该张一次**，仍失败就记进 failed，由调用方判死。
+      if (!fc) {
+        ulog(`[${i}] NO filechooser captured (retry once)`);
+        await sleep(800);
+        const fc2 = this.page.waitForEvent("filechooser", { timeout: 10000 }).catch(() => null);
+        const trig2 = this.page.locator(".productMainImgModule button:has-text('选择图片')").first();
+        if (await trig2.count()) {
+          await trig2.click({ timeout: 8000 }).catch(() => {});
+          await sleep(700);
+          const li2 = this.page.locator(".ant-dropdown:visible .ant-dropdown-menu-item").filter({ hasText: "本地图片" }).last();
+          if (await li2.count()) await li2.click({ timeout: 5000 }).catch(() => {});
+        }
+        fc = await fc2;
+      }
+      if (!fc) {
+        ulog(`[${i}] NO filechooser captured after retry -> FAILED`);
+        failed.push({ index: i, file: path.basename(fp), reason: "no-filechooser" });
+        continue;
+      }
       try {
         await fc.setFiles([fp]);
         ulog(`[${i}] setFiles ok: ${path.basename(fp)}`);
       } catch (e) {
         ulog(`[${i}] setFiles err`, e.message.slice(0, 80));
+        failed.push({ index: i, file: path.basename(fp), reason: "setFiles:" + e.message.slice(0, 60) });
         continue;
       }
       // 等待主图区增加该图（店小秘上传后实时追加）
@@ -1497,9 +2110,12 @@ export class DianxiaomiAdapter {
       return { count: imgs.length, real: imgs.filter(isReal).length, srcs: imgs };
     });
     ulog("FINAL", finalv);
-    const realOk = finalv.real >= filePaths.length;
+    // 失败判据取并集：既有「真图数不足」，也有「某张根本没弹文件选择器」。
+    // 后者更硬 —— 它说明那张图连上传请求都没发出去。
+    const realOk = finalv.real >= filePaths.length && failed.length === 0;
     return {
       ok: realOk,
+      failed,
       // 关键：返回 reason 让 server 端 / 前端日志能看到失败原因
       reason: realOk ? undefined : `real-thumbs-short: got ${finalv.real}/${filePaths.length} (clearedMain=${clearedMain})`,
       uploadedCount: filePaths.length,
@@ -1523,8 +2139,16 @@ export class DianxiaomiAdapter {
 
   // 填充一个类目属性：先按 rc_select id 精确定位，失败再按 label 文本兜底。
   // 适用于「可搜索」下拉：selectAntSelectById 会先填搜索框再点选项。
-  async applyAttribute(labelKeyword, id, value) {
+  async applyAttribute(labelKeyword, id, value, options = {}) {
     if (!value) return { ok: false, reason: "empty-value" };
+    // preferLabel：该字段的 id 定位不可靠（如「中国省份」是产地联动项），
+    // 先按 label 走 —— label 路径会用中文短词搜索，能穿透虚拟滚动列表。
+    if (options && options.preferLabel) {
+      try {
+        const rL = await this.selectAntSelectByLabel(labelKeyword, value);
+        if (rL && rL.ok) return { ok: true, via: "label", label: labelKeyword, value: rL.value || value };
+      } catch { /* 落到 id 路径 */ }
+    }
     try {
       const r = await this.selectAntSelectById(id, value);
       if (r && r.ok) return { ok: true, via: "id", id, value };
@@ -1537,9 +2161,9 @@ export class DianxiaomiAdapter {
   }
 
   // 按候选列表顺序尝试填充属性，命中即止（用于选项文本不确定的字段）。
-  async applyAttributeAny(labelKeyword, id, candidates) {
+  async applyAttributeAny(labelKeyword, id, candidates, options = {}) {
     for (const c of candidates) {
-      const r = await this.applyAttribute(labelKeyword, id, c);
+      const r = await this.applyAttribute(labelKeyword, id, c, options);
       if (r.ok) return { ok: true, via: r.via, id, value: r.value, tried: candidates };
     }
     return { ok: false, reason: "none-matched", label: labelKeyword, id, candidates };
@@ -1703,7 +2327,14 @@ export class DianxiaomiAdapter {
         if (a.factsKey === "origin") fv = (facts.origin && facts.origin.country) ? facts.origin.country : null;
         else fv = facts[a.factsKey];
       }
-      if (!fv) { applied.push({ field: "attr:" + a.label, ok: true, skipped: true, reason: "no-fact" }); continue; }
+      if (!fv) {
+        // 2026-10-27 决策 B：facts 没有该属性值时不直接跳过 —— 分类落定后属性区才渲染，
+        // 而店小秘把「类型/品牌/产地」都按**必填**校验（实测页面报「请选择产品属性」并拦住保存）。
+        // 按 ecom 的做法：选最接近的合法枚举 + 记 attention（不静默、不编造事实）。
+        const fallback = await this.fillMandatoryAttribute(a).catch((e) => ({ ok: false, reason: e.message }));
+        applied.push({ field: "attr:" + a.label, ...fallback });
+        continue;
+      }
       if (a.viaBrandTemplateSync) {
         applied.push({ field: "attr:" + a.label, ...(await this.trySetBrand(fv)) });
       } else if (/材质/.test(a.label)) {
@@ -1724,6 +2355,16 @@ export class DianxiaomiAdapter {
         applied.push({ field: "attr:" + a.label, ...(await this.fillInputByLabel(a.label, fv)) });
       }
     }
+    // 2.5) 高关注化学品：店小秘按「至少选择一项」必填，但它不在 profile.requiredAttrs 里，
+    //      上面那圈覆盖不到 → 单独兜底（实测页面报「高关注化学品 至少选择一项」并拦住保存）。
+    try {
+      const hcCur = await this.readAntSelectByLabel("高关注化学品");
+      if (!hcCur) {
+        applied.push({ field: "attr:高关注化学品", ...(await this.fillMandatoryAttribute({ label: "高关注化学品" })) });
+      } else {
+        applied.push({ field: "attr:高关注化学品", ok: true, skipped: true, reason: "already-set", value: hcCur });
+      }
+    } catch (e) { applied.push({ field: "attr:高关注化学品", ok: false, reason: e.message }); }
     // 3) 产品图片（AI 生成板块）。采集箱模式跳过：保留采集箱自带源图。
     if (!collectMode && facts.images && Array.isArray(facts.images.main) && facts.images.main.length) {
       const missing = [];
@@ -1781,6 +2422,14 @@ export class DianxiaomiAdapter {
   // 乳贴(ruTie)：沿用历史完整闭环（类目属性补全 + 物流 + 主图 + 销售属性 + SKU + 每色图）。
   async fillFromFacts(facts, options = {}) {
     await this.connect();
+    // 进入填写前先压制一遍「重要通知」弹窗并自检：
+    // 这类弹窗是 position:fixed + React 重挂载，会盖住第一个下拉/属性区，
+    // 表现为后续点击 8s 超时、但错误信息完全看不出根因。
+    await this._suppressNoticeOverlays();
+    const noticeCheck = await this.assertNoticeSuppressed();
+    if (!noticeCheck.ok) {
+      console.warn(`[dianxiaomi] 填写前通知弹窗压制未通过：${noticeCheck.reason}`);
+    }
     // 采集箱模式：保留采集箱自带源图，只填文字/属性/描述/合规，跳过一切图片上传。
     const collectMode = !!(options && options.collectMode);
     // 采集箱模式默认「沿用采集带来的变种信息」：不勾选/取消颜色尺寸、不重建 SKU 矩阵、不补默认颜色。
@@ -1822,6 +2471,14 @@ export class DianxiaomiAdapter {
         } catch (e) { applied.push({ field: "color-restore", ok: false, reason: e.message }); }
         await sleep(600);
       }
+      // 0.5) ★ 产品分类落定门（Fail-Closed，必须排在模板之后、属性填写之前）。
+      //     本店模板只带「产品属性」不带分类 → 引用完分类仍是空的 → 属性区/变种区不渲染。
+      //     分类没落定时后面「类型/材质/品牌/产地」「变种」「包装尺寸」全军覆没，
+      //     但这些失败都只是这一个原因的下游症状，所以在这里一次性判死、给出可执行的指引。
+      try {
+        applied.push({ field: "category", ...(await this.ensureCategoryFilled(this.profile.category)) });
+      } catch (e) { applied.push({ field: "category", ok: false, reason: e.message }); }
+      await sleep(1000);
       // 1) AI 板块（标题 / 属性信息 / PC端描述）——放在模板之后，用我方文案覆盖模板带来的通用值。
       this.setStage("采集箱上架·②AI板块");
       applied.push(...(await this.fillAiSections(facts, { collectMode })));
@@ -1840,8 +2497,18 @@ export class DianxiaomiAdapter {
       // 采集箱默认沿用源变种，整段跳过（否则会把采集下来的真实颜色/尺寸取消掉）。
       if (keepSourceVariants) {
         applied.push({ field: "salesAttrs", ok: true, skipped: true, reason: "collect-keep-source-variants" });
+        applied.push({ field: "sku", ok: true, skipped: true, reason: "collect-keep-source-variants" });
       } else {
-        applied.push({ field: "salesAttrs", ...(await this.fillSalesAttributes(facts)) });
+        applied.push({ field: "salesAttrs", ...(await this.fillSalesAttributes(facts, { variantOverride })) });
+        await sleep(800);
+        // 2026-10-26 决策 A（Lance 拍板）：表格显式给了「变种参数」→ 由系统生成 SKU 并写价格/重量/库存。
+        // 之前箱包分支**从不调用 fillSkus**（历史假设是「变种与货品信息由人工填」），
+        // 于是空白新建路径上 SKU 表 0 行 → 店小秘必填「供货价」「重量」为空 → 保存必失败
+        // （实测 21 步 0 失败，仍卡在保存）。现在只在 variantOverride 为真时才接管。
+        try {
+          const skuResult = await this.fillSkus(facts);
+          if (skuResult) applied.push({ field: "sku", ...skuResult });
+        } catch (e) { applied.push({ field: "sku", ok: false, reason: e.message }); }
       }
       await sleep(800);
       // 每色自定义名称 + 每色图（仅当 facts.variants.colorMap 存在时）。采集箱模式跳过（不覆盖源图）。
@@ -1852,12 +2519,23 @@ export class DianxiaomiAdapter {
           applied.push({ field: "colorCustom", ok: false, reason: e.message });
         }
       }
-      // 4.7) 货品信息·每色包装尺寸（L/W/H）：必填项，源产品/采集箱不预填；空则按 opts 填默认 15/10/5。
-      //     表格未渲染（变种未勾选）时返回 skipped，不报错。
+      // 4.7) ★「包装重量和尺寸」：对齐 ecom 的同名步骤 —— 重量与尺寸**同一个 step** 四个 input 一起填。
+      //     原来这里只调 fillProductPackageSize 填尺寸、**不填重量**，于是保存必报「请填写重量」×N。
+      //     ecom 还要求行数 == 变种行数（否则抛），缺数据用默认 0.12kg + 12×10×10cm 并记 attention。
       try {
-        const pkgSize = (facts && facts.product && facts.product.packageSize) || (this.profile && this.profile.packageSize) || null;
-        applied.push({ field: "packageSize", ...(await this.fillProductPackageSize({ packageSize: pkgSize })) });
-      } catch (e) { applied.push({ field: "packageSize", ok: false, reason: e.message }); }
+        applied.push({ field: "packageWeightAndSize", ...(await this.fillPackageWeightAndSize(facts)) });
+      } catch (e) { applied.push({ field: "packageWeightAndSize", ok: false, reason: e.message }); }
+      // 4.8) ★库存：ecom 的 updateInventory —— 点铅笔图标 i.icon_edit2 开「修改仓库」对话框，
+      //     填完确定再点「应用到全部」。半托管页库存格不是 input，按列索引取必然取不到。
+      //     库存值取 facts 的 stock（缺省 50，与 ecom 一致）；失败只留痕，不阻断保存
+      //     （实测页面并未把库存列为必填）。
+      try {
+        const stockVal = (facts && facts.variants && (facts.variants.defaultStock || (facts.variants.matrix && facts.variants.matrix[0] && facts.variants.matrix[0].stock))) || "50";
+        const invRows = (facts && facts.variants && facts.variants.matrix && facts.variants.matrix.length) || 1;
+        const inv = await this.updateInventory(invRows, String(stockVal));
+        applied.push({ field: "inventory", ...inv, ok: inv.ok, attentionCount: 0 });
+        if (!inv.ok) applied.push({ field: "inventory(attention)", ok: true, skipped: true, reason: inv.reason });
+      } catch (e) { applied.push({ field: "inventory", ok: true, skipped: true, reason: "exception:" + e.message }); }
       // 4) 合规信息：按 profile.compliance 强制选择（欧盟责任人/土耳其责任人/品牌制造商）。
       //    即使模板已引用，也用 profile 值再覆盖一次，确保与截图一致。
       this.setStage("采集箱上架·⑤合规信息");
@@ -1925,6 +2603,12 @@ export class DianxiaomiAdapter {
       } catch (e) { applied.push({ field: "color-restore", ok: false, reason: e.message }); }
       await sleep(600);
     }
+    // 0.5) ★ 产品分类落定门（与箱包分支同一原则，Fail-Closed）：模板未必带分类，
+    //     分类没落定时属性区/变种区不渲染，后续每个字段失败都只是它的下游症状。
+    try {
+      applied.push({ field: "category", ...(await this.ensureCategoryFilled(this.profile.category)) });
+    } catch (e) { applied.push({ field: "category", ok: false, reason: e.message }); }
+    await sleep(1000);
     // 1) 产品标题
     const refTitleValue = this.resolveTitle(facts);
     if (refTitleValue) applied.push({ field: "title", ...(await this.fillInputByLabel("产品标题", refTitleValue)) });
@@ -2032,7 +2716,7 @@ export class DianxiaomiAdapter {
       applied.push({ field: "salesAttrs", ok: true, skipped: true, reason: "collect-keep-source-variants" });
       applied.push({ field: "sku", ok: true, skipped: true, reason: "collect-keep-source-variants" });
     } else {
-      applied.push({ field: "salesAttrs", ...(await this.fillSalesAttributes(facts)) });
+      applied.push({ field: "salesAttrs", ...(await this.fillSalesAttributes(facts, { variantOverride })) });
       const skuResult = await this.fillSkus(facts);
       if (skuResult) applied.push({ field: "sku", ...skuResult });
     }
@@ -2297,17 +2981,24 @@ export class DianxiaomiAdapter {
         const r = rows[i];
         const item = { color: r.color, ok: true, filled: { length: false, width: false, height: false } };
         const setOne = async (name, val) => {
-          const cur = r[name];
-          if (!force && cur && String(cur).trim() !== "") { item.filled[name === "length" ? "length" : (name === "width" ? "width" : "height")] = false; item.skipped = (item.skipped || 0) + 1; return false; }
-          const ok = await this.page.evaluate(({ name, val }) => {
+          const key = name === "variationLength" ? "length" : (name === "variationWidth" ? "width" : "height");
+          const cur = r[key];
+          if (!force && cur && String(cur).trim() !== "") { item.filled[key] = false; item.skipped = (item.skipped || 0) + 1; return false; }
+          // 2026-10-26 修复（真机实测暴露）：原来用「颜色文本匹配」找目标行
+          //   trs.find(tr => norm(tr.children[0].innerText).includes(norm(window.__curPkgColor)))
+          // 而首列取到的文本经常是空串，`includes("")` 恒为真 → 永远命中**第一行** →
+          // 所有行的尺寸都写进第一行，其余行保留引用模板带来的原值
+          // （实测读回 10.0×7.0×3.0 而不是目标 15×10×5）。
+          // 改用**行索引**定位：rows 就是从 tbody tr 顺序映射出来的，索引天然对应。
+          // 顺带修掉旧的三元写法 `name === "length" ? ... : "height"`——
+          // 传进来的是 "variationLength"，所以统计项永远落到 height。
+          const ok = await this.page.evaluate(({ rowIndex, name, val }) => {
             const tables = Array.from(document.querySelectorAll("table"));
             for (const t of tables) {
               const ths = Array.from(t.querySelectorAll("thead th, thead td")).map((h) => (h.innerText || "").replace(/\s+/g, " ").trim());
               if (!ths.some((h) => /尺寸/.test(h))) continue;
               const trs = Array.from(t.querySelectorAll("tbody tr"));
-              // 找到色匹配的行（去掉括号、空格、大小写无关比较）
-              const norm = (s) => (s || "").toLowerCase().replace(/\s+/g, "").replace(/[()（）]/g, "");
-              const target = trs.find((tr) => norm(tr.children[0] ? tr.children[0].innerText : "").includes(norm(window.__curPkgColor || "")));
+              const target = trs[rowIndex];
               if (!target) return false;
               const inp = target.querySelector(`input[name=${name}]`);
               if (!inp) return false;
@@ -2321,12 +3012,10 @@ export class DianxiaomiAdapter {
               return true;
             }
             return false;
-          }, { name, val });
+          }, { rowIndex: i, name, val });
           return ok;
         };
         try {
-          // 通过 evaluate 把当前行 color 注入 window，避免多次 evaluate 反复传参
-          await this.page.evaluate((c) => { window.__curPkgColor = c; }, r.color);
           const ol = await setOne("variationLength", targets.length);
           const ow = await setOne("variationWidth", targets.width);
           const oh = await setOne("variationHeight", targets.height);
@@ -2338,23 +3027,67 @@ export class DianxiaomiAdapter {
         result.results.push(item);
         await sleep(120);
       }
-      // 4) 简单自检：抽查首行（不抛错，仅记日志）
-      const verify = await this.page.evaluate(() => {
-        const tables = Array.from(document.querySelectorAll("table"));
-        for (const t of tables) {
-          const ths = Array.from(t.querySelectorAll("thead th, thead td")).map((h) => (h.innerText || "").replace(/\s+/g, " ").trim());
-          if (!ths.some((h) => /尺寸/.test(h))) continue;
-          const tr = t.querySelector("tbody tr");
-          if (!tr) return null;
-          return {
-            length: tr.querySelector("input[name=variationLength]")?.value || "",
-            width: tr.querySelector("input[name=variationWidth]")?.value || "",
-            height: tr.querySelector("input[name=variationHeight]")?.value || ""
-          };
-        }
-        return null;
-      });
-      result.verify = verify;
+      // 4) 逐行逐维度回读比对（2026-10-26 改造）
+      // 原实现只抽查首行、且注释写明「不抛错，仅记日志」——多行错位不会被发现，
+      // 值被别的操作覆盖也不报。包装尺寸是必填项且直接影响运费，按 A2 决策改为「不一致即抛」。
+      //
+      // 两个必须遵守的细节：
+      //  ① **只校验本次真正写过的维度**。已有值且 force=false 时 setOne 会跳过，
+      //     那些维度保留的是页面原值（实测引用模板带出 10.0/7.0/3.0），拿目标值去比必然误报。
+      //  ② **按行索引对应**，不按颜色文本匹配 —— 首列文本常为空，
+      //     `includes("")` 会把所有行都判成同一行（本次真机失败的根因）。
+      const writtenFlags = result.results.map((item) => (item && item.filled
+        ? { length: !!item.filled.length, width: !!item.filled.width, height: !!item.filled.height }
+        : null));
+      const anyWritten = writtenFlags.some((flags) => flags && (flags.length || flags.width || flags.height));
+      const verifyRows = anyWritten
+        ? await this.page.evaluate(() => {
+          const tables = Array.from(document.querySelectorAll("table"));
+          for (const t of tables) {
+            const ths = Array.from(t.querySelectorAll("thead th, thead td")).map((h) => (h.innerText || "").replace(/\s+/g, " ").trim());
+            if (!ths.some((h) => /尺寸/.test(h))) continue;
+            return Array.from(t.querySelectorAll("tbody tr")).map((tr) => ({
+              color: (tr.children[0] ? (tr.children[0].innerText || "").trim() : ""),
+              length: tr.querySelector("input[name=variationLength]")?.value || "",
+              width: tr.querySelector("input[name=variationWidth]")?.value || "",
+              height: tr.querySelector("input[name=variationHeight]")?.value || ""
+            }));
+          }
+          return [];
+        }).catch(() => [])
+        : [];
+      result.verify = verifyRows;
+      result.verifiedRows = verifyRows.length;
+      // 数值比较：页面会把 15 渲染成 15.0，逐字比会误报
+      const sameNumber = (actual, expected) => {
+        const a = String(actual === null || actual === undefined ? "" : actual).trim();
+        const b = String(expected === null || expected === undefined ? "" : expected).trim();
+        if (!a || !b) return false;
+        const na = Number(a);
+        const nb = Number(b);
+        if (Number.isFinite(na) && Number.isFinite(nb)) return na === nb;
+        return a === b;
+      };
+      const mismatched = [];
+      for (let i = 0; i < verifyRows.length; i += 1) {
+        const flags = writtenFlags[i];
+        if (!flags) continue;
+        const row = verifyRows[i];
+        const bad = [];
+        if (flags.length && !sameNumber(row.length, targets.length)) bad.push(`长 ${row.length || "(空)"}`);
+        if (flags.width && !sameNumber(row.width, targets.width)) bad.push(`宽 ${row.width || "(空)"}`);
+        if (flags.height && !sameNumber(row.height, targets.height)) bad.push(`高 ${row.height || "(空)"}`);
+        if (bad.length) mismatched.push({ index: i, color: row.color, detail: bad.join("/") });
+      }
+      result.mismatchedRows = mismatched.length;
+      if (mismatched.length) {
+        const first = mismatched[0];
+        throw new Error(
+          `包装尺寸回读不一致：${mismatched.length} 行与本次写入值不符`
+          + `（首个不一致在第 ${first.index + 1} 行${first.color ? "「" + first.color + "」" : ""}：读到 ${first.detail}；`
+          + `期望 ${targets.length}×${targets.width}×${targets.height}）；请人工确认该产品尺寸，或核对表格列是否已改版。`
+        );
+      }
       // 5) 清掉临时全局
       await this.page.evaluate(() => { try { delete window.__curPkgColor; } catch {} }).catch(() => {});
       return result;
@@ -2374,8 +3107,169 @@ export class DianxiaomiAdapter {
   // 采集箱路径靠现有 keepSourceVariants 门控保护源变种；引用路径靠 keepVariants 选项（默认 true）保护引用模板带出的变种。
   // 若用户在表格里手动填了「变种参数」列，server.js 会在 fillFromFacts 之前重建 facts.variants.colors/sizes/matrix，
   // 然后由 fillSkuRow 走 setVal（非 click）写价格/库存；不依赖本函数勾选。
-  async fillSalesAttributes(facts) {
-    return { ok: true, skipped: true, reason: "variant-skus-deprecated" };
+  async fillSalesAttributes(facts, options = {}) {
+    // 2026-10-26 由 Lance 拍板恢复（决策 A）：**仅在表格显式给了「变种参数」列时**才建变种。
+    // 背景：B-2 把变种点击全删（避免程序自主多勾/少勾，破坏采集箱源变种与引用模板带出的变种），
+    // 但删除是**一刀切**的 —— 空白新建 + 产品模板路径上从此一个变种都没有 → SKU 表 0 行 →
+    // 店小秘必填「供货价」「重量」永远为空 → 保存必失败（实测 21 步 0 失败仍卡在保存）。
+    // 现在按门控恢复：variantOverride（=表格填了变种参数）为真时才勾选，其余路径保持不动。
+    // 之所以敢恢复：采集箱/引用路径仍由 keepSourceVariants 保护（variantOverride 为假 → 整段不进入）。
+    const variantOverride = !!(options && options.variantOverride);
+    if (!variantOverride) {
+      return { ok: true, skipped: true, reason: "variant-skus-deprecated" };
+    }
+    const v = facts && facts.variants;
+    const colors = (v && v.colors) || [];
+    const sizes = (v && v.sizes) || [];
+    if (!colors.length && !sizes.length) {
+      return { ok: false, reason: "no-variant-params", hint: "表格填了「变种参数」列但解析不出颜色/尺寸，请检查格式（如「颜色：Gold,Silver,Red; 尺寸：5.4CM」）" };
+    }
+
+    // 读页面「颜色(Color)」「尺寸(Size)」区块里的全部可选项。
+    // 实测两条硬事实（2026-10-26，箱包配件类目）：
+    //   ① 选项文本是「**中文(English)**」形态：金(Gold) / 银色(Silver) / 红色(Red)；
+    //      而 facts 里是纯英文 Gold/Silver/Red —— 拿 "Gold" 去精确比对必然 0 命中。
+    //   ② checkbox **不一定在 <label> 里**（有些是 span/div 包裹）→ 只在 document 里找 label
+    //      同样 0 命中。所以必须**按区块标题定位 form-item，再取其内部 checkbox**。
+    const groups = await this.page.evaluate(() => {
+      const out = {};
+      const secs = Array.from(document.querySelectorAll(".ant-form-item"));
+      for (const sec of secs) {
+        const lab = sec.querySelector(".ant-form-item-label label, label");
+        const t = lab ? String(lab.innerText || "").trim() : "";
+        const key = /^颜色/.test(t) ? "color" : (/^尺寸/.test(t) ? "size" : "");
+        if (!key || out[key]) continue;
+        out[key] = Array.from(sec.querySelectorAll("input[type=checkbox]")).map((i) => {
+          const w = i.closest("label") || i.parentElement || i;
+          return { text: String(w.innerText || "").replace(/\s+/g, " ").trim(), checked: !!i.checked };
+        });
+      }
+      return out;
+    }).catch(() => ({}));
+
+    // 匹配优先级：括号内英文全等 → 整条文本全等 → 中文部分全等 → 包含（最宽松，会留痕）。
+    // 之所以先看括号：Rose Gold(Rose Gold) 也含 "Gold"，包含匹配会误伤成玫金。
+    const matchIndex = (wanted, list) => {
+      const w = String(wanted || "").trim().toLowerCase();
+      const en = (t) => { const m = /\(([^)]*)\)\s*$/.exec(t); return (m ? m[1] : t).trim().toLowerCase(); };
+      const cn = (t) => t.replace(/\(([^)]*)\)\s*$/, "").trim().toLowerCase();
+      let idx = list.findIndex((o) => en(o.text) === w);
+      if (idx < 0) idx = list.findIndex((o) => o.text.toLowerCase() === w);
+      if (idx < 0) idx = list.findIndex((o) => cn(o.text) === w);
+      if (idx < 0) idx = list.findIndex((o) => en(o.text).includes(w) || cn(o.text).includes(w));
+      return idx;
+    };
+
+    // 按区块 + 序号点 checkbox 本体（native click 会触发 React 的 onChange）
+    const clickAt = async (key, idx) => this.page.evaluate((args) => {
+      const secs = Array.from(document.querySelectorAll(".ant-form-item"));
+      for (const sec of secs) {
+        const lab = sec.querySelector(".ant-form-item-label label, label");
+        const t = lab ? String(lab.innerText || "").trim() : "";
+        const k = /^颜色/.test(t) ? "color" : (/^尺寸/.test(t) ? "size" : "");
+        if (k !== args.key) continue;
+        const boxes = Array.from(sec.querySelectorAll("input[type=checkbox]"));
+        const box = boxes[args.idx];
+        if (!box) return "no-box";
+        if (box.checked) return "already";
+        box.click();
+        return "clicked";
+      }
+      return "section-not-found";
+    }, { key, idx }).catch((e) => "err:" + e.message);
+
+    const result = { ok: true, checked: [], errors: [], attention: [], available: { colors: (groups.color || []).length, sizes: (groups.size || []).length } };
+
+    for (const c of colors) {
+      const list = groups.color || [];
+      const idx = matchIndex(c, list);
+      if (idx < 0) { result.errors.push(`颜色「${c}」在页面 颜色(Color) ${list.length} 个选项里没有匹配项`); continue; }
+      const r = await clickAt("color", idx);
+      if (r === "clicked" || r === "already") result.checked.push(`颜色:${c}=>${list[idx].text}`);
+      else result.errors.push(`颜色「${c}」(${r})`);
+      await sleep(300);
+    }
+    // 尺寸勾不上**不阻断**：箱包类目常常根本没有尺寸属性，而颜色已足以生成 SKU。
+    // 但必须留痕 —— 否则「我们想按 5.4CM 分 SKU 而页面没有」这件事会静默消失。
+    for (const s of sizes) {
+      const list = groups.size || [];
+      if (!list.length) { result.attention.push(`页面没有「尺寸(Size)」区块，尺寸「${s}」未勾选（按颜色生成 SKU）`); continue; }
+      const idx = matchIndex(s, list);
+      if (idx < 0) { result.attention.push(`尺寸「${s}」在页面 ${list.length} 个选项里没有匹配项，未勾选`); continue; }
+      const r = await clickAt("size", idx);
+      if (r === "clicked" || r === "already") result.checked.push(`尺寸:${s}=>${list[idx].text}`);
+      else result.attention.push(`尺寸「${s}」(${r})`);
+      await sleep(300);
+    }
+    await sleep(1200);
+
+    const colorHits = result.checked.filter((x) => x.startsWith("颜色:")).length;
+    if (colors.length && !colorHits) {
+      // 注意 spread 顺序：`...result` 自带 `ok: true`，必须放在前面，否则会把 ok:false 覆盖回 true
+      // （实测出现过 ok:true 却带着 variant-checkbox-not-found 原因的假成功）。
+      const available = (groups.color || []).map((o) => o.text).slice(0, 20);
+      return { ...result, ok: false, reason: `颜色一个都没勾上；页面 颜色(Color) 实际选项=${JSON.stringify(available)}`, available };
+    }
+    return result;
+  }
+
+  // 必填属性兜底（决策 B，2026-10-27）：facts 缺值时按「最接近的合法枚举」选一个并留痕。
+  // 为什么不能只是跳过：分类落定后属性区才渲染，店小秘对「类型/品牌/产地」按必填校验，
+  // 跳过 = 保存被拦（实测页面报「请选择产品属性」）。
+  // 为什么不能瞎填一条：证书/合规口径不能编 —— 所以只选页面**确实存在**的枚举，
+  // 并把"这是兜底而非事实"写进 attention，交给上架后人工复核。
+  async fillMandatoryAttribute(attr) {
+    const label = attr && attr.label ? String(attr.label) : "";
+    const candidatesByLabel = [
+      [/^类型/, ["其他(Other)", "Other", "其它"]],
+      [/^(产地|产地（国家或地区）)/, ["中国大陆(China)", "中国(China)", "China"]],
+      // 中国省份是「产地=中国大陆」之后才出现的**联动必填项**（2026-10-27 实测：
+      // 产地选完后页面立刻多出「中国省份(CN) 请选择」，不填就拦保存）。
+      [/^(中国省份|省份)/, ["浙江(Zhejiang)", "浙江省(Zhejiang)", "浙江", "Zhejiang"]],
+      [/^品牌/, ["无品牌(Unbranded)", "无品牌", "Unbranded", "NO BRAND", "NONE"]],
+      [/^高关注化学品/, ["无(None)", "无", "None", "NO"]]
+    ];
+    let candidates = [];
+    for (const [re, list] of candidatesByLabel) {
+      if (re.test(label)) { candidates = list; break; }
+    }
+    // 品牌类目专用：先点「同步品牌」让模板/后台资质把品牌带出来（比瞎选更接近真相）
+    if (/^品牌/.test(label) && typeof this.trySetBrand === "function") {
+      try {
+        const synced = await this.trySetBrand("");
+        const cur = await this.readAntSelectByLabel(label);
+        if (cur) return { ok: true, value: cur, via: "brand-sync", attention: [`品牌由「同步品牌」带出「${cur}」（facts 无 brand，已按模板/后台资质同步）`] };
+        if (synced && synced.ok === false) { /* 继续走候选 */ }
+      } catch { /* 继续走候选 */ }
+    }
+    let r = await this.applyAttributeAny(label, attr && attr.id, candidates.length ? candidates : ["其他(Other)", "其他", "Other", "无(None)", "无"], { preferLabel: !!(attr && attr.preferLabel) });
+    // 候选都不在页面枚举里 → 退化为「取该下拉的第一项」（ecom 的 materialCandidates 同一取舍：
+    // 必填项空着一定拦保存，选一个页面上真实存在的合法值 + 留痕，比硬失败更有用）。
+    // 但必须标 approximated + attention，不能让它看起来像事实。
+    // ★ 但「产地/省份」**绝不允许**退化成"随便第一项"：
+    // 实测中国省份候选「浙江(Zhejiang)」不在枚举里时，第一项是「河南(Henan)」——
+    // 产地申报填错比留空严重得多（涉及原产地合规），所以这两项只报不猜。
+    const isOriginLike = /产地|省份/.test(label);
+    if ((!r || r.ok === false) && !isOriginLike) {
+      const first = await this._pickFirstOptionByLabel(label).catch(() => null);
+      if (first && first.ok) {
+        r = { ok: true, via: "first-option", value: first.value, approximated: true };
+      }
+    }
+    if (r && r.ok) {
+      return {
+        ok: true,
+        value: r.value,
+        via: r.via,
+        approximated: true,
+        attention: [`${label}：facts 无值，已选页面合法枚举「${r.value}」（决策 B 兜底），请上架后人工复核`]
+      };
+    }
+    return {
+      ok: false,
+      reason: `${label}：facts 无值，且页面没有匹配的候选枚举（${JSON.stringify(candidates)}）；该字段为必填，保存会被拦`,
+      candidates
+    };
   }
 
   // 读取某字段当前值（Ant Select 读 selection-item，普通 input 读 value）。用于「已填则跳过，不覆盖源产品值」。
@@ -2568,98 +3462,202 @@ export class DianxiaomiAdapter {
     const result = { ok: false, reason: "", templateName };
     if (!templateName) { result.reason = "template-name-empty"; return result; }
     try {
-      // 1) 点顶部「引用产品」下拉按钮
-      const refBtnSelectors = [
-        'button:has-text("引用产品")',
-        '.ant-btn:has-text("引用产品")',
-        '[class*="reference"]:has-text("引用产品")',
-        'a:has-text("引用产品")'
-      ];
-      let clicked = false;
-      for (const sel of refBtnSelectors) {
-        const loc = this.page.locator(sel).first();
-        if (await loc.count() > 0 && await loc.isVisible().catch(() => false)) {
-          await loc.click({ timeout: 5000 }).catch(() => {});
-          clicked = true;
-          break;
-        }
+      // 0) 等页面真正就绪再动手：openCreatePage 刚跳转时 React 常常还没挂载顶部
+      //    「引用产品」按钮与表单，此时点它**不会有任何反应**，弹窗自然永远不出现
+      //    （实测第一步就报 template-modal-not-found，而后续字段全部正常）。
+      const targetUrl = String((this.profile && this.profile.url) || DIANXIAOMI_URL || "");
+      let ready = false;
+      let lastUrl = "";
+      for (let i = 0; i < 40 && !ready; i++) {
+        const st = await this.page.evaluate((want) => {
+          const href = location.href || "";
+          // URL 必须先落到创建页：goto 之后**旧页面在导航提交前依然存在**，
+          // 它同样有「引用产品」按钮和 .ant-form-item —— 只看元素会立刻判成就绪，
+          // 于是在即将被替换的旧页面上点按钮，点击随导航一起丢失（弹窗永远不出现）。
+          const path = (() => { try { return new URL(want).pathname; } catch { return ""; } })();
+          const urlOk = path ? href.includes(path) : /smtChoice\/add|product\/add/i.test(href);
+          const btn = Array.from(document.querySelectorAll("button, a"))
+            .find((e) => /引用产品/.test((e.innerText || "").trim()));
+          const r = btn ? btn.getBoundingClientRect() : { width: 0, height: 0 };
+          return { href, urlOk, hasBtn: r.width > 0 && r.height > 0, hasForm: !!document.querySelector(".ant-form-item") };
+        }, targetUrl).catch(() => null);
+        if (st) { lastUrl = st.href; }
+        if (st && st.urlOk && st.hasBtn && st.hasForm) { ready = true; break; }
+        await sleep(500);
       }
-      if (!clicked) {
-        clicked = await this.page.evaluate(() => {
-          const els = Array.from(document.querySelectorAll("button, a, span"));
-          const el = els.find((e) => /引用产品/.test((e.innerText || "").trim()));
-          if (el) { el.click(); return true; }
-          return false;
-        }).catch(() => false);
-      }
-      if (!clicked) { result.reason = "reference-button-not-found"; return result; }
-      await sleep(600);
-
-      // 2) 点下拉菜单里的「引用产品模板」
-      const tplOptSelectors = [
-        '.ant-dropdown-menu-item:has-text("引用产品模板")',
-        '.ant-dropdown-menu-item:has-text("产品模板")',
-        'a:has-text("引用产品模板")',
-        'span:has-text("引用产品模板")',
-        'li:has-text("引用产品模板")'
-      ];
-      let tplClicked = false;
-      for (const sel of tplOptSelectors) {
-        const loc = this.page.locator(sel).first();
-        if (await loc.count() > 0 && await loc.isVisible().catch(() => false)) {
-          await loc.click({ timeout: 5000 }).catch(() => {});
-          tplClicked = true;
-          break;
-        }
-      }
-      if (!tplClicked) {
-        tplClicked = await this.page.evaluate(() => {
-          const els = Array.from(document.querySelectorAll(".ant-dropdown-menu-item, a, span, li"));
-          const el = els.find((e) => /引用产品模板/.test((e.innerText || "").trim()));
-          if (el) { el.click(); return true; }
-          return false;
-        }).catch(() => false);
-      }
-      if (!tplClicked) { result.reason = "template-menu-item-not-found"; return result; }
+      if (!ready) { result.reason = `page-not-ready(url=${lastUrl || "?"}, 目标=${targetUrl || "(默认)"})`; return result; }
       await sleep(800);
-
-      // 3) 等「引用模板」弹窗
-      const modalSelectors = [
-        '.ant-modal:has-text("引用")',
-        '.ant-modal:has-text("模板")',
-        '.ant-modal-wrap:has-text("引用")',
-        '[role="dialog"]:has-text("模板")'
-      ];
+      // 1~3) 点「引用产品 ▾」→ 点「引用产品模板」→ 等弹窗。整段**可重试**（最多 2 轮）。
+      // 为什么要整体重试：单独重试某一步会把状态越搅越乱（下拉开着/没开、按钮被遮罩吃掉）。
+      // 实测手动点能稳定出弹窗，而生产调用时偶发 template-modal-not-found —— 属于时序抖动，
+      // 失败时**必须把现场写进 reason**，否则下一轮还是只能靠猜。
       let modal = null;
-      for (let i = 0; i < 15 && !modal; i++) {
-        for (const sel of modalSelectors) {
-          const loc = this.page.locator(sel).first();
-          if (await loc.count() > 0 && await loc.isVisible().catch(() => false)) { modal = loc; break; }
+      let lastDiag = null;
+      for (let round = 0; round < 2 && !modal; round += 1) {
+        if (round > 0) {
+          await this.page.keyboard.press("Escape").catch(() => {});
+          await this.page.mouse.click(5, 5).catch(() => {});
+          await sleep(800);
         }
-        if (!modal) await sleep(300);
+        // 1) 点顶部橙色下拉按钮「引用产品 ▾」（用户 2026-10-26 截图确认入口就在这里）。
+        //    对齐 ecom-translator draft_executor.mjs:792：button 里 filter hasText 后 **取 last**
+        //    —— 页面上有多个「引用产品」按钮（实测 2 个），first() 常点到不可用的那个，
+        //    点击不产生任何反应，下拉根本不展开。
+        let ddVisible = false;
+        const _dbg = !!process.env.DX_TPL_DEBUG;
+        for (let attempt = 0; attempt < 3 && !ddVisible; attempt++) {
+          const refBtn = this.page.locator('button:has-text("引用产品"), a:has-text("引用产品")').last();
+          if (_dbg) {
+            const info = await this.page.evaluate(() => ({
+              url: location.href,
+              cands: Array.from(document.querySelectorAll("button, a"))
+                .filter((e) => /引用产品/.test((e.innerText || "").trim()))
+                .map((e) => { const r = e.getBoundingClientRect(); return `${e.tagName}@${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}x${Math.round(r.height)}`; })
+            })).catch(() => null);
+            console.log(`[tpl-dbg] round=${round} attempt=${attempt} count=${await refBtn.count().catch(() => -1)}`, JSON.stringify(info));
+          }
+          if (await refBtn.count() > 0) {
+            await refBtn.click({ timeout: 6000 }).catch((e) => { if (_dbg) console.log("[tpl-dbg] click err:", String(e.message).slice(0, 140)); });
+          } else {
+            await this.page.evaluate(() => {
+              const els = Array.from(document.querySelectorAll("button, a, span"));
+              const el = els.filter((e) => /引用产品/.test((e.innerText || "").trim())).pop();
+              if (el) el.click();
+            }).catch(() => {});
+          }
+          await sleep(700);
+          ddVisible = await this.page.evaluate(() => Array.from(document.querySelectorAll(".ant-dropdown-menu-item, .ant-dropdown li, li[role=menuitem]"))
+            .some((e) => {
+              const r = e.getBoundingClientRect();
+              return r.width > 0 && r.height > 0 && /引用产品模板/.test((e.innerText || "").trim());
+            })).catch(() => false);
+          if (_dbg) console.log(`[tpl-dbg]   ddVisible=${ddVisible}`);
+        }
+        if (!ddVisible) {
+          lastDiag = { stage: "dropdown-not-opened", round };
+          continue;
+        }
+        // 2) 点下拉里**可见的**「引用产品模板」
+        const tplItem = this.page.locator('.ant-dropdown-menu-item:visible, li:visible')
+          .filter({ hasText: /^引用产品模板$/ }).first();
+        if (_dbg) {
+          const c = await tplItem.count().catch(() => -1);
+          const detail = c > 0 ? await tplItem.evaluate((e) => {
+            const r = e.getBoundingClientRect();
+            return { tag: e.tagName, text: (e.innerText || "").trim(), rect: `${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}x${Math.round(r.height)}`, cls: String(e.className || "").slice(0, 60) };
+          }).catch(() => null) : null;
+          console.log(`[tpl-dbg]   tplItem count=${c}`, JSON.stringify(detail));
+        }
+        if (await tplItem.count() > 0) {
+          await tplItem.click({ timeout: 6000 }).catch((e) => { if (_dbg) console.log("[tpl-dbg]   item click err:", String(e.message).slice(0, 140)); });
+        } else {
+          await this.page.evaluate(() => {
+            const els = Array.from(document.querySelectorAll(".ant-dropdown-menu-item, li, a, span"));
+            const el = els.filter((e) => {
+              const r = e.getBoundingClientRect();
+              return r.width > 0 && r.height > 0 && /^引用产品模板$/.test((e.innerText || "").trim());
+            }).pop();
+            if (el) el.click();
+          }).catch(() => {});
+        }
+        await sleep(1000);
+        if (_dbg) {
+          const after = await this.page.evaluate(() => {
+            const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+            return {
+              dropdowns: Array.from(document.querySelectorAll(".ant-dropdown-menu-item")).filter(vis).map((e) => (e.innerText || "").trim()),
+              modalWraps: Array.from(document.querySelectorAll(".ant-modal-wrap")).map((m) => {
+                const b = m.querySelector(".ant-modal, .ant-modal-content") || m;
+                const r = b.getBoundingClientRect();
+                return { w: Math.round(r.width), h: Math.round(r.height), text: (m.innerText || "").replace(/\s+/g, " ").trim().slice(0, 50) };
+              }),
+              modalRoots: document.querySelectorAll(".ant-modal-root").length
+            };
+          }).catch(() => null);
+          console.log("[tpl-dbg]   after item click:", JSON.stringify(after));
+        }
+        // 3) 等弹窗：标题是「引用模**版**」，且弹窗多为 position:fixed ——
+        //    可见性按 rect 判定（offsetParent 恒 null，用它判会把弹窗当成不存在）。
+        for (let i = 0; i < 30 && !modal; i += 1) {
+          const ok = await this.page.evaluate(() => Array.from(document.querySelectorAll(".ant-modal-wrap, [role=dialog], .ant-modal"))
+            .some((m) => {
+              const box = m.querySelector(".ant-modal, .ant-modal-content") || m;
+              const r = box.getBoundingClientRect();
+              if (!(r.width > 50 && r.height > 50)) return false;
+              const t = (m.innerText || "").replace(/\s+/g, " ");
+              return /引用模|模板名称|模版名称/.test(t);
+            })).catch(() => false);
+          if (ok) { modal = this.page.locator(".ant-modal-wrap:visible, [role=dialog]:visible, .ant-modal:visible").last(); break; }
+          await sleep(400);
+        }
+        if (!modal) {
+          lastDiag = await this.page.evaluate(() => {
+            const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+            return {
+              stage: "modal-not-found",
+              url: location.href,
+              visibleModals: Array.from(document.querySelectorAll(".ant-modal-wrap"))
+                .filter(vis).map((m) => (m.innerText || "").replace(/\s+/g, " ").trim().slice(0, 60)),
+              visibleDropdowns: Array.from(document.querySelectorAll(".ant-dropdown-menu-item"))
+                .filter(vis).map((e) => (e.innerText || "").trim()),
+              refButtons: Array.from(document.querySelectorAll("button, a"))
+                .filter((e) => /引用产品/.test((e.innerText || "").trim()) && vis(e))
+                .map((e) => String(e.className || "").slice(0, 40))
+            };
+          }).catch(() => ({ stage: "modal-not-found(diag-failed)" }));
+        }
       }
-      if (!modal) { result.reason = "template-modal-not-found"; return result; }
+      if (!modal) { result.reason = `template-modal-not-found：${JSON.stringify(lastDiag)}`; return result; }
 
       // 4) 在弹窗表格里匹配模板名行，点「引用」
+      // 2026-10-26：只认「以模板名开头」的那一行。
+      // 原实现用 filter({hasText:模板名}).first()，而模板弹窗的**外层容器本身也是一个 tr**，
+      // 它的文本同时含表头与模板名 → hasText 会先命中它，点到表头的「引用模块」，
+      // 模板其实没有被引用（ecom-translator 的 draft_executor 也记过同一次事故）。
+      // 同时删掉 /箱包配件|包饰|bag/ 的 fuzzy 回退：引到**另一个**模板比引不到更糟 ——
+      // 会把错误类目的属性一起带进来，而且结果看起来是成功的。
       let row = null;
-      const safeName = templateName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const exactRow = modal.locator("tr, .ant-list-item, .ant-table-row").filter({ hasText: new RegExp(safeName, "i") }).first();
-      if (await exactRow.count() > 0 && await exactRow.isVisible().catch(() => false)) row = exactRow;
-      if (!row) {
-        const fuzzyRow = modal.locator("tr, .ant-list-item, .ant-table-row").filter({ hasText: /箱包配件|包饰|bag/i }).first();
-        if (await fuzzyRow.count() > 0 && await fuzzyRow.isVisible().catch(() => false)) row = fuzzyRow;
+      let matchedRowText = "";
+      const wantedPrefix = templatePrefixOf(templateName);
+      const rowCandidates = modal.locator("tr, .ant-list-item, .ant-table-row");
+      const rowCount = await rowCandidates.count();
+      for (let i = 0; i < rowCount; i += 1) {
+        const item = rowCandidates.nth(i);
+        if (!await item.isVisible().catch(() => false)) continue;
+        const text = ((await item.innerText().catch(() => "")) || "").replace(/\s+/g, " ").trim();
+        if (!text.startsWith(wantedPrefix)) continue;
+        if (!/引用|使用/.test(text)) continue;
+        row = item;
+        matchedRowText = text;
+        break;
       }
 
+      // 4.1) 先读行结构取证：模板弹窗用的是 **vxe-table**（不是 ant-table），
+      // 「引用」是一个 `<span class="link">`，既不是 button 也不是 a。
+      // 2026-10-26 实测：行文本「箱包配件-包饰-星造 产品属性 2026-09-13 21:44:26 引用」，
+      // 行内 button/a/.ant-btn 查询结果为 **0 个** —— 旧实现所有按钮选择器全部落空，
+      // 只剩「点整行」兜底（vxe 行点击不是引用动作）→ 模板其实从未被引用。
+      // 同时取「引用模块」列：本店该模板只带「产品属性」，**不带产品分类**（见 ensureCategoryFilled）。
+      let moduleNames = "";
       let applyClicked = false;
       if (row) {
-        // 优先点行内操作列的「引用」：可能是 a / button / span / ant-btn-link / ant-btn-primary
+        const rowInfo = await row.evaluate((el) => ({
+          cells: Array.from(el.children).map((td) => (td.innerText || "").replace(/\s+/g, " ").trim())
+        })).catch(() => ({ cells: [] }));
+        moduleNames = rowInfo.cells[1] || "";
+
+        // 优先点行内 `span.link`：vxe-table 的真实引用元素
         const refBtnSelectors = [
+          'span.link:has-text("引用")',
+          '.link:has-text("引用")',
           'button:has-text("引用")',
           'a:has-text("引用")',
           'span:has-text("引用")',
           '.ant-btn-link:has-text("引用")',
           '.ant-btn-primary:has-text("引用")',
           '.ant-btn:has-text("引用")',
+          'span.link:has-text("使用")',
+          '.link:has-text("使用")',
           'button:has-text("使用")',
           'a:has-text("使用")',
           '.ant-btn:has-text("使用")'
@@ -2672,36 +3670,43 @@ export class DianxiaomiAdapter {
             break;
           }
         }
-        // 兜底：在行内直接 evaluate 找包含「引用」的最可能元素
+        // 兜底：**必须限定在行内**（row.evaluate 里的 document 是全页 document，
+        // 直接用 document.querySelectorAll 会先命中页面上其它「引用」元素 → 点错地方）。
+        // 取最内层（倒序）且文本恰为「引用/使用」的元素。
         if (!applyClicked) {
-          applyClicked = await row.evaluate(() => {
-            const candidates = Array.from(document.querySelectorAll("button, a, span, .ant-btn, .ant-btn-link, .ant-btn-primary"));
-            const btn = candidates.find((e) => /引用|使用/.test((e.innerText || "").trim()));
+          applyClicked = await row.evaluate((el) => {
+            const candidates = Array.from(el.querySelectorAll("span, button, a, .ant-btn, .link"));
+            const btn = candidates.slice().reverse().find((e) => /^(引用|使用)$/.test((e.innerText || "").trim()))
+              || candidates.slice().reverse().find((e) => /引用|使用/.test((e.innerText || "").trim()));
             if (btn) { btn.click(); return true; }
             return false;
           }).catch(() => false);
         }
         if (!applyClicked) {
-          // 最后兜底：点击整行
-          await row.click({ timeout: 5000 }).catch(() => {});
-          applyClicked = true;
+          // 找不到可点元素就如实报失败，绝不「点整行」假装成功 —— 点行不是引用动作。
+          result.reason = "template-row-has-no-reference-link";
+          result.matchedRowText = matchedRowText;
+          result.moduleNames = moduleNames;
+          return result;
         }
       } else {
-        // 找不到行：在整个 modal 里按模板名匹配行并点引用
+        // 找不到行：在整个 modal 里按模板名匹配行，点 `span.link`
         applyClicked = await modal.evaluate((name) => {
           const rows = Array.from(document.querySelectorAll("tr, .ant-list-item, .ant-table-row"));
           for (const r of rows) {
-            const t = (r.innerText || "").trim();
-            if (new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(t)) {
-              const candidates = Array.from(r.querySelectorAll("button, a, span, .ant-btn, .ant-btn-link, .ant-btn-primary"));
-              const btn = candidates.find((e) => /引用|使用/.test((e.innerText || "").trim()));
-              if (btn) { btn.click(); return true; }
+            const t = (r.innerText || "").replace(/\s+/g, " ").trim();
+            if (t.startsWith(name)) {
+              const link = r.querySelector("span.link")
+                || Array.from(r.querySelectorAll("span, button, a, .link")).slice().reverse()
+                  .find((e) => /^(引用|使用)$/.test((e.innerText || "").trim()));
+              if (link) { link.click(); return true; }
             }
           }
           return false;
-        }, templateName).catch(() => false);
+        }, wantedPrefix).catch(() => false);
         if (!applyClicked) { result.reason = "template-row-not-found"; return result; }
       }
+      result.moduleNames = moduleNames;
       await sleep(1200);
 
       // 5) 等弹窗关闭、加载完成
@@ -2717,11 +3722,98 @@ export class DianxiaomiAdapter {
       }
       result.ok = completed;
       if (!result.ok && !result.reason) result.reason = "template-apply-timeout";
+      // 6) 后果**留痕**：记录「分类有没有被模板带出」，但**不在这里判失败**。
+      //    历史教训（ecom-translator 8/8 事故）：只验「点到了那一行」会把根因藏起来 ——
+      //    模板没真生效时分类不带出，属性区/变种区根本不渲染，后续每个字段失败都只是它的下游症状。
+      //    但**不能反过来照搬 ecom 的判据**：2026-10-26 实测本店唯一模板
+      //    「箱包配件-包饰-星造」的「引用模块」列只有「产品属性」，**不带产品分类**
+      //    （点完引用，rc_select_2 仍是「---- 请选择分类 ----」，rc_select 数量 13 不变）。
+      //    照 ecom 判据会把一个能用的模板判死。真正的分类落定门是紧随其后的
+      //    ensureCategoryFilled() —— 由我方显式选分类，选不上才 Fail-Closed。
+      if (result.ok) {
+        const effect = await this.readProductCategory();
+        result.templateEffect = effect;
+        result.matchedRowText = matchedRowText;
+        if (effect.placeholder) {
+          result.warning = `模板「${wantedPrefix}」的引用模块为「${moduleNames || "(未读到)"}」，未带出产品分类；`
+            + "分类改由 ensureCategoryFilled 显式选择（本店模板不含分类是既定事实，非故障）。";
+        } else if (!effect.text) {
+          result.warning = `引用模板后未读到产品分类，无法确认是否生效；请人工核对页面。`;
+        }
+      }
       return result;
     } catch (e) {
       result.reason = "exception:" + (e && e.message || e);
       return result;
     }
+  }
+
+  // 读「产品分类」表单项的当前状态（纯读，不判断成败）。
+  // 溯源：ecom-translator tools/dianxiaomi_draft_executor.mjs:440-452 assertTemplateTookEffect。
+  // 判据取窄：只在**正面读到仍是占位文案**时判 placeholder；读不到只返回空（读法可能不对，
+  // 不能倒推成「没生效」）。
+  async readProductCategory() {
+    const r = await this.page.evaluate(() => {
+      const items = Array.from(document.querySelectorAll(".ant-form-item"));
+      for (const el of items) {
+        const t = (el.innerText || "").trim();
+        if (!t.startsWith("产品分类")) continue;
+        const sel = el.querySelector(".ant-select-selection-item");
+        return {
+          text: t.replace(/\n+/g, " | ").slice(0, 100),
+          value: sel ? (sel.innerText || "").trim() : "",
+          placeholder: /请选择分类/.test(t) && !sel
+        };
+      }
+      return { text: "", value: "", placeholder: false };
+    }).catch(() => ({ text: "", value: "", placeholder: false }));
+    return r;
+  }
+
+  // 分类落定门（Fail-Closed）：产品分类没落定 → 属性区/变种区根本不渲染 →
+  // 后面「类型/材质/品牌/产地」「变种」「包装尺寸」每一步失败都只是它的下游症状。
+  // 为什么必须有这道门：2026-10-26 实测本店唯一模板的引用模块只有「产品属性」，
+  // 引用后分类仍是「---- 请选择分类 ----」，而箱包分支**从来没调用过 selectCategory**
+  // （历史上靠引用产品 ID 自带分类），于是空白新建路径上分类永远为空。
+  // 正确顺序：模板（带属性/海关/物流）→ **我方显式选分类** → 属性区渲染。
+  async ensureCategoryFilled(preferred) {
+    await this.connect();
+    const before = await this.readProductCategory();
+    if (before.value && !before.placeholder) {
+      return { ok: true, skipped: true, reason: "already-set", value: before.value, text: before.text };
+    }
+    const wanted = String(preferred || (this.profile && this.profile.category) || "").trim();
+    if (!wanted || /^auto$/i.test(wanted)) {
+      return {
+        ok: false,
+        reason: "category-not-specified",
+        wanted,
+        text: before.text,
+        detail: "模板未带出分类，且未指定店小秘分类（表格「类目」列或 profile.category 为 auto/空）。"
+          + "产品分类未落定时属性区与变种区不会渲染，后续字段必然全线失败；"
+          + "请填写店小秘分类全名（如「箱包配件(Bag Parts & Accessories)」）。"
+      };
+    }
+    let picked = null;
+    try {
+      picked = await this.selectAntSelectById("rc_select_2", wanted);
+    } catch (e) {
+      picked = { ok: false, reason: "select-exception:" + ((e && e.message) || e), wanted };
+    }
+    await sleep(1500);
+    const after = await this.readProductCategory();
+    if (!after.value || after.placeholder) {
+      return {
+        ok: false,
+        reason: "category-not-applied",
+        wanted,
+        text: after.text,
+        picked,
+        detail: `已尝试按「${wanted}」选择产品分类（rc_select_2），回读仍是「${after.text || "(读不到)"}」。`
+          + "请核对店小秘该店铺下是否存在此分类全名。"
+      };
+    }
+    return { ok: true, wanted, value: after.value, text: after.text, picked };
   }
 
   // 一键翻译：店小秘编辑页顶部「一键翻译」按钮，将中文内容翻译为英文。
@@ -3193,48 +4285,296 @@ export class DianxiaomiAdapter {
         applied.push({ row: i, ok: false, error: e.message });
       }
     }
-    return { ok: true, generated: gen, rows: applied.length };
+    // 2026-10-26：行级失败必须冒到这一层。
+    // 原实现无条件返回 {ok:true}，于是 fillSkuRow 即使抛错（回读不一致 / 找不到输入框），
+    // 上层看到的仍是"SKU 填好了" —— 校验做了、但结论被吞掉，等于没做。
+    // 行号兜底：fillSkuRow 的失败返回里不一定带 row，直接打印会变成「第 NaN 行」，
+    // 现场看不出是哪一行出问题（实测日志里就是这样）。这里按索引补齐。
+    applied.forEach((item, i) => { if (item && typeof item.row !== "number") item.row = i; });
+    const failedRows = applied.filter((item) => item && item.ok === false);
+    const attentionLines = applied.flatMap((item) => (item && Array.isArray(item.attention) ? item.attention : []));
+    if (failedRows.length) {
+      return {
+        ok: false,
+        generated: gen,
+        rows: applied.length,
+        failedRows: failedRows.length,
+        reason: `${failedRows.length}/${applied.length} 个变体行未通过回读校验：`
+          + failedRows.slice(0, 3).map((item) => `第 ${item.row + 1} 行 ${item.error || item.reason || ""}`.trim()).join("；"),
+        attention: attentionLines,
+        details: applied
+      };
+    }
+    return { ok: true, generated: gen, rows: applied.length, attention: attentionLines, details: applied };
   }
 
   // 填第 i 个 SKU 组合行（真实店小秘乳贴组合表：Size|Color|供货价(CNY)|SKU编码|货品条码|SKU分类|库存|申请销售）
   // 颜色/尺寸在组合表为只读文本（由销售属性定义决定），价格/库存/条码/SKU编码为可填 input。
   // 用表头文本定位列，避免硬编码索引（适配不同品类表头差异）。
+  //
+  // 2026-10-26 改造：改为**真实键盘写入 + 逐字段回读**（三态判定）。
+  // 原实现在 evaluate 里 `inp.value = String(val)` + dispatchEvent，返回 {ok:true}——
+  // 那只说明"赋了值"，不说明 React 接受了（受控组件会把 value 覆盖回去）。
+  // ecom-translator 的两次事故（合规主体 / 无线端描述）就是这个形态：审计报 SUCCESS，
+  // 页面上根本没填进去。按 A2 决策：供货价 / SKU编码 / 库存 回读不一致即抛（钱与编码口径），
+  // 货品条码只记 attention。
   async fillSkuRow(index, m) {
     await this.connect();
-    return this.page.evaluate(({ idx, row }) => {
-      const tables = Array.from(document.querySelectorAll("table"));
-      const table = tables.find((tb) => {
-        const ths = Array.from(tb.querySelectorAll("thead th, thead td")).map((h) => h.innerText || "");
-        return ths.some((t) => /供货价|库存/.test(t));
-      });
-      if (!table) return { ok: false, reason: "no-sku-combo-table" };
-      const ths = Array.from(table.querySelectorAll("thead th, thead td")).map((h) => (h.innerText || "").replace(/\s+/g, " ").trim());
-      const col = (re) => ths.findIndex((t) => re.test(t));
-      const priceCol = col(/供货价/);
-      const stockCol = col(/库存/);
-      const barcodeCol = col(/货品条码/);
-      const skuCol = col(/SKU编码/);
-      const trs = Array.from(table.querySelectorAll("tbody tr"));
-      const tr = trs[idx];
-      if (!tr) return { ok: false, reason: "row-not-found", total: trs.length };
-      const cells = Array.from(tr.children);
-      const setVal = (ci, val) => {
-        if (ci < 0) return;
-        const cell = cells[ci];
-        if (!cell) return;
-        const inp = cell.querySelector("input:not([type=hidden])");
-        if (inp && val != null && String(val) !== "") {
-          inp.value = String(val);
-          inp.dispatchEvent(new Event("input", { bubbles: true }));
-          inp.dispatchEvent(new Event("change", { bubbles: true }));
+    const row = m || {};
+    let layout;
+    try {
+      layout = await this.page.evaluate((idx) => {
+        const tables = Array.from(document.querySelectorAll("table"));
+        const tableIndex = tables.findIndex((tb) => {
+          const ths = Array.from(tb.querySelectorAll("thead th, thead td")).map((h) => h.innerText || "");
+          return ths.some((t) => /供货价|库存/.test(t));
+        });
+        if (tableIndex < 0) return { ok: false, reason: "no-sku-combo-table" };
+        const ths = Array.from(tables[tableIndex].querySelectorAll("thead th, thead td")).map((h) => (h.innerText || "").replace(/\s+/g, " ").trim());
+        const col = (re) => ths.findIndex((t) => re.test(t));
+        return {
+          ok: true,
+          tableIndex,
+          priceCol: col(/供货价/),
+          stockCol: col(/库存/),
+          barcodeCol: col(/货品条码/),
+          skuCol: col(/SKU编码/),
+          rowCount: tables[tableIndex].querySelectorAll("tbody tr").length
+        };
+      }, index);
+    }
+    catch (e) {
+      return { ok: false, reason: "layout-probe-failed: " + e.message };
+    }
+    if (!layout || !layout.ok) return layout || { ok: false, reason: "no-sku-combo-table" };
+    if (index >= layout.rowCount) return { ok: false, reason: "row-not-found", total: layout.rowCount };
+
+    // 行定位：优先按 **Color 列文本**匹配，而不是按索引。
+    // 实测（2026-10-26）：按索引写 3 行，结果三行的 SKU 编码都变成了第 1 行的 KC-660765-0，
+    // 页面上直接报「SKU编码重复」—— 索引定位在表格重排/虚拟化后会错位，而错位写值
+    // 比不写更糟（金额与编码口径）。这里先按颜色确认行，确认不了才退回索引。
+    let rowLoc = this.page.locator("table").nth(layout.tableIndex).locator("tbody tr").nth(index);
+    let rowMatchedBy = "index";
+    if (row.color) {
+      const matched = await this.page.evaluate((args) => {
+        const tb = Array.from(document.querySelectorAll("table"))[args.ti];
+        if (!tb) return -1;
+        const norm = (x) => String(x || "").replace(/[\s（）()]/g, "").toLowerCase();
+        const want = norm(args.color);
+        const trs = Array.from(tb.querySelectorAll("tbody tr"));
+        for (let i = 0; i < trs.length; i++) {
+          // 只看第 2 列（Color），避免把已写入的 SKU 编码等文字也算进来
+          const cells = trs[i].children;
+          const colorText = norm(cells[1] ? cells[1].innerText : "");
+          if (colorText && colorText.includes(want)) return i;
         }
-      };
-      setVal(priceCol, row.price);
-      setVal(stockCol, row.stock);
-      setVal(barcodeCol, row.barcode);
-      setVal(skuCol, row.sku);
-      return { ok: true, priceCol, stockCol, filledPrice: !!row.price, filledStock: !!row.stock };
-    }, { idx: index, row: m });
+        return -1;
+      }, { ti: layout.tableIndex, color: row.color }).catch(() => -1);
+      if (matched >= 0) {
+        rowLoc = this.page.locator("table").nth(layout.tableIndex).locator("tbody tr").nth(matched);
+        rowMatchedBy = "color:" + row.color + "=>行" + (matched + 1);
+      }
+    }
+    // 单元格定位：优先按 input 的 name（price / variationSku / variationGoodsBarcode）。
+    // 实测这些 input 都带稳定 name，而列索引会随「是否原箱/物流属性」等列增减而平移 ——
+    // 库存列就曾定位到索引 5 却没有输入框。name 定位对列顺序变化免疫。
+    // 单元格定位（2026-10-27 修正）：带 name 的字段一律用 **全局 name + 序号**，与 ecom 一致
+    // （draft_executor.mjs:909 `page.locator('input[name=variationSku]:visible')` 再 nth(i)）。
+    // 为什么不再用「行定位器 → 行内 input」：实测三行的 SKU 编码全部写成第 1 行的
+    // KC-660765-0，页面直接报「SKU编码重复」；而同一轮里按 name+序号写的供货价/库存都正确。
+    // 行定位器在 vxe-table 的多层 tbody / 固定列副本下会解析到同一行，序号定位没有这个歧义。
+    const cellInput = (colIndex, name) => (name
+      ? this.page.locator(`input[name="${name}"]:visible`).nth(index)
+      : rowLoc.locator("td").nth(colIndex).locator("input:not([type=hidden])").first());
+    const selectAll = process.platform === "darwin" ? "Meta+A" : "Control+A";
+    // 严格模式：必抛字段回读不一致就中断该行。降级（config/dianxiaomi-fill-strict.json
+    // 的 skuReadback="attention"）时全部改成只记 attention —— 用于快速回滚，不阻断整批。
+    const strictReadback = skuReadbackStrict();
+    const fields = [
+      { col: layout.priceCol, name: "price", key: "price", value: row.price, label: "供货价", escalate: true },
+      { col: layout.skuCol, name: "variationSku", key: "sku", value: row.sku, label: "SKU编码", escalate: true },
+      // 库存：Choice 半托管页里这一格**不是 input**（是 span + 铅笔图标，点开才编辑），
+      // 实测列索引 5 取不到任何 input。控件不存在 ≠ 值错了，所以只留痕、不中断整行；
+      // 真正的库存口径（平台可售 vs 实仓）本项目另有约定，不该在这里静默写死。
+      { col: layout.stockCol, name: "", key: "stock", value: row.stock, label: "库存", escalate: true, missingIsAttention: true },
+      { col: layout.barcodeCol, name: "variationGoodsBarcode", key: "barcode", value: row.barcode, label: "货品条码", escalate: false }
+    ].map((field) => ({ ...field, escalate: field.escalate && strictReadback }));
+    const applied = [];
+    const attention = [];
+    for (const field of fields) {
+      if (field.col < 0) continue;
+      const text = field.value === null || field.value === undefined ? "" : String(field.value).trim();
+      if (!text) continue;
+      const input = cellInput(field.col, field.name);
+      if (!(await input.count().catch(() => 0))) {
+        if (field.escalate && !field.missingIsAttention) {
+          throw new Error(`第 ${index + 1} 行${field.label}：找不到输入框（列索引 ${field.col}${field.name ? " / name=" + field.name : ""}），页面结构可能已改版，已停止填写该行以免错位。`);
+        }
+        attention.push(`第 ${index + 1} 行${field.label}：未填写 —— 该格没有可写输入框`
+          + (field.missingIsAttention ? "（Choice 半托管页此列非输入控件，需点开单元格编辑）；页面原值保留" : `（列索引 ${field.col}${field.name ? " / name=" + field.name : ""}）`));
+        continue;
+      }
+      try {
+        const verified = await fillInputVerified(input, text, {
+          label: `第 ${index + 1} 行${field.label}`,
+          escalateUnreadable: field.escalate,
+          selectAll
+        });
+        // escalateUnreadable=false 的字段读不到时不会抛，这里补一条留痕 ——
+        // 沉默的"可能没生效"正是本层要消灭的东西（noteUnverified 的文案含三态与两侧原文）。
+        noteUnverified(attention, `第 ${index + 1} 行${field.label}`, verified);
+        applied.push({ field: field.key, state: verified.state, readback: verified.readback });
+      }
+      catch (error) {
+        if (field.escalate) throw error;
+        attention.push(`第 ${index + 1} 行${field.label}：${error.message}`);
+      }
+    }
+    return {
+      ok: true,
+      row: index,
+      rowMatchedBy,
+      priceCol: layout.priceCol,
+      stockCol: layout.stockCol,
+      filledPrice: !!(row.price !== undefined && row.price !== null && String(row.price).trim() !== ""),
+      filledStock: !!(row.stock !== undefined && row.stock !== null && String(row.stock).trim() !== ""),
+      applied,
+      attention
+    };
+  }
+
+  // 「包装重量和尺寸」—— 对齐 ecom-translator 的同名步骤（draft_executor.mjs:910）。
+  // ecom 的规则（照搬，不自己发明）：
+  //   ① 重量与尺寸是**同一个 step**，四个 input 一起填：
+  //      variationWeight / variationLength / variationWidth / variationHeight。
+  //      我们之前只填尺寸不填重量 → 保存必报「请填写重量」×N。
+  //   ② **行数必须等于变种行数**，不等就抛 —— 多写会写到别的行，少写会漏行，
+  //      两者都比不写更糟（尺寸写错行 = 运费与包装全错）。
+  //   ③ 缺数据时用默认值 **0.12kg + 12×10×10cm** 并记 attention（ecom 原话：
+  //      "已按默认净重 100g + 包装 20g 填写并参与回读校验；请上架后人工核对"）。
+  //   ④ 单位写进字段名：**weight_kg**。我们的 product-facts.weight 是**克**
+  //      （钥匙扣 80 = 80g），直接写 80 会变成 80kg —— 本项目已出过一次量纲事故，
+  //      换算必须显式且留痕，绝不静默。
+  async fillPackageWeightAndSize(facts) {
+    await this.connect();
+    const v = facts && facts.variants;
+    const matrix = (v && v.matrix) || [];
+    const rowCount = matrix.length || 1;
+    const attention = [];
+    const applied = [];
+    const pkg = (facts && facts.product && facts.product.packageSize)
+      || (this.profile && this.profile.packageSize) || null;
+
+    let weightKg = "";
+    const firstWeight = (matrix[0] && matrix[0].weight) || (v && v.defaultWeight)
+      || (facts && facts.product && facts.product.weight) || (pkg && pkg.weightKg);
+    if (pkg && pkg.weightKg !== undefined && pkg.weightKg !== null && String(pkg.weightKg).trim() !== "") {
+      weightKg = String(pkg.weightKg).trim();
+    } else if (firstWeight !== undefined && firstWeight !== null && String(firstWeight).trim() !== "") {
+      const n = Number(String(firstWeight).trim());
+      if (Number.isFinite(n)) {
+        weightKg = String(Number((n > 20 ? n / 1000 : n).toFixed(4)));
+        attention.push(`facts 未提供 weight_kg：按「${firstWeight}」${n > 20 ? "**克(g)**" : "kg"}解析 → 写入 ${weightKg} kg`
+          + "（判断依据：>20 视为克；钥匙扣类小商品不可能 20kg 以上）。请上架后人工核对。");
+      } else {
+        weightKg = String(firstWeight).trim();
+      }
+    }
+    if (!weightKg) {
+      weightKg = "0.12";
+      attention.push("facts 未提供任何重量，已按默认净重 100g + 包装 20g = 0.12kg 填写并参与回读校验；请上架后人工核对。");
+    }
+    const length = (pkg && (pkg.length ?? pkg.variationLength)) ?? 12;
+    const width = (pkg && (pkg.width ?? pkg.variationWidth)) ?? 10;
+    const height = (pkg && (pkg.height ?? pkg.variationHeight)) ?? 5;
+    if (!pkg) attention.push("facts 未提供包装尺寸，已按默认 12×10×5cm 填写并参与回读校验；请上架后人工核对。");
+
+    const selectAll = process.platform === "darwin" ? "Meta+A" : "Control+A";
+    const names = [
+      ["variationWeight", weightKg],
+      ["variationLength", length],
+      ["variationWidth", width],
+      ["variationHeight", height]
+    ];
+    for (const [name, val] of names) {
+      const text = val === null || val === undefined ? "" : String(val).trim();
+      if (!text) continue;
+      const inputs = this.page.locator(`input[name=${name}]:visible`);
+      const cnt = await inputs.count().catch(() => 0);
+      if (cnt !== rowCount) {
+        applied.push({ name, ok: false, error: `${name} 行数 ${cnt} ≠ 变种行数 ${rowCount}（ecom 规则：行数不符即抛，避免写错行）` });
+        continue;
+      }
+      for (let i = 0; i < cnt; i += 1) {
+        try {
+          const ver = await fillInputVerified(inputs.nth(i), text, {
+            label: `第 ${i + 1} 行 ${name}`,
+            escalateUnreadable: true,
+            selectAll
+          });
+          noteUnverified(attention, `第 ${i + 1} 行 ${name}`, ver);
+          applied.push({ name, row: i, ok: true, value: text, state: ver.state, readback: ver.readback });
+        } catch (e) {
+          applied.push({ name, row: i, ok: false, error: e.message });
+        }
+      }
+    }
+    const failed = applied.filter((a) => a && a.ok === false);
+    return {
+      ok: !failed.length,
+      weightKg,
+      dims: { length, width, height },
+      rows: rowCount,
+      failedRows: failed.length,
+      reason: failed.length
+        ? failed.slice(0, 3).map((f) => `${f.name}${typeof f.row === "number" ? " 第 " + (f.row + 1) + " 行" : ""} ${f.error || ""}`.trim()).join("；")
+        : "",
+      attention,
+      details: applied
+    };
+  }
+
+  // 库存：对齐 ecom-translator 的 updateInventory（draft_executor.mjs:543）。
+  // 为什么必须这么绕：Choice 半托管页的库存格**不是输入框**（是一个 span + 铅笔图标
+  // `i.icon_edit2`），点它才弹出「修改仓库」对话框，填完还要点「应用到全部」。
+  // 我们旧代码拿列索引去取 input，取不到就抛「页面结构可能已改版」并中断整行 ——
+  // 其实页面没改版，是入口形态就不是 input。
+  // 仓库名按页面实际存在的行匹配（ecom 写死「杭州JIT库存」，换店会失效）。
+  async updateInventory(expectedRows, stockValue = "50") {
+    await this.connect();
+    const result = { ok: false, reason: "", stockValue, warehouse: "" };
+    try {
+      const edits = this.page.locator("i.icon_edit2:visible");
+      const n = await edits.count().catch(() => 0);
+      if (!n) { result.reason = "库存编辑入口(i.icon_edit2)未找到"; return result; }
+      // 库存与物流属性共用 icon_edit2 入口，按第一个可见入口点开判断对话框类型
+      await edits.first().click({ timeout: 8000 });
+      const dialog = this.page.locator("[role=dialog]:visible").filter({ hasText: /修改仓库|库存/ }).last();
+      await dialog.waitFor({ state: "visible", timeout: 8000 }).catch(() => {});
+      const opened = await dialog.count().catch(() => 0);
+      if (!opened) { result.reason = "点铅笔图标后未出现「修改仓库」对话框"; return result; }
+      const rows = dialog.locator(".vxe-body--row");
+      const rowCount = await rows.count().catch(() => 0);
+      if (!rowCount) { result.reason = "「修改仓库」对话框里没有仓库行"; return result; }
+      let targetRow = rows.filter({ hasText: /JIT库存/ }).first();
+      if (!(await targetRow.count().catch(() => 0))) {
+        targetRow = rows.filter({ hasText: /库存/ }).first();
+      }
+      if (!(await targetRow.count().catch(() => 0))) targetRow = rows.first();
+      result.warehouse = ((await targetRow.innerText().catch(() => "")) || "").replace(/\s+/g, " ").trim().slice(0, 40);
+      const input = targetRow.locator("input").first();
+      if (!(await input.count().catch(() => 0))) { result.reason = "仓库行里没有可填的输入框"; return result; }
+      await fillInputVerified(input, String(stockValue), { label: `库存(${result.warehouse})`, escalateUnreadable: true, selectAll: process.platform === "darwin" ? "Meta+A" : "Control+A" });
+      await clickTextIn(dialog, /^确定$/);
+      await sleep(500);
+      await clickTextIn(this.page, /^应用到全部$/);
+      await sleep(500);
+      result.ok = true;
+      return result;
+    } catch (e) {
+      result.reason = "exception:" + ((e && e.message) || e);
+      return result;
+    }
   }
 
   // 读取当前表单固定字段的选中值（核对用）
@@ -3510,6 +4850,8 @@ export class DianxiaomiAdapter {
     await this.page.goto(url, { waitUntil: "domcontentloaded" });
     await this.page.waitForLoadState("networkidle").catch(() => {});
     await sleep(2000);
+    // 整页导航会丢掉注入的压制样式，必须重新压一遍
+    await this._suppressNoticeOverlays();
     return { ok: true, url: this.page.url() };
   }
 
@@ -3726,6 +5068,8 @@ export class DianxiaomiAdapter {
       if (newPage && !newPage.isClosed()) {
         page = newPage;
         this.page = newPage;
+        // 新标签页是全新文档，注入的压制样式不继承 → 重新压一遍
+        await this._suppressNoticeOverlays();
       }
       await page.waitForLoadState("networkidle").catch(() => {});
       await sleep(2500);
@@ -3950,6 +5294,8 @@ export class DianxiaomiAdapter {
     if (newPage && !newPage.isClosed()) {
       this.page = newPage;
       page = newPage;
+      // 新标签页是全新文档，注入的压制样式不继承 → 重新压一遍
+      await this._suppressNoticeOverlays();
     }
     await page.waitForLoadState("networkidle").catch(() => {});
     await sleep(1500);

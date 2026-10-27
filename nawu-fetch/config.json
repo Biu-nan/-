@@ -1,0 +1,49 @@
+{
+  "outputDir": "F:/yikuaborder-deploy/纳物采购最新数据",
+  "rawDir": "F:/yikuaborder-deploy/纳物采购最新数据/_raw",
+  "logDir": "F:/yikuaborder-deploy/纳物采购最新数据/logs",
+
+  "wenmaiApi": "http://127.0.0.1:3980",
+  "apiMinIntervalMs": 600,
+
+  "storeFilter": {
+    "includeNameRegex": "纳物",
+    "explicitIds": []
+  },
+
+  "channelIdMap": {
+    "416488": "2443536",
+    "400370": "2358891"
+  },
+
+  "login": {
+    "url": "https://login.aliexpress.com/user/seller/login?bizSegment=GSP&return_url=http%3A%2F%2Fgsp.aliexpress.com%2F",
+    "entryUrl": "https://csp.aliexpress.com/",
+    "autoClickLogin": true,
+    "abortOnCaptcha": true,
+    "waitAfterClickMs": 45000
+  },
+
+  "inventory": {
+    "pageUrl": "https://dchain-web.aliexpress.com/pages/aechoice/inventory_distribution_details_management?channelId={channelId}",
+    "portalInventoryUrl": "https://csp.aliexpress.com/m_apps/ascp/aechoice.inventory_distribution_details_management?channelId={channelId}",
+    "ssoWarmupTimeoutMs": 30000,
+    "tabName": "实时库存明细",
+    "exportButton": "导出数据",
+    "exportDimension": "品仓维度",
+    "exportScope": "所有数据",
+    "exportMessageKeyword": "实时库存数据",
+    "pageReadyMs": 18000,
+    "downloadTimeoutMs": 300000,
+    "dialogWaitMs": 4000
+  },
+
+  "fallback": {
+    "enableDomScrape": true,
+    "maxPages": 25,
+    "note": "导出失败时的降级路径：按页抓 DOM，仅品维度，不含分仓拆分"
+  },
+
+  "closeStoreAfterRun": true,
+  "keepBrowserTabs": false
+}

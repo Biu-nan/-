@@ -1,0 +1,279 @@
+{
+  "version": "1.0",
+  "updatedAt": "2026-10-25",
+  "purpose": "商品运营分层字典：决定「先看哪个商品、看它的什么、该对它做什么」。分层不是分类，是决定数据优先级的前置条件。",
+
+  "designPrinciple": [
+    "同一个数字在不同层的含义相反：库存高对 S 层是备货充足，对 C2 层是资金黑洞；断货对 S 层是灾难，对 C2 层无关痛痒。",
+    "所以扁平统计（全店动销率 5.7%）没有运营价值，只有分层后每层的结论才有行动价值。",
+    "分层目标只有一个：找出「现在少做一个决策会造成多大损失」的最大项。",
+    "分层只覆盖平台在售商品（sales.query 口径），店小秘商品库里的草稿/待发布属于供给漏斗，不是运营分层对象。"
+  ],
+
+  "domains": {
+    "note": "数据域优先级：抓取和巡检都按此顺序，前面的域断了，后面的域结论全部不可信。",
+    "order": [
+      {
+        "rank": 1,
+        "id": "operations",
+        "label": "经营域",
+        "why": "正在卖的商品是现金流的唯一来源。这里的任何一个判断失误都直接对应钱。",
+        "signals": ["sales.query 商品级全量", "店铺级销量/成交", "在售商品数"],
+        "cadence": "每日"
+      },
+      {
+        "rank": 2,
+        "id": "risk",
+        "label": "风险域",
+        "why": "风险不是一层商品，是叠加在任何层上的信号。同一个风险在不同层权重差 100 倍，必须和层一起看。",
+        "signals": ["断货 soldOutAlert", "可售天数 sellableDays", "动量下滑 momentum", "库存积压 sellableDays 过大", "发布失败（供给端）"],
+        "cadence": "每日"
+      },
+      {
+        "rank": 3,
+        "id": "supply",
+        "label": "供给域",
+        "why": "未上线商品是未来产能，但只在经营域健康时才值得投入。9 个发布失败如果都属长尾，优先级低于 S 层一个断货。",
+        "signals": ["草稿 draft", "待发布 waitPublish", "发布失败 publishFail"],
+        "cadence": "每周"
+      },
+      {
+        "rank": 4,
+        "id": "finance",
+        "label": "财务域",
+        "why": "结算和回款影响现金流，但不指导单品动作。周期看即可。",
+        "signals": ["待结算", "净收入", "成交额"],
+        "cadence": "每周/每月"
+      },
+      {
+        "rank": 5,
+        "id": "traffic",
+        "label": "流量域",
+        "why": "店铺级流量是滞后指标，且目前只有 DOM 抓取（脆弱）。用于解释因果，不作为驱动源。",
+        "signals": ["浏览量", "访客数", "支付转化率"],
+        "cadence": "每周"
+      }
+    ]
+  },
+
+  "layers": {
+    "note": "按顺序判定，先命中先定层。所有阈值用分位数（可随店铺规模自适应）+ 绝对量下限（防止小样本误判）。",
+    "S": {
+      "id": "S",
+      "label": "主力现金牛",
+      "question": "它今天有没有可能少卖？",
+      "why": "贡献主要销量。断一天货 = 直接损失，且排名回不来。",
+      "priority": 1,
+      "rule": {
+        "all": [
+          { "metric": "recent30dSalesNum", "op": ">=", "value": "quantile(0.75)" },
+          { "metric": "recent30dSalesNum", "op": ">=", "value": 30 },
+          { "metric": "momentum", "op": ">=", "value": 0.85 },
+          { "metric": "ageDays", "op": ">", "value": 30 }
+        ]
+      },
+      "watch": ["可售天数 vs 需求天数", "动量比（7日折月 / 30日均速）", "在途是否按时到", "平台补货建议 next7dSuggestPrepareGoodsNum"],
+      "intervene": {
+        "stockRisk": "立即补货：需求量 -（可售 + 在途），差额不足 14 天用量即 P0",
+        "decline": "查竞品价格与流量入口，不要先降价（降价会打掉排名权重）",
+        "normal": "维持：只盯供给，不做动作"
+      },
+      "lossModel": "每日损失 ≈ (recent30dSalesNum / 30) × 件均供货价"
+    },
+    "A": {
+      "id": "A",
+      "label": "苗头成长期",
+      "question": "它会不会成为下一个现金牛？我有没有错过窗口？",
+      "why": "增速为正且已破零。前 90 天是唯一低成本放量窗口，错过要再花 3 倍成本。",
+      "priority": 2,
+      "rule": {
+        "any": [
+          { "all": [
+            { "metric": "ageDays", "op": "<=", "value": 90 },
+            { "metric": "recent30dSalesNum", "op": ">=", "value": 5 }
+          ]},
+          { "all": [
+            { "metric": "momentum", "op": ">=", "value": 1.3 },
+            { "metric": "recent30dSalesNum", "op": ">=", "value": 20 },
+            { "metric": "ageDays", "op": ">", "value": 90 }
+          ]}
+        ]
+      },
+      "subLayers": {
+        "A-new": "上架 ≤90 天且已出单 → 新生放量期",
+        "A-accel": "老品但动量 ≥1.3 → 二次增长（可能是季节或改版生效）"
+      },
+      "watch": ["动量比", "平台 predict30d / recent30d", "可售是否跟得上放量", "转化率（有流量不出单才是问题）"],
+      "intervene": {
+        "new": "按 predict30d 提前备货（别等断货才补），优化主图/标题，小预算试投流验证",
+        "accel": "先确认增长来源（季节/改版/竞品下架），确认可持续再放量，否则会备货备错",
+        "noStock": "断货会直接掐死上升趋势，优先级等同 S 层"
+      },
+      "lossModel": "机会成本：错过窗口后获客成本上升，难以直接量化，用增速和 predict 差值排序"
+    },
+    "B": {
+      "id": "B",
+      "label": "衰退清仓",
+      "question": "它还在吃我的钱吗？该退出了吗？",
+      "why": "有历史销量但在掉头向下，占着库存资金和推广坑位。拖越久越难清。",
+      "priority": 3,
+      "rule": {
+        "all": [
+          { "metric": "recent30dSalesNum", "op": ">=", "value": 3 },
+          { "metric": "momentum", "op": "<", "value": 0.7 },
+          { "metric": "totalSalesNum", "op": ">=", "value": 100 }
+        ]
+      },
+      "watch": ["动量比连续下滑", "可售天数（越长越糟）", "库存占用资金", "连带率"],
+      "intervene": {
+        "clear": "阶梯降价：一次 10%，观察 7 天再决定下一步（不要一次降到底）",
+        "bundle": "与 S 层捆绑带走",
+        "exit": "停止补货，售完即下架；库存 >180 天直接清仓",
+        "donot": "不要继续投流，不要加库存"
+      },
+      "lossModel": "资金占用 ≈ 可售库存 × 供货价，按积压天数计息式排序"
+    },
+    "M": {
+      "id": "M",
+      "label": "常规稳定",
+      "question": "它是不是可以不看？",
+      "why": "有销量、不涨不跌、量级中等。日常不需要任何干预，只在断货时自动升级——这类商品占住注意力就是浪费。",
+      "priority": 5,
+      "rule": {
+        "all": [
+          { "metric": "recent30dSalesNum", "op": ">=", "value": 3 },
+          { "metric": "ageDays", "op": ">", "value": 90 }
+        ]
+      },
+      "note": "这是上一版模型的盲区：销量 162 件/30日但动量 0.74 的老品，既不是 S（动量不足）也不是 B（未到 0.7），被静默丢弃。常规款是运营的主体，必须显式存在。",
+      "watch": ["断货（唯一需要升级的情况）", "月环比是否连续两月下滑"],
+      "intervene": {
+        "normal": "不干预，只监控供给",
+        "stockRisk": "按 S 层处理（有销量的断货一律 P0）"
+      },
+      "lossModel": "无日常损失；断货时按 S 层损失模型算"
+    },
+    "N": {
+      "id": "N",
+      "label": "刚上架观察",
+      "question": "它来得及吗？",
+      "why": "上架不足 7 天且未出单。平台流量还在冷启动，此时任何“未起量”的判定都是噪音。只登记，不判断，不干预。",
+      "priority": 4,
+      "rule": {
+        "all": [
+          { "metric": "ageDays", "op": "<", "value": 7 },
+          { "metric": "recent30dSalesNum", "op": "<", "value": 5 }
+        ]
+      },
+      "note": "上一版缺失此层，导致“上架 0 天仅 0 件”被当成“新品未起量”要求抢救。刚上架就催销量是运营噪音。",
+      "watch": ["第 7 天首次体检"],
+      "intervene": {
+        "normal": "不干预，等满 7 天再入 C1 判定"
+      },
+      "lossModel": "无"
+    },
+    "C1": {
+      "id": "C1",
+      "label": "新品未起量",
+      "question": "它是没被发现，还是没被接受？",
+      "why": "上架 ≤90 天但没出单。90 天内是黄金修正期，过了就只能当沉没。",
+      "priority": 4,
+      "rule": {
+        "all": [
+          { "metric": "ageDays", "op": ">=", "value": 7 },
+          { "metric": "ageDays", "op": "<=", "value": 90 },
+          { "metric": "recent30dSalesNum", "op": "<", "value": 5 }
+        ]
+      },
+      "watch": ["有没有曝光（决定是优化标题还是改主图价格）", "主图/标题质量", "类目是否正确", "价格带是否偏离"],
+      "intervene": {
+        "noExposure": "标题关键词 + 类目重新校准（没曝光是找不到，不是不接受）",
+        "hasExposure": "改主图 + 调价格带 + 看差评（有曝光不出单是不接受）",
+        "deadline": "90 天仍零单 → 转 C2"
+      },
+      "lossModel": "机会成本 + 已投入的 listing 制作成本"
+    },
+    "C2": {
+      "id": "C2",
+      "label": "沉睡长尾",
+      "question": "它凭什么还占着一个坑位？",
+      "why": "上架超 90 天且几乎零动销。数量最多，但单个价值最低——只能批量处理，不能逐个分析。",
+      "priority": 5,
+      "rule": {
+        "all": [
+          { "metric": "ageDays", "op": ">", "value": 90 },
+          { "metric": "recent30dSalesNum", "op": "<", "value": 3 }
+        ]
+      },
+      "watch": ["库存金额（决定清仓顺序）", "是否曾有销量（有过则可能只是断货导致）", "集中类目（整类砍）"],
+      "intervene": {
+        "batch": "按月批量处理：库存金额从高到低，先清贵的",
+        "check": "先排除「曾出单但现在断货」的假死品——这类不是长尾，是 S/B 层断货",
+        "exit": "清仓或下架释放坑位"
+      },
+      "lossModel": "坑位机会成本 + 库存资金占用（按金额排序，不逐个分析）"
+    }
+  },
+
+  "risks": {
+    "note": "风险叠加在层上，不单独成层。同风险不同层权重差 100 倍。",
+    "list": [
+      { "id": "STOCKOUT", "label": "已断货", "rule": "soldOutAlert===true || sellableQuantity<=0", "severity": "P0" },
+      { "id": "STOCKOUT_SOON", "label": "即将断货", "rule": "sellableDays < 14 && recent30dSalesNum > 0", "severity": "P0" },
+      { "id": "DECLINE", "label": "动量下滑", "rule": "momentum < 0.7 && recent30dSalesNum >= 3", "severity": "P1" },
+      { "id": "OVERSTOCK", "label": "库存积压", "rule": "sellableDays > 180", "severity": "P2" },
+      { "id": "ZERO_SALES", "label": "零动销", "rule": "recent30dSalesNum === 0", "severity": "P3" },
+      { "id": "TREND_UP", "label": "动量上升", "rule": "momentum >= 1.3", "severity": "INFO" },
+      { "id": "DEAD_STOCK", "label": "假死（曾出单现断货）", "rule": "recent30dSalesNum === 0 && totalSalesNum >= 50", "severity": "P0" }
+    ],
+    "priorityMatrix": {
+      "note": "优先级 = 层优先级 × 风险严重度，取更严的一档。P0 当天处理，P1 本周，P2 本月，P3 批量。",
+      "S_STOCKOUT": "P0",
+      "S_STOCKOUT_SOON": "P0",
+      "A_STOCKOUT": "P0",
+      "A_STOCKOUT_SOON": "P0",
+      "DEAD_STOCK_any": "P0",
+      "S_DECLINE": "P1",
+      "A_DECLINE": "P1",
+      "B_OVERSTOCK": "P2",
+      "C1_ZERO_SALES": "P2",
+      "C2_any": "P3"
+    }
+  },
+
+  "derivedFields": {
+    "note": "引擎从商品级原始字段算出，不额外抓取。",
+    "ageDays": "(now - firstUpShelfTime) / 86400000",
+    "momentum": "(recent7dSalesNum / 7 * 30) / recent30dSalesNum",
+    "momentumNote": "一天的数据就能判趋势：7 日折月 vs 30 日均速。这是绕开「没有历史存量」的关键——平台已给了两个窗口，交叉即动量。",
+    "recentShare": "recent30dSalesNum / totalSalesNum",
+    "recentShareNote": "接近 1 = 销量几乎全是最近产生（新品或刚起量）；很低 = 历史存量（衰退或休眠）",
+    "predRatio": "predict30dSalesNum / recent30dSalesNum",
+    "predRatioNote": "平台自己的预期，>1.2 表示平台判断会涨。可作为动量比的独立佐证。",
+    "stockDays": "(realWarehouseInventoryNum + lockedInventoryNum + inRoadInventoryNum) / (recent30dSalesNum / 30)",
+    "stockDaysNote": "【真实备货天数】分子只算物理库存（实仓+占用+在途）。这是判断断货/积压的唯一正确口径。实测仅 95/474 个商品有实仓数据，无值则返回 null，不估算。",
+    "capacityDays": "sellableQuantity / (recent30dSalesNum / 30)",
+    "capacityDaysNote": "【平台可售额度天数】sellableQuantity 是平台给的可售额度，不是物理库存：实测合计 213682（中位 150），而实仓合计仅 1264（中位 8），单个可差 400 倍。只能用来算“额度能撑多久”，绝不可当库存算资金占用。",
+    "inventoryNote": "⚠️ Choice 半托管下 411/474 个商品实仓为 0 但仍在出单，属“接单后采购”模式。故库存评估必须带覆盖率标注，覆盖率低时只可说“数据不足”，不可推算。",
+    "inventoryTotal": "realWarehouseInventoryNum + lockedInventoryNum + inRoadInventoryNum",
+    "supplyPrice": "supplyPriceInterval 取中位或 skuList.approvedSupplyPrice 均值"
+  },
+
+  "ordering": {
+    "note": "层内按「不做决策的代价」排序，不按销量排序。",
+    "S": "dailyLoss desc（每日损失金额）",
+    "A": "momentum desc（增速最快的最先看）",
+    "B": "capitalLocked desc（占用资金最多的先清）",
+    "C1": "ageDays asc（越新越有救）",
+    "C2": "capitalLocked desc（先清贵的）"
+  },
+
+  "forbidden": [
+    "不要把不同层的商品放进同一个排行榜比较——S 层第 50 名和 C2 层第 1 名不是一个物种。",
+    "不要用全店平均指标（动销率、平均转化率）指导单品动作。",
+    "不要对 C2 层逐个分析——数量最多、单价最低，只能批量处理。",
+    "不要只看销量绝对值判生命周期——必须交叉 ageDays + momentum，否则会把刚上架的新品误判成衰退。",
+    "不要在层未定时就抓明细——没有分层，抓 474 条和抓 10 条一样没用。",
+    "绝不可用 sellableQuantity（可售额度）当物理库存算资金占用或积压——它比实仓大两个量级，会造出“压货百万”“可售数万天”的假警报。"
+  ]
+}

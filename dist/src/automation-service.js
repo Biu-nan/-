@@ -1,6 +1,8 @@
 import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { OUTPUT_DIR, PLANNING_COMPLETION_PROMPT, PRODUCT_FACT_FILE, PRODUCT_FACT_PROMPT_FINGERPRINT, PRODUCT_IMAGES_DIR, PRODUCT_ROOT, TEST_PROMPT, MODEL_PROFILES, singleImageCommand, IMAGE_REFERENCE_REFRESH_INTERVAL } from "./config.js";
+// 参考风格图：只参考风格，不参考产品信息。风格图永不计入产品图 / 身份锁 / 店小秘图源。
+import { buildStyleGenerationClause, buildStylePlanningBlock, extractStyleLockFromPlanning, scanStyleReferenceImages, writeStyleLock } from "./style-reference-service.js";
 import { normalizeDianxiaomiFacts, buildProductFactsFallback } from "./dianxiaomi-facts.js";
 import { loadVerifiedText, productKeyOf, recordArtifact } from "./progress-manifest.js";
 import { scanProductImages } from "./image-files.js";
@@ -189,6 +191,8 @@ export class AutomationService {
     store;
     adapters;
     visualAssets;
+    /** 参考风格图在本轮待发送消息中的附件签名，防止重复上传同一组风格图 */
+    styleAttachedSignature;
     constructor(store, adapters, visualAssets = new ProductVisualAssetsService()) {
         this.store = store;
         this.adapters = adapters;
@@ -556,6 +560,8 @@ export class AutomationService {
                 throw new Error(this.readinessError(readiness.status));
             }
             const chatUrl = await this.ai.createBlankChat();
+            // 新对话：上一轮可能残留的风格图附件签名必须清空，否则会误判「已附过」而完全不传。
+            this.styleAttachedSignature = undefined;
             if (images.length > 0) {
                 const imageUpload = await this.ai.checkImageUploadReady();
                 if (!imageUpload.ready) {
@@ -608,6 +614,7 @@ export class AutomationService {
             throw new Error(this.readinessError(readiness.status));
         }
         const chatUrl = await this.ai.createBlankChat();
+        this.styleAttachedSignature = undefined;
         if (images.length > 0) {
             const imageUpload = await this.ai.checkImageUploadReady();
             if (!imageUpload.ready) {
@@ -620,6 +627,65 @@ export class AutomationService {
             imageCount: images.length,
             imageNames: images.map((image) => image.name),
             message: `已新建对话并上传 ${images.length} 张产品图，准备重跑视觉规划…`
+        });
+        // 新对话里产品图已在 composer，参考风格图需追加为同一消息的额外附件。
+        await this.uploadStyleReferencesIfAny();
+    }
+    /**
+     * 把「参考风格图」附到当前视觉规划对话上，返回实际成功上传的张数。
+     *
+     * 位置刻意放在视觉规划（而不是产品事实提取）之前：
+     *  - 事实提取只看产品图，风格图不该进入产品事实底稿；
+     *  - 视觉规划 Prompt（02 / 02B）本来就把「风格参考图」列为输入项 #2，
+     *    模型在同一条消息里能同时看到产品图（历史）+ 风格图（本条附件）。
+     *
+     * 风格图是可选增强：上传失败不得阻断主流程，但必须显式记录，
+     * 且返回 0 —— 后续规划 Prompt 就不会声称「本次已上传 N 张」。
+     */
+    async uploadStyleReferencesIfAny() {
+        const styleImages = await scanStyleReferenceImages();
+        if (styleImages.length === 0)
+            return 0;
+        const signature = styleImages.map((image) => image.sha256).join("|");
+        // 同一条待发送消息里已经附过同一组风格图 → 不重复 setInputFiles（避免「已上传过此文件」弹窗）。
+        if (this.styleAttachedSignature === signature)
+            return styleImages.length;
+        try {
+            // skipComposerReuse：composer 里可能已有产品图，附件计数会误判为「可复用」。
+            await this.ai.uploadImages(styleImages.map((image) => image.path), { skipComposerReuse: true });
+            this.styleAttachedSignature = signature;
+            await this.store.update({
+                message: `已附上 ${styleImages.length} 张参考风格图（只取风格，不取产品）`
+            }).catch(() => { });
+            return styleImages.length;
+        }
+        catch (error) {
+            console.warn("[style-ref] 参考风格图上传失败，本次视觉规划不含风格参考：", error?.message || error);
+            await this.store.update({
+                message: `参考风格图上传失败，本次按无风格参考继续：${error?.message || error}`
+            }).catch(() => { });
+            return 0;
+        }
+    }
+    /**
+     * 视觉规划成功后落 style-lock.json。
+     * 模型没输出 STYLE_LOCK → degraded（逐张生图退化为通用风格守卫），绝不编造 token。
+     */
+    async persistStyleLockFromPlanning(planningText) {
+        const styleImages = await scanStyleReferenceImages();
+        if (styleImages.length === 0)
+            return undefined;
+        const tokens = extractStyleLockFromPlanning(planningText);
+        return writeStyleLock({
+            source: tokens ? "planning-text" : "degraded",
+            degraded: !tokens,
+            degraded_reason: tokens
+                ? undefined
+                : "视觉规划未输出 STYLE_LOCK 块，逐张生图退化为通用风格守卫",
+            style_reference_count: styleImages.length,
+            style_reference_hashes: styleImages.map((image) => image.sha256),
+            tokens,
+            stale: false
         });
     }
     async continueThroughPlanning() {
@@ -675,7 +741,14 @@ export class AutomationService {
                     });
                 }
                 else {
-                    await this.ai.sendPromptOnce(planningPrompt, "Single Image Prompt Pack", MODEL_PROFILES.planning);
+                    // 参考风格图走「视觉规划」这一段：产品图在对话历史里，风格图作为本条附件，
+                    // 规划 Prompt 尾部的风格接入声明会明确「只取风格、不取产品」。
+                    const styleReferenceCount = await this.uploadStyleReferencesIfAny();
+                    const styleBlock = buildStylePlanningBlock(styleReferenceCount);
+                    const promptWithStyle = styleBlock ? `${planningPrompt}\n\n${styleBlock}` : planningPrompt;
+                    await this.ai.sendPromptOnce(promptWithStyle, "Single Image Prompt Pack", MODEL_PROFILES.planning);
+                    // 附件已随消息发出、composer 清空 → 下次需要重新附。
+                    this.styleAttachedSignature = undefined;
                     await this.store.update({
                         stage: "WAITING_FOR_PLANNING",
                         message: "视觉规划已发送，正在等待 Image 1–10 Prompt Pack…"
@@ -745,6 +818,11 @@ export class AutomationService {
                 const frameworkError = new Error(`10 图框架校验未通过（已自动重跑 1 次仍失败）：${framework.violations.join("；")}。请人工检查规划后重跑。`);
                 frameworkError.code = "IMAGE_FRAMEWORK_INVALID";
                 throw frameworkError;
+            }
+            // 规划通过后立即落风格锁定（无风格图时直接返回 undefined，不创建任何文件）。
+            const styleLock = await this.persistStyleLockFromPlanning(planningText);
+            if (styleLock?.degraded) {
+                console.warn(`[style-ref] 风格锁定降级：${styleLock.degraded_reason}`);
             }
             await this.store.update({
                 stage: "COMPLETED",
@@ -824,6 +902,12 @@ export class AutomationService {
             const restoredChatUrl = await this.ai.openChat(existing.chatUrl);
             if (restoredChatUrl && restoredChatUrl !== existing.chatUrl) {
                 await this.store.update({ chatUrl: restoredChatUrl });
+            }
+            // 参考风格图约束（纯文字，不含任何风格图附件）：无风格图时 clause 为空串，
+            // 生图命令与旧版逐字节一致。degraded 时退化为通用风格守卫，不假装已锁定。
+            const styleGeneration = await buildStyleGenerationClause();
+            if (styleGeneration.degraded) {
+                console.warn(`[style-ref] 逐张生图风格锁定降级：${styleGeneration.reason}`);
             }
             for (let imageNumber = 1; imageNumber <= 10; imageNumber += 1) {
                 if (generated.has(imageNumber))
@@ -963,7 +1047,7 @@ export class AutomationService {
                     // 基线统一用 imageTaskBaseline（不在每次重试重取，避免被迟到图推高）
                     // 附件在「本条消息」还是「本对话历史」，Prompt 文案必须跟着变，
                     // 否则模型会去找本条消息里并不存在的附件。
-                    const command = singleImageCommand(imageNumber, imagePrompt, { withImages: upload.attached });
+                    const command = singleImageCommand(imageNumber, imagePrompt, { withImages: upload.attached, styleClause: styleGeneration.clause });
                     await this.ai.sendPromptOnce(command, `请生成 Image ${imageNumber}`, MODEL_PROFILES.image);
                     await this.store.update({
                         stage: "DOWNLOADING_IMAGE",
@@ -1064,6 +1148,7 @@ export class AutomationService {
         });
         try {
             await this.ai.openChat(existing.chatUrl);
+            const styleGeneration = await buildStyleGenerationClause();
             const generationInput = await this.visualAssets.validateGenerationInput({
                 image_number: n,
                 image_prompt: imagePrompt,
@@ -1078,7 +1163,7 @@ export class AutomationService {
                 await this.ai.enableImageCreation();
                 const upload = await this.ai.uploadImages(generationInput.reference_image_paths);
                 const baseline = await this.ai.generatedImageLastSrc();
-                const command = singleImageCommand(n, imagePrompt, { withImages: upload.attached });
+                const command = singleImageCommand(n, imagePrompt, { withImages: upload.attached, styleClause: styleGeneration.clause });
                 await this.ai.sendPromptOnce(command, `请生成 Image ${n}`, MODEL_PROFILES.image);
                 await this.store.update({
                     stage: "DOWNLOADING_IMAGE",

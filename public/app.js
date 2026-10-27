@@ -137,6 +137,13 @@ const elements = {
   objectiveInfoPanel: document.querySelector("#objectiveInfoPanel"),
   objectiveInfoInput: document.querySelector("#objectiveInfoInput"),
   objectiveInfoStatus: document.querySelector("#objectiveInfoStatus"),
+  styleRefPanel: document.querySelector("#styleRefPanel"),
+  styleRefInput: document.querySelector("#styleRefInput"),
+  styleRefList: document.querySelector("#styleRefList"),
+  styleRefStatus: document.querySelector("#styleRefStatus"),
+  pickStyleRefButton: document.querySelector("#pickStyleRefButton"),
+  styleRefUrls: document.querySelector("#styleRefUrls"),
+  importStyleRefUrlsButton: document.querySelector("#importStyleRefUrlsButton"),
   launchButton: document.querySelector("#launchButton"),
   checkButton: document.querySelector("#checkButton"),
   runAllButton: document.querySelector("#runAllButton"),
@@ -5352,6 +5359,172 @@ function bindObjectiveInfo() {
   elements.objectiveInfoInput?.addEventListener("input", debouncedSaveObjectiveInfo);
 }
 
+/* ── 参考风格图（只参考风格，不参考产品信息）──────────────────────────────
+   风格图独立于产品图：它只影响背景 / 版式 / 光影 / 字体 / 图标 / 气质，
+   不进产品事实、不进身份锁、不进店小秘图源。状态以 style-lock.json 为准。 */
+let styleRefStatusCache = null;
+let styleRefBusy = false;
+
+function setStyleRefStatus(text, kind = "") {
+  if (!elements.styleRefStatus) return;
+  elements.styleRefStatus.textContent = text;
+  elements.styleRefStatus.className = `objective-info-status ${kind}`.trim();
+}
+
+function renderStyleRefs(status) {
+  styleRefStatusCache = status || null;
+  const list = elements.styleRefList;
+  if (!list) return;
+  const images = status?.images ?? [];
+  const limit = status?.limit ?? 3;
+  list.innerHTML = "";
+  if (images.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "style-ref-empty";
+    empty.textContent = "尚未上传参考风格图。不传则完全按现有规则作图。";
+    list.appendChild(empty);
+  } else {
+    for (const image of images) {
+      const card = document.createElement("figure");
+      card.className = "style-ref-item";
+      const thumb = document.createElement("img");
+      thumb.src = `${image.url}?v=${encodeURIComponent(String(image.sha256 || "").slice(0, 8))}`;
+      thumb.alt = `参考风格图 ${image.order}`;
+      thumb.loading = "lazy";
+      const caption = document.createElement("figcaption");
+      const label = document.createElement("span");
+      label.textContent = `风格 ${image.order}`;
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "text-button";
+      remove.textContent = "删除";
+      remove.addEventListener("click", () => void removeStyleRef(image.name));
+      caption.append(label, remove);
+      card.append(thumb, caption);
+      list.appendChild(card);
+    }
+  }
+  if (images.length === 0) {
+    setStyleRefStatus(`${images.length}/${limit} 张`);
+  } else if (status?.stale) {
+    setStyleRefStatus(`${images.length}/${limit} 张 · 风格已变更，需重跑视觉规划`, "saving");
+  } else if (status?.locked) {
+    setStyleRefStatus(`${images.length}/${limit} 张 · 风格已锁定`, "saved");
+  } else if (status?.lock?.degraded) {
+    setStyleRefStatus(`${images.length}/${limit} 张 · 未取到风格锁定，按通用风格守卫`, "saving");
+  } else {
+    setStyleRefStatus(`${images.length}/${limit} 张 · 视觉规划后自动锁定风格`);
+  }
+  if (elements.pickStyleRefButton) {
+    elements.pickStyleRefButton.disabled = styleRefBusy || images.length >= limit;
+    elements.pickStyleRefButton.textContent =
+      images.length >= limit ? `已达上限 ${limit} 张` : "选择参考风格图";
+  }
+  const urlFull = images.length >= limit;
+  if (elements.styleRefUrls) {
+    elements.styleRefUrls.disabled = styleRefBusy || urlFull;
+    if (urlFull) elements.styleRefUrls.placeholder = `已达上限 ${limit} 张，删除后可继续用 URL 导入`;
+  }
+  if (elements.importStyleRefUrlsButton) {
+    elements.importStyleRefUrlsButton.disabled = styleRefBusy || urlFull;
+  }
+}
+
+async function refreshStyleRefs() {
+  try {
+    const status = await request("/api/style-ref-images");
+    renderStyleRefs(status);
+    return status;
+  } catch (error) {
+    setStyleRefStatus(`读取参考风格图失败：${error.message}`);
+    return null;
+  }
+}
+
+async function uploadStyleRefs(files) {
+  const picked = Array.from(files ?? []);
+  if (picked.length === 0) return;
+  const form = new FormData();
+  for (const file of picked) form.append("images", file);
+  styleRefBusy = true;
+  setStyleRefStatus("上传中…", "saving");
+  try {
+    const status = await request("/api/style-ref-images", { method: "POST", body: form });
+    renderStyleRefs(status);
+    setStyleRefStatus(
+      status?.needReplan ? status.replanHint || "风格已变更，请重跑视觉规划" : status?.message || "已上传",
+      status?.needReplan ? "saving" : "saved"
+    );
+  } catch (error) {
+    setStyleRefStatus(`上传失败：${error.message}`);
+    await refreshStyleRefs();
+  } finally {
+    styleRefBusy = false;
+    if (elements.styleRefInput) elements.styleRefInput.value = "";
+  }
+}
+
+async function removeStyleRef(name) {
+  if (!name) return;
+  styleRefBusy = true;
+  setStyleRefStatus("删除中…", "saving");
+  try {
+    const status = await request(`/api/style-ref-images/${encodeURIComponent(name)}`, { method: "DELETE" });
+    renderStyleRefs(status);
+    setStyleRefStatus(
+      status?.needReplan ? status.replanHint || "风格已变更，请重跑视觉规划" : status?.message || "已删除",
+      status?.needReplan ? "saving" : ""
+    );
+  } catch (error) {
+    setStyleRefStatus(`删除失败：${error.message}`);
+    await refreshStyleRefs();
+  } finally {
+    styleRefBusy = false;
+  }
+}
+
+async function importStyleRefUrls() {
+  const raw = elements.styleRefUrls?.value || "";
+  const urls = raw.split(/[\r\n,，\s]+/).map((item) => item.trim()).filter(Boolean);
+  if (urls.length === 0) {
+    setStyleRefStatus("请先粘贴至少一个图片直链");
+    return;
+  }
+  styleRefBusy = true;
+  setStyleRefStatus(`正在下载 ${urls.length} 条直链…`, "saving");
+  try {
+    const status = await request("/api/style-ref-images/urls", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ urls })
+    });
+    renderStyleRefs(status);
+    if (elements.styleRefUrls) elements.styleRefUrls.value = "";
+    const rejected = status?.rejected ?? [];
+    if (rejected.length > 0) {
+      setStyleRefStatus(`${status?.message || "已导入"} · ${rejected.length} 条失败（仅公开直链可用）`, "saving");
+    } else {
+      setStyleRefStatus(
+        status?.needReplan ? status.replanHint || "风格已变更，请重跑视觉规划" : status?.message || "已导入",
+        status?.needReplan ? "saving" : "saved"
+      );
+    }
+  } catch (error) {
+    setStyleRefStatus(`URL 导入失败：${error.message}`);
+    await refreshStyleRefs();
+  } finally {
+    styleRefBusy = false;
+  }
+}
+
+function bindStyleRefs() {
+  elements.pickStyleRefButton?.addEventListener("click", () => elements.styleRefInput?.click());
+  elements.styleRefInput?.addEventListener("change", (event) => {
+    void uploadStyleRefs(event.target.files);
+  });
+  elements.importStyleRefUrlsButton?.addEventListener("click", () => void importStyleRefUrls());
+}
+
 function render(payload) {
   latestPayload = payload;
   latestChatgptWaiting = payload.chatgptWaiting || null;
@@ -5687,6 +5860,18 @@ function render(payload) {
   elements.urlImportPanel.classList.toggle("locked", imagesLocked || queueLocked);
   elements.objectiveInfoInput.disabled = imagesLocked || queueLocked;
   elements.objectiveInfoPanel.classList.toggle("locked", imagesLocked || queueLocked);
+  // 参考风格图：运行中 / 队列锁定时不允许改动（改动会让已生成的风格锁定失效）
+  elements.styleRefPanel?.classList.toggle("locked", imagesLocked || queueLocked);
+  if (elements.pickStyleRefButton) {
+    const styleCount = styleRefStatusCache?.images?.length ?? 0;
+    const styleLimit = styleRefStatusCache?.limit ?? 3;
+    elements.pickStyleRefButton.disabled =
+      imagesLocked || queueLocked || styleRefBusy || styleCount >= styleLimit;
+    // URL 导入受同一组锁与额度约束（1s 轮询会重跑这里，必须带额度判断，否则会覆盖 render 的禁用态）
+    const urlDisabled = imagesLocked || queueLocked || styleRefBusy || styleCount >= styleLimit;
+    if (elements.styleRefUrls) elements.styleRefUrls.disabled = urlDisabled;
+    if (elements.importStyleRefUrlsButton) elements.importStyleRefUrlsButton.disabled = urlDisabled;
+  }
   elements.clearImagesButton.disabled =
     imagesLocked || queueLocked || availableImages.length === 0;
   elements.imageLockHint.classList.toggle("hidden", !state.chatUrl);
@@ -10901,6 +11086,25 @@ function batchOnFile(e) {
   else reader.readAsText(file);
 }
 
+// 批次操作幂等键（operationId）：用 rows 内容算指纹。
+// 同内容重发（网络超时重试 / 刷新页面后重发）→ 同一 op，后端识别为重放，不会把同一批商品上架两次；
+// 改了表格内容再点 → 指纹变化 → 视为新批次，正常执行。
+function batchOperationId(prefix, rows) {
+  const key = (rows || []).map((r) => [
+    r.packageName || "",
+    r.category || "",
+    r.searchTitle || "",
+    r.referenceProductId || "",
+    r.variantParams || "",
+    r.store || "",
+    r.productTemplate || "",
+    r.enabled === false ? "0" : "1"
+  ].join("~")).join("\u00a7");
+  let hash = 5381;
+  for (let i = 0; i < key.length; i += 1) hash = ((hash * 33) ^ key.charCodeAt(i)) >>> 0;
+  return `${prefix}-${hash.toString(36)}-${(rows || []).length}`;
+}
+
 async function batchStart() {
   if (!batchListingState.uploaded || batchListingState.busy) return;
   const rows = batchListingState.rows;
@@ -10909,7 +11113,7 @@ async function batchStart() {
     await request("/api/dianxiaomi/batch-apply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rows: rows.map((r) => blRowToPayload(r)) })
+      body: JSON.stringify({ rows: rows.map((r) => blRowToPayload(r)), operationId: batchOperationId("ref-apply", rows) })
     });
     batchListingState.busy = true;
     batchListingState.active = true;
@@ -10926,7 +11130,7 @@ async function batchRetry() {
     await request("/api/dianxiaomi/batch-apply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rows: failed.map((r) => blRowToPayload(Object.assign({}, r, { enabled: true }))) })
+      body: JSON.stringify({ rows: failed.map((r) => blRowToPayload(Object.assign({}, r, { enabled: true }))), operationId: batchOperationId("ref-retry", failed) })
     });
     for (const r of failed) { r.status = "idle"; r.progress = 0; r.reason = ""; }
     batchListingState.busy = true;
@@ -11086,7 +11290,7 @@ async function collectStart() {
     await request("/api/dianxiaomi/collect-batch-apply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rows: rows.map((r) => collectRowToPayload(r)) })
+      body: JSON.stringify({ rows: rows.map((r) => collectRowToPayload(r)), operationId: batchOperationId("col-apply", rows) })
     });
     batchListingState.busy = true;
     batchListingState.active = true;
@@ -11104,7 +11308,7 @@ async function collectRetry() {
     await request("/api/dianxiaomi/collect-batch-retry", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rows: failed.map((r) => collectRowToPayload(r)) })
+      body: JSON.stringify({ rows: failed.map((r) => collectRowToPayload(r)), operationId: batchOperationId("col-retry", failed) })
     });
     for (const r of failed) { r.status = "running"; r.progress = 0; r.reason = ""; }
     batchListingState.busy = true;
@@ -14332,6 +14536,8 @@ elements.saveInsertListingContentPrompt.addEventListener("click", () => {
 window.addEventListener("beforeunload", saveCurrentDailyOperatorState);
 bindListingVisualWorkflow();
 bindObjectiveInfo();
+bindStyleRefs();
+void refreshStyleRefs();
 void initializeOperators().then(() => refresh());
 void loadPrompt("research", elements.researchPrompt);
 void loadPrompt("planning", elements.planningPrompt);
@@ -14344,6 +14550,340 @@ void loadProductLibrary();
 renderDailyCockpit();
 setInterval(refresh, 1_000);
 setInterval(tickDailyCockpit, 1_000);
+
+/* ══ 系统总账（F1 只读视图）══════════════════════════════════════════════════
+   唯一数据源：GET /api/system/state。与对话入口同源——这是框架验收第 6 条
+   「对话入口与网页看到同一份状态」的前半段，网页侧由此闭合。
+
+   三条设计约束（都是踩过的坑，不是洁癖）：
+   1) 不跟随 refresh() 的 1s 主循环。总账是聚合视图而非实时指标，15s 足够；
+      跟 1s 只会让 7 个状态源被无意义地反复读取。
+   2) 指纹差异更新：响应内容未变就绝不重写 DOM。页面本身每秒重绘，
+      此处若盲目重建，用户阅读时会不停闪、光标位置也保不住。
+   3) 只读。本模块不发任何写请求；按钮只有"立即刷新"。
+      想推进业务必须走能力层（F2），不能在视图里开侧门。
+─────────────────────────────────────────────────────────────────────────── */
+const SYSTEM_STATE_LABELS = {
+  DRAFT: "草稿",
+  READY: "就绪",
+  RUNNING: "运行中",
+  BLOCKED_NEEDS_HUMAN: "等你拍板",
+  DONE: "已完成",
+  FAILED: "失败",
+  CANCELLED: "已取消"
+};
+
+const SYSTEM_KIND_LABELS = {
+  LISTING_PIPELINE: "单品 Listing 流水线",
+  LISTING: "Listing 制作",
+  BATCH_UPLOAD: "批量上架",
+  COLLECT_UPLOAD: "采集箱上架",
+  DATA_COLLECTION: "数据采集",
+  DAILY_WAITING: "每日等待项",
+  QUEUE: "商品队列"
+};
+
+const SYSTEM_NEED_FROM_LABELS = {
+  human: "需要你",
+  agent: "助手可办",
+  external: "外部条件"
+};
+
+let systemLedgerCache = { fingerprint: "", at: 0, busy: false, error: null };
+
+function systemLedgerEls() {
+  return {
+    panel: document.getElementById("systemLedgerPanel"),
+    body: document.getElementById("systemLedgerBody"),
+    meta: document.getElementById("systemLedgerMeta"),
+    health: document.getElementById("systemLedgerHealth"),
+    button: document.getElementById("systemLedgerRefreshButton")
+  };
+}
+
+function formatLedgerDuration(ms) {
+  if (ms == null || !Number.isFinite(Number(ms))) return "—";
+  const minutes = Math.round(Number(ms) / 60000);
+  if (minutes < 1) return "不到 1 分钟";
+  if (minutes < 60) return `${minutes} 分钟`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `${hours} 小时`;
+  return `${Math.round(hours / 24)} 天`;
+}
+
+function formatLedgerStamp(iso) {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function formatLedgerAgo(iso) {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return formatLedgerDuration(Date.now() - date.getTime()) + "前";
+}
+
+function ledgerRow(cls, chipCls, chipText, title, sub, side) {
+  return (
+    `<div class="ledger-row${cls ? " " + cls : ""}">` +
+    `<span class="ledger-chip${chipCls ? " " + chipCls : ""}">${escapeHtml(chipText)}</span>` +
+    `<div class="ledger-row-main"><b>${escapeHtml(title)}</b>` +
+    (sub ? `<small>${escapeHtml(sub)}</small>` : "") +
+    `</div>` +
+    `<div class="ledger-row-side">${escapeHtml(side)}</div>` +
+    `</div>`
+  );
+}
+
+function ledgerGroup(title, hint, rows) {
+  if (!rows.length) return "";
+  return (
+    `<div class="ledger-group">` +
+    `<div class="ledger-group-head"><strong>${escapeHtml(title)}</strong><em>${escapeHtml(hint)}</em></div>` +
+    `<div class="ledger-rows">${rows.join("")}</div>` +
+    `</div>`
+  );
+}
+
+function renderSystemLedger(state) {
+  const els = systemLedgerEls();
+  if (!els.body) return;
+
+  const summary = state?.summary || {};
+  const units = Array.isArray(state?.units) ? state.units : [];
+  const gates = Array.isArray(state?.gates) ? state.gates : [];
+  const anomalies = Array.isArray(state?.anomalies) ? state.anomalies : [];
+  const sources = Array.isArray(state?.sources) ? state.sources : [];
+
+  const activeCount = summary.unitCount ?? units.length;
+  const gateCount = summary.gateCount ?? gates.length;
+  const anomalyCount = summary.anomalyCount ?? anomalies.length;
+  const archivedCount = summary.archivedCount ?? (Array.isArray(state?.archived) ? state.archived.length : 0);
+
+  // ── 摘要四格 ──────────────────────────────────────────────────────────
+  const parts = [
+    `<div class="ledger-summary">` +
+      `<div><span>活跃工作单元</span><strong>${escapeHtml(activeCount)}</strong></div>` +
+      `<div><span>等你拍板</span><strong class="${gateCount ? "is-warn" : ""}">${escapeHtml(gateCount)}</strong></div>` +
+      `<div><span>需要处理</span><strong class="${anomalyCount ? "is-alert" : ""}">${escapeHtml(anomalyCount)}</strong></div>` +
+      `<div><span>已归档（终态，不计入活跃）</span><strong>${escapeHtml(archivedCount)}</strong></div>` +
+      `</div>`
+  ];
+
+  // ── 等你拍板 ──────────────────────────────────────────────────────────
+  // defaultIfIgnored 恒为 stall：这里明确写出来，避免被误读成"等久了会自动放行"。
+  parts.push(
+    ledgerGroup(
+      "等你拍板",
+      "超时不会自动通过，只会一直停在这里",
+      gates.map((gate) =>
+        ledgerRow(
+          "is-gate",
+          "is-gate",
+          SYSTEM_NEED_FROM_LABELS[gate.needFrom] || gate.needFrom || "人工",
+          gate.question || "（未填写待决问题）",
+          `${gate.reason || "—"} · 单元 ${gate.unitId}`,
+          `已等 ${formatLedgerDuration(gate.blockedForMs)}`
+        )
+      )
+    )
+  );
+
+  // ── 需要处理（异常）──────────────────────────────────────────────────
+  parts.push(
+    ledgerGroup(
+      "需要处理",
+      "按严重度排序：P0/P1 先处理，P2 需决策或显式关闭",
+      anomalies
+        .slice()
+        .sort((a, b) => String(a.severity || "P9").localeCompare(String(b.severity || "P9")))
+        .map((item) =>
+          ledgerRow(
+            "is-bad",
+            "is-bad",
+            item.severity || "P?",
+            item.message || item.code || "未知异常",
+            `${item.code || "—"} · ${item.unitId || "—"}`,
+            item.evidence?.since
+              ? `自 ${formatLedgerStamp(item.evidence.since)}`
+              : item.evidence?.updatedAt
+                ? `停在 ${formatLedgerStamp(item.evidence.updatedAt)}`
+                : "—"
+          )
+        )
+    )
+  );
+
+  // ── 在跑什么 ──────────────────────────────────────────────────────────
+  const activeUnits = units.filter((unit) => unit.state !== "DONE" && unit.state !== "CANCELLED");
+  const unitRows = (activeUnits.length ? activeUnits : units).map((unit) => {
+    const running = unit.state === "RUNNING";
+    const blocked = unit.state === "BLOCKED_NEEDS_HUMAN";
+    const failed = unit.state === "FAILED";
+    const sub = [
+      SYSTEM_KIND_LABELS[unit.kind] || unit.kind || "—",
+      unit.stage ? `阶段 ${unit.stage}` : "",
+      unit.blocked?.since ? `自 ${formatLedgerStamp(unit.blocked.since)}` : "",
+      unit.stateBasis || ""
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    const side =
+      unit.progress != null
+        ? `进度 ${unit.progress}%`
+        : `更新于 ${formatLedgerAgo(unit.updatedAt)}`;
+    return ledgerRow(
+      failed ? "is-bad" : running ? "is-run" : blocked ? "is-gate" : "",
+      failed ? "is-bad" : running ? "is-run" : blocked ? "is-gate" : "is-ok",
+      SYSTEM_STATE_LABELS[unit.state] || unit.state,
+      unit.goal || unit.unitId,
+      sub,
+      side
+    );
+  });
+
+  parts.push(
+    ledgerGroup(
+      "在跑什么",
+      activeUnits.length ? `${activeUnits.length} 个活跃单元` : "当前无活跃单元",
+      unitRows
+    )
+  );
+
+  // ── 数据源新鲜度（诚实机制）──────────────────────────────────────────
+  // 不只报"最旧多少天"——那样会掩盖"有两个源各自停了多久"。
+  // 逐个点名：哪个源、停了几天。数据不新鲜时，宁可不给结论。
+  const badSources = sources.filter((item) => !item.ok);
+  const STALE_MS = 7 * 86400000;
+  const staleSources = sources.filter((item) => item.ageMs != null && item.ageMs >= STALE_MS);
+  const staleHint = staleSources.length
+    ? ` · <span class="ledger-stale">陈旧源：${staleSources
+        .map((item) => escapeHtml(item.label || item.id) + " " + Math.round(item.ageMs / 86400000) + " 天")
+        .join("、")}</span>`
+    : "";
+
+  parts.push(
+    `<p class="ledger-note">数据源 ${badSources.length ? "部分不可读 " + escapeHtml(sources.length - badSources.length) + "/" + escapeHtml(sources.length) : escapeHtml(sources.length) + "/" + escapeHtml(sources.length) + " 可读"}${staleHint} · 只读视图，不写入任何状态 · 生成于 ${escapeHtml(formatLedgerStamp(state?.generatedAt))}</p>`
+  );
+
+  if (badSources.length) {
+    parts.push(
+      `<p class="ledger-note ledger-stale">不可读的源：${escapeHtml(badSources.map((item) => (item.label || item.id) + "（" + (item.error || "未知原因") + "）").join("；"))}</p>`
+    );
+  }
+
+  const html = parts.join("");
+  if (els.body.dataset.ledgerHtml !== html) {
+    els.body.innerHTML = html;
+    els.body.dataset.ledgerHtml = html;
+  }
+
+  // 健康徽章
+  if (els.health) {
+    const attention = summary.attentionRequired ?? gateCount + anomalyCount;
+    let cls = "is-ok";
+    let text = "正常";
+    if (attention > 0) {
+      cls = anomalyCount > 0 ? "is-warn" : "is-warn";
+      text = `${attention} 项待处理`;
+    }
+    if (summary.healthy === true) {
+      cls = "is-ok";
+      text = "正常";
+    }
+    els.health.className = `system-ledger-badge ${cls}`;
+    els.health.textContent = text;
+  }
+
+  if (els.meta) {
+    const stamp = formatLedgerStamp(state?.generatedAt);
+    els.meta.textContent = `活跃 ${activeCount} · 拍板 ${gateCount} · 异常 ${anomalyCount} · 归档 ${archivedCount} · 生成于 ${stamp}`;
+  }
+}
+
+function renderSystemLedgerFailure(message) {
+  const els = systemLedgerEls();
+  if (els.meta) els.meta.textContent = `读取失败：${message}`;
+  if (els.health) {
+    els.health.className = "system-ledger-badge is-bad";
+    els.health.textContent = "读取失败";
+  }
+  // 保留上一次成功内容，避免网络抖动时面板闪成空白；只加一行提示。
+  if (els.body && !els.body.dataset.ledgerHtml) {
+    els.body.innerHTML = `<p class="system-ledger-empty">总账读取失败：${escapeHtml(message)}。此面板不会用旧数据冒充当前状态。</p>`;
+  }
+}
+
+async function refreshSystemLedger(options = {}) {
+  const force = options.force === true;
+  if (systemLedgerCache.busy) return;
+  if (!force && !systemLedgerVisible()) return;
+
+  systemLedgerCache.busy = true;
+  try {
+    const state = await request("/api/system/state");
+    // 指纹：只比较与展示相关的部分，避免 generatedAt 每次都变导致必然重绘。
+    const fingerprint = JSON.stringify({
+      summary: state?.summary || null,
+      units: state?.units || [],
+      gates: state?.gates || [],
+      anomalies: state?.anomalies || [],
+      sources: (state?.sources || []).map((item) => [item.id, item.ok, item.error || null, Math.round((item.ageMs || 0) / 60000)]),
+      archivedCount: state?.summary?.archivedCount ?? null
+    });
+    if (fingerprint !== systemLedgerCache.fingerprint) {
+      systemLedgerCache.fingerprint = fingerprint;
+      renderSystemLedger(state);
+    } else if (systemLedgerEls().meta) {
+      // 内容没变，只更新时间戳，不动 DOM 结构。
+      systemLedgerEls().meta.textContent = `活跃 ${state?.summary?.unitCount ?? 0} · 拍板 ${state?.summary?.gateCount ?? 0} · 异常 ${state?.summary?.anomalyCount ?? 0} · 归档 ${state?.summary?.archivedCount ?? 0} · 生成于 ${formatLedgerStamp(state?.generatedAt)}`;
+    }
+    systemLedgerCache.at = Date.now();
+    systemLedgerCache.error = null;
+  } catch (error) {
+    systemLedgerCache.error = error?.message || "未知错误";
+    renderSystemLedgerFailure(systemLedgerCache.error);
+  } finally {
+    systemLedgerCache.busy = false;
+  }
+}
+
+function systemLedgerVisible() {
+  const panel = systemLedgerEls().panel;
+  if (!panel) return false;
+  const host = panel.closest("[data-view-panel]");
+  if (!host) return true;
+  return host.classList.contains("active");
+}
+
+function bindSystemLedger() {
+  const { button } = systemLedgerEls();
+  if (button && !button.dataset.bound) {
+    button.dataset.bound = "1";
+    button.addEventListener("click", () => {
+      button.disabled = true;
+      button.textContent = "读取中…";
+      void refreshSystemLedger({ force: true }).finally(() => {
+        button.disabled = false;
+        button.textContent = "立即刷新";
+      });
+    });
+  }
+  // 页面重新可见时补一次，避免后台标签页挂久了显示旧状态。
+  if (!window.__systemLedgerVisibilityBound) {
+    window.__systemLedgerVisibilityBound = true;
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) void refreshSystemLedger({ force: true });
+    });
+  }
+}
+
+bindSystemLedger();
+void refreshSystemLedger({ force: true });
+setInterval(() => void refreshSystemLedger(), 15_000);
 
 // ── ecom-translator 连接器（单向导入：ecom → 一跨而境）────────────────────
 let ecomConnectorBusy = false;

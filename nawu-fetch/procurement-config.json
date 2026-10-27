@@ -1,0 +1,19 @@
+{
+  "dataRoot": "F:/yikuaborder-deploy/纳物采购最新数据",
+  "outputDir": "F:/yikuaborder-deploy/纳物采购最新数据",
+  "timezone": "Asia/Shanghai",
+  "requiredTaskIds": ["01", "02", "03", "04", "05", "06", "07"],
+  "nawu": {
+    "pagePath": "https://dchain-web.aliexpress.com/pages/aechoice/inventory_distribution_details_management?channelId={channelId}"
+  },
+  "tasks": {
+    "01": { "name": "纳物1店官方仓", "out": "nawu-1店-inventory-latest" },
+    "02": { "name": "纳物2店官方仓", "out": "nawu-2店-inventory-latest" },
+    "03": { "name": "店小秘仓库清单", "out": "dxm-warehouseProduct-latest" },
+    "04": { "name": "店小秘商品管理", "out": "dxm-product-latest" },
+    "05": { "name": "店小秘出入记录(35天)", "out": "dxm-entryexit-35d" },
+    "06": { "name": "店小秘采购订单", "out": "dxm-purchaseOrders-open" },
+    "07": { "name": "SKU/供货商主数据", "out": "nawu-sku-supplier-master" }
+  },
+  "note": "C6R 采购数据抓取编排配置。dataRoot 下的 raw/YYYY-MM-DD 保存带时间戳的原始快照（不覆盖），manifests/ 保存每轮 manifest，master/ 保存主数据，logs/ 保存日志。outputDir 为 legacy -latest 文件的落地目录（供 ChatGPT 上传路径沿用）。"
+}

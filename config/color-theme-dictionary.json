@@ -1,0 +1,1355 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "purpose": "一跨而境 与 ecom-translator 共用的颜色/主题词表（变体命名 + 包内消歧共用一张，禁止各抄一份）",
+    "source": "D:/ecom-translator/src/erp_planner.py",
+    "sourceSymbols": [
+      "_COLOR_MAP",
+      "_THEME_MAP",
+      "_METAL_COLORS"
+    ],
+    "extractedAt": "2026-10-26",
+    "orderRule": "条目顺序即匹配优先级；匹配时按词长倒序、命中即消费（长词先吃掉，短词不会截断长词）",
+    "maintenance": "新增词请追加到对应数组末尾并同步回 ecom 源头；两侧任一侧新增必须回写本文件，避免两份表漂移",
+    "counts": {
+      "colors": 49,
+      "themes": 280,
+      "metalColors": 6
+    },
+    "duplicateKeys": {
+      "colors": [],
+      "themes": [
+        "小狗",
+        "桃心"
+      ]
+    }
+  },
+  "colors": [
+    {
+      "zh": "玫瑰金",
+      "en": "Rose Gold"
+    },
+    {
+      "zh": "鎏金",
+      "en": "Gold"
+    },
+    {
+      "zh": "金色",
+      "en": "Gold"
+    },
+    {
+      "zh": "鎏银",
+      "en": "Silver"
+    },
+    {
+      "zh": "银色",
+      "en": "Silver"
+    },
+    {
+      "zh": "古铜",
+      "en": "Bronze"
+    },
+    {
+      "zh": "黑色",
+      "en": "Black"
+    },
+    {
+      "zh": "白色",
+      "en": "White"
+    },
+    {
+      "zh": "红色",
+      "en": "Red"
+    },
+    {
+      "zh": "蓝色",
+      "en": "Blue"
+    },
+    {
+      "zh": "粉色",
+      "en": "Pink"
+    },
+    {
+      "zh": "绿色",
+      "en": "Green"
+    },
+    {
+      "zh": "紫色",
+      "en": "Purple"
+    },
+    {
+      "zh": "黄色",
+      "en": "Yellow"
+    },
+    {
+      "zh": "橙色",
+      "en": "Orange"
+    },
+    {
+      "zh": "棕色",
+      "en": "Brown"
+    },
+    {
+      "zh": "咖啡色",
+      "en": "Brown"
+    },
+    {
+      "zh": "灰色",
+      "en": "Grey"
+    },
+    {
+      "zh": "米色",
+      "en": "Beige"
+    },
+    {
+      "zh": "杏色",
+      "en": "Apricot"
+    },
+    {
+      "zh": "彩色",
+      "en": "Colorful"
+    },
+    {
+      "zh": "透明",
+      "en": "Clear"
+    },
+    {
+      "zh": "玫红",
+      "en": "Rose"
+    },
+    {
+      "zh": "焦糖色",
+      "en": "Caramel"
+    },
+    {
+      "zh": "焦糖",
+      "en": "Caramel"
+    },
+    {
+      "zh": "浅咖",
+      "en": "Brown"
+    },
+    {
+      "zh": "咖色",
+      "en": "Brown"
+    },
+    {
+      "zh": "藏青",
+      "en": "Navy"
+    },
+    {
+      "zh": "卡其色",
+      "en": "Khaki"
+    },
+    {
+      "zh": "卡其",
+      "en": "Khaki"
+    },
+    {
+      "zh": "桃色",
+      "en": "Peach"
+    },
+    {
+      "zh": "橘色",
+      "en": "Orange"
+    },
+    {
+      "zh": "混色",
+      "en": "Mixed"
+    },
+    {
+      "zh": "奶白",
+      "en": "Cream"
+    },
+    {
+      "zh": "绿",
+      "en": "Green"
+    },
+    {
+      "zh": "红",
+      "en": "Red"
+    },
+    {
+      "zh": "黄",
+      "en": "Yellow"
+    },
+    {
+      "zh": "蓝",
+      "en": "Blue"
+    },
+    {
+      "zh": "紫",
+      "en": "Purple"
+    },
+    {
+      "zh": "黑",
+      "en": "Black"
+    },
+    {
+      "zh": "白",
+      "en": "White"
+    },
+    {
+      "zh": "粉",
+      "en": "Pink"
+    },
+    {
+      "zh": "金",
+      "en": "Gold"
+    },
+    {
+      "zh": "银",
+      "en": "Silver"
+    },
+    {
+      "zh": "橄榄色",
+      "en": "Olive"
+    },
+    {
+      "zh": "橄榄",
+      "en": "Olive"
+    },
+    {
+      "zh": "青色",
+      "en": "Cyan"
+    },
+    {
+      "zh": "青",
+      "en": "Cyan"
+    },
+    {
+      "zh": "橙",
+      "en": "Orange"
+    }
+  ],
+  "themes": [
+    {
+      "zh": "八爪鱼",
+      "en": "Octopus"
+    },
+    {
+      "zh": "章鱼",
+      "en": "Octopus"
+    },
+    {
+      "zh": "螃蟹",
+      "en": "Crab"
+    },
+    {
+      "zh": "兔子",
+      "en": "Bunny"
+    },
+    {
+      "zh": "大象",
+      "en": "Elephant"
+    },
+    {
+      "zh": "小人",
+      "en": "Figure"
+    },
+    {
+      "zh": "熊猫",
+      "en": "Panda"
+    },
+    {
+      "zh": "小熊",
+      "en": "Bear"
+    },
+    {
+      "zh": "熊",
+      "en": "Bear"
+    },
+    {
+      "zh": "小狗",
+      "en": "Dog"
+    },
+    {
+      "zh": "狗",
+      "en": "Dog"
+    },
+    {
+      "zh": "猫",
+      "en": "Cat"
+    },
+    {
+      "zh": "青蛙",
+      "en": "Frog"
+    },
+    {
+      "zh": "恐龙",
+      "en": "Dinosaur"
+    },
+    {
+      "zh": "草莓",
+      "en": "Strawberry"
+    },
+    {
+      "zh": "樱桃",
+      "en": "Cherry"
+    },
+    {
+      "zh": "柿子",
+      "en": "Persimmon"
+    },
+    {
+      "zh": "花生",
+      "en": "Peanut"
+    },
+    {
+      "zh": "柠檬",
+      "en": "Lemon"
+    },
+    {
+      "zh": "苹果",
+      "en": "Apple"
+    },
+    {
+      "zh": "葡萄",
+      "en": "Grape"
+    },
+    {
+      "zh": "桃子",
+      "en": "Peach"
+    },
+    {
+      "zh": "橘子",
+      "en": "Orange"
+    },
+    {
+      "zh": "柚子",
+      "en": "Pomelo"
+    },
+    {
+      "zh": "椰子",
+      "en": "Coconut"
+    },
+    {
+      "zh": "菠萝",
+      "en": "Pineapple"
+    },
+    {
+      "zh": "西瓜",
+      "en": "Watermelon"
+    },
+    {
+      "zh": "南瓜",
+      "en": "Pumpkin"
+    },
+    {
+      "zh": "胡萝卜",
+      "en": "Carrot"
+    },
+    {
+      "zh": "蘑菇",
+      "en": "Mushroom"
+    },
+    {
+      "zh": "树叶",
+      "en": "Leaf"
+    },
+    {
+      "zh": "叶子",
+      "en": "Leaf"
+    },
+    {
+      "zh": "花朵",
+      "en": "Flower"
+    },
+    {
+      "zh": "花",
+      "en": "Flower"
+    },
+    {
+      "zh": "桔子",
+      "en": "Orange"
+    },
+    {
+      "zh": "桔",
+      "en": "Orange"
+    },
+    {
+      "zh": "片片",
+      "en": "Slice"
+    },
+    {
+      "zh": "爱心",
+      "en": "Heart"
+    },
+    {
+      "zh": "牛角包",
+      "en": "Croissant"
+    },
+    {
+      "zh": "法棍",
+      "en": "Baguette"
+    },
+    {
+      "zh": "碱水结",
+      "en": "Pretzel"
+    },
+    {
+      "zh": "笑脸面包",
+      "en": "Bread"
+    },
+    {
+      "zh": "曲奇",
+      "en": "Cookie"
+    },
+    {
+      "zh": "姜饼人",
+      "en": "Gingerbread"
+    },
+    {
+      "zh": "冰淇淋",
+      "en": "Ice Cream"
+    },
+    {
+      "zh": "冰激凌",
+      "en": "Ice Cream"
+    },
+    {
+      "zh": "汉堡",
+      "en": "Burger"
+    },
+    {
+      "zh": "鸡腿",
+      "en": "Drumstick"
+    },
+    {
+      "zh": "可乐",
+      "en": "Cola"
+    },
+    {
+      "zh": "薯条",
+      "en": "Fries"
+    },
+    {
+      "zh": "咖啡杯",
+      "en": "Coffee Cup"
+    },
+    {
+      "zh": "鸡尾酒",
+      "en": "Cocktail"
+    },
+    {
+      "zh": "辣椒",
+      "en": "Chili"
+    },
+    {
+      "zh": "火龙果",
+      "en": "Dragon Fruit"
+    },
+    {
+      "zh": "梨子",
+      "en": "Pear"
+    },
+    {
+      "zh": "橙子",
+      "en": "Orange"
+    },
+    {
+      "zh": "萝卜",
+      "en": "Radish"
+    },
+    {
+      "zh": "四叶草",
+      "en": "Clover"
+    },
+    {
+      "zh": "曲奇饼",
+      "en": "Cookie"
+    },
+    {
+      "zh": "长颈鹿",
+      "en": "Giraffe"
+    },
+    {
+      "zh": "卡皮巴拉",
+      "en": "Capybara"
+    },
+    {
+      "zh": "企鹅",
+      "en": "Penguin"
+    },
+    {
+      "zh": "河马",
+      "en": "Hippo"
+    },
+    {
+      "zh": "小猪",
+      "en": "Pig"
+    },
+    {
+      "zh": "小鸡",
+      "en": "Chick"
+    },
+    {
+      "zh": "小鹅",
+      "en": "Goose"
+    },
+    {
+      "zh": "狐狸",
+      "en": "Fox"
+    },
+    {
+      "zh": "斑马",
+      "en": "Zebra"
+    },
+    {
+      "zh": "飞马",
+      "en": "Pegasus"
+    },
+    {
+      "zh": "老鼠",
+      "en": "Mouse"
+    },
+    {
+      "zh": "鼠",
+      "en": "Mouse"
+    },
+    {
+      "zh": "鱼叉骨",
+      "en": "Fish Bone"
+    },
+    {
+      "zh": "鱼",
+      "en": "Fish"
+    },
+    {
+      "zh": "乒乓球拍",
+      "en": "Ping Pong"
+    },
+    {
+      "zh": "羽毛球",
+      "en": "Badminton"
+    },
+    {
+      "zh": "橄榄球",
+      "en": "Football"
+    },
+    {
+      "zh": "排球",
+      "en": "Volleyball"
+    },
+    {
+      "zh": "网球",
+      "en": "Tennis"
+    },
+    {
+      "zh": "足球",
+      "en": "Soccer"
+    },
+    {
+      "zh": "球拍",
+      "en": "Racket"
+    },
+    {
+      "zh": "球",
+      "en": "Ball"
+    },
+    {
+      "zh": "交通工具",
+      "en": "Vehicle"
+    },
+    {
+      "zh": "巴士",
+      "en": "Bus"
+    },
+    {
+      "zh": "飞机",
+      "en": "Plane"
+    },
+    {
+      "zh": "摩托",
+      "en": "Moto"
+    },
+    {
+      "zh": "机甲",
+      "en": "Mech"
+    },
+    {
+      "zh": "雪地靴",
+      "en": "Snow Boot"
+    },
+    {
+      "zh": "靴",
+      "en": "Boot"
+    },
+    {
+      "zh": "拖鞋",
+      "en": "Slipper"
+    },
+    {
+      "zh": "雨伞",
+      "en": "Umbrella"
+    },
+    {
+      "zh": "铁塔",
+      "en": "Tower"
+    },
+    {
+      "zh": "贝壳",
+      "en": "Shell"
+    },
+    {
+      "zh": "皇冠",
+      "en": "Crown"
+    },
+    {
+      "zh": "锁头",
+      "en": "Lock"
+    },
+    {
+      "zh": "相机",
+      "en": "Camera"
+    },
+    {
+      "zh": "手机",
+      "en": "Phone"
+    },
+    {
+      "zh": "圣诞帽",
+      "en": "Santa Hat"
+    },
+    {
+      "zh": "圣诞树",
+      "en": "Christmas Tree"
+    },
+    {
+      "zh": "圣诞手套",
+      "en": "Mitten"
+    },
+    {
+      "zh": "铃铛",
+      "en": "Bell"
+    },
+    {
+      "zh": "姜饼",
+      "en": "Gingerbread"
+    },
+    {
+      "zh": "蝴蝶结",
+      "en": "Bow"
+    },
+    {
+      "zh": "蝴蝶",
+      "en": "Butterfly"
+    },
+    {
+      "zh": "高脚杯",
+      "en": "Goblet"
+    },
+    {
+      "zh": "考拉",
+      "en": "Koala"
+    },
+    {
+      "zh": "酒杯",
+      "en": "Wine Glass"
+    },
+    {
+      "zh": "雏菊",
+      "en": "Daisy"
+    },
+    {
+      "zh": "豹纹",
+      "en": "Leopard"
+    },
+    {
+      "zh": "滑板",
+      "en": "Skateboard"
+    },
+    {
+      "zh": "背带裤",
+      "en": "Overalls"
+    },
+    {
+      "zh": "毛衣裤",
+      "en": "Sweater"
+    },
+    {
+      "zh": "毛衣",
+      "en": "Sweater"
+    },
+    {
+      "zh": "辫",
+      "en": "Braid"
+    },
+    {
+      "zh": "耳朵",
+      "en": "Ear"
+    },
+    {
+      "zh": "女孩",
+      "en": "Girl"
+    },
+    {
+      "zh": "男孩",
+      "en": "Boy"
+    },
+    {
+      "zh": "挂饰款",
+      "en": "Charm"
+    },
+    {
+      "zh": "基础款",
+      "en": "Basic"
+    },
+    {
+      "zh": "基础版",
+      "en": "Basic"
+    },
+    {
+      "zh": "带图片扣子",
+      "en": "Button"
+    },
+    {
+      "zh": "带扣子",
+      "en": "Button"
+    },
+    {
+      "zh": "无扣子",
+      "en": "No Button"
+    },
+    {
+      "zh": "不带扣子",
+      "en": "No Button"
+    },
+    {
+      "zh": "单个",
+      "en": "Single"
+    },
+    {
+      "zh": "系列",
+      "en": "Series"
+    },
+    {
+      "zh": "皮革版",
+      "en": "Leather"
+    },
+    {
+      "zh": "五角星",
+      "en": "Star"
+    },
+    {
+      "zh": "长短耳",
+      "en": "Long Ear"
+    },
+    {
+      "zh": "耳",
+      "en": "Ear"
+    },
+    {
+      "zh": "水果",
+      "en": "Fruit"
+    },
+    {
+      "zh": "小挂件",
+      "en": "Charm"
+    },
+    {
+      "zh": "盗贼汪",
+      "en": "Rogue Dog"
+    },
+    {
+      "zh": "阿祖喵",
+      "en": "Azu Cat"
+    },
+    {
+      "zh": "手套",
+      "en": "Glove"
+    },
+    {
+      "zh": "雪纳瑞",
+      "en": "Schnauzer"
+    },
+    {
+      "zh": "芝麻街",
+      "en": "Sesame"
+    },
+    {
+      "zh": "海星",
+      "en": "Starfish"
+    },
+    {
+      "zh": "龙虾",
+      "en": "Lobster"
+    },
+    {
+      "zh": "圣诞老人",
+      "en": "Santa"
+    },
+    {
+      "zh": "方形包",
+      "en": "Square Bag"
+    },
+    {
+      "zh": "方形",
+      "en": "Square"
+    },
+    {
+      "zh": "大卫雕像",
+      "en": "David Statue"
+    },
+    {
+      "zh": "兔",
+      "en": "Bunny"
+    },
+    {
+      "zh": "鸭",
+      "en": "Duck"
+    },
+    {
+      "zh": "羊",
+      "en": "Sheep"
+    },
+    {
+      "zh": "小兔",
+      "en": "Bunny"
+    },
+    {
+      "zh": "小鸭",
+      "en": "Duck"
+    },
+    {
+      "zh": "羊羊",
+      "en": "Sheep"
+    },
+    {
+      "zh": "面包",
+      "en": "Bread"
+    },
+    {
+      "zh": "饼干",
+      "en": "Biscuit"
+    },
+    {
+      "zh": "猕猴桃",
+      "en": "Kiwi"
+    },
+    {
+      "zh": "围裙",
+      "en": "Apron"
+    },
+    {
+      "zh": "包包扣",
+      "en": "Bag Buckle"
+    },
+    {
+      "zh": "打火石",
+      "en": "Flint"
+    },
+    {
+      "zh": "左轮枪",
+      "en": "Revolver"
+    },
+    {
+      "zh": "左轮",
+      "en": "Revolver"
+    },
+    {
+      "zh": "枪",
+      "en": "Gun"
+    },
+    {
+      "zh": "呆萌",
+      "en": "Cute"
+    },
+    {
+      "zh": "复古",
+      "en": "Vintage"
+    },
+    {
+      "zh": "咖帽",
+      "en": "Brown Hat"
+    },
+    {
+      "zh": "皮带款",
+      "en": "Belt"
+    },
+    {
+      "zh": "皮带",
+      "en": "Belt"
+    },
+    {
+      "zh": "U型款",
+      "en": "U Shape"
+    },
+    {
+      "zh": "U型",
+      "en": "U Shape"
+    },
+    {
+      "zh": "硅胶款",
+      "en": "Silicone"
+    },
+    {
+      "zh": "硅胶",
+      "en": "Silicone"
+    },
+    {
+      "zh": "背带",
+      "en": "Overalls"
+    },
+    {
+      "zh": "围兜",
+      "en": "Bib"
+    },
+    {
+      "zh": "围裙款",
+      "en": "Apron"
+    },
+    {
+      "zh": "礼帽",
+      "en": "Top Hat"
+    },
+    {
+      "zh": "帽",
+      "en": "Hat"
+    },
+    {
+      "zh": "鹿",
+      "en": "Deer"
+    },
+    {
+      "zh": "马",
+      "en": "Horse"
+    },
+    {
+      "zh": "骆驼",
+      "en": "Camel"
+    },
+    {
+      "zh": "方块",
+      "en": "Square"
+    },
+    {
+      "zh": "电钻",
+      "en": "Drill"
+    },
+    {
+      "zh": "金属色",
+      "en": "Metallic"
+    },
+    {
+      "zh": "小手枪",
+      "en": "Pistol"
+    },
+    {
+      "zh": "小包",
+      "en": "Pouch"
+    },
+    {
+      "zh": "小怪物",
+      "en": "Monster"
+    },
+    {
+      "zh": "牛头",
+      "en": "Cow Head"
+    },
+    {
+      "zh": "锁",
+      "en": "Lock"
+    },
+    {
+      "zh": "桃心",
+      "en": "Heart"
+    },
+    {
+      "zh": "小草人",
+      "en": "Scarecrow"
+    },
+    {
+      "zh": "月亮",
+      "en": "Moon"
+    },
+    {
+      "zh": "闪电",
+      "en": "Lightning"
+    },
+    {
+      "zh": "LOGO牌",
+      "en": "Logo Tag"
+    },
+    {
+      "zh": "标牌",
+      "en": "Tag"
+    },
+    {
+      "zh": "笑脸",
+      "en": "Smile"
+    },
+    {
+      "zh": "不发声",
+      "en": "Silent"
+    },
+    {
+      "zh": "发声",
+      "en": "Sounding"
+    },
+    {
+      "zh": "C钻",
+      "en": "Rhinestone C"
+    },
+    {
+      "zh": "钻",
+      "en": "Rhinestone"
+    },
+    {
+      "zh": "彩虹",
+      "en": "Rainbow"
+    },
+    {
+      "zh": "小C",
+      "en": "C"
+    },
+    {
+      "zh": "大",
+      "en": "Large"
+    },
+    {
+      "zh": "巧克力",
+      "en": "Choc"
+    },
+    {
+      "zh": "蛋饺",
+      "en": "Egg Dumpling"
+    },
+    {
+      "zh": "水饺",
+      "en": "Dumpling"
+    },
+    {
+      "zh": "煎饺",
+      "en": "Potsticker"
+    },
+    {
+      "zh": "馄饨",
+      "en": "Wonton"
+    },
+    {
+      "zh": "寿司",
+      "en": "Sushi"
+    },
+    {
+      "zh": "无表情",
+      "en": "No Face"
+    },
+    {
+      "zh": "微笑",
+      "en": "Smile"
+    },
+    {
+      "zh": "惊讶",
+      "en": "Surprised"
+    },
+    {
+      "zh": "呲牙",
+      "en": "Grin"
+    },
+    {
+      "zh": "麦穗",
+      "en": "Wheat"
+    },
+    {
+      "zh": "心形",
+      "en": "Heart"
+    },
+    {
+      "zh": "麋鹿",
+      "en": "Moose"
+    },
+    {
+      "zh": "双色",
+      "en": "Two Tone"
+    },
+    {
+      "zh": "碱水",
+      "en": "Pretzel"
+    },
+    {
+      "zh": "可颂",
+      "en": "Croissant"
+    },
+    {
+      "zh": "贝果",
+      "en": "Bagel"
+    },
+    {
+      "zh": "牛角",
+      "en": "Crescent"
+    },
+    {
+      "zh": "半个",
+      "en": "Half"
+    },
+    {
+      "zh": "整个",
+      "en": "Whole"
+    },
+    {
+      "zh": "红烧肉",
+      "en": "Braised Pork"
+    },
+    {
+      "zh": "东坡肉",
+      "en": "Dongpo Pork"
+    },
+    {
+      "zh": "黑臭豆腐",
+      "en": "Black Tofu"
+    },
+    {
+      "zh": "白臭豆腐",
+      "en": "White Tofu"
+    },
+    {
+      "zh": "臭豆腐",
+      "en": "Stinky Tofu"
+    },
+    {
+      "zh": "烤肠",
+      "en": "Sausage"
+    },
+    {
+      "zh": "生蚝",
+      "en": "Oyster"
+    },
+    {
+      "zh": "扇贝",
+      "en": "Scallop"
+    },
+    {
+      "zh": "鱼干",
+      "en": "Dried Fish"
+    },
+    {
+      "zh": "小猫",
+      "en": "Cat"
+    },
+    {
+      "zh": "小恐龙",
+      "en": "Dinosaur"
+    },
+    {
+      "zh": "小狗",
+      "en": "Dog"
+    },
+    {
+      "zh": "包子",
+      "en": "Baozi"
+    },
+    {
+      "zh": "面条",
+      "en": "Noodles"
+    },
+    {
+      "zh": "肉酱",
+      "en": "Meat Sauce"
+    },
+    {
+      "zh": "虾仁",
+      "en": "Shrimp"
+    },
+    {
+      "zh": "意面",
+      "en": "Pasta"
+    },
+    {
+      "zh": "海参",
+      "en": "Sea Cucumber"
+    },
+    {
+      "zh": "小龙虾",
+      "en": "Crayfish"
+    },
+    {
+      "zh": "蚬子",
+      "en": "Clam"
+    },
+    {
+      "zh": "蒜蓉",
+      "en": "Garlic"
+    },
+    {
+      "zh": "原味",
+      "en": "Original"
+    },
+    {
+      "zh": "活",
+      "en": "Live"
+    },
+    {
+      "zh": "熟",
+      "en": "Cooked"
+    },
+    {
+      "zh": "蔓越莓",
+      "en": "Cranberry"
+    },
+    {
+      "zh": "抹茶",
+      "en": "Matcha"
+    },
+    {
+      "zh": "咖啡",
+      "en": "Coffee"
+    },
+    {
+      "zh": "奶油",
+      "en": "Cream"
+    },
+    {
+      "zh": "螺纹",
+      "en": "Swirl"
+    },
+    {
+      "zh": "圆形",
+      "en": "Round"
+    },
+    {
+      "zh": "A款",
+      "en": "A Style"
+    },
+    {
+      "zh": "B款",
+      "en": "B Style"
+    },
+    {
+      "zh": "牛肉",
+      "en": "Beef"
+    },
+    {
+      "zh": "羊肉",
+      "en": "Lamb"
+    },
+    {
+      "zh": "玉米",
+      "en": "Corn"
+    },
+    {
+      "zh": "鸡皮",
+      "en": "Chicken Skin"
+    },
+    {
+      "zh": "葱段",
+      "en": "Scallion"
+    },
+    {
+      "zh": "番茄",
+      "en": "Tomato"
+    },
+    {
+      "zh": "蘸酱",
+      "en": "Dip"
+    },
+    {
+      "zh": "照烧",
+      "en": "Teriyaki"
+    },
+    {
+      "zh": "芝士",
+      "en": "Cheese"
+    },
+    {
+      "zh": "拉丝",
+      "en": "Cheese Pull"
+    },
+    {
+      "zh": "天妇罗",
+      "en": "Tempura"
+    },
+    {
+      "zh": "炸虾",
+      "en": "Fried Shrimp"
+    },
+    {
+      "zh": "蟹钳",
+      "en": "Crab Claw"
+    },
+    {
+      "zh": "鱿鱼仔",
+      "en": "Squid"
+    },
+    {
+      "zh": "鱼块",
+      "en": "Fish Slice"
+    },
+    {
+      "zh": "薄",
+      "en": "Thin"
+    },
+    {
+      "zh": "厚",
+      "en": "Thick"
+    },
+    {
+      "zh": "长条",
+      "en": "Long"
+    },
+    {
+      "zh": "高尔夫球",
+      "en": "Golf"
+    },
+    {
+      "zh": "棒球",
+      "en": "Baseball"
+    },
+    {
+      "zh": "鸡蛋",
+      "en": "Egg"
+    },
+    {
+      "zh": "煎蛋",
+      "en": "Fried Egg"
+    },
+    {
+      "zh": "紫薯",
+      "en": "Purple Yam"
+    },
+    {
+      "zh": "红薯",
+      "en": "Sweet Potato"
+    },
+    {
+      "zh": "迷你",
+      "en": "Mini"
+    },
+    {
+      "zh": "两件套",
+      "en": "Set of 2"
+    },
+    {
+      "zh": "三件套",
+      "en": "Set of 3"
+    },
+    {
+      "zh": "古金",
+      "en": "Antique Gold"
+    },
+    {
+      "zh": "桃心",
+      "en": "Heart"
+    },
+    {
+      "zh": "小爱心",
+      "en": "Small Heart"
+    },
+    {
+      "zh": "门扣",
+      "en": "Clasp"
+    },
+    {
+      "zh": "钥匙圈",
+      "en": "Keyring"
+    }
+  ],
+  "metalColors": [
+    "Gold",
+    "Silver",
+    "Bronze",
+    "Rose Gold",
+    "Metallic",
+    "Champagne"
+  ]
+}

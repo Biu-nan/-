@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f5f5f7" />
     <title>一跨而境｜AI 跨境电商工作台</title>
-    <link rel="stylesheet" href="/styles.css?v=20261024-3" />
+    <link rel="stylesheet" href="/styles.css?v=20261026-2" />
+    <link rel="stylesheet" href="/ceo-tasks.css" />
     <script>
       // 致命错误兜底：任何未捕获错误 / Promise 拒绝都显示到页面顶部红条，避免白屏无提示
       (function () {
@@ -1153,6 +1154,38 @@
                   <span id="objectiveInfoStatus" class="objective-info-status"></span>
                 </div>
               </div>
+              <div id="styleRefPanel" class="objective-info-panel style-ref-panel">
+                <div class="objective-info-header style-ref-header">
+                  <div>
+                    <strong>参考生图风格（可选）</strong>
+                    <p>只参考风格：背景、版式、光影、字体、图标与整体气质。参考图里的产品、道具、包装、模特一律不会进入成品，产品事实仍只认上面的产品图片。</p>
+                  </div>
+                  <div class="style-ref-actions">
+                    <button id="pickStyleRefButton" class="button secondary compact-button" type="button">选择参考风格图</button>
+                    <input
+                      id="styleRefInput"
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                      multiple
+                      hidden
+                    />
+                  </div>
+                </div>
+                <div id="styleRefList" class="style-ref-list"></div>
+                <div class="style-ref-url">
+                  <textarea
+                    id="styleRefUrls"
+                    rows="2"
+                    placeholder="每行一个公开图片直链，例如：https://example.com/style-board.jpg"
+                    spellcheck="false"
+                  ></textarea>
+                  <button id="importStyleRefUrlsButton" class="button secondary compact-button" type="button">导入 URL</button>
+                </div>
+                <p class="style-ref-url-hint">支持 JPG / PNG / WEBP 公开直链，最多 3 张；本机与内网地址会被拒绝。</p>
+                <div class="objective-info-footer">
+                  <span id="styleRefStatus" class="objective-info-status"></span>
+                </div>
+              </div>
               <div class="asset-toolbar">
                 <code id="productDirectory">正在读取…</code>
                 <div class="image-summary">
@@ -1618,6 +1651,23 @@
               <p>不是普通 Todo，而是每日运营节奏、执行步骤、动作证据、问题暴露和明日复查。</p>
             </div>
             <div class="daily-cockpit">
+              <!-- 系统总账：只读聚合视图，数据源 GET /api/system/state（与对话入口同源） -->
+              <article id="systemLedgerPanel" class="panel system-ledger">
+                <div class="system-ledger-head">
+                  <div class="system-ledger-title">
+                    <span class="mini-label">SYSTEM LEDGER</span>
+                    <h3>系统总账 · 在跑什么、等谁拍板、卡在哪</h3>
+                    <p id="systemLedgerMeta" class="system-ledger-meta">正在读取…</p>
+                  </div>
+                  <div class="system-ledger-actions">
+                    <span id="systemLedgerHealth" class="system-ledger-badge is-unknown">读取中</span>
+                    <button id="systemLedgerRefreshButton" class="text-button" type="button">立即刷新</button>
+                  </div>
+                </div>
+                <div id="systemLedgerBody" class="system-ledger-body">
+                  <p class="system-ledger-empty">正在读取系统总账…</p>
+                </div>
+              </article>
               <article class="panel daily-command-strip">
                 <div class="daily-command-title">
                   <span class="mini-label">TODAY COCKPIT</span>
@@ -2501,6 +2551,7 @@
     </aside>
 
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
-    <script src="/app.js?v=20261024-3" defer></script>
+    <script src="/app.js?v=20261026-2" defer></script>
+    <script type="module" src="/ceo-command-center.js"></script>
   </body>
 </html>

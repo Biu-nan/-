@@ -1,0 +1,50 @@
+{
+  "cdpUrl": "http://127.0.0.1:9223",
+  "outputDir": "F:/yikuaborder-deploy/纳物采购最新数据",
+  "pageReadyMs": 9000,
+  "waitAfterNextMs": 2500,
+  "maxPages": 120,
+  "targets": {
+    "warehouseProduct": {
+      "pageUrl": "https://www.dianxiaomi.com/web/warehouse/warehouseProduct",
+      "outputPrefix": "dxm-warehouseProduct",
+      "sheetName": "仓库清单"
+    },
+    "product": {
+      "pageUrl": "https://www.dianxiaomi.com/web/dxmCommodityProduct/index",
+      "outputPrefix": "dxm-product",
+      "sheetName": "商品管理"
+    },
+    "entryExit": {
+      "pageUrl": "https://www.dianxiaomi.com/web/privateWarehouse/entryAndExitRecordList",
+      "outputPrefix": "dxm-entryexit",
+      "sheetName": "出入记录"
+    },
+    "purchaseOrder": {
+      "pageUrl": "https://www.dianxiaomi.com/web/purchasing/order/draft/manualPurchasing",
+      "outputPrefix": "dxm-purchaseOrders-open",
+      "sheetName": "采购订单",
+      "views": [
+        { "name": "待审核", "url": "https://www.dianxiaomi.com/web/purchasing/order/waitAudit" },
+        { "name": "待到货", "url": "https://www.dianxiaomi.com/web/purchasing/order/waitArrival" },
+        { "name": "草稿-手动采购", "url": "https://www.dianxiaomi.com/web/purchasing/order/draft/manualPurchasing" },
+        { "name": "草稿-1688采购", "url": "https://www.dianxiaomi.com/web/purchasing/order/draft/aliPurchasing" },
+        { "name": "已完成", "url": "https://www.dianxiaomi.com/web/purchasing/order/complete", "windowDays": 35 },
+        { "name": "已取消", "url": "https://www.dianxiaomi.com/web/purchasing/order/cancel", "windowDays": 35 }
+      ],
+      "note": "页签为 URL 导航（实测 2026-10-11）。未结=待审核/待到货/草稿；历史=已完成/已取消（客户端按35天窗口过滤，页面创建时间筛选见 ant-select）。不取「全部」以避免与状态视图重复计数。"
+    },
+    "supplier": {
+      "pageUrl": "https://www.dianxiaomi.com/web/supply/supplier",
+      "outputPrefix": "nawu-supplier",
+      "sheetName": "供货商",
+      "tabs": ["1688供货商", "普通供货商"]
+    },
+    "supplyRelation": {
+      "pageUrl": "https://www.dianxiaomi.com/web/supply/supplyRelation",
+      "outputPrefix": "nawu-supply-relation",
+      "sheetName": "供货关系"
+    }
+  },
+  "note": "店小秘采集：仓库清单 / 商品管理 / 自营仓库出入记录 / 采购订单 / 供货商 / 供货关系。均经本地已登录 Chrome CDP :9223，vxe-table DOM 解析跨页累计。C6R 编排入口为 procurement-fetch.cjs。实测页面路径（2026-10-11）：仓库清单 /web/warehouse/warehouseProduct；商品管理 /web/dxmCommodityProduct/index；出入记录 /web/privateWarehouse/entryAndExitRecordList；采购订单 /web/purchasing/order/draft/manualPurchasing；供货商 /web/supply/supplier；供货关系 /web/supply/supplyRelation。"
+}

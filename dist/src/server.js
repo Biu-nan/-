@@ -3,13 +3,15 @@ import { access, appendFile, mkdir, readFile, readdir, rename, rm, stat, writeFi
 import path from "node:path";
 import express from "express";
 import multer from "multer";
-import { HOST, OUTPUT_DIR, INSERT_BAG_IMAGES_DIR, INSERT_LINER_IMAGES_DIR, INSERT_OUTPUT_DIR, PORT, PRODUCT_IMAGES_DIR, PRODUCT_ROOT, PRODUCT_PROFILE_FILE, PROMPTS_DIR, PROJECT_ROOT, COMPLETED_PRODUCTS_DIR, HIDDEN_DATA_DIR, PUBLIC_DIR, USER_DATA_DIR, CHARM_REF_IMAGES_DIR, CHARM_CONTEXT_IMAGES_DIR, CHARM_OUTPUT_DIR } from "./config.js";
+import { HOST, OUTPUT_DIR, INSERT_BAG_IMAGES_DIR, INSERT_LINER_IMAGES_DIR, INSERT_OUTPUT_DIR, PORT, PRODUCT_IMAGES_DIR, PRODUCT_ROOT, PRODUCT_PROFILE_FILE, PROMPTS_DIR, PROJECT_ROOT, COMPLETED_PRODUCTS_DIR, HIDDEN_DATA_DIR, PUBLIC_DIR, USER_DATA_DIR, CHARM_REF_IMAGES_DIR, CHARM_CONTEXT_IMAGES_DIR, CHARM_OUTPUT_DIR, PRODUCT_STYLE_REF_DIR, MAX_STYLE_REFERENCE_IMAGES } from "./config.js";
 import { DIANXIAOMI_TEMPLATE_PRODUCT_ID, PRODUCT_FACT_FILE, DIANXIAOMI_CATEGORY_PROFILES, getDianxiaomiProfile, isXiangBaoProfile } from "./config.js";
 import { normalizeDianxiaomiFacts, buildProductFactsFallback } from "./dianxiaomi-facts.js";
 import { AutomationService } from "./automation-service.js";
 import { ChatGptAdapter } from "./chatgpt-adapter.js";
 import { GeminiAdapter } from "./gemini-adapter.js";
 import { importImagesToDirectory, importImageUrlsToDirectory, removeImageFromDirectory, scanImages } from "./directory-images.js";
+// 参考风格图：只参考风格，不参考产品信息（独立目录，不进 产品图/ 身份锁）
+import { getStyleReferenceStatus, importStyleReferenceImages, importStyleReferenceImageUrls, invalidateStyleLock, removeStyleReferenceImage, scanStyleReferenceImages } from "./style-reference-service.js";
 import { buildHandoff, importHandoff, listEcomProductSummaries, probeEcomService, scanEcomProducts } from "./ecom-connector.js";
 import { LuxuryInsertService } from "./luxury-insert-service.js";
 import { BagCharmService } from "./bag-charm-service.js";
@@ -35,8 +37,15 @@ import { DianxiaomiAdapter } from "./dianxiaomi-adapter.js";
 import { ResearchService } from "./research-service.js";
 import { ResearchStore } from "./research-store.js";
 import { registerBatchListingCreateRoutes, isListingCreateRunning, getLatestListingCreateJob, readInputWorkbook, recoverListingCreateState, listingCreateRunState } from "./batch-listing-create.js";
+import { runListingEngine } from "./listing-engine.js";
+
+// 引擎开关（灰度）读环境变量，避免依赖各调用点的 opts 签名（实测 opts 在嵌套作用域里取不到）。
+const LISTING_ENGINE_ON = String(process.env.LISTING_ENGINE || "").toLowerCase() === "ecom";
+const LISTING_ENGINE_COMMIT = String(process.env.LISTING_ENGINE_COMMIT || "1") !== "0";
 // Listing Agent 集成入口（双形态：HTTP 优先，进程内兜底）。详见 listing-agent/README.md。
 import { ListingAgentClient } from "../../listing-agent/src/agent-client.js";
+// 系统状态总账（F1）：把 6 套并行状态机归一化成一份只读视图。详见 docs/SYSTEM_FRAMEWORK_v1.0.md
+import { buildSystemState } from "./system-state.js";
 
 // The WorkBuddy runtime injects a "safe-delete" shim (genie-safe-delete.cjs) that
 // intercepts fs.rm and throws SAFE_DELETE_BULK_CONFIRM_REQUIRED once the per-turn
@@ -906,6 +915,19 @@ app.get("/api/connectors/feishu/status", async (_request, response) => {
 // 自愈标志：autoRun 残留仅自愈一次，避免每秒轮询都写盘
 let _autoRunHealed = false;
 
+/** 系统状态总账（F1）。
+ * 只读聚合 6 套并行状态机 → 统一 WorkUnit 7 态视图。
+ * 硬约束：不写文件、不改业务状态、不触发副作用；任一源坏掉不影响其余源。
+ * 用途：回答"现在在跑什么 / 在等谁拍板 / 哪里卡住了"。
+ */
+app.get("/api/system/state", async (_request, response) => {
+    try {
+        response.json(await buildSystemState());
+    }
+    catch (error) {
+        response.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+    }
+});
 app.get("/api/status", async (_request, response) => {
     // 自愈：进程曾被 watchdog 误杀导致收尾 finally 未执行，残留 autoRun:true
     // 会挡住所有新任务入口（批量/队列/内胆）。running 为空时自动复位。
@@ -1740,6 +1762,130 @@ app.post("/api/import-images", upload.array("images"), async (request, response,
         response.json({ result, imageCount: images.length });
     }
     catch (error) {
+        next(error);
+    }
+});
+/* ══ 参考风格图（Style Reference）：只参考风格，不参考产品信息 ══
+   风格图独立存放在 当前产品/风格参考图/，不进 产品图/、不进身份锁、不进店小秘图源。
+   改动后既有 style-lock 会被标记 stale，即「不再假装风格仍然一致」，是否重跑规划由用户决定。 */
+async function styleReferenceChangeResponse(response, message) {
+    const status = await getStyleReferenceStatus();
+    const state = store.get();
+    const needReplan = Boolean(state.planningText) || ["MVP3", "MVP4", "MVP5"].includes(state.completedPhase ?? "");
+    response.json({
+        ...status,
+        message,
+        needReplan,
+        replanHint: needReplan
+            ? "参考风格图已变更，请重新运行视觉规划，逐张生图才会使用新风格。"
+            : undefined
+    });
+}
+app.get("/api/style-ref-images", async (_request, response, next) => {
+    try {
+        response.json(await getStyleReferenceStatus());
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.get("/api/style-ref-images/:name", async (request, response) => {
+    const name = path.basename(String(request.params.name ?? ""));
+    if (name !== request.params.name) {
+        response.status(400).json({ error: "无效的参考风格图文件名" });
+        return;
+    }
+    const images = await scanStyleReferenceImages();
+    const target = images.find((image) => image.name === name);
+    if (!target) {
+        response.status(404).json({ error: "参考风格图不存在" });
+        return;
+    }
+    response.setHeader("Cache-Control", "no-store");
+    response.sendFile(path.join(PRODUCT_STYLE_REF_DIR, name));
+});
+app.post("/api/style-ref-images", upload.array("images", MAX_STYLE_REFERENCE_IMAGES), async (request, response, next) => {
+    try {
+        if (rejectIfQueueLocked(response))
+            return;
+        const state = store.get();
+        if (state.running || state.autoRun) {
+            response.status(409).json({ error: "流程运行中，不能修改参考风格图" });
+            return;
+        }
+        const files = request.files ?? [];
+        if (files.length === 0) {
+            response.status(400).json({ error: "没有收到参考风格图文件" });
+            return;
+        }
+        const result = await importStyleReferenceImages(files);
+        if (result.imported.length > 0) {
+            await invalidateStyleLock(`参考风格图新增 ${result.imported.length} 张`);
+        }
+        if (result.imported.length === 0 && result.skippedDuplicates.length === 0) {
+            response.status(400).json({
+                error: `参考风格图最多 ${MAX_STYLE_REFERENCE_IMAGES} 张，或文件格式/大小不符合要求`,
+                ...result
+            });
+            return;
+        }
+        await styleReferenceChangeResponse(response, `已导入 ${result.imported.length} 张参考风格图（只取风格，不取产品）`);
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.post("/api/style-ref-images/urls", async (request, response) => {
+    try {
+        if (rejectIfQueueLocked(response))
+            return;
+        const state = store.get();
+        if (state.running || state.autoRun) {
+            response.status(409).json({ error: "流程运行中，不能修改参考风格图" });
+            return;
+        }
+        const urls = Array.isArray(request.body?.urls)
+            ? request.body.urls.map((url) => String(url ?? "").trim()).filter(Boolean)
+            : [];
+        const result = await importStyleReferenceImageUrls(urls);
+        if (result.imported.length > 0) {
+            await invalidateStyleLock(`参考风格图经 URL 新增 ${result.imported.length} 张`);
+        }
+        if (result.imported.length === 0) {
+            response.status(400).json({
+                error: result.skippedDuplicates.length > 0
+                    ? "这些图片已存在，未重复导入"
+                    : "URL 导入失败：仅支持可公开访问的 JPG / PNG / WEBP 直链，且不能是本机或内网地址",
+                ...result
+            });
+            return;
+        }
+        await styleReferenceChangeResponse(response, `已从 URL 导入 ${result.imported.length} 张参考风格图（只取风格，不取产品）`);
+    }
+    catch (error) {
+        response.status(400).json({
+            error: error instanceof Error ? error.message : String(error)
+        });
+    }
+});
+app.delete("/api/style-ref-images/:name", async (request, response, next) => {
+    try {
+        if (rejectIfQueueLocked(response))
+            return;
+        const state = store.get();
+        if (state.running || state.autoRun) {
+            response.status(409).json({ error: "流程运行中，不能修改参考风格图" });
+            return;
+        }
+        const removed = await removeStyleReferenceImage(String(request.params.name ?? ""));
+        await invalidateStyleLock(`参考风格图已删除：${removed}`);
+        await styleReferenceChangeResponse(response, `已删除参考风格图 ${removed}`);
+    }
+    catch (error) {
+        if (error instanceof Error && /不存在|无效/.test(error.message)) {
+            response.status(404).json({ error: error.message });
+            return;
+        }
         next(error);
     }
 });
@@ -3912,7 +4058,10 @@ const batchRunState = {
   summary: null, // { success, failed, skipped, total }
   items: {}, // name -> { name, status, progress, reason, log:[] }
   rows: [], // 最近一次 apply 的原始行（供「重试失败项」重建）
-  lastOperationId: null
+  lastOperationId: null,
+  // 心跳：每次进度快照刷新。自愈判定用它避免把「正在跑、但恰好在两行之间的间隙」
+  // 误判成后台已死（否则会把 running 归零，导致同一时间被启动第二个任务）。
+  lastActivityAt: null
 };
 
 async function detectCategory(dir) {
@@ -3973,6 +4122,16 @@ app.post("/api/dianxiaomi/batch-apply", async (request, response) => {
   try {
     const rows = (request.body && Array.isArray(request.body.rows)) ? request.body.rows : [];
     if (!rows.length) return response.status(400).json({ ok: false, error: "rows 为空" });
+    // 自愈：先清掉「服务重启后残留的 running=true」，否则会被 409 永久拦死
+    await normalizeBatchListingRunningState();
+    // operationId 幂等（2026-10-24 补齐）：同 op 重放（任务仍在跑 / 刚结束 5 分钟内）→ 返回原 jobId，
+    // 不重启任务、不报 409。防前端网络超时重发、刷新页面重发把同一批商品上架两次。
+    const operationId = (request.body && typeof request.body.operationId === "string" && request.body.operationId.trim())
+      ? request.body.operationId.trim()
+      : null;
+    if (isIdempotentReplay(batchRunState, operationId)) {
+      return response.json({ ok: true, jobId: batchRunState.jobId, accepted: false, idempotentReplay: true });
+    }
     if (batchRunState.running) return response.status(409).json({ ok: false, error: "已有批量任务在运行" });
     if (collectBatchRunState.running) return response.status(409).json({ ok: false, error: "采集箱批量上架正在运行" });
     const normalized = rows.map((r) => ({
@@ -3983,11 +4142,17 @@ app.post("/api/dianxiaomi/batch-apply", async (request, response) => {
       brand: (r.brand || "").toString().trim(),
       variantParams: (r.variantParams || "").toString().trim(),
       stockType: (r.stockType || "").toString().trim(),
-      referenceProductId: (r.referenceProductId || "").toString().trim()
+      referenceProductId: (r.referenceProductId || "").toString().trim(),
+      // 2026-10-26：原来这里把 variantOn 丢掉了，于是 runBatchListing 的
+      // keepVariants = (row.variantOn !== true) 恒为 true → fillSkus 永远被跳过
+      // → 供货价/库存/编码从来不由程序写入（页面上留着引用模板源产品的值）。
+      // 「SKU 从链接来」要求能覆盖变种，所以必须把这个开关透传下去。
+      variantOn: r.variantOn === true || r.variantOn === "true"
     })).filter((r) => r.packageName);
     if (!normalized.length) return response.status(400).json({ ok: false, error: "无有效 packageName" });
     batchRunState.jobId = `batch-${Date.now()}`;
-    runBackground(() => runBatchListing(normalized));
+    batchRunState.lastOperationId = operationId;
+    runBackground(() => runBatchListing(normalized, { jobId: batchRunState.jobId, operationId }));
     response.json({ ok: true, jobId: batchRunState.jobId, accepted: true });
   }
   catch (error) {
@@ -3999,6 +4164,15 @@ app.post("/api/dianxiaomi/batch-apply", async (request, response) => {
 // 仅重跑失败项，done/skipped 项与整体进度保留（仿照采集箱 collect-batch-retry）。
 app.post("/api/dianxiaomi/batch-retry", async (request, response) => {
   try {
+    // 自愈：重启后残留的 running=true 会让重试也被 409 拦死
+    await normalizeBatchListingRunningState();
+    // 重试同样支持 operationId 幂等（同一次「重试」被重发时不重复跑）
+    const operationId = (request.body && typeof request.body.operationId === "string" && request.body.operationId.trim())
+      ? request.body.operationId.trim()
+      : null;
+    if (isIdempotentReplay(batchRunState, operationId)) {
+      return response.json({ ok: true, jobId: batchRunState.jobId, accepted: false, idempotentReplay: true });
+    }
     if (batchRunState.running) {
       return response.status(409).json({ ok: false, error: "引用批量上架正在运行" });
     }
@@ -4024,12 +4198,15 @@ app.post("/api/dianxiaomi/batch-retry", async (request, response) => {
           variantParams: (r.variantParams || "").toString().trim(),
           stockType: (r.stockType || "").toString().trim(),
           referenceProductId: (r.referenceProductId || "").toString().trim(),
+          // 与 batch-apply 保持一致：变种覆盖开关必须透传，否则重试会静默退回「沿用模板变种」
+          variantOn: r.variantOn === true || r.variantOn === "true",
           enabled: r.enabled !== false
         };
       }
     }
     batchRunState.jobId = `batch-${Date.now()}`;
-    runBackground(() => runBatchListing(batchRunState.rows, { retry: true, overrides }));
+    batchRunState.lastOperationId = operationId;
+    runBackground(() => runBatchListing(batchRunState.rows, { retry: true, overrides, jobId: batchRunState.jobId, operationId }));
     response.json({ ok: true, jobId: batchRunState.jobId, accepted: true, retryCount: retryableItems.length });
   } catch (error) {
     response.status(500).json({ error: error instanceof Error ? error.message : String(error) });
@@ -4039,6 +4216,12 @@ app.post("/api/dianxiaomi/batch-retry", async (request, response) => {
 // 进度查询：前端每秒轮询
 app.get("/api/dianxiaomi/batch-status", async (_request, response) => {
   try {
+    // 懒恢复：服务重启后内存状态为空时从磁盘快照回读（含 failed 项，供「重试失败项」）
+    // 随后自愈：残留 running=true 且无活跃 item → 归零，前端不会一直显示"运行中"
+    if (!batchRunState.jobId) {
+      await recoverBatchListingState();
+    }
+    await normalizeBatchListingRunningState();
     const items = Object.values(batchRunState.items).map((it) => ({
       name: it.name,
       status: it.status,
@@ -4210,11 +4393,12 @@ app.post("/api/dianxiaomi/collect-batch-apply", async (request, response) => {
     if (!rows.length) return response.status(400).json({ ok: false, error: "rows 为空" });
     await normalizeCollectBatchRunningState();
     // operationId 幂等：同 op 重放 → 直接返回原 jobId（不重启任务，不触发 409）。
-    // 防服务重启/网络重试导致重复拾起；不含异 payload 冲突检测（避免 hash 复杂度）。
+    // 判定统一走 isIdempotentReplay（含 5 分钟时间窗）：此前是无条件永久重放，
+    // 若前端开始传 op，用户想对同一批再跑一次会被永久吞掉。
     const operationId = (request.body && typeof request.body.operationId === "string" && request.body.operationId.trim())
       ? request.body.operationId.trim()
       : null;
-    if (operationId && collectBatchRunState.lastOperationId === operationId && collectBatchRunState.jobId) {
+    if (isIdempotentReplay(collectBatchRunState, operationId)) {
       return response.json({ ok: true, jobId: collectBatchRunState.jobId, accepted: false, idempotentReplay: true });
     }
     if (collectBatchRunState.running) return response.status(409).json({ ok: false, error: "已有采集箱批量任务在运行" });
@@ -4284,6 +4468,13 @@ app.get("/api/dianxiaomi/collect-batch-status", async (_request, response) => {
 app.post("/api/dianxiaomi/collect-batch-retry", async (request, response) => {
   try {
     await normalizeCollectBatchRunningState();
+    // 重试同样支持 operationId 幂等（同一次「重试」被重发时不重复跑）
+    const operationId = (request.body && typeof request.body.operationId === "string" && request.body.operationId.trim())
+      ? request.body.operationId.trim()
+      : null;
+    if (isIdempotentReplay(collectBatchRunState, operationId)) {
+      return response.json({ ok: true, jobId: collectBatchRunState.jobId, accepted: false, idempotentReplay: true });
+    }
     if (collectBatchRunState.running) {
       return response.status(409).json({ ok: false, error: "已有采集箱批量任务在运行" });
     }
@@ -4315,6 +4506,7 @@ app.post("/api/dianxiaomi/collect-batch-retry", async (request, response) => {
       }
     }
     collectBatchRunState.jobId = `collect-${Date.now()}`;
+    collectBatchRunState.lastOperationId = operationId;
     runBackground(() => runCollectBatchListing(collectBatchRunState.rows, { retry: true, overrides }));
     response.json({ ok: true, jobId: collectBatchRunState.jobId, accepted: true, retryCount: retryableItems.length });
   } catch (error) {
@@ -4480,9 +4672,14 @@ function parseColorMap(str) {
   if (!str) return map;
   const segs = String(str).split(/[;\n]+/).map((s) => s.trim()).filter(Boolean);
   for (const seg of segs) {
-    const seg2 = seg.replace(/^颜色\s*[：:]\s*/, "");
+    // 2026-10-26 修复（真机实测暴露）：原来的判据只排除「无 = 但含 ,」的乳贴式纯颜色列表，
+    // 于是**任何非颜色段都会被当成颜色** —— 实测 "颜色：Gold,Silver,Red; 尺寸：5.4CM"
+    // 被解析成 [{color:"尺寸：5.4CM"}]，colors 被污染成 ["尺寸：5.4CM"]。
+    // 改为只认「颜色 / color」开头的段，其余段（尺寸/尺码/其它销售属性）直接跳过。
+    if (!/^(颜色|color)\s*[：:=]/i.test(seg)) continue;
+    const seg2 = seg.replace(/^(颜色|color)\s*[：:]\s*/i, "");
     if (!seg2) continue;
-    // 跳过乳贴式纯颜色列表（无 = 但含 ,）
+    // 跳过乳贴式纯颜色列表（无 = 但含 ,）—— 这类由 parseVariantParams 处理
     if (!seg2.includes("=") && /,/.test(seg2)) continue;
     const parts = seg2.split(/=/);
     const color = parts[0].trim();
@@ -4497,21 +4694,37 @@ function parseColorMap(str) {
   return map;
 }
 
-// 由 colors × sizes 重建 SKU 组合矩阵（用源产品已有矩阵的首行价格/库存/重量作默认，缺失则回退常量）
+// 由 colors × sizes 重建 SKU 组合矩阵。
+// 2026-10-26 修复：原实现**全部行都用 baseMatrix 首行**的价格/库存，并重新生成 `SKU-${ci}${si}`
+// 编码 —— 等于把每一行的真实供货价、库存和编码都抹平成一个值。
+// 这正是「SKU 从链接来」要保住的东西。改为**逐组合继承**：同 colors+sizes 的源行优先，
+// 匹配不到才退回首行；编码沿用源行的 sku，只有源行没有编码时才生成。
 function buildVariantMatrix(colors, sizes, baseMatrix) {
   const colorList = (colors && colors.length) ? colors : ["默认"];
   const sizeList = (sizes && sizes.length) ? sizes : ["One Size"];
-  const sample = (baseMatrix && baseMatrix.length) ? baseMatrix[0] : null;
-  const price = (sample && Number(sample.price) > 0) ? Number(sample.price) : 3.5;
-  const stock = (sample && Number(sample.stock) > 0) ? Number(sample.stock) : 100;
-  const weight = (sample && sample.weight != null) ? Number(sample.weight) : 0.03;
+  const base = Array.isArray(baseMatrix) ? baseMatrix : [];
+  const sample = base.length ? base[0] : null;
+  const norm = (v) => String(v === null || v === undefined ? "" : v).trim().toLowerCase();
+  const findBase = (color, size) => {
+    const hit = base.find((row) => {
+      const combo = Array.isArray(row.combination) ? row.combination : [];
+      const colorOk = norm(combo[0]) === norm(color);
+      const sizeOk = sizeList.length <= 1 || norm(combo[1]) === norm(size);
+      return colorOk && sizeOk;
+    });
+    return hit || sample;
+  };
   const matrix = [];
   colorList.forEach((c, ci) => sizeList.forEach((s, si) => {
+    const src = findBase(c, s) || {};
+    const price = Number(src.price) > 0 ? Number(src.price) : 3.5;
+    const stock = Number(src.stock) > 0 ? Number(src.stock) : 100;
+    const weight = src.weight !== null && src.weight !== undefined ? Number(src.weight) : 0.03;
     matrix.push({
       combination: [c, s],
       price, stock, weight,
-      sku: `SKU-${ci}${si}`,
-      barcode: ""
+      sku: src.sku ? String(src.sku) : `SKU-${ci}${si}`,
+      barcode: src.barcode ? String(src.barcode) : ""
     });
   }));
   return matrix;
@@ -4760,7 +4973,9 @@ async function processCollectBatchRow(row, item, log) {
     }
     // 关键校验：描述类 critical fields 任一 FAIL / 读回校验失败 → 整行判 failed（与引用模式一致）
     // 采集箱模式只保留 PC 描述，无线端描述故意不填，因此不将 description.mobile 视为失败。
-    const criticalFailures = applied.filter((a) => a.field === "description.pc" && a.ok === false);
+    // 2026-10-26：SKU 行回读失败（供货价/编码/库存没填进去或被覆盖）同样判 failed ——
+    // 缺价格会被店小秘保存校验拦，而"错价"更糟：它会真的存成草稿。
+    const criticalFailures = applied.filter((a) => (a.field === "description.pc" || a.field === "sku" || a.field === "category") && a.ok === false);
     const readbackIssues = (saved && Array.isArray(saved.hardIssues) && saved.hardIssues.length) ? saved.hardIssues : [];
     const criticalFailed = criticalFailures.length > 0 || readbackIssues.length > 0;
     if (saved && saved.saved && !criticalFailed) {
@@ -4943,11 +5158,105 @@ async function normalizeCollectBatchRunningState() {
   return false;
 }
 
+// ===== 引用批量上架：状态懒恢复 + 自愈（2026-10-24 补齐，对齐采集箱）=====
+// 背景：采集箱有 recoverCollectBatchState + normalizeCollectBatchRunningState，
+// 引用侧此前两者都没有 → 服务重启后 batchRunState 从磁盘快照回不来，若快照里
+// running=true 残留，`/api/dianxiaomi/batch-apply` 会被 409「已有批量任务在运行」
+// 永久拦死（后台其实早没了），只能手工改 json 或重启碰运气。
+async function recoverBatchListingState() {
+  try {
+    const fp = path.join(HIDDEN_DATA_DIR, "batch-listing-state.json");
+    const saved = JSON.parse(await readFile(fp, "utf8"));
+    if (!saved || !saved.jobId) return;
+    // 内存已有更新的状态（例如刚启动且已在跑任务），不覆盖
+    if (batchRunState.jobId && batchRunState.startedAt && saved.startedAt && batchRunState.startedAt >= saved.startedAt) {
+      return;
+    }
+    batchRunState.running = saved.running || false;
+    batchRunState.jobId = saved.jobId;
+    batchRunState.startedAt = saved.startedAt || null;
+    batchRunState.finishedAt = saved.finishedAt || null;
+    batchRunState.overallProgress = saved.overallProgress || 0;
+    batchRunState.summary = saved.summary || null;
+    batchRunState.items = saved.items || {};
+    batchRunState.rows = Array.isArray(saved.rows) ? saved.rows : [];
+    batchRunState.lastOperationId = saved.lastOperationId || null;
+    batchRunState.lastActivityAt = saved.lastActivityAt || null;
+    // 服务重启后，任何仍标 running 的行实际已中断 → 转 failed，让「重试失败项」能捡起来
+    let recovered = false;
+    for (const key of Object.keys(batchRunState.items)) {
+      const it = batchRunState.items[key];
+      if (it && it.status === "running") {
+        it.status = "failed";
+        it.reason = (it.reason ? `${it.reason}; ` : "") + "服务重启导致中断，请重试";
+        recovered = true;
+      }
+    }
+    if (recovered) {
+      await writeFile(fp, JSON.stringify(batchRunState, null, 2), "utf8").catch(() => {});
+    }
+  } catch {
+    /* 无快照或解析失败则保持空状态 */
+  }
+  // 恢复完再做一次自愈：把 disk 上残留的 running=true 且无活跃 item 归零
+  await normalizeBatchListingRunningState();
+}
+
+// 自愈判定与采集箱一致：running=true，但 (a) 没有任何 item 还在 running（后台已死）
+// 且 (b) 进度已到 100 或已跑过行（items>0）→ 归零 + 补 summary + 落盘。
+// 额外加心跳守卫：距最近一次 snapshot 不足 STALE_MS 时不动。正常跑批时两行之间会有
+// 极短间隙（上一项 done、下一项还没标 running），没有这道守卫会被 1s 轮询误归零，
+// 进而允许同一时间启动第二个批量任务。
+const BATCH_STALE_MS = 90_000;
+async function normalizeBatchListingRunningState() {
+  const items = Object.values(batchRunState.items);
+  const anyRunning = items.some((it) => it && it.status === "running");
+  const staleEnough = !batchRunState.lastActivityAt || (Date.now() - Number(batchRunState.lastActivityAt) > BATCH_STALE_MS);
+  if (batchRunState.running && !anyRunning && staleEnough &&
+      (batchRunState.overallProgress >= 100 || items.length > 0)) {
+    batchRunState.running = false;
+    batchRunState.finishedAt = batchRunState.finishedAt || new Date().toISOString();
+    if (!batchRunState.summary) {
+      batchRunState.summary = {
+        success: items.filter((it) => it && it.status === "done").length,
+        failed: items.filter((it) => it && it.status === "failed").length,
+        skipped: items.filter((it) => it && it.status === "skipped").length,
+        total: items.length
+      };
+    }
+    try {
+      await writeFile(
+        path.join(HIDDEN_DATA_DIR, "batch-listing-state.json"),
+        JSON.stringify(batchRunState, null, 2),
+        "utf8"
+      );
+    } catch { /* ignore */ }
+    return true;
+  }
+  return false;
+}
+
+// 幂等重放判定（引用 / 采集箱共用语义）：
+// 同一 operationId 再次提交时，只有当「任务仍在跑」或「刚结束不久」才视为重放并返回原 jobId。
+// 加时间窗是为了避免副作用：若永久认定重放，用户想对同一批商品再跑一次就永远被吞掉。
+// 超出时间窗 / 没有 finishedAt（异常中断）→ 判定为"重跑"，正常执行。
+const IDEMPOTENT_REPLAY_WINDOW_MS = 5 * 60_000;
+function isIdempotentReplay(state, operationId) {
+  if (!operationId || !state || state.lastOperationId !== operationId || !state.jobId) return false;
+  if (state.running) return true;
+  const finishedAt = Number(state.finishedAt || 0);
+  return finishedAt > 0 && (Date.now() - finishedAt) < IDEMPOTENT_REPLAY_WINDOW_MS;
+}
+
 async function runBatchListing(rows, opts = {}) {
   const retryMode = !!(opts && opts.retry);
   batchRunState.running = true;
+  batchRunState.lastActivityAt = Date.now();
   if (!retryMode) {
-    batchRunState.jobId = `batch-${Date.now()}`;
+    // jobId 由调用方（路由）生成时优先沿用，保证 HTTP 响应里的 jobId 与状态快照一致
+    batchRunState.jobId = (opts && opts.jobId) || `batch-${Date.now()}`;
+    // operationId 落盘：服务重启后前端重发同一 op 仍能被识别为重放
+    if (opts && opts.operationId !== undefined) batchRunState.lastOperationId = opts.operationId || null;
     batchRunState.startedAt = Date.now();
     batchRunState.finishedAt = null;
     batchRunState.summary = null;
@@ -4956,6 +5265,7 @@ async function runBatchListing(rows, opts = {}) {
     batchRunState.rows = rows; // 持久化原始行，供「重试失败项」重建
   }
   const snapshot = async () => {
+    batchRunState.lastActivityAt = Date.now(); // 心跳：供自愈判定「后台是否还活着」
     try {
       await writeFile(
         path.join(HIDDEN_DATA_DIR, "batch-listing-state.json"),
@@ -5064,10 +5374,16 @@ async function processBatchReferenceRow(row, total, onProgress, addSummary) {
           });
           log(`箱包类目颜色映射覆盖: ${JSON.stringify(cm.map((c) => ({ color: c.color, custom: c.customName, img: c.image })))}`);
         } else if (vp.colors.length || vp.sizes.length) {
+          const colors = vp.colors.length ? vp.colors : ((facts.variants && facts.variants.colors) || []);
+          const sizes = vp.sizes.length ? vp.sizes : ((facts.variants && facts.variants.sizes) || []);
+          // 2026-10-26：原来这里写死 `matrix: []`，于是箱包类目**永远没有 SKU 组合矩阵**，
+          // fillSkus 必然返回 no-variants-in-facts → 供货价/库存/编码从来不由程序写入，
+          // 页面上留着的是引用模板源产品的值。改为按 colors×sizes 重建（逐组合继承源值）。
+          const matrix = buildVariantMatrix(colors, sizes, baseMatrix);
           facts.variants = Object.assign({}, facts.variants || {}, {
-            colors: vp.colors, sizes: vp.sizes, matrix: [], dimensions: []
+            colors, sizes, matrix, dimensions: []
           });
-          log(`箱包类目颜色勾选: colors=${JSON.stringify(vp.colors)} sizes=${JSON.stringify(vp.sizes)}`);
+          log(`箱包类目颜色勾选: colors=${JSON.stringify(colors)} sizes=${JSON.stringify(sizes)} matrix=${matrix.length}`);
         }
       } else {
         const colors = vp.colors.length ? vp.colors : (facts.variants && facts.variants.colors) || [];
@@ -5087,18 +5403,103 @@ async function processBatchReferenceRow(row, total, onProgress, addSummary) {
       return;
     }
     dianxiaomiAdapter.setImageBaseDir(dir);
-    const refId = (row.referenceProductId && String(row.referenceProductId).trim()) || profile.templateProductId;
-    log("引用模板: " + refId + (row.referenceProductId ? " (行级自定义)" : ""));
-    await dianxiaomiAdapter.openCreatePage();
-    if (row.store) {
-      const sr = await dianxiaomiAdapter.selectStoreByName(row.store);
-      log(`店铺选择: ${sr.ok ? sr.value : "FAIL " + sr.reason}`);
+    // 2026-10-26 路径修正（Lance 指出）：正确流程是
+    //   ① 创建空白新产品 → ② 应用产品模板（带出类目结构/属性骨架/合规配置）→ ③ 填我们的事实
+    // 而原来这里**无条件** `referenceProduct(templateProductId)`，那是「引用现有产品」——
+    // 会把源产品的 SKU 组合、供货价、库存、描述、图片整表复制过来。真机实测页面上的
+    // SKU 就是源产品的 5 行（BBGJ31-yellow/pink/blue/white/4pcs，7.8，库存 0），
+    // 我们的 facts（Gold/Silver/Red，19.9，KC-660765-*）一个都写不进去；
+    // 无线端描述、欧盟责任人、海关区块也都是源产品的残留状态。
+    // 现在改为：只有**显式传 referenceProductId** 时才走引用路径（保留"复制某商品再改"的能力），
+    // 默认走空白新建 + 产品模板。
+    const explicitRefId = row.referenceProductId && String(row.referenceProductId).trim();
+    log(explicitRefId
+      ? `引用源产品: ${explicitRefId}（行级指定，会整表复制该商品的 SKU/价格/库存）`
+      : `空白新建 + 产品模板: ${row.productTemplate || profile.defaultProductTemplate || "(未配置)"}`);
+    // ── 引擎开关（2026-10-27）：LISTING_ENGINE=ecom 时走「照搬 ecom 的上品路径」的
+    // listing-engine.js（step 机 + 前置门 + 行数契约 + 保存前回读 + 待发布列表校验），
+    // 默认关闭，保持既有链路不受影响 —— 灰度用，等批量跑稳再切换默认。
+    // 与旧链路的本质差别：旧链路每步各自自证 ok 却在保存处才炸；引擎每步都有可判定的后果，
+    // 且以「待发布列表能否搜到新草稿」作为最终判据（后果优先于自述）。
+    if (LISTING_ENGINE_ON) {
+      log("引擎: ecom（listing-engine.js）");
+      await dianxiaomiAdapter.openCreatePage({ freshTab: true });
+      const engineRes = await runListingEngine({
+        adapter: dianxiaomiAdapter,
+        facts,
+        profile,
+        row,
+        // 批量链路的目的就是产出草稿 → 默认保存；想只填不存请设 LISTING_ENGINE_COMMIT=0。
+        commit: LISTING_ENGINE_COMMIT
+      });
+      item.appliedSummary = (engineRes.steps || []).map((st) => ({
+        field: st.name,
+        ok: st.status !== "ERROR",
+        skipped: st.status === "ATTENTION",
+        reason: st.reason || "",
+        value: st.value
+      }));
+      item.engineAttention = engineRes.attention || [];
+      for (const st of engineRes.steps || []) {
+        if (st.status === "ERROR") log(`${st.name}: FAIL ${st.reason || ""}`);
+        else if (st.status === "ATTENTION") log(`${st.name}: ATT ${st.reason || ""}`);
+      }
+      for (const a of engineRes.attention || []) log(`attention: ${a}`);
+      const okSave = !LISTING_ENGINE_COMMIT ? true
+        : !!(engineRes.saved && engineRes.saved.verifiedInList && engineRes.saved.isNew !== false);
+      item.status = okSave ? "success" : "failed";
+      item.reason = okSave ? "" : "引擎：草稿未在待发布列表出现";
+      item.progress = 100;
+      if (engineRes.saved && engineRes.saved.editUrl) item.draftEditUrl = engineRes.saved.editUrl;
+      addSummary(okSave ? 1 : 0, okSave ? 0 : 1, 0);
+      onProgress();
+      return;
     }
+    await dianxiaomiAdapter.openCreatePage();
+    // ★ 顺序对齐 ecom-translator（draft_executor.mjs:792）：
+    //     店铺 → 引用产品模板 → 备货类型 → 标题/属性/描述 …
+    // 1) 店铺必须最先选：模板列表依赖已选店铺，**未选店铺时点「引用产品模板」前端静默无反应**
+    //    （2026-10-27 实测：dropdown 正常展开、菜单项能命中、无遮罩遮挡，
+    //      但 .ant-modal-root 数量恒为 0 —— 前端直接不弹）。我此前把模板提到最前面，正好踩了这个坑。
+    // 2) 模板引用会**整体重置表单**（备货/分类/属性/合规），所以它必须排在其它写入之前；
+    //    但又必须排在店铺之后 —— 模板是「第二早」，不是「第一早」。
+    // 店铺名：行级 store 优先，否则回落到 profile.fixed.storeName。
+    // 这一条是「引用产品模板」的**硬前置**：未选店铺时页面顶部会显示橙条
+    // 「提醒: 请先选择店铺」，此时点「引用产品模板」前端**静默无反应**
+    // （用户 2026-10-27 截图确认；实测 dropdown 正常展开但 .ant-modal-root 恒为 0）。
+    // 之前写成 `if (row.store)` —— 而请求里通常不传 store，于是这步整段被跳过。
+    const storeName = (row.store || (profile.fixed && profile.fixed.storeName) || "").toString().trim();
+    if (storeName) {
+      const sr = await dianxiaomiAdapter.selectStoreByName(storeName);
+      log(`店铺选择: ${sr.ok ? sr.value : "FAIL " + sr.reason}（目标 ${storeName}）`);
+    } else {
+      log("店铺选择: 跳过 —— 行与 profile 都没有店铺名，模板引用会因「请先选择店铺」而失败");
+    }
+    // ★ 引用产品模板：排在**店铺之后、所有其它写入之前**（Lance 2026-10-26 指出顺序问题）。
+    // 引用模板会**整体重置表单**（备货/分类/属性/合规全部回到模板值），所以必须早于其它写入；
+    // 原来它藏在 fillFromFacts 内部，而外层已经先跑了 selectStockingType / changeCategoryTo /
+    // fillFixedFields —— 模板一引用，刚写进去的全被冲掉。症状极具迷惑性：
+    // appliedSummary 里每一步都 ok:true，而保存时页面是空的
+    // （实测报错「请填写标题 / 请先选择产品分类」）。
+    const earlyTemplate = (row.productTemplate || profile.defaultProductTemplate || "").toString().trim();
+    let earlyTplResult = null;
+    if (earlyTemplate && !explicitRefId) {
+      try {
+        earlyTplResult = await dianxiaomiAdapter.applyProductTemplate(earlyTemplate);
+        log(`引用产品模板(第一步): ${earlyTplResult.ok ? "OK" : "FAIL " + (earlyTplResult.reason || "(无原因)")}`);
+        if (earlyTplResult.warning) log(`引用产品模板注意: ${earlyTplResult.warning}`);
+        if (earlyTplResult.moduleNames) log(`模板引用模块: ${earlyTplResult.moduleNames}`);
+      } catch (tplErr) {
+        earlyTplResult = { ok: false, reason: "exception:" + (tplErr && tplErr.message || tplErr) };
+        log(`引用产品模板异常: ${earlyTplResult.reason}`);
+      }
+    }
+
     if (row.stockType) {
       const sk = await dianxiaomiAdapter.selectStockingTypeByLabel(row.stockType);
       log(`备货类型: ${sk.ok ? sk.value : "FAIL " + sk.reason}`);
     }
-    await dianxiaomiAdapter.referenceProduct(refId);
+    if (explicitRefId) await dianxiaomiAdapter.referenceProduct(explicitRefId);
     {
       const rawCat = row.category && String(row.category).trim();
       const isProfileKey = rawCat && DIANXIAOMI_CATEGORY_PROFILES[rawCat];
@@ -5116,17 +5517,49 @@ async function processBatchReferenceRow(row, total, onProgress, addSummary) {
     item.progress = 50;
     const fillOpts = {
       keepVariants: row.variantOn !== true,
-      productTemplate: row.productTemplate || profile.defaultProductTemplate
+      // 2026-10-26 决策 A：表格「变种开关」打开（variantOn=true）时，变种由系统接管 ——
+      // 勾选颜色/尺寸并生成 SKU、写供货价/重量/库存。
+      // 之前只传 keepVariants，而 fillSalesAttributes 被一刀切停用、fillSkus 又不在这条路径上调用，
+      // 结果是 SKU 表 0 行 → 店小秘必填「供货价」「重量」为空 → 保存必失败。
+      variantOverride: row.variantOn === true || row.variantOn === "true",
+      // 模板已在 openCreatePage 之后**第一步**引用过（会重置整表，必须排在所有写入之前）。
+      // 这里再传一次会在所有字段填完后二次重置表单 —— 正是「每步都 ok、保存时页面是空的」的成因。
+      productTemplate: ""
     };
     const applied = await dianxiaomiAdapter.fillFromFacts(facts, fillOpts);
+    // 把第一步的模板结果放在 applied 队首，让它进 appliedSummary / 关键失败判定，不被漏看。
+    if (earlyTplResult) applied.unshift({ field: "productTemplate(第一步)", ...earlyTplResult });
     for (const a of applied) {
       if (a.ok === false) log(`${a.field}: FAIL ${a.reason || ""}`);
       else if (a.skipped) log(`${a.field}: SKIP ${a.reason || ""}`);
     }
+    // 2026-10-26 可观测性：applied 摘要落盘。
+    // 之前只有 FAIL/SKIP 才写 log，ok:true 的字段（尤其 sku 的逐字段三态）在日志里
+    // 完全不可见 —— 于是"填了没生效"只能靠事后翻页面猜。这里只存摘要，
+    // 不存 details 全量（28 行 × 4 字段会撑爆状态文件）。
+    item.appliedSummary = applied.map((a) => ({
+      field: a.field,
+      ok: a.ok !== false,
+      skipped: !!a.skipped,
+      reason: a.reason || "",
+      rows: a.rows,
+      failedRows: a.failedRows,
+      verifiedRows: a.verifiedRows,
+      mismatchedRows: a.mismatchedRows,
+      attentionCount: Array.isArray(a.attention) ? a.attention.length : 0,
+      attention: Array.isArray(a.attention) && a.attention.length ? a.attention.slice(0, 3) : undefined,
+      states: Array.isArray(a.applied) ? a.applied.map((x) => `${x.field}=${x.state}${x.readback ? `(${x.readback})` : ""}`) : undefined,
+      // 复合字段（海关/合规）的子项结论：它们只返回 fields[]，没有 reason，
+      // 失败时 log 里只有一行 `customs: FAIL `（空原因）—— 子项明细必须落盘才查得动。
+      fields: Array.isArray(a.fields)
+        ? a.fields.map((x) => `${x.field}=${x.ok === false ? "FAIL" : (x.skipped ? "SKIP" : "OK")}${x.reason ? ":" + String(x.reason).slice(0, 70) : ""}`)
+        : undefined
+    }));
     item.progress = 80;
     const saved = await dianxiaomiAdapter.save();
     dianxiaomiAdapter.resetImageBaseDir();
-    const criticalFailures = applied.filter((a) => (a.field === "images" || a.field === "description.pc" || a.field === "description.mobile") && a.ok === false);
+    // 2026-10-26：SKU 行回读失败也进关键失败集（供货价/编码/库存填错比"页面为空"更难发现）
+    const criticalFailures = applied.filter((a) => (a.field === "images" || a.field === "description.pc" || a.field === "description.mobile" || a.field === "sku" || a.field === "category") && a.ok === false);
     const readbackIssues = (saved && Array.isArray(saved.hardIssues) && saved.hardIssues.length) ? saved.hardIssues : [];
     const criticalFailed = criticalFailures.length > 0 || readbackIssues.length > 0;
     if (saved && saved.saved && !criticalFailed) {

@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { access, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright-core";
-import { CHATGPT_URL, CHATGPT_MODEL, CHATGPT_REASONING, CHROME_DEBUG_PORT, CHROME_PATH, CHROME_PROFILE_DIR } from "./config.js";
+import { CHATGPT_URL, CHATGPT_MODEL, CHATGPT_REASONING, CHATGPT_MODEL_CHAIN, CHATGPT_MODEL_STRICT, CHROME_DEBUG_PORT, CHROME_PATH, CHROME_PROFILE_DIR } from "./config.js";
 import { compressGeneratedImage } from "./image-compress.js";
 const LOGIN_WAIT_MS = 15_000;
 const CHROME_START_WAIT_MS = 30_000;
@@ -31,6 +31,28 @@ const COMPOSER_INSERT_CHUNK = 600;
 // 写入完成后等待「发送按钮 enabled」的轮询上限（50ms/次）。长模板写入后
 // Lexical 仍需时间 reconcile，4s 窗口过短。
 const COMPOSER_SUBMIT_MAX_ATTEMPTS = 600; // ≈30s
+// ===== 对话输入框定位（单一真相，2026-10-24 修复）=====
+// ChatGPT 新版页面**同时存在两个** contenteditable[role="textbox"]（实测）：
+//   ① 主对话输入框：<div class="ProseMirror" role="textbox" aria-label="询问 ChatGPT">（高 36px，贴视口底部）
+//   ② Canvas/写作块文档编辑器：<div class="ProseMirror leading-relaxed" role="textbox" aria-label="开始写作">
+//      （实测高 5138px，位于正文区）
+// 旧选择器 `div[contenteditable="true"][role="textbox"]` 按 DOM 顺序先命中 ②，
+// 后果是一整条链跑错元素：prompt 被写进文档编辑器（分块 insertText 写数千行 → 极慢/卡死），
+// 而写入校验又从同一个元素读回 → 误判"写入成功"，最后卡在"发送按钮未就绪"。
+// 修复原则：语义锚点优先（ChatGPT/询问/Message/Ask/Message ChatGPT），
+// 兜底项用 :not() 显式排除写作/文档/画布编辑器；调用处再加"高度 > 视口 70% 即拒绝写入"的断言。
+export const COMPOSER_SELECTOR = [
+    "#prompt-textarea",
+    'textarea[data-testid="prompt-textarea"]',
+    '[contenteditable="true"][data-lexical-editor="true"]',
+    '[contenteditable="true"][role="textbox"][aria-label*="ChatGPT"]',
+    '[contenteditable="true"][role="textbox"][aria-label*="询问"]',
+    '[contenteditable="true"][role="textbox"][aria-label*="Message"]',
+    '[contenteditable="true"][role="textbox"][aria-label*="Ask "]',
+    // 兜底：任意 contenteditable textbox，但排除 Canvas / 写作块 / 文档编辑器（中英文标签都排）
+    '[contenteditable="true"][role="textbox"]:not([aria-label*="写作"]):not([aria-label*="Write"]):not([aria-label*="write"]):not([aria-label*="编辑"]):not([aria-label*="Edit"]):not([aria-label*="画布"]):not([aria-label*="Canvas"])',
+].join(", ");
+
 // CDP 单次 DOM 读取的硬超时。CDP 断连后 Playwright 的 innerText / isEnabled / count /
 // evaluate / isVisible 可能**永不返回**（2026-10-23 实测：MVP5 完成后 product-facts 桥接
 // 在此静默挂 20 分钟，日志冻结、下游产物缺失）。逐调用设上限后，坏连接会在 ~15s 内
@@ -351,15 +373,15 @@ export class ChatGptAdapter {
         if (!page || page.isClosed()) {
             return;
         }
-        await page.evaluate(() => {
-            const composer = document.querySelector('#prompt-textarea, textarea[data-testid="prompt-textarea"], [contenteditable="true"][data-lexical-editor="true"], div[contenteditable="true"][role="textbox"], [contenteditable="true"][aria-label*="ChatGPT"]');
+        await page.evaluate((sel) => {
+            const composer = document.querySelector(sel);
             if (!composer || !(composer.textContent || "").trim()) {
                 return;
             }
             composer.focus();
             composer.innerHTML = "";
             composer.dispatchEvent(new Event("input", { bubbles: true }));
-        }).catch(() => {});
+        }, COMPOSER_SELECTOR).catch(() => {});
     }
     async createBlankChat() {
         // 新对话：此前会话里上传的产品图不在上下文内，必须重新上传
@@ -473,7 +495,7 @@ export class ChatGptAdapter {
      *   attached=false → 本条消息不带图（同一会话早已上传过同一批图）
      * 调用方据此决定 Prompt 文案：附件在「本条消息」还是「本对话历史」。
      */
-    async uploadImages(paths) {
+    async uploadImages(paths, options = {}) {
         if (!Array.isArray(paths) || paths.length === 0) {
             throw new Error("没有可上传的产品图片");
         }
@@ -488,8 +510,10 @@ export class ChatGptAdapter {
         const page = await this.requirePage();
         // 上一次中断可能已把同一批图片留在新对话的 composer 中。先复用可见附件，
         // 绝不能再 setInputFiles，否则 ChatGPT 会拦截并弹出“你已上传过此文件”。
+        // skipComposerReuse：本次要追加的是**另一组**图片（如参考风格图），
+        // composer 里已有的产品图数量会 >= 本组数量，按旧逻辑会误判「可复用」而完全不传。
         const existingAttachmentCount = await this.composerAttachmentCount(page);
-        if (existingAttachmentCount >= paths.length) {
+        if (!options.skipComposerReuse && existingAttachmentCount >= paths.length) {
             console.warn(`[chatgpt] composer 已有 ${existingAttachmentCount} 个附件（本次需要 ${paths.length}），复用现有附件，不重复上传`);
             this._uploadedImagesSignature = signature;
             return { attached: true, reason: "composer-reuse" };
@@ -982,35 +1006,46 @@ export class ChatGptAdapter {
     // 非致命：任何一步失败只告警不阻断发送（沿用原设计），但会把实际状态写进日志便于排查。
     // desired: { model?, reasoning? } —— 不传则用全局 CHATGPT_MODEL / CHATGPT_REASONING。
     async ensureChatGptModelAndReasoning(page, desired) {
-        const modelTarget = (desired?.model || CHATGPT_MODEL || "GPT-5.6 Sol").toString().trim();
+        // 有序候选链：任务显式指定的模型排最前，其后跟全局候选链（去重）
+        const desiredModel = (desired?.model || "").toString().trim();
+        const chain = (desiredModel
+            ? [desiredModel, ...CHATGPT_MODEL_CHAIN.filter((m) => m !== desiredModel)]
+            : CHATGPT_MODEL_CHAIN.slice());
         const reasonTarget = this._normalizeReasoning(desired?.reasoning || CHATGPT_REASONING || "高");
         try {
             const url = page.url();
             // 用对话 ID 判重（URL 常带变化的 query/hash，用完整 URL 会失效 → 每次发送都重弹菜单）
             const convId = (url.match(/\/c\/([a-z0-9-]+)/i) || [])[1]
                 || (/\/temporary-chat/i.test(url) ? "temporary" : (url || "default"));
-            if (this._ensuredModelConv === convId && this._ensuredModel === modelTarget && this._ensuredReasoning === reasonTarget) {
+            // 命中缓存的键必须是「实际生效的候选」，不是链首；否则落链尾时每次都要重开菜单
+            if (this._ensuredModelConv === convId
+                && this._ensuredModel && chain.includes(this._ensuredModel)
+                && this._ensuredReasoning === reasonTarget) {
                 return;
             }
             const trigger = page.locator('button[aria-label="选择 ChatGPT 模型"]').first();
             const hasNewUi = (await trigger.count().catch(() => 0)) > 0;
             if (!hasNewUi) {
                 console.warn("[chatgpt] 未找到新版模型按钮，回退旧版 composer-pill 逻辑");
-                await this._ensureLegacyComposerPill(page, { model: modelTarget, reasoning: reasonTarget });
+                await this._ensureLegacyComposerPill(page, { model: chain[0], reasoning: reasonTarget });
                 return;
             }
-            // 快判：按钮文案形如「思考强度5.6 高」（模型短标 + 强度），符合目标就不弹菜单（避免 composer 抖动）
+            // 快判：按钮文案形如「思考强度5.6 高」（模型短标 + 强度），符合目标就不弹菜单（避免 composer 抖动）。
+            // 用「上次实际生效的候选」比短标，首次才用链首。
+            const probeModel = (this._ensuredModelConv === convId && this._ensuredModel)
+                ? this._ensuredModel
+                : chain[0];
             const before = ((await trigger.textContent().catch(() => "")) || "").trim();
-            const state = this._parseComposerPill(before, modelTarget);
+            const state = this._parseComposerPill(before, probeModel);
             if (state.modelOk && state.reason === reasonTarget) {
                 this._ensuredModelConv = convId;
-                this._ensuredModel = modelTarget;
+                this._ensuredModel = probeModel;
                 this._ensuredReasoning = reasonTarget;
                 this._ensuredModelOk = true;
-                console.log(`[chatgpt] 模型/推理已符合「${before}」，跳过切换（对话 ${convId}）`);
+                console.log(`[chatgpt] 模型/推理已符合「${before}」（候选 ${probeModel}），跳过切换（对话 ${convId}）`);
                 return;
             }
-            const modelDone = await this._alignChatGptModel(page, modelTarget);
+            const modelRes = await this._alignChatGptModel(page, chain);
             const reasonDone = await this._alignChatGptReasoning(page, reasonTarget);
             await page.keyboard.press("Escape").catch(() => {});
             await page.waitForTimeout(300);
@@ -1018,15 +1053,49 @@ export class ChatGptAdapter {
             // composer 按钮文案只作日志参考 —— GPT-6 这类模型按钮上不显示短标，
             // 用文案判定会把「已切换成功」误报成「未确认」。
             const after = ((await trigger.textContent().catch(() => "")) || "").trim();
-            const allOk = modelDone && reasonDone;
-            this._ensuredModelConv = convId;
-            this._ensuredModel = modelTarget;
-            this._ensuredReasoning = reasonTarget;
-            this._ensuredModelOk = allOk;
+            const allOk = modelRes.ok && reasonDone;
+            // ⚠ 只有全成功才写缓存。原实现失败也写，等于把「没切成」记成「已对齐」，
+            // 后续同对话全部走快判跳过 —— 这是假成功的另一半。
+            if (allOk) {
+                this._ensuredModelConv = convId;
+                this._ensuredModel = modelRes.model;
+                this._ensuredReasoning = reasonTarget;
+                this._ensuredModelOk = true;
+            } else {
+                this._ensuredModelConv = null;
+                this._ensuredModel = null;
+                this._ensuredReasoning = null;
+                this._ensuredModelOk = false;
+            }
             console.log(`[chatgpt] 模型对齐${allOk ? "成功" : "未完全确认"} → 「${after || "?"}」`
-                + `（模型 ${modelTarget}${modelDone ? "✓" : "✗"} / 强度 ${reasonTarget}${reasonDone ? "✓" : "✗"}，对话 ${convId}）`);
+                + `（模型 ${modelRes.ok ? modelRes.matchedText : `✗${modelRes.error}`} / 强度 ${reasonTarget}${reasonDone ? "✓" : "✗"}，对话 ${convId}）`);
+
+            if (!modelRes.ok) {
+                const err = new Error(
+                    `${modelRes.error}: ${modelRes.detail}｜当前菜单原文：`
+                    + (modelRes.menu || []).map((m) => m.text).join(" | "),
+                );
+                err.code = modelRes.error;
+                err.detail = modelRes.detail;
+                err.menu = (modelRes.menu || []).map((m) => m.text);
+                throw err;
+            }
         }
         catch (e) {
+            // G3：模型不可用 / 切换未确认 → 严格模式下硬失败，绝不带错模型继续跑。
+            const hardCodes = [
+                "MODEL_UNAVAILABLE",
+                "AMBIGUOUS_MODEL",
+                "MODEL_SWITCH_UNCONFIRMED",
+                "MODEL_MENU_EMPTY",
+                "MODEL_MENU_UNOPENED",
+            ];
+            if (e?.code && hardCodes.includes(e.code)) {
+                if (CHATGPT_MODEL_STRICT) throw e;
+                this._modelFallback = { code: e.code, detail: e.message, at: new Date().toISOString() };
+                console.warn("[chatgpt] 模型不可用，但 CHATGPT_MODEL_STRICT=0 → 降级继续（产物质量不可保证）：", e.message);
+                return;
+            }
             console.warn("[chatgpt] 设置模型/推理档位失败（非致命，继续发送）：", e?.message || e);
         }
     }
@@ -1047,11 +1116,26 @@ export class ChatGptAdapter {
         return m ? m[1] : "";
     }
 
+    // 数字短标按「数字边界」比较：'5.6' 里的 '6' 绝不能当成模型 6。
+    // 这是 G1（短标误判）的根因修复——原实现用裸 includes，导致
+    // 目标 GPT-6 与界面 5.6 互相误判为匹配，切换被跳过却报「已符合」。
+    _numberTokenMatches(text, tag) {
+        const t = (text || "").replace(/\s+/g, "");
+        const g = (tag || "").trim();
+        if (!t || !g) return false;
+        const esc = g.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        try {
+            return new RegExp(`(?<![\\d.])${esc}(?![\\d.])`).test(t);
+        } catch {
+            return false;
+        }
+    }
+
     // 读 composer 按钮文案判断当前状态；文案形如「思考强度5.6 高」或「思考强度高」（无短标时）
     _parseComposerPill(text, modelTarget) {
         const s = (text || "").replace(/\s+/g, "");
         const tag = this._modelTag(modelTarget);
-        const modelOk = !!tag && s.includes(tag);
+        const modelOk = this._numberTokenMatches(s, tag);
         const reason = /即时/.test(s) ? "即时" : /中/.test(s) ? "中" : /高/.test(s) ? "高" : "";
         return { modelOk, reason, raw: s };
     }
@@ -1101,11 +1185,17 @@ export class ChatGptAdapter {
         return await this._isModelMenuOpen(page);
     }
 
-    // 对齐模型（不涉及强度）：切到模型视图 → 点目标项 → 回读 aria-checked
-    async _alignChatGptModel(page, modelTarget) {
+    // 对齐模型（不涉及强度）：切到模型视图 → 按候选链选目标项 → 回读 aria-checked。
+    // 返回 { ok, model, error?, menu }，绝不以 false 静默了事（G3）。
+    async _alignChatGptModel(page, modelTargets) {
+        const chain = (Array.isArray(modelTargets) ? modelTargets : [modelTargets])
+            .map((s) => (s ?? "").toString().trim())
+            .filter(Boolean);
+        if (!chain.length) {
+            return { ok: false, error: "MODEL_UNAVAILABLE", detail: "候选链为空", menu: [] };
+        }
         if (!(await this._openChatGptModelMenu(page))) {
-            console.warn("[chatgpt] 模型弹层未打开，跳过模型切换");
-            return false;
+            return { ok: false, error: "MODEL_MENU_UNOPENED", detail: "模型弹层未打开", menu: [] };
         }
         // 强度视图在前 → 模型项被轨道遮挡，先切到「选择模型」视图
         if (!(await this._isHittable(page, '[role="menuitemradio"]'))) {
@@ -1118,32 +1208,40 @@ export class ChatGptAdapter {
         const radios = page.locator('[role="menuitemradio"]');
         const n = await radios.count().catch(() => 0);
         if (!n) {
-            console.warn("[chatgpt] 模型列表为空，跳过模型切换");
-            return false;
+            return { ok: false, error: "MODEL_MENU_EMPTY", detail: "模型列表为空", menu: [] };
         }
-        let targetIdx = -1;
+        // 一次性读完菜单（项数 × 2 次属性读取），后续纯离线匹配，避免边点边读
+        const menu = [];
         let checkedIdx = -1;
-        const seen = [];
         for (let i = 0; i < n; i += 1) {
-            const t = ((await radios.nth(i).textContent().catch(() => "")) || "").trim();
+            const text = ((await radios.nth(i).textContent().catch(() => "")) || "").trim();
             const checked = await radios.nth(i).getAttribute("aria-checked").catch(() => "");
-            seen.push(`${t}${checked === "true" ? "*" : ""}`);
             if (checked === "true") checkedIdx = i;
-            if (targetIdx < 0 && this._modelTextMatches(t, modelTarget)) targetIdx = i;
+            menu.push({ i, text, checked: checked === "true" });
         }
-        if (targetIdx < 0) {
-            console.warn(`[chatgpt] 模型「${modelTarget}」不在列表 [${seen.join(", ")}]，保持当前模型`);
-            return false;
+        const menuText = menu.map((m) => `${m.text}${m.checked ? "*" : ""}`).join(" | ");
+
+        const resolved = this._resolveModelIndex(menu, chain);
+        if (resolved.error) {
+            // 关键：把菜单原文打出来，人工能一眼看出该配哪个完整模型名
+            console.warn(`[chatgpt] ${resolved.error}：${resolved.detail}`);
+            console.warn(`[chatgpt] 当前菜单原文（* = 已选中）：${menuText}`);
+            return { ok: false, error: resolved.error, detail: resolved.detail, menu };
         }
-        if (targetIdx === checkedIdx) {
-            console.log(`[chatgpt] 模型已是「${modelTarget}」`);
-            return true;
+        const { idx, model, level } = resolved;
+        if (idx === checkedIdx) {
+            console.log(`[chatgpt] 模型已是「${menu[idx].text}」（候选 ${model} / ${level}）`);
+            return { ok: true, model, level, menu, matchedText: menu[idx].text };
         }
-        await radios.nth(targetIdx).click({ timeout: 6000 }).catch((e) => console.warn("[chatgpt] 点击模型项失败：", e?.message || e));
+        await radios.nth(idx).click({ timeout: 6000 }).catch((e) => console.warn("[chatgpt] 点击模型项失败：", e?.message || e));
         await page.waitForTimeout(900);
-        const ok = (await radios.nth(targetIdx).getAttribute("aria-checked").catch(() => "")) === "true";
-        if (!ok) console.warn(`[chatgpt] 模型「${modelTarget}」切换未确认（列表 [${seen.join(", ")}]）`);
-        return ok;
+        const ok = (await radios.nth(idx).getAttribute("aria-checked").catch(() => "")) === "true";
+        if (!ok) {
+            console.warn(`[chatgpt] 模型切换未确认：目标「${menu[idx].text}」；菜单原文：${menuText}`);
+            return { ok: false, error: "MODEL_SWITCH_UNCONFIRMED", detail: `点击「${menu[idx].text}」后 aria-checked 未变 true`, menu };
+        }
+        console.log(`[chatgpt] 模型已切换 → 「${menu[idx].text}」（候选 ${model} / ${level}）`);
+        return { ok: true, model, level, menu, matchedText: menu[idx].text };
     }
 
     // 对齐强度：切到强度视图 → 按目标档位点滑轨对应 x 比例 → 回读「第 N 项」
@@ -1187,13 +1285,56 @@ export class ChatGptAdapter {
         return after === reasonTarget;
     }
 
-    // 模型项文本匹配：归一化后双向包含（容忍 "GPT-5.6 Sol 高级" 之类的后缀）
+    // 模型名归一化：小写 + 去全部空白
+    _normModelText(s) {
+        return (s ?? "").toString().toLowerCase().replace(/\s+/g, "").trim();
+    }
+
+    // 是否是「不同模型」的身份标识（出现即不能靠前缀吸收）
+    _hasModelIdentityToken(s) {
+        const TOKENS = ["sol", "luna", "astra", "terra", "pro", "max", "ultra", "mini"];
+        return TOKENS.some((k) => s.includes(k));
+    }
+
+    // 模型名匹配（G2 修复，替换原「双向包含」）：
+    //   exact   —— 归一化后全等，唯一可信
+    //   variant —— 目标不带变体名时补全默认变体（GPT-6 → GPT-6 Sol，Plus/Pro 默认）
+    //   suffix  —— 菜单项 = 目标 + 纯修饰后缀（如「高级」「new」），不含身份词
+    // 绝不接受「双向包含」：那会让 GPT-6 命中 GPT-6 Astra / Luna / 6.1 且不报错。
     _modelTextMatches(text, target) {
-        const norm = (s) => (s ?? "").toString().toLowerCase().replace(/\s+/g, "");
-        const t = norm(text);
-        const g = norm(target);
-        if (!t || !g) return false;
-        return t === g || t.includes(g) || g.includes(t);
+        const t = this._normModelText(text);
+        const g = this._normModelText(target);
+        if (!t || !g) return null;
+        if (t === g) return "exact";
+        if (!this._hasModelIdentityToken(g) && t === `${g}sol`) return "variant";
+        if (t.startsWith(g)) {
+            const rest = t.slice(g.length);
+            if (rest && !this._hasModelIdentityToken(rest)) return "suffix";
+        }
+        return null;
+    }
+
+    // 把有序候选链解析成菜单里的目标索引。
+    // 返回 { idx, model, level } 或 { error, menu }。多候选命中同一项时 exact 优先；
+    // 多个非 exact 命中视为歧义，不猜（猜错会选中 Astra/Luna 且不报错）。
+    _resolveModelIndex(menu, chain) {
+        for (const cand of chain) {
+            const hits = [];
+            menu.forEach((m, i) => {
+                const level = this._modelTextMatches(m.text, cand);
+                if (level) hits.push({ i, level, text: m.text });
+            });
+            if (!hits.length) continue;
+            const exact = hits.filter((h) => h.level === "exact");
+            if (exact.length === 1) return { idx: exact[0].i, model: cand, level: "exact" };
+            if (hits.length === 1) return { idx: hits[0].i, model: cand, level: hits[0].level };
+            return {
+                error: `AMBIGUOUS_MODEL`,
+                detail: `候选「${cand}」在菜单命中 ${hits.length} 项：[${hits.map((h) => h.text).join(" | ")}]`,
+                menu,
+            };
+        }
+        return { error: "MODEL_UNAVAILABLE", detail: `候选链 [${chain.join(" → ")}] 均不在菜单`, menu };
     }
 
     async sendPromptOnce(prompt, fingerprint, opts) {
@@ -1236,17 +1377,17 @@ export class ChatGptAdapter {
                 if (writeResult?.submitted) {
                     return assistantCount;
                 }
-                const wrote = await this._withDeadline(page.evaluate((p) => {
-                    const el = document.querySelector('#prompt-textarea, textarea[data-testid="prompt-textarea"], [contenteditable="true"][data-lexical-editor="true"], div[contenteditable="true"][role="textbox"], [contenteditable="true"][aria-label*="ChatGPT"]');
+                const wrote = await this._withDeadline(page.evaluate((arg) => {
+                    const el = document.querySelector(arg.sel);
                     if (!el) return false;
                     const t = (el.textContent || "") + (el.innerText || "");
-                    if (t.includes(p.slice(0, Math.min(16, p.length))))
+                    if (t.includes(arg.p.slice(0, Math.min(16, arg.p.length))))
                         return true;
                     // 长 Prompt 可能被空白折叠，长度占比达标同样视为已写入
                     const norm = (v) => (v || "").replace(/\s+/g, "");
-                    const wanted = norm(p);
+                    const wanted = norm(arg.p);
                     return wanted.length > 0 && norm(t).length >= wanted.length * 0.95;
-                }, prompt).catch(() => false), CDP_DOM_READ_TIMEOUT_MS, "校验 composer 文本");
+                }, { p: prompt, sel: COMPOSER_SELECTOR }).catch(() => false), CDP_DOM_READ_TIMEOUT_MS, "校验 composer 文本");
                 if (wrote)
                     break;
                 console.warn(`[chatgpt] composer 文本未写入，第 ${writeAttempt + 1} 次重试聚焦+插入`);
@@ -1626,12 +1767,30 @@ export class ChatGptAdapter {
         let timeoutId;
         try {
             const result = await Promise.race([
-                page.evaluate(async ({ value, chunk, maxAttempts }) => {
-                    const editor = document.querySelector('#prompt-textarea, textarea[data-testid="prompt-textarea"], [contenteditable="true"][data-lexical-editor="true"], div[contenteditable="true"][role="textbox"], [contenteditable="true"][aria-label*="ChatGPT"]');
+                page.evaluate(async ({ value, chunk, maxAttempts, sel }) => {
+                    const editor = document.querySelector(sel);
                     if (!editor) {
                         return { written: false, submitted: false, reason: "找不到 ChatGPT 编辑器" };
                     }
+                    // 防呆（2026-10-24）：Canvas/写作块文档编辑器同样带 role="textbox"，
+                    // 实测高度可达数千 px。一旦选择器退化命中它，写入会极慢并卡死，
+                    // 而下面的校验又从同一个元素读回 → "自证成功"。这里直接拒绝写入，
+                    // 让上层重试/报错，而不是静默写错地方。
+                    const viewportH = window.innerHeight || 800;
+                    const box = editor.getBoundingClientRect();
+                    if (box.height > viewportH * 0.7) {
+                        return {
+                            written: false,
+                            submitted: false,
+                            reason: `选中的编辑器疑似文档/画布编辑器（高 ${Math.round(box.height)}px，视口 ${viewportH}px），已拒绝写入`,
+                        };
+                    }
                     editor.focus();
+                    // 诊断：页面若存在写作块/文档编辑器（与 composer 同为 role=textbox），
+                    // 记录一笔，便于排查"回复落进文档区"这类环境异常；不阻断发送。
+                    const docEditorPresent = !!document.querySelector(
+                        '[contenteditable="true"][aria-label*="写作"], [contenteditable="true"][aria-label*="Write"]'
+                    );
                     if (editor instanceof HTMLTextAreaElement) {
                         const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
                         descriptor?.set?.call(editor, value);
@@ -1664,19 +1823,19 @@ export class ChatGptAdapter {
                             const send = document.querySelector('#composer-submit-button[data-testid="send-button"], button[data-testid="send-button"], button[aria-label="发送"], button[aria-label="Send"], button[aria-label="Send message"]');
                             if (enough && send instanceof HTMLButtonElement && !send.disabled) {
                                 send.click();
-                                resolve({ written: true, submitted: true });
+                                resolve({ written: true, submitted: true, docEditorPresent });
                                 return;
                             }
                             attempts += 1;
                             if (attempts >= maxAttempts) {
-                                resolve({ written: enough, submitted: false, reason: `发送按钮未在 ${Math.round(maxAttempts * 0.05)} 秒内就绪` });
+                                resolve({ written: enough, submitted: false, docEditorPresent, reason: `发送按钮未在 ${Math.round(maxAttempts * 0.05)} 秒内就绪` });
                                 return;
                             }
                             window.setTimeout(submit, 50);
                         };
                         window.setTimeout(submit, 0);
                     });
-                }, { value: prompt, chunk: COMPOSER_INSERT_CHUNK, maxAttempts: COMPOSER_SUBMIT_MAX_ATTEMPTS }),
+                }, { value: prompt, chunk: COMPOSER_INSERT_CHUNK, maxAttempts: COMPOSER_SUBMIT_MAX_ATTEMPTS, sel: COMPOSER_SELECTOR }),
                 new Promise((_, reject) => {
                     timeoutId = setTimeout(() => {
                         const error = new Error(`ChatGPT 编辑器写入超时（>${COMPOSER_INSERT_TIMEOUT_MS / 1000}s）`);
@@ -1691,6 +1850,11 @@ export class ChatGptAdapter {
                 throw error;
             }
             console.log(`[chatgpt] composer 写入完成：${prompt.length} 字符，submitted=${result.submitted}`);
+            if (result.docEditorPresent) {
+                console.warn("[chatgpt] ⚠️ 页面存在写作块/文档编辑器（aria-label 含「写作」）。"
+                    + "prompt 已确认只写入对话输入框；但该编辑器会占满正文区，可能干扰回复读取，"
+                    + "必要时在 ChatGPT 页面手动关闭它再跑。");
+            }
             // 关键：必须回传结果。sendPromptOnce 依赖 submitted 判断是否已在同一 renderer
             // 任务内提交；此前漏了 return，写入成功后反而抛
             // "Cannot read properties of undefined (reading 'submitted')"。
@@ -1701,9 +1865,14 @@ export class ChatGptAdapter {
         }
     }
     async clearComposerText(page) {
-        return page.evaluate(() => {
-            const editor = document.querySelector('#prompt-textarea, textarea[data-testid="prompt-textarea"], [contenteditable="true"][data-lexical-editor="true"], div[contenteditable="true"][role="textbox"], [contenteditable="true"][aria-label*="ChatGPT"]');
+        return page.evaluate((sel) => {
+            const editor = document.querySelector(sel);
             if (!editor) {
+                return false;
+            }
+            // 同 insertComposerText 的防呆：绝不尝试清空文档/画布编辑器（会清掉用户稿件且极慢）
+            const viewportH = window.innerHeight || 800;
+            if (editor.getBoundingClientRect().height > viewportH * 0.7) {
                 return false;
             }
             const current = editor.innerText || editor.textContent || "";
@@ -1722,7 +1891,7 @@ export class ChatGptAdapter {
             }
             editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "deleteContentBackward", data: null }));
             return !(editor.innerText || editor.textContent || "").trim();
-        });
+        }, COMPOSER_SELECTOR);
     }
     async resetStuckComposerConnection() {
         const browser = this.browser;
@@ -1874,9 +2043,9 @@ export class ChatGptAdapter {
         throw new Error("普通 Chrome 启动超时，请检查是否被系统阻止");
     }
     composer(page) {
-        return page
-            .locator('#prompt-textarea, textarea[data-testid="prompt-textarea"], [contenteditable="true"][data-lexical-editor="true"], div[contenteditable="true"][role="textbox"], [contenteditable="true"][aria-label*="ChatGPT"]')
-            .first();
+        // 统一走 COMPOSER_SELECTOR（见文件头注释）：新版页面有两个 contenteditable[role=textbox]，
+        // 旧的裸 `div[contenteditable="true"][role="textbox"]` 会先命中「开始写作」文档编辑器。
+        return page.locator(COMPOSER_SELECTOR).first();
     }
     sendButton(page) {
         // 2026-10 新版 UI 去掉了 composer-submit-button / data-testid="send-button"，
@@ -2235,8 +2404,8 @@ export class ChatGptAdapter {
         return this.attachmentCountFromSignals(signals);
     }
     async composerAttachmentSignals(page) {
-        return await page.evaluate(() => {
-            const composer = document.querySelector('#prompt-textarea, textarea[data-testid="prompt-textarea"], [contenteditable="true"][data-lexical-editor="true"], div[contenteditable="true"][role="textbox"], [contenteditable="true"][aria-label*="ChatGPT"]');
+        return await page.evaluate((sel) => {
+            const composer = document.querySelector(sel);
             if (!composer)
                 return { scope: "missing-composer", removeControls: 0, previewRoots: 0, previewImages: 0 };
             let scope = composer.closest('form');
@@ -2269,7 +2438,7 @@ export class ChatGptAdapter {
                 // 可见图片可覆盖该版本，同时不会把对话历史中的图片误算进去。
                 previewImages: count('.composer-attachments img, [data-testid="file-preview"] img, [data-testid="image-preview"] img, button:has(img) img, img[src^="data:image/"], img[src^="blob:"]')
             };
-        }).catch(() => ({ scope: "signal-error", removeControls: 0, previewRoots: 0, previewImages: 0 }));
+        }, COMPOSER_SELECTOR).catch(() => ({ scope: "signal-error", removeControls: 0, previewRoots: 0, previewImages: 0 }));
     }
 }
 //# sourceMappingURL=chatgpt-adapter.js.map

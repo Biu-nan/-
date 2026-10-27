@@ -1,0 +1,21 @@
+{
+  "cdpUrl": "http://127.0.0.1:9223",
+  "outputDir": "F:/yikuaborder-deploy/纳物采购最新数据",
+  "projectUrl": "https://chatgpt.com/g/g-p-6aa8b185e8208191866c4d85dc8d41cf/project",
+  "conversationUrl": "https://chatgpt.com/g/g-p-6aa8b185e8208191866c4d85dc8d41cf-na-wu-su-mai-tong/c/6adaed24-f918-83ee-8119-0125ca40cdec",
+  "conversationName": "纳物采购助手",
+  "projectName": "纳物-速卖通",
+  "newChatMode": "auto",
+  "rotateOnNextRun": false,
+  "promptTemplate": "今天是 {date}。附件是最新数据：纳物 1店 / 2店 实时库存明细（品仓维度），店小秘「仓库清单 / 商品管理 / 自营仓库出入记录」。请按本项目既定的采购逻辑，生成今天的采购表格。",
+  "uploadPrefixes": [
+    "nawu-1店-inventory-latest",
+    "nawu-2店-inventory-latest",
+    "dxm-warehouseProduct-latest",
+    "dxm-product-latest",
+    "dxm-entryexit-latest"
+  ],
+  "attachmentTimeoutMs": 150000,
+  "pageReadyWaitMs": 4000,
+  "note": "每天 11:00 由 Windows 任务计划调用 awu-send-to-chatgpt.cjs：先重跑采集，再把最新表格作为附件发进「纳物-速卖通」项目。uploadPrefixes 里每个前缀取最新（.xlsx 优先，其次 .locked.xlsx）。对话达长度上限时：newChatMode=auto 会按页面提示自动在项目内新开；rotateOnNextRun=true 表示下次运行无条件新开一个对话（用完自动置回 false）；也可用 --new-chat 临时强制新开。新开成功后 conversationUrl 由脚本自动回写。"
+}
