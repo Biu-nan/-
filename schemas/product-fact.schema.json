@@ -25,8 +25,7 @@
     },
     "category": {
       "type": "string",
-      "description": "速卖通产品分类（托管页 combobox 选择值，如 服饰配件>内衣>乳贴 或英文类目名）",
-      "minLength": 1
+      "description": "速卖通产品分类（托管页 combobox 选择值，如 服饰配件>内衣>乳贴 或英文类目名）。允许空字符串=尚未分类：schema 只判结构合法性，业务完整性由 listing-agent 的 validate-stage 通过 MISSING_FIELD 单独报告。2026-10-27 去掉 minLength:1 —— 实测 137 个真实样本中 100 个是空串，属正常中间状态，原 minLength 把业务完整性混进了结构校验，制造 100 条误报 SCHEMA_INVALID。"
     },
     "brand": {
       "type": ["string", "null"],
@@ -119,8 +118,8 @@
       }
     },
     "unit": {
-      "type": "string",
-      "description": "计件单位，如 件/个(piece/pieces)"
+      "type": ["string", "null"],
+      "description": "计件单位，如 件/个(piece/pieces)。null=尚未确定：2026-10-27 允许 null —— 实测 137 个样本中 132 个为 null，而原 schema 只允许 string，制造 127 条 type 误报。是否填了单位由 validate-stage 的 MISSING_FIELD 判定，不在这里判。"
     },
     "originalBox": {
       "type": ["boolean", "null"],
@@ -174,7 +173,7 @@
       "additionalProperties": false,
       "required": ["source", "confirmed", "createdAt", "updatedAt"],
       "properties": {
-        "source": { "enum": ["ai_extracted", "human_edited"] },
+        "source": { "enum": ["ai_extracted", "human_edited", "local_fallback", "backfilled_from_listing_artifacts"], "description": "事实来源。2026-10-27 补齐两个真实存在但此前未列入的值：local_fallback（本地规则兜底生成，实测 97 例，占比最高）、backfilled_from_listing_artifacts（从 Listing 产物回填，15 例）。原枚举只有 ai_extracted/human_edited，导致 112 条合法数据被判 enum 违规。" },
         "confirmed": { "type": "boolean" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" },
