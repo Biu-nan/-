@@ -1,0 +1,10 @@
+{
+  "taskId": "coord-20261025-codex-workbuddy-001",
+  "targetAgent": "workbuddy",
+  "delivery": "QUEUED",
+  "acknowledged": false,
+  "transport": "existing POST /api/agent/intake-task + queue file readback",
+  "queuePath": "F:/yikuaborder-deploy/.agent/WORKBUDDY_QUEUE.md",
+  "expectedAckPath": "F:/yikuaborder-deploy/docs/coordination/WORKBUDDY_ACK_2026-10-25.md",
+  "verifiedAt": "2026-10-25T08:26:50.296Z"
+}

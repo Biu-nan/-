@@ -1,0 +1,167 @@
+{
+  "schema": "workbuddy-brief-receipt/v1",
+  "requestId": "ceo-entry-read-20261026-1510",
+  "actor": "workbuddy",
+  "executedAt": "2026-10-26T15:18:31.773+08:00",
+  "executedAtUtc": "2026-10-26T07:18:31.773Z",
+  "toolUsed": "bash (Git Bash on Windows) -> node v22.22.2",
+  "commandOrOperation": "node \"F:/yikuaborder-deploy/.worktrees/ceo-read-brief/scripts/ceo-read-brief.mjs\" > data/ceo-brief-runs/workbuddy-brief-20261026.json 2> ...stderr.log",
+  "cwd": "F:/yikuaborder-deploy/.worktrees/ceo-read-brief",
+  "entryPoint": {
+    "kind": "local CLI read-only bridge",
+    "scriptPath": "F:/yikuaborder-deploy/.worktrees/ceo-read-brief/scripts/ceo-read-brief.mjs",
+    "modulePath": "F:/yikuaborder-deploy/.worktrees/ceo-read-brief/dist/src/ceo-read-brief.js",
+    "worktreeBranch": "upgrade/ceo-read-brief-20261026",
+    "worktreeHead": "43a85ac",
+    "upstreamUrl": "http://127.0.0.1:3000/api/system/state",
+    "httpMethod": "GET",
+    "note": "Code inspection: readCeoBrief performs a single GET with redirect:error and 8s timeout; no POST/PUT/DELETE, no task execution, no platform call."
+  },
+  "exitCode": 0,
+  "schema": "ceo-brief/v1",
+  "readOnly": true,
+  "connection": "VERIFIED",
+  "observedAt": "2026-10-26T07:18:31.773Z",
+  "sourceGeneratedAt": "2026-10-26T07:18:31.904Z",
+  "dataHealth": "DEGRADED",
+  "sourceCount": 7,
+  "sourcesOkCount": 7,
+  "unitCount": 5,
+  "allUnitsUnverified": true,
+  "resultSha256": "9aa42f3f1aa2c077cb209707bdebf6b8f70d06e709495aa4a6a00b4f898e053c",
+  "resultSha256Scope": "raw stdout UTF-8 bytes exactly as written by the CLI (single line JSON + trailing newline, 7732 bytes); not reformatted",
+  "rawResultPath": "data/ceo-brief-runs/workbuddy-brief-20261026.json",
+  "rawResultBytes": 7732,
+  "rawResultGitignored": true,
+  "rawResultGitignoreEvidence": ".gitignore:7:data/",
+  "status": "VERIFIED",
+  "failureReason": null,
+  "stderrBytes": 0,
+
+  "observedSummary": {
+    "byState": { "DRAFT": 0, "READY": 1, "RUNNING": 1, "BLOCKED_NEEDS_HUMAN": 2, "DONE": 0, "FAILED": 1, "CANCELLED": 0 },
+    "gateCount": 2,
+    "anomalyCount": 3,
+    "attentionRequired": 3,
+    "archivedCount": 7,
+    "summaryHealthy": false,
+    "summaryIsSourceProjection": true,
+    "caveatCount": 7
+  },
+
+  "observedUnits": [
+    { "unitId": "run:current", "kind": "LISTING_PIPELINE", "rawState": "READY", "businessStatus": "READY", "verification": "UNVERIFIED", "stateBasis": "stage=READY_FOR_LOGIN 为就绪待启动态，非阻塞" },
+    { "unitId": "collect-1792848439070", "kind": "COLLECT_UPLOAD", "rawState": "FAILED", "businessStatus": "FAILED", "verification": "UNVERIFIED", "stateBasis": "进度 100% 但 success=0 / failed=1" },
+    { "unitId": "charm_job_d4ed7508f6244167a9", "kind": "LISTING", "rawState": "BLOCKED_NEEDS_HUMAN", "businessStatus": "BLOCKED_NEEDS_HUMAN", "verification": "UNVERIFIED", "stateBasis": "原始 status=REVIEW_REQUIRED" },
+    { "unitId": "charm_job_f1a349ae5e46460a80", "kind": "LISTING", "rawState": "BLOCKED_NEEDS_HUMAN", "businessStatus": "BLOCKED_NEEDS_HUMAN", "verification": "UNVERIFIED", "stateBasis": "原始 status=NEEDS_INPUT" },
+    { "unitId": "charm_job_435d0a9a56244377b8", "kind": "LISTING", "rawState": "RUNNING", "businessStatus": "RUNNING", "verification": "UNVERIFIED", "stateBasis": "原始 status=PUBLISHING" }
+  ],
+
+  "observedGates": [
+    { "gateId": "gate:charm_job_d4ed7508f6244167a9", "reason": "FINAL_REVIEW", "needFrom": "human", "blockedSince": "2026-10-25T05:57:48.772Z", "blockedForHours": 25.345, "defaultIfIgnored": "stall" },
+    { "gateId": "gate:charm_job_f1a349ae5e46460a80", "reason": "FACTS_CHECK", "needFrom": "human", "blockedSince": "2026-08-19T02:18:55.091Z", "blockedForHours": 1636.994, "defaultIfIgnored": "stall" }
+  ],
+
+  "dataHealthReason": "DEGRADED although 7/7 sources ok=true, because summary.healthy=false (1 FAILED + 2 BLOCKED + 1 RUNNING unit). Module logic: dataHealth=OK only when all sources ok AND summary.healthy. DEGRADED here reflects unit-level attention, not a failed source read.",
+
+  "requirementChecks": [
+    { "requirement": "schema=ceo-brief/v1", "observed": "ceo-brief/v1", "result": "PASS" },
+    { "requirement": "readOnly=true", "observed": true, "result": "PASS" },
+    { "requirement": "connection reported", "observed": "VERIFIED", "result": "PASS" },
+    { "requirement": "observedAt / sourceGeneratedAt both present", "observed": "2026-10-26T07:18:31.773Z / 2026-10-26T07:18:31.904Z (delta 131ms, same second; sourceGeneratedAt < observedAt by design, both from this call)", "result": "PASS" },
+    { "requirement": "dataHealth present", "observed": "DEGRADED", "result": "PASS" },
+    { "requirement": "sources present", "observed": 7, "result": "PASS" },
+    { "requirement": "gates present", "observed": 2, "result": "PASS" },
+    { "requirement": "units present", "observed": 5, "result": "PASS" },
+    { "requirement": "all units verification=UNVERIFIED", "observed": "5/5 UNVERIFIED", "result": "PASS" },
+    { "requirement": "old raw state DONE should map to businessStatus=PENDING_VERIFICATION", "observed": "NOT EXERCISED this run: byState.DONE=0, so no unit carried rawState=DONE. Mapping exists in dist/src/ceo-read-brief.js (`businessStatus: unit.state === \"DONE\" ? \"PENDING_VERIFICATION\" : unit.state`) but this execution produced no DONE unit to display it.", "result": "NOT_EXERCISED" }
+  ],
+
+  "independentCrossCheck": {
+    "operation": "curl -s --max-time 8 -H 'Accept: application/json' http://127.0.0.1:3000/api/system/state",
+    "httpCode": 200,
+    "bytes": 9124,
+    "responseSha256": "b9e243f875a18869badd8175b378d28999994a40c66b760bb2f2ca8b78e6eddd",
+    "schema": "system-state/v1",
+    "readOnly": true,
+    "generatedAt": "2026-10-26T07:18:46.776Z",
+    "sourceCount": 7,
+    "unitCount": 5,
+    "gateCount": 2,
+    "summaryHealthy": false,
+    "agreementWithBridge": "sourceCount/unitCount/gateCount/healthy identical between the CLI bridge call (15:18:31) and a direct curl (15:18:46). Same upstream projection.",
+    "rawPath": "data/ceo-brief-runs/raw-system-state-20261026.json"
+  },
+
+  "staleSourcesObserved": [
+    { "id": "data_collection", "updatedAt": "2026-06-20T15:26:10.000Z", "ageDays": 127.66 },
+    { "id": "daily_waiting", "updatedAt": "2026-06-23T01:11:44.000Z", "ageDays": 125.25 },
+    { "id": "batch_listing", "updatedAt": "2026-10-24T13:13:05.600Z", "ageDays": 1.75 },
+    { "id": "collect_batch", "updatedAt": "2026-10-24T13:35:24.302Z", "ageDays": 1.74 },
+    { "id": "charm_jobs", "updatedAt": "2026-10-25T07:36:40.685Z", "ageDays": 0.99 }
+  ],
+
+  "whatThisDoesNotProve": [
+    "Does not prove unattended startup, automatic operation, or scheduled execution. This run was a manual single invocation from the WorkBuddy conversation turn.",
+    "Does not prove any store action: no publish, price change, purchase, enrollment, approval release, or cleanup was triggered; the bridge issues one GET only.",
+    "Does not prove platform metric freshness. sourceGeneratedAt is the local projection build time, not a platform data timestamp.",
+    "Does not prove the December target (>=200 paid items/day for store 400370) or monthly net profit CNY12000 ex-quality-penalty. No sales/fund caliber was read in this task.",
+    "Does not prove T2/T3 exist or are executable.",
+    "Does not prove the whole-gateway/multi-store reading path; only the local 3000 projection was read."
+  ],
+
+  "actualModificationBoundary": {
+    "checkedAt": "2026-10-26T15:20+08:00",
+    "repo": "F:/yikuaborder-deploy (original workbench dir)",
+    "branch": "upgrade/reliability-20261024",
+    "head": "bba5dcd",
+    "trackedModifiedFileCount": 8,
+    "trackedModifiedFiles": [
+      { "path": "dist/src/automation-service.js", "insertions": 91, "attribution": "workbuddy", "evidence": "diff contains 9 styleClause/styleReference hunks; mtime 2026-10-26 14:34:57+08:00" },
+      { "path": "dist/src/chatgpt-adapter.js", "insertions": 307, "attribution": "workbuddy (prior turn, not re-audited hunk by hunk this turn)", "evidence": "unchanged since prior turns" },
+      { "path": "dist/src/config.js", "insertions": 27, "attribution": "workbuddy", "evidence": "diff contains 2 styleClause hunks; mtime 2026-10-26 14:33:02+08:00" },
+      { "path": "dist/src/dianxiaomi-adapter.js", "insertions": 126, "attribution": "workbuddy (prior turn, not re-audited hunk by hunk this turn)", "evidence": "unchanged since prior turns" },
+      { "path": "dist/src/server.js", "insertions": 289, "attribution": "workbuddy (prior turn, not re-audited hunk by hunk this turn)", "evidence": "unchanged since prior turns" },
+      { "path": "public/app.js", "insertions": 548, "attribution": "workbuddy (prior turn, not re-audited hunk by hunk this turn)", "evidence": "unchanged since prior turns" },
+      { "path": "public/index.html", "insertions": 53, "attribution": "workbuddy", "evidence": "matched with app.js/styles.css set" },
+      { "path": "public/styles.css", "insertions": 78, "attribution": "workbuddy", "evidence": "matched with app.js/index.html set" }
+    ],
+    "diffStatTotal": "8 files changed, 1424 insertions(+), 95 deletions(-)",
+    "untrackedCodeFilesRelevant": [
+      { "path": "dist/src/style-reference-service.js", "attribution": "workbuddy", "createdAt": "2026-10-26 14:50:13+08:00", "purpose": "参考风格图服务（风格锁定，不引入参考图产品信息）" },
+      { "path": "dist/src/system-state.js", "attribution": "workbuddy", "createdAt": "2026-10-26 11:51:53+08:00", "purpose": "只读 system-state/v1 投影，/api/system/state 的来源" }
+    ],
+    "answersCodexAttributionQuestion": "config.js 与 automation-service.js 本轮的归属已明确：两者属 WorkBuddy 2026-10-26 的「参考风格图（只参考风格、不带入参考图产品信息）」功能改动（config.js 新增 styleClause，automation-service.js 新增 uploadStyleReferencesIfAny / persistStyleLockFromPlanning / 两处 singleImageCommand 注入），配套新文件 dist/src/style-reference-service.js 尚未跟踪。无 Codex 改动混入其中。",
+    "thisTurnWrites": [
+      "docs/coordination/WORKBUDDY_BRIEF_RECEIPT_2026-10-26.json (new)",
+      "data/ceo-brief-runs/workbuddy-brief-20261026.json (raw run output, gitignored)",
+      "data/ceo-brief-runs/workbuddy-brief-20261026.stderr.log (empty stderr, gitignored)",
+      "data/ceo-brief-runs/raw-system-state-20261026.json (cross-check raw, gitignored)"
+    ],
+    "notTouched": [
+      "docs/coordination/README.md",
+      "docs/coordination/CODEX_STATUS.md",
+      "docs/coordination/delivery-receipt.json",
+      "docs/coordination/workbuddy-evidence-index.json",
+      "docs/coordination/WORKBUDDY_ACK_2026-10-25.md",
+      "docs/coordination/WORKBUDDY_ACK_2026-10-26.md",
+      ".agent/STATE.json"
+    ],
+    "noRestart": "Port 3000 listener PID 34120 was not restarted or killed; no service state changed by this task."
+  },
+
+  "environmentEvidence": {
+    "port3000Listener": "0.0.0.0:3000 LISTENING pid=34120",
+    "apiStatusHttpCode": 200,
+    "nodeVersion": "v22.22.2",
+    "clockNote": "executedAt derived from the CLI observedAt (system clock) in Asia/Shanghai; system clock is not evidence of platform data freshness."
+  },
+
+  "notes": [
+    "Read request and state-semantics response before executing; both read in full.",
+    "No Codex historical output was copied; every number above comes from this run's own stdout/hashes.",
+    "Old raw DONE does not equal business done: this run had DONE=0 so the PENDING_VERIFICATION branch was not displayable; the 5 present units are all UNVERIFIED.",
+    "Two long-hanging human gates remain: FINAL_REVIEW 25.345h and FACTS_CHECK 1636.994h. They are shown, not acted on; no notification escalation was performed by this task.",
+    "Evidence index file will be added as a separate note only if Codex asks; this receipt intentionally stays a single new file."
+  ]
+}

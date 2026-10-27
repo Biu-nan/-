@@ -1,0 +1,30 @@
+{
+  "probe": "app-server metadata only; unsandboxed retest",
+  "threadCreated": false,
+  "inferenceRequested": false,
+  "productImagesTransmitted": false,
+  "initializeError": null,
+  "initialized": true,
+  "serverInfo": {
+    "userAgent": "Codex Desktop/0.163.0-alpha.11 (Windows 10.0.26200; x86_64) dumb (ae_visual_feasibility_probe; 0.1.0)",
+    "codexHome": "C:\\Users\\User\\.codex",
+    "platformFamily": "windows",
+    "platformOs": "windows"
+  },
+  "capabilities": {
+    "imageGeneration": true,
+    "webSearch": true
+  },
+  "capabilitiesError": null,
+  "account": {
+    "type": "chatgpt",
+    "planType": "plus",
+    "requiresOpenaiAuth": true
+  },
+  "accountError": null,
+  "stderrDiagnostics": {
+    "containsAccessDenied": false,
+    "containsPathAliasWarning": false,
+    "containsError": false
+  }
+}

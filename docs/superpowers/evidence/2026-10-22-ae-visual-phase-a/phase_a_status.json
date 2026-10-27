@@ -1,0 +1,161 @@
+{
+  "date": "2026-10-22",
+  "phase": "A",
+  "state": "PARTIAL_DESIGN_FRAMEWORK_DRAFT_MAIN_IMAGE_HUMAN_REJECTED",
+  "tasks": {
+    "A1": "COMPLETE",
+    "A2": "COMPLETE_CANDIDATES_AND_ENVIRONMENT_CHECK",
+    "A3": "OFFICIAL_LOCAL_RUNTIME_DIRECTION_ACCEPTED_CONTROL_CHAIN_PASS_PRODUCTION_UI_NOT_TESTED",
+    "A4": "LOCAL_NATIVE_IMAGE_PROBE_COMPLETE_MAIN_IMAGE_HUMAN_REJECTED",
+    "A5": "AI_QC_SCOPE_INCOMPLETE_MAIN_IMAGE_DESIGN_MISSED_CALIBRATION_PENDING",
+    "A6": "TWO_TARGETED_REPAIRS_AND_ONE_FALLBACK_LIMIT_ENFORCED_PRODUCTION_RECOVERY_NOT_TESTED",
+    "A7": "REPAIR_SESSION_TEXT_TOKEN_TOTALS_RECORDED_IMAGE_QUOTA_AND_FEES_UNKNOWN",
+    "A8": "NOT_RUN"
+  },
+  "account": {
+    "type": "chatgpt",
+    "planType": "plus",
+    "credentials_read": false
+  },
+  "runtime": {
+    "cliVersion": "0.163.0-alpha.11",
+    "metadataHandshake": "PASS_OUTSIDE_OUTER_SANDBOX",
+    "imageGenerationCapability": true,
+    "webSearchCapability": true,
+    "ephemeralTextTask": "completed",
+    "nativeImageTask": "completed",
+    "independentQcTask": "completed",
+    "workUiEquivalenceApproved": false,
+    "backendDirectionAccepted": true,
+    "approvedBackend": "official_local_app_server",
+    "backendAcceptanceEvidence": "User: 接受 下一步",
+    "workUiEquivalenceRequired": false,
+    "workUiValidated": false
+  },
+  "counts": {
+    "offlineAssertions": 6,
+    "ephemeralInferenceTurnRequests": 12,
+    "inferenceRequestsByPurpose": {
+      "textProbe": 2,
+      "imageProbe": 2,
+      "qcProbe": 1,
+      "targetedRepairTurnRequests": 3,
+      "safeFallbackTurnRequests": 1,
+      "repairSessionQcTurnRequests": 3
+    },
+    "nativeImageGenerationCompletions": 4,
+    "candidateImages": 4,
+    "qualifiedImages": 0,
+    "persistentChats": 0,
+    "aiQcPassedCandidates": 1,
+    "productionAcceptedImages": 0,
+    "qualifiedImagesDefinition": "Production accepted images after applicable platform and human gates; AI-QC-pass review candidate is counted separately.",
+    "humanReviewedCandidates": 1,
+    "humanRejectedMainImageCandidates": 1
+  },
+  "failures": [
+    {
+      "stage": "metadata_initialization",
+      "reason": "outer sandbox initialization timeout with access denied diagnostics",
+      "resolution": "controlled unsandboxed retry initialized successfully"
+    },
+    {
+      "stage": "text_probe_attempt_1",
+      "reason": "approval interaction unhandled",
+      "resolution": "corrected disposable client and used read-only/on-request; attempt 2 completed"
+    },
+    {
+      "stage": "image_probe_attempt_1",
+      "reason": "serverOverloaded/Selected model is at capacity",
+      "resolution": "bounded retry same configured model succeeded"
+    },
+    {
+      "stage": "qc",
+      "reason": "ADDED_LOOP and REDESIGNED_KNOT",
+      "resolution": "rejected; not delivered as qualified"
+    },
+    {
+      "stage": "targeted_repair_01_qc",
+      "reason": "INCONCLUSIVE: green knot, orange terminal and hardware evidence insufficient",
+      "resolution": "withheld; bounded second repair"
+    },
+    {
+      "stage": "targeted_repair_02_capacity",
+      "reason": "serverOverloaded",
+      "resolution": "one bounded same-configured-model retry completed"
+    },
+    {
+      "stage": "targeted_repair_02_qc",
+      "reason": "FAIL: orange terminal altered; green upper connection and heart gate unresolved",
+      "resolution": "withheld; targeted repair cap enforced; one source-photo layout fallback passed independent AI QC"
+    }
+  ],
+  "feasibility": {
+    "F01": "PARTIAL_CANDIDATE_LOCAL_INPUT_READ",
+    "F02": "NOT_PASSED_MAIN_IMAGE_DESIGN_REJECTED_BY_HUMAN",
+    "F03": "NOT_TESTED",
+    "F04": "PARTIAL_NATIVE_LOCAL_ORIGINAL_COPY_VERIFIED_NOT_FULL_WORK_TEN_IMAGE_DELIVERY",
+    "F05": "PARTIAL_PASS_FAIL_INCONCLUSIVE_OBSERVED_10_NORMAL_10_ERROR_CALIBRATION_PENDING",
+    "F06": "PARTIAL_BOUNDED_REPAIR_ISOLATION_FALLBACK_PROBE_NOT_PRODUCTION_AUTOMATIC_RECOVERY",
+    "F07": "PARTIAL_APPROVED_BACKEND_CONTROL_CHAIN_PROVEN_PRODUCTION_UI_NOT_IMPLEMENTED",
+    "F08": "PARTIAL_TEXT_TOKEN_EVENTS_CAPTURED_EXACT_IMAGE_QUOTA_AND_FEES_UNKNOWN"
+  },
+  "usage": {
+    "inference_requests": 12,
+    "native_image_generation_completions": 4,
+    "image_generation_calls": "NOT_FULLY_INSTRUMENTED_FAILED_ATTEMPT_TOOL_STARTS",
+    "repair_session_text_token_totals": {
+      "inputTokens": 521121,
+      "outputTokens": 9221,
+      "cachedInputTokens": 368384,
+      "totalTokens": 530342
+    },
+    "exact_subscription_usage": "UNKNOWN",
+    "exact_incremental_cost": "UNKNOWN",
+    "independent_image_api_calls": 0,
+    "credits_purchased": false
+  },
+  "productCodeChanged": false,
+  "chapters01_03Changed": false,
+  "nextDecision": "Verify current store platform profile and gather comparable visual samples, compare three styles, then create and review the complete ten-image storyboard without generating images. Design draft is not approval for production development.",
+  "repairSession": {
+    "targetedRepairsCompleted": 2,
+    "capacityRetries": 1,
+    "fallbacksStarted": 1,
+    "maximumTargetedRepairs": 2,
+    "maximumFallbacks": 1,
+    "verdicts": {
+      "repair01": "INCONCLUSIVE",
+      "repair02": "FAIL",
+      "fallback01": "PASS_AI_VISIBLE_SCOPE"
+    },
+    "note": "Orange cord terminal interpretation in repair02 prompt was not sufficiently supported and changed geometry; that instruction is not a new product fact.",
+    "fallbacksCompleted": 1,
+    "targetedRepairsRemaining": 0,
+    "fallbacksRemaining": 0
+  },
+  "latestHumanReview": {
+    "candidateSha256": "2DAC2DCEDF7D99F31F6EF22EBDA9BC75A5414BE052F1B1E1F897D6B593A9DBC2",
+    "reviewer": "human_user",
+    "verbatim": "这个图片设计的不符合电商主图 需要我qc哪些内容",
+    "intendedSlot": "ecommerce_primary_image",
+    "humanReviewVerdict": "FAIL",
+    "mainImageAccepted": false,
+    "priorAiQcScope": "visible identity, factual claims, English, obvious visual quality",
+    "priorAiVerdictPreserved": true,
+    "reason": "Human rejects ecommerce main image design; previous AI QC omitted slot-specific commercial design acceptance.",
+    "productionAccepted": false
+  },
+  "designFramework": {
+    "version": "1.0-draft",
+    "status": "DRAFT_NOT_FROZEN",
+    "path": "F:/yikuaborder-deploy/docs/superpowers/specs/2026-10-22-ae-visual-design-standard-v1-draft.md",
+    "sourcesRead": 7,
+    "comparableVisualMarketSamples": 0,
+    "conversionUpliftVerified": false,
+    "platformProfile": "UNVERIFIED",
+    "newImageGenerationCalls": 0,
+    "productCodeChanged": false,
+    "chapters01_03Changed": false
+  }
+}

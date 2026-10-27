@@ -1,0 +1,12 @@
+{
+  "candidateSha256": "2DAC2DCEDF7D99F31F6EF22EBDA9BC75A5414BE052F1B1E1F897D6B593A9DBC2",
+  "reviewer": "human_user",
+  "verbatim": "这个图片设计的不符合电商主图 需要我qc哪些内容",
+  "intendedSlot": "ecommerce_primary_image",
+  "humanReviewVerdict": "FAIL",
+  "mainImageAccepted": false,
+  "priorAiQcScope": "visible identity, factual claims, English, obvious visual quality",
+  "priorAiVerdictPreserved": true,
+  "reason": "Human rejects ecommerce main image design; previous AI QC omitted slot-specific commercial design acceptance.",
+  "productionAccepted": false
+}

@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "product_id": "903932105044",
+  "sku_id": "5761489960647",
+  "variant": "桔色",
+  "source_directory": "D:\\ecom-translator\\output\\未成功上架产品\\韩国东大门爱小雏菊布艺笑脸花朵钥匙扣挂饰棒棒糖包包挂件高级感_903932105044_images__20261001T124144",
+  "evidence_images": [
+    "主图_01.jpg",
+    "主图_02.jpg",
+    "主图_04.jpg",
+    "描述图_03.jpg"
+  ],
+  "observed": {
+    "flower": {
+      "petals": 6,
+      "color": "orange",
+      "appearance": "padded fabric",
+      "center": "yellow circular face with black oval eyes and curved smile"
+    },
+    "cords": "orange and green cords with white flecks, doubled hanging strands",
+    "hardware": "silver heart-outline carabiner and smaller silver connection hardware",
+    "additional_components": [
+      "brown ribbed loop with brown slider",
+      "orange heart-shaped lollipop pendant on small silver clasp"
+    ],
+    "bag": "styling prop; not assumed included"
+  },
+  "unknown": [
+    "specific fabric/cord/metal composition",
+    "actual package contents",
+    "physical measured dimensions",
+    "net weight",
+    "origin",
+    "brand and certifications"
+  ],
+  "claims_allowed": [
+    "Flower bag charm",
+    "Smiley flower",
+    "Orange & green cords"
+  ],
+  "claims_excluded": [
+    "7 cm",
+    "6.6 cm",
+    "3 cm",
+    "35 g",
+    "handmade",
+    "waterproof",
+    "premium material",
+    "Korean origin"
+  ],
+  "note": "Existing generated facts and market text are secondary aids. Product photographs are the visual identity evidence. Marketing candidate remains rejected."
+}

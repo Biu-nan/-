@@ -1,0 +1,43 @@
+{
+  "probe": "ephemeral native-runtime read test attempt 2",
+  "sandbox": "read-only",
+  "approvalPolicy": "on-request",
+  "unrequestedApprovals": "declined",
+  "persistentConversationCreated": false,
+  "productFilesWritten": false,
+  "imagesGenerated": 0,
+  "threadId": "01a163d5-ff08-70b2-bd3f-433943d93c3b",
+  "ephemeral": true,
+  "turnId": "01a163d5-ffbc-7201-9d06-413b82470fd6",
+  "turnStatus": "completed",
+  "completionError": null,
+  "messages": [
+    "我将用一条只读本地命令读取该文件。\n",
+    "AE_VISUAL_F07_PROBE_20261022"
+  ],
+  "exactMarkerReturned": true,
+  "commandEvidence": [
+    {
+      "exitCode": 0,
+      "status": "completed",
+      "readsProbeFile": true
+    }
+  ],
+  "approvalRequests": [],
+  "eventMethods": [
+    "remoteControl/status/changed",
+    "thread/started",
+    "mcpServer/startupStatus/updated",
+    "thread/status/changed",
+    "turn/started",
+    "account/updated",
+    "item/started",
+    "item/completed",
+    "item/agentMessage/delta",
+    "turn/moderationMetadata",
+    "item/commandExecution/outputDelta",
+    "thread/tokenUsage/updated",
+    "account/rateLimits/updated",
+    "turn/completed"
+  ]
+}

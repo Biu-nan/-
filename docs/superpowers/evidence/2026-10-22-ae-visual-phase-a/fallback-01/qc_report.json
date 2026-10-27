@@ -1,0 +1,104 @@
+{
+  "verdict": "PASS",
+  "identity_match": true,
+  "component_checks": [
+    {
+      "component": "花瓣数量和形状",
+      "reference_observation": "六片橙色填充布艺花瓣，呈圆头长椭圆形，花瓣宽窄和朝向略有差异。",
+      "candidate_observation": "可见六片花瓣，轮廓、排列和宽窄差异与参考图1对应，未见增减或结构改变。",
+      "status": "PASS"
+    },
+    {
+      "component": "花心脸部",
+      "reference_observation": "黄色圆形花心，两个黑色竖椭圆眼睛，黑色上扬弧形笑嘴，两端有短笔画。",
+      "candidate_observation": "花心颜色、眼睛形状和笑嘴结构对应，未见五官增减或明显变形。",
+      "status": "PASS"
+    },
+    {
+      "component": "颜色和织物纹理",
+      "reference_observation": "花瓣为鲜橙色，可见细密织物纹理；花心黄色；橙绿绳带白色间断纹样。",
+      "candidate_observation": "保留橙色布艺花瓣及可见织纹，黄色花心和橙绿配色对应；亮度与饱和度差异未造成明显换色或材质外观改变。",
+      "status": "PASS"
+    },
+    {
+      "component": "橙绳走向和绳结",
+      "reference_observation": "橙绳上部形成长环，花朵左上方有多圈紧密绕结，下方伸出两条长短不同的绳尾。",
+      "candidate_observation": "上部长环、左上方绕结及两条绳尾均保留，可见走向与参考图1对应。",
+      "status": "PASS"
+    },
+    {
+      "component": "橙绳末端",
+      "reference_observation": "参考图1及图3可见两条不等长橙色绳尾，末段较细，未见额外装饰吊件。",
+      "candidate_observation": "两条橙色绳尾均可见，保留不等长关系和较细末段，未见新增端部配件。",
+      "status": "PASS"
+    },
+    {
+      "component": "绿绳走向及末端",
+      "reference_observation": "绿绳上部折返，经过花朵后方，下方分为两条长绳尾，带白色纹样及深绿色收束末端。",
+      "candidate_observation": "上部折返、花后走向、两条下垂绳尾及深绿色末端均对应参考图1，未见额外绳结或绳尾增减。",
+      "status": "PASS"
+    },
+    {
+      "component": "银色心形扣",
+      "reference_observation": "银色心形轮廓扣，带直线形开合段；参考图1中倾斜悬挂，部分区域与棕环及绳环交叠。",
+      "candidate_observation": "心形轮廓、开合段及交叠关系与参考图1对应，未见扣形替换或新增主扣。",
+      "status": "PASS"
+    },
+    {
+      "component": "棒棒糖挂件连接件",
+      "reference_observation": "主扣右下方可见细长金属挂扣、转接部位及小连接环，向下连接心形棒棒糖。",
+      "candidate_observation": "相应位置保留细长挂扣、转接部位及下方连接环，外露连接顺序对应，未见明显断裂或悬空。",
+      "status": "PASS"
+    },
+    {
+      "component": "棕色可调环、滑扣和尾端",
+      "reference_observation": "棕色环带连续凸节，左上方有较宽滑扣，另有向左伸出的细长尾端。",
+      "candidate_observation": "凸节环、较宽滑扣和左伸尾端均保留，形状及位置关系与参考图1对应。",
+      "status": "PASS"
+    },
+    {
+      "component": "棒棒糖挂件及相对比例",
+      "reference_observation": "橙色半透明心形糖头搭配浅橙色细棒，位于花朵右上侧；糖头明显小于整朵花。",
+      "candidate_observation": "心形糖头、细棒、悬挂位置及相对花朵的大小均与参考图1接近，未见形状替换、配件增减或明显比例失真。",
+      "status": "PASS"
+    },
+    {
+      "component": "花朵背面及交叠处内部连接",
+      "reference_observation": "花朵背面固定方式及部分绳扣接触区域被自然遮挡。",
+      "candidate_observation": "对应区域仍被花朵或绳扣自然遮挡，没有新展示需要验证的关键内部结构。",
+      "status": "UNCERTAIN"
+    }
+  ],
+  "issues": [],
+  "text_observed": [
+    "SMILEY",
+    "FLOWER",
+    "BAG CHARM",
+    "A little color for your bag."
+  ],
+  "text_errors": [],
+  "unsupported_claims": [],
+  "visual_quality_issues": [],
+  "unverified": [
+    "无法核实花朵背面固定方式及交叠处内部连接；参考与候选均自然遮挡，不据此认定失真。",
+    "判断仅覆盖图片可见商品外观，不证明实际材质成分、尺寸、产地或耐用性；候选未作这些宣称。",
+    "杂志背景原有印字不作为新增营销英文或商品宣称。",
+    "未提供平台规范，未评估平台合规；仅有一张候选图，未评估系列一致性。",
+    "本结果为AI视觉审查，不代表人工审查。"
+  ],
+  "binding": {
+    "candidateSha256": "2DAC2DCEDF7D99F31F6EF22EBDA9BC75A5414BE052F1B1E1F897D6B593A9DBC2",
+    "generatorThreadId": "01a163f4-3aed-7871-8883-f18451a076d1",
+    "generatorTurnId": "01a163f4-3c05-7c40-bf73-44d5fc6e214b",
+    "qcThreadId": "01a163f6-6511-7682-9aa7-10e16b8d61a4",
+    "qcTurnId": "01a163f6-65c6-7340-bf78-89ea1a24d1db"
+  },
+  "independentContext": true,
+  "aiQcPassed": true,
+  "productionAccepted": false,
+  "humanReviewed": false,
+  "platformCompliance": "NOT_EVALUATED",
+  "seriesConsistency": "NOT_EVALUATED",
+  "referencePixelsIdentical": "NOT_PROVEN",
+  "releaseScope": "single image visible identity, factual claims, marketing English and obvious visual quality only"
+}

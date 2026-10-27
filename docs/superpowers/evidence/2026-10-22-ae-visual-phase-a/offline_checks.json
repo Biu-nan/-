@@ -1,0 +1,75 @@
+{
+  "networkCalls": 0,
+  "modelCalls": 0,
+  "filesWrittenByProbe": 0,
+  "checkCount": 6,
+  "checks": [
+    {
+      "name": "legacy configuration observed as eight slots",
+      "result": "PASS_OBSERVATION"
+    },
+    {
+      "name": "current SKU input truncation reproduced",
+      "result": "PASS_OBSERVATION"
+    },
+    {
+      "name": "existing helper reads native candidate dimensions",
+      "result": "PASS"
+    },
+    {
+      "name": "existing helper rejects undersized candidate",
+      "result": "PASS"
+    },
+    {
+      "name": "existing helper rejects nonexistent image",
+      "result": "PASS"
+    },
+    {
+      "name": "generic state constructor accepts ten in-memory slots",
+      "result": "PASS_LIMITED"
+    }
+  ],
+  "input": {
+    "rawImageFiles": 9,
+    "selectedImageFiles": 8,
+    "uniqueSelectedImageHashes": 7,
+    "selectedImages": [
+      "SKU 属性图_01.jpg",
+      "主图_01.jpg",
+      "主图_02.jpg",
+      "主图_03.jpg",
+      "主图_04.jpg",
+      "描述图_01.jpg",
+      "描述图_02.jpg",
+      "描述图_03.jpg"
+    ],
+    "factsSource": "none",
+    "materialSources": [
+      "01_PRODUCT_FACTS.md",
+      "02_MARKET_RESEARCH.md",
+      "03_SEO_KEYWORDS.md",
+      "04_LISTING_CONTENT.md",
+      "Listing与生图交接摘要.txt"
+    ],
+    "warnings": [
+      "NO_PRODUCT_IMAGE_DIR: 未找到 产品图/，改用根目录图片",
+      "IMAGES_TRUNCATED: 产品图 9 张，仅取前 8 张",
+      "NO_FACTS_FILE: 无 product-facts.json，仅凭图片与资料推断"
+    ]
+  },
+  "legacySlotIds": [
+    "P1",
+    "P2",
+    "P3",
+    "P4",
+    "P5",
+    "P6",
+    "MK1",
+    "MK2"
+  ],
+  "candidateDimensions": [
+    1254,
+    1254
+  ],
+  "legacyStateStatus": "running"
+}

@@ -1,0 +1,29 @@
+{
+  "probe": "ephemeral read-only native-runtime trigger",
+  "runtime": "Codex app-server",
+  "workspace": "C:\\Users\\User\\.codex\\visualizations\\2026\\10\\22\\01a163b3-c9c6-7f23-9008-d99adf2a9b53\\phase-a-probe",
+  "persistentConversationCreated": false,
+  "productFilesWritten": false,
+  "imagesGenerated": 0,
+  "threadId": "01a163d2-5b6a-70c2-8c3a-fd0a59891ba8",
+  "ephemeral": true,
+  "turnId": "01a163d2-5d38-7ef2-a167-9eb77612c1da",
+  "turnStatus": null,
+  "completionError": "TIMEOUT:turn_completed",
+  "messages": [],
+  "exactMarkerReturned": false,
+  "commandEvidence": [],
+  "approvalRequested": false,
+  "eventMethods": [
+    "remoteControl/status/changed",
+    "thread/started",
+    "mcpServer/startupStatus/updated",
+    "thread/status/changed",
+    "turn/started",
+    "account/updated",
+    "item/started",
+    "item/completed",
+    "turn/moderationMetadata",
+    "item/commandExecution/requestApproval"
+  ]
+}

@@ -1,0 +1,294 @@
+{
+  "schemaVersion": 1,
+  "requestId": "ceo-cost-evidence-20261027-01",
+  "requestDoc": "docs/coordination/2026-10-27-cost-evidence-request.md",
+  "executor": "WorkBuddy（Anna / Lance 高级秘书执行会话）",
+  "executedAt": {
+    "startedAt": "2026-10-27T09:02:33+08:00",
+    "finishedAt": "2026-10-27T01:20:27Z",
+    "timezone": "Asia/Shanghai",
+    "note": "真实本地执行时间；只读取证与本地取数在同一会话内完成。"
+  },
+  "status": "PARTIAL",
+  "statusMeaning": "PARTIAL = 三个 SKU 均已实查并留下可复核证据，但均未取得完整 BOM + 期间实际成本，无法升级为已核准成本事实。",
+  "checkedSkuIds": [
+    "12000057579334742",
+    "12000059429132126",
+    "12000058718708388"
+  ],
+  "storeContext": {
+    "requestStoreId": "400370",
+    "requestStoreName": "纳物-箱包全托1店",
+    "channel": "AECHOICE",
+    "platformLoginIdFromOfficialExport": "cn1107891756egoae",
+    "erpStoreLabelObserved": "自营箱包全托管1店",
+    "caveat": "ERP 店铺标签与平台 storeId 不是同一标识体系，本次按同一货品ID 与同一 loginId 交叉对应，未取得别名映射的正式证据。"
+  },
+  "evidence": [
+    {
+      "name": "01-goods-identity.json",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/01-goods-identity.json",
+      "bytes": 5123,
+      "sha256": "4e7cd1307aa31154c98e71d321205f83d9c2b47eb78b5a9092dd226bbf2f4b0e"
+    },
+    {
+      "name": "02-commodity-negative.json",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/02-commodity-negative.json",
+      "bytes": 5842,
+      "sha256": "20d36258c3b3ab9e26724b6d3ffc0d1564a2e85f7add0d2742a13cb09d2df9fb"
+    },
+    {
+      "name": "03-combo-bom.json",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/03-combo-bom.json",
+      "bytes": 3137,
+      "sha256": "54d9557d4398cd6ec7b6187e1b0df3872b3870248256030746897f73b66e8805"
+    },
+    {
+      "name": "04-local-ledger.json",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/04-local-ledger.json",
+      "bytes": 10659,
+      "sha256": "400b316adf60715cb3433ebdec92cb9d864f6e698d18a372c3a31fd877434095"
+    },
+    {
+      "name": "05-purchase-module.json",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/05-purchase-module.json",
+      "bytes": 2103,
+      "sha256": "0177d5ff490861626a145330c794b1d00c5a13dd74847f4796b5460743361b7b"
+    },
+    {
+      "name": "goods-id-1044258114123.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/goods-id-1044258114123.png",
+      "bytes": 131072,
+      "sha256": "70b4b32b0e0a7f77d232c94afcfc81a30159fae0d340257e49dd33699d532dc3"
+    },
+    {
+      "name": "goods-id-1069712665754.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/goods-id-1069712665754.png",
+      "bytes": 131499,
+      "sha256": "e762411d7d3f2f6835242abfd8d9e5b4a129a926ec6cdc43352ae36e92cd260c"
+    },
+    {
+      "name": "goods-id-1060740761606.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/goods-id-1060740761606.png",
+      "bytes": 131301,
+      "sha256": "5b4fbc3538504986531a671a31b2af5b4ac0abad4495d203f41b2942b6bd31a9"
+    },
+    {
+      "name": "goods-code-WSN24_2.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/goods-code-WSN24_2.png",
+      "bytes": 106694,
+      "sha256": "178541baa2249135d3f5814bc8b137473c554a70033882fd5d17dcb81290c108"
+    },
+    {
+      "name": "goods-code-WSN24__Base_Plate.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/goods-code-WSN24__Base_Plate.png",
+      "bytes": 149060,
+      "sha256": "003c90b7a1b6764f4707486dec628f80a5cd652d5a82bcb46ea521f04f615421"
+    },
+    {
+      "name": "goods-code-WSN24_Shapeable_Foldable_Base_Plate.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/goods-code-WSN24_Shapeable_Foldable_Base_Plate.png",
+      "bytes": 107938,
+      "sha256": "ad2fe35a4e738fa63b5c20a2fac1a9677d3c4b986bff483a21b96b33c4fcd030"
+    },
+    {
+      "name": "dxm-goods-WSN24.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/dxm-goods-WSN24.png",
+      "bytes": 201001,
+      "sha256": "040a39e43e38687025736f4f078739c36ef8841a01a58e29ecbbabf5f8456422"
+    },
+    {
+      "name": "dxm-goods-WSN24_2.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/dxm-goods-WSN24_2.png",
+      "bytes": 127936,
+      "sha256": "e32f77dca01dc122ba3e47514c77df66e0d477d65e184edd6cf6fd404946f9da"
+    },
+    {
+      "name": "dxm-goods-WSN24__Base_Plate.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/dxm-goods-WSN24__Base_Plate.png",
+      "bytes": 128188,
+      "sha256": "05b30ae75923ec472782a407b5c2b05257d9525bc48ee74d3d01a27c6f9be4ac"
+    },
+    {
+      "name": "dxm-goods-WSN24_Shapeable_Foldable_Base_Plate.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/dxm-goods-WSN24_Shapeable_Foldable_Base_Plate.png",
+      "bytes": 128998,
+      "sha256": "a8832378e9939ece5df0af3eb7fbfcafcffcf6837fdb89b35cc3e780dd227332"
+    },
+    {
+      "name": "byplatform-WSN24_2.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/byplatform-WSN24_2.png",
+      "bytes": 127853,
+      "sha256": "9e1bb2336081010c783af1bc1981a5830a233349da1b9344c5bf7665ec79c7e7"
+    },
+    {
+      "name": "byplatform-WSN24__Base_Plate.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/byplatform-WSN24__Base_Plate.png",
+      "bytes": 128188,
+      "sha256": "d3b96e05cd60e46ed9b4c1ff7f59fe3ac3ccadf1c2874c47c17e91793a089fe1"
+    },
+    {
+      "name": "byplatform-WSN24_Shapeable_Foldable_Base_Plate.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/byplatform-WSN24_Shapeable_Foldable_Base_Plate.png",
+      "bytes": 129028,
+      "sha256": "6b2fb990f39a4069a6036bff5381160c06235025a10da519d2303957683286d4"
+    },
+    {
+      "name": "byplatform-WSN24_Black_2PCS.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/byplatform-WSN24_Black_2PCS.png",
+      "bytes": 142983,
+      "sha256": "d52daa89ec404353266694d305f93774d9720bf5f4267a1e07c102180dd7f0e7"
+    },
+    {
+      "name": "byplatform-WSN24_4.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/byplatform-WSN24_4.png",
+      "bytes": 144052,
+      "sha256": "bbfb9a2a518b844b630b4e940846be632ac96b8ae3551e72b618e265e4b1bc12"
+    },
+    {
+      "name": "byplatform-WSN24_Foldable_Base_Plate.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/byplatform-WSN24_Foldable_Base_Plate.png",
+      "bytes": 141277,
+      "sha256": "67d63601c7fc72c197a44331bd75c5f972309b52c366a99d5582c2057c78508a"
+    },
+    {
+      "name": "bom2-WSN24_Black_2PCS.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/bom2-WSN24_Black_2PCS.png",
+      "bytes": 168288,
+      "sha256": "4b61ffce166c6fca73005b7026b78f0a12e80802cc79dd0ed88dd0168b1bbe65"
+    },
+    {
+      "name": "bom2-WSN24_4.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/bom2-WSN24_4.png",
+      "bytes": 171298,
+      "sha256": "df2e0965e7642efc5b843983037c44dddd074c1bbb02de7f9b1433ff68bf025c"
+    },
+    {
+      "name": "bom2-WSN24_1_With_2.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/bom2-WSN24_1_With_2.png",
+      "bytes": 180948,
+      "sha256": "41d169acd3370bc8ebf9012f8b7b2794168e79eb657e29f0503eab3046e74884"
+    },
+    {
+      "name": "dxm-purchase-orders.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/dxm-purchase-orders.png",
+      "bytes": 138670,
+      "sha256": "724126c5f9cebf995d8f31a970e1b0f12ee20ae235e74cb2c65fbc872481280e"
+    },
+    {
+      "name": "purchase-WSN24_2.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/purchase-WSN24_2.png",
+      "bytes": 133595,
+      "sha256": "62896dd814538e99ee4d3faa5790ce92100b1d0e582589f7d0ebe05ea0a33254"
+    },
+    {
+      "name": "purchase-WSN24__Base_Plate.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/purchase-WSN24__Base_Plate.png",
+      "bytes": 133988,
+      "sha256": "14621f2886bf5d4f701e1e84f6efa73a0f54ddd95748ad8df433724dbaf2fe10"
+    },
+    {
+      "name": "purchase-WSN24_Shapeable_Foldable_Base_Plate.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/purchase-WSN24_Shapeable_Foldable_Base_Plate.png",
+      "bytes": 134752,
+      "sha256": "28f3c2003ce84b502fd6f5a9ddbce507ae54fad45a82d75a3670a891a64a856e"
+    },
+    {
+      "name": "purchase-WSN24_Foldable_Base_Plate.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/purchase-WSN24_Foldable_Base_Plate.png",
+      "bytes": 134356,
+      "sha256": "ad186912d3d9ff0055b8c22869ceba41fad1f9472b00c17fb9d5c771141db74b"
+    }
+  ],
+  "evidenceRoot": "data/ceo-audits/2026-10-27-store-400370/cost-verification/workbuddy-evidence/",
+  "evidenceRootNote": "位于 gitignore 的 data/ 下，未提交 Git，也未复制到源码文档。",
+  "perSkuOutcome": [
+    {
+      "skuId": "12000057579334742",
+      "priority": 1,
+      "identityNow": "货品 1044258114123 存在（货品编码=平台SKU数字ID 12000057579334742，平台SKU编码=WSN24*2，ERP 店铺标签「自营箱包全托管1店」，货品更新时间 2026-04-22）。",
+      "componentEvidence": "NOT_OBTAINED",
+      "periodCostEvidence": "NOT_OBTAINED",
+      "whatWeGotInstead": "同族组合 BOM：WSN24-Black 2PCS=2×WSN24、WSN24*4=4×WSN24、WSN24-1-With*2=2×WSN24+2×底板+2×WWDJ1。证明当前系统 *N=组件倍数，但不等于该 SKU 的 BOM。",
+      "gaps": [
+        "该 SKU 在商品管理中无对应商品（平台SKU 与商品SKU 双路 0 命中，对照有效），故无组合详情可读",
+        "9/21–10/25 出入库明细中该货品 0 条记录，无期间入库事件",
+        "有效日期/绑定变更记录不可得",
+        "计价单位未取得"
+      ]
+    },
+    {
+      "skuId": "12000059429132126",
+      "priority": 2,
+      "identityNow": "货品 1069712665754 存在（货品编码与平台SKU编码同名 WSN24- Base Plate，货品更新时间 2026-08-03）。同编码在「自营箱包全托2店」另有货品 1075439498725（更新时间 2026-10-02）→ 货品编码不唯一。",
+      "componentEvidence": "NOT_APPLICABLE_NOT_A_BUNDLE_RECORD",
+      "periodCostEvidence": "NOT_OBTAINED",
+      "whatWeGotInstead": "商品管理中平台SKU「WSN24- Base Plate」0 命中（单/双空格均试）；唯一近似商品是 WSN24-Foldable Base Plate（63001465），其平台SKU编码是第三个不同字符串，不能按名称合并。",
+      "gaps": [
+        "是否与其他底板同一物理件：无编码级证据",
+        "期间实际成本：出入库 0 条记录",
+        "计价单位：未取得"
+      ]
+    },
+    {
+      "skuId": "12000058718708388",
+      "priority": 3,
+      "identityNow": "货品 1060740761606 存在（货品编码=平台SKU数字ID 12000058718708388，平台SKU编码=WSN24-Shapeable Foldable Base Plate，货品更新时间 2026-07-15）。",
+      "componentEvidence": "NOT_APPLICABLE_NOT_A_BUNDLE_RECORD",
+      "periodCostEvidence": "NOT_OBTAINED",
+      "whatWeGotInstead": "旧库存 WSN24-Foldable Base Plate（商品 63001465）：仓库单价 0.00、出入库 98 条入库价/单价全 0.00，且作为组件按 0 成本计入 WSN24-1-With*2 组合 → 该底板链路本身无成本基准。",
+      "gaps": [
+        "与旧库存 WSN24-Foldable Base Plate 的身份关系未证（编码不同，名称相似）",
+        "期间实际成本：目标货品出入库 0 条记录",
+        "计价单位：未取得"
+      ]
+    }
+  ],
+  "coverageProof": {
+    "localFrozenExports": {
+      "productsCsvHits": 0,
+      "warehouseCsvHits": 0,
+      "entryExitCsvHits": 0,
+      "entryExitWindow": "2026-09-21 09:00:19 — 2026-10-25 14:14:44（4763 行，其中入库/采购入库 1141 行）",
+      "note": "三个目标平台编码/货品ID 在本地商品表、仓库表、出入库明细中命中数均为 0。"
+    },
+    "liveReadOnlyPages": [
+      "商品管理（按商品SKU / 平台SKU 搜索，含 4 个对照）",
+      "全托管货品（按货品ID / 货品编码 搜索）",
+      "商品编辑弹窗（仅读组合信息，未保存）",
+      "采购订单（该模块 BASELINE 0 行 → 判为 INCONCLUSIVE，不作为无采购证据）"
+    ],
+    "discrepanciesFound": [
+      "请求表把「当前绑定货品编码」列写为 WSN24*2 / WSN24- Base Plate / WSN24-Shapeable Foldable Base Plate，实查其中两串是【平台SKU编码】，三个货品真正的货品编码是 12000057579334742 / WSN24- Base Plate / 12000058718708388。商品SKU编码与货品编码是两个角色，本次分别留存。",
+      "货品编码 WSN24- Base Plate 跨两个店铺各有一个货品（1069712665754 / 1075439498725），编码不唯一，取成本必须带店铺+货品ID。",
+      "采购订单模块 0 行不可用，不能推出「无采购」；采购入库证据只能用出入库明细。"
+    ]
+  },
+  "remainingGaps": [
+    "三个 SKU 的当前 BOM（组件编码 + 数量 + 计价单位）均未取得：目标编码在商品管理中无商品记录，全托管货品页不展示组合组成。",
+    "2026-10-19—25 期间目标货品的实际采购/订单成本事件 0 条；期间内仅 WSN24 单品有一次采购入库（金额与单号见 evidence/04-local-ledger.json，按请求不写入本回执）。",
+    "三个货品的绑定有效日期与变更历史不可得（页面仅有更新时间）。",
+    "底板身份关系（WSN24- Base Plate vs WSN24-Shapeable Foldable Base Plate vs WSN24-Foldable Base Plate）与旧库存物理同一性未证。",
+    "首店订单级成本、日界（PST 标注 vs PDT 实际）与退款/退货规则仍未核准 —— 与本请求前状态一致，本次未推进。"
+  ],
+  "businessWritePerformed": false,
+  "businessWriteDetail": "未修改商品/绑定/价格/库存/订单；未提交采购；未写生产 facts；未派发经营任务。读取组合信息时打开了编辑弹窗但未点击保存、未改动字段，随后关闭标签页。",
+  "reusedCodexEvidence": {
+    "files": [
+      "cost-verification/official-bindings.xlsx",
+      "cost-verification/target-140-review.json",
+      "cost-verification/source-manifest.json",
+      "inputs/warehouse.csv",
+      "inputs/products.csv",
+      "inputs/historical-finance.xlsx",
+      "inputs/entry-exit.csv"
+    ],
+    "note": "未重做支付-商品/SKU 精确关联、官方商货导出核查与价格候选分组；只补缺失证据。历史 8 月口径（*数字按PCS倍数、用户补充成本）仅作线索，不当期间成本。"
+  },
+  "notClaimed": [
+    "STATUS=PARTIAL 不代表任何 SKU 成本已核准，也不代表经营利润可算。",
+    "不宣称 WSN24*2 = 2×WSN24 为该 SKU 的 BOM；那是同族规则外推。",
+    "不宣称三个底板是同一物理件，也不按底板名称合并。",
+    "不宣称全店历史完整；只宣称上述页面/文件的当前快照与所列行。"
+  ]
+}

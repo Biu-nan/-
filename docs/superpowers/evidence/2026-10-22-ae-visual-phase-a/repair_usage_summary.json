@@ -1,0 +1,129 @@
+{
+  "scope": "Only this repair session. Earlier five probe requests have no complete token totals.",
+  "requests": 7,
+  "nativeImageCompletions": 3,
+  "rows": [
+    {
+      "report": "repair-01/app_server_repair_probe.json",
+      "purpose": "targeted_identity_repair_01",
+      "threadId": "01a163e6-bd50-7e50-8469-44266946b02b",
+      "turnId": "01a163e6-be2d-78d3-b894-3112ea770019",
+      "status": "completed",
+      "completedImageCount": 1,
+      "lastReportedTokens": {
+        "totalTokens": 147912,
+        "inputTokens": 146925,
+        "cachedInputTokens": 116608,
+        "cacheWriteInputTokens": 0,
+        "outputTokens": 987,
+        "reasoningOutputTokens": 0
+      }
+    },
+    {
+      "report": "repair-01/app_server_independent_qc.json",
+      "purpose": "independent_visual_qc_repair_01",
+      "threadId": "01a163ea-2046-7611-b932-4ada7e94d33a",
+      "turnId": "01a163ea-2138-7870-a1a4-6090463ac5a1",
+      "status": "completed",
+      "completedImageCount": 0,
+      "lastReportedTokens": {
+        "totalTokens": 30929,
+        "inputTokens": 28700,
+        "cachedInputTokens": 13312,
+        "cacheWriteInputTokens": 0,
+        "outputTokens": 2229,
+        "reasoningOutputTokens": 476
+      }
+    },
+    {
+      "report": "repair-02/app_server_repair_attempt_01.json",
+      "purpose": "Targeted identity repair 02 final",
+      "threadId": "01a163ec-ccd2-7731-8a68-f6dc746c7a70",
+      "turnId": "01a163ec-cda1-7061-a25e-1c32792cfd22",
+      "status": "failed",
+      "completedImageCount": 0,
+      "lastReportedTokens": {
+        "totalTokens": 32733,
+        "inputTokens": 32324,
+        "cachedInputTokens": 13312,
+        "cacheWriteInputTokens": 0,
+        "outputTokens": 409,
+        "reasoningOutputTokens": 0
+      }
+    },
+    {
+      "report": "repair-02/app_server_repair_probe.json",
+      "purpose": "Targeted identity repair 02 same-model capacity retry",
+      "threadId": "01a163ee-593d-7473-ad39-7b41a992908c",
+      "turnId": "01a163ee-5ac7-7e60-9f63-95a099eb897e",
+      "status": "completed",
+      "completedImageCount": 1,
+      "lastReportedTokens": {
+        "totalTokens": 128089,
+        "inputTokens": 126912,
+        "cachedInputTokens": 90112,
+        "cacheWriteInputTokens": 0,
+        "outputTokens": 1177,
+        "reasoningOutputTokens": 0
+      }
+    },
+    {
+      "report": "repair-02/app_server_independent_qc.json",
+      "purpose": "Independent visual QC repair 02",
+      "threadId": "01a163f1-6ea8-72a3-ba19-6da40cf3f8a8",
+      "turnId": "01a163f1-6f6d-7542-a271-74360d0c4ff4",
+      "status": "completed",
+      "completedImageCount": 0,
+      "lastReportedTokens": {
+        "totalTokens": 33800,
+        "inputTokens": 31711,
+        "cachedInputTokens": 13312,
+        "cacheWriteInputTokens": 0,
+        "outputTokens": 2089,
+        "reasoningOutputTokens": 314
+      }
+    },
+    {
+      "report": "fallback-01/app_server_fallback_probe.json",
+      "purpose": "Single safe fallback preserve original photograph",
+      "threadId": "01a163f4-3aed-7871-8883-f18451a076d1",
+      "turnId": "01a163f4-3c05-7c40-bf73-44d5fc6e214b",
+      "status": "completed",
+      "completedImageCount": 1,
+      "lastReportedTokens": {
+        "totalTokens": 123588,
+        "inputTokens": 122803,
+        "cachedInputTokens": 100480,
+        "cacheWriteInputTokens": 0,
+        "outputTokens": 785,
+        "reasoningOutputTokens": 0
+      }
+    },
+    {
+      "report": "fallback-01/app_server_independent_qc.json",
+      "purpose": "Independent visual QC single fallback",
+      "threadId": "01a163f6-6511-7682-9aa7-10e16b8d61a4",
+      "turnId": "01a163f6-65c6-7340-bf78-89ea1a24d1db",
+      "status": "completed",
+      "completedImageCount": 0,
+      "lastReportedTokens": {
+        "totalTokens": 33291,
+        "inputTokens": 31746,
+        "cachedInputTokens": 21248,
+        "cacheWriteInputTokens": 0,
+        "outputTokens": 1545,
+        "reasoningOutputTokens": 139
+      }
+    }
+  ],
+  "capturedTextTokenTotals": {
+    "inputTokens": 521121,
+    "outputTokens": 9221,
+    "cachedInputTokens": 368384,
+    "totalTokens": 530342
+  },
+  "countingRule": "Only final cumulative total from each distinct turn is summed. Cached input tokens are included in inputTokens. These metrics do not establish image quota, subscription usage or actual fees.",
+  "exactImageQuota": "UNKNOWN",
+  "exactIncrementalCost": "UNKNOWN",
+  "independentImageApiCalls": 0
+}

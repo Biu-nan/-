@@ -1,0 +1,10 @@
+[
+  {
+    "file": "independent_qc_prompt.txt",
+    "sha256": "A95A91EF755EB6A95E6A5E51FEFFE98BF44F616425CB17D4BA010A4607EFC38D"
+  },
+  {
+    "file": "repair_prompt.txt",
+    "sha256": "96E987980B9306A3447FCA351E1AA103FE366E1C587F83BBD971070F466C207D"
+  }
+]

@@ -1,0 +1,32 @@
+{
+  "schema": "workbuddy-receipt-check/v1",
+  "checkedAt": "2026-10-26T07:20:00.770Z",
+  "requestId": "ceo-entry-read-20261026-1510",
+  "receiptPath": "docs/coordination/WORKBUDDY_BRIEF_RECEIPT_2026-10-26.json",
+  "checks": {
+    "request": true,
+    "actor": true,
+    "successful": true,
+    "tool": true,
+    "entry": true,
+    "schema": true,
+    "readOnly": true,
+    "time": true,
+    "freshInvocation": true,
+    "health": true,
+    "counts": true,
+    "verification": true,
+    "digest": true
+  },
+  "failedChecks": [],
+  "raw": {
+    "status": "MATCHED",
+    "sha256": "9aa42f3f1aa2c077cb209707bdebf6b8f70d06e709495aa4a6a00b4f898e053c",
+    "contentMatches": true,
+    "relativePath": "data/ceo-brief-runs/workbuddy-brief-20261026.json"
+  },
+  "receiptAccepted": true,
+  "rawOutputIndependentlyVerified": true,
+  "receiptStatus": "VERIFIED",
+  "scope": "WorkBuddy local dialogue read only; not automatic wakeup or business execution"
+}

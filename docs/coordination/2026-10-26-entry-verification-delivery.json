@@ -1,0 +1,26 @@
+{
+  "schema": "entry-request-delivery/v1",
+  "recordedAt": "2026-10-26T07:15:54.408Z",
+  "taskId": "ceo-entry-read-20261026-1510",
+  "transport": "existing local POST /api/agent/intake-task",
+  "response": {
+    "status": 200,
+    "imported": true,
+    "taskId": "ceo-entry-read-20261026-1510",
+    "targetAgent": "workbuddy"
+  },
+  "error": null,
+  "queueReadbackVerified": true,
+  "previousTaskPreservedInQueue": true,
+  "previousQueueSha256": "eb1c0afd170ccdcd202f73fc41dc00e338a84f5628a1d9ddf6ea017b3ad77962",
+  "status": "DELIVERED",
+  "workbuddyMessageSentByUi": false,
+  "workbuddyExecutionVerified": false,
+  "businessEntryVerified": false,
+  "receiptExpected": "docs/coordination/WORKBUDDY_BRIEF_RECEIPT_2026-10-26.json",
+  "notes": [
+    "Local queue delivery does not wake WorkBuddy.",
+    "UI read was possible; no switch/input/send was confirmed.",
+    "Prior automatic approval quota failure did not execute the blocked click; later retry occurred after stated reset."
+  ]
+}

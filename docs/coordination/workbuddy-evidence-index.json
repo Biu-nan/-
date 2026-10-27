@@ -1,0 +1,110 @@
+{
+  "observedAt": "2026-10-25T08:27:52.477Z",
+  "observer": "codex",
+  "scope": "read-only progress evidence, not a content backup or mutually agreed status",
+  "verification": {
+    "command": "node scripts/verify-system-state.mjs",
+    "actualPass": 19,
+    "actualFail": 0,
+    "localAccess": "elevated read-only after default EACCES",
+    "uiVerification": "WorkBuddy reported 10/10; Codex did not rerun"
+  },
+  "files": [
+    {
+      "path": "docs/SYSTEM_FRAMEWORK_v1.0.md",
+      "bytes": 23002,
+      "mtime": "2026-10-25T07:44:55.741Z",
+      "sha256": "c0b18e6646f5dbc0a138d405a16c972c128449fc00bb978646e8ee16589b6513"
+    },
+    {
+      "path": "docs/SYSTEM_OPERATING_LOOP_v0.2.md",
+      "bytes": 16415,
+      "mtime": "2026-10-25T06:34:11.346Z",
+      "sha256": "6e8899702e4702ec4dd61ff7d66d8cae877f511ed742fae4878d0dc248d3c934"
+    },
+    {
+      "path": "docs/CAPABILITY_REGISTRY_DRAFT.md",
+      "bytes": 9184,
+      "mtime": "2026-10-25T08:12:34.712Z",
+      "sha256": "a6fa4a821a5ba645641cc7b5fa9e0884306e4f2329c989b1bc644bf1aecdf009"
+    },
+    {
+      "path": "docs/METRICS_PIPELINE.md",
+      "bytes": 4861,
+      "mtime": "2026-10-25T07:06:48.585Z",
+      "sha256": "4d0fbdf2f0ffda1c37b8211020b9912ed158d65e56389bc5b6dc3c27914d08b7"
+    },
+    {
+      "path": "docs/PRODUCT_STRATIFICATION.md",
+      "bytes": 11363,
+      "mtime": "2026-10-25T07:23:53.177Z",
+      "sha256": "6d4e02e14707d7d970fcd82d9681ca3bd061deca77c482221f60a229d258acc6"
+    },
+    {
+      "path": "config/metrics-schema.json",
+      "bytes": 9676,
+      "mtime": "2026-10-25T07:04:02.502Z",
+      "sha256": "fd324de17c5ed8f17c89f0fbb28e7465808e65c720d7a06ca730daafd8515b0d"
+    },
+    {
+      "path": "config/product-stratification.json",
+      "bytes": 14881,
+      "mtime": "2026-10-25T07:22:09.943Z",
+      "sha256": "b2f0abb6988df8067a2d5c71af6e225b3d1fae5b250b171c49050c6e3c989989"
+    },
+    {
+      "path": "scripts/metrics-store.mjs",
+      "bytes": 6724,
+      "mtime": "2026-10-25T06:56:50.433Z",
+      "sha256": "eeef825caaf8823a7089f242f5bc83ae21a4020a63d63f6c02dc3b6a47d06ec8"
+    },
+    {
+      "path": "scripts/fetch-dxm-metrics.mjs",
+      "bytes": 6592,
+      "mtime": "2026-10-25T06:57:10.285Z",
+      "sha256": "b583125a135dbde5258770093efad256d6c1e44f87ab9756a061cbf66741bc1b"
+    },
+    {
+      "path": "scripts/fetch-ae-metrics.mjs",
+      "bytes": 18777,
+      "mtime": "2026-10-25T07:06:12.562Z",
+      "sha256": "7a63af617c84e726853af0f893beb5d00c483fda6640400e9428cf859568d945"
+    },
+    {
+      "path": "scripts/fetch-ae-items.mjs",
+      "bytes": 9339,
+      "mtime": "2026-10-25T07:19:05.731Z",
+      "sha256": "0a489d34994da6d6d2d2db59050cb8403ca0d6bbd01b995fa584d3346c042ae9"
+    },
+    {
+      "path": "scripts/recompute-metrics.mjs",
+      "bytes": 12109,
+      "mtime": "2026-10-25T07:04:35.353Z",
+      "sha256": "60f2ec3f75111485189eeff16d358c9953d1defcba95083df9b59849f4f1661c"
+    },
+    {
+      "path": "scripts/stratify-products.mjs",
+      "bytes": 25587,
+      "mtime": "2026-10-25T07:23:38.380Z",
+      "sha256": "9b6d0a6b16e397f8ea77b1ce34cc4a12517abc6405096222980439d398b9da1e"
+    },
+    {
+      "path": "dist/src/system-state.js",
+      "bytes": 29597,
+      "mtime": "2026-10-25T07:42:55.447Z",
+      "sha256": "cc86a1d00064213b338f5b56dc0eb627eba777182786ec52149bc68facfafe2c"
+    },
+    {
+      "path": "scripts/verify-system-state.mjs",
+      "bytes": 8678,
+      "mtime": "2026-10-25T07:43:18.166Z",
+      "sha256": "39e8d97c1b315edf90facdb66fe6791ec6475dd0666790e9d73356ac0f682ee0"
+    },
+    {
+      "path": "scripts/verify-ledger-ui.mjs",
+      "bytes": 6257,
+      "mtime": "2026-10-25T07:42:18.012Z",
+      "sha256": "95d9596c3c323e44de19651f5a67588db831fa067bc1b9797f5fefe7012e3c76"
+    }
+  ]
+}

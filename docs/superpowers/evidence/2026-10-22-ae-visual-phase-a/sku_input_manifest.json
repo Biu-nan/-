@@ -1,0 +1,65 @@
+{
+  "ProductId": "903932105044",
+  "SkuId": "5761489960647",
+  "Variant": "桔色",
+  "SourceDirectory": "D:\\ecom-translator\\output\\未成功上架产品\\韩国东大门爱小雏菊布艺笑脸花朵钥匙扣挂饰棒棒糖包包挂件高级感_903932105044_images__20261001T124144",
+  "Photos": [
+    {
+      "File": "描述图_01.jpg",
+      "Bytes": 815456,
+      "SHA256": "42156C3A82D3595131D7FEDBDFBEDB5C101D8C7620E78D5A28DF36F6D49CA8EA"
+    },
+    {
+      "File": "描述图_02.jpg",
+      "Bytes": 341500,
+      "SHA256": "67A8E15E15193380BFFF0A6ADEDDA7A46EF3C67BA054F7BD6CE649E6EB12CC23"
+    },
+    {
+      "File": "描述图_03.jpg",
+      "Bytes": 614104,
+      "SHA256": "F498F226BCBDAD8091C719C9E46B42B411F8F098107740D8BB0076AB924147B7"
+    },
+    {
+      "File": "描述图_04.jpg",
+      "Bytes": 799365,
+      "SHA256": "CB2D30CAB7CFED17ED1A578925A04F3ED6A4CF12F3AA937D76045EBAC25CB49E"
+    },
+    {
+      "File": "主图_01.jpg",
+      "Bytes": 204354,
+      "SHA256": "F2AFB8B44D8E5E2BD76B829265520E9CA203CE83A0AACCBA7607F26B30123619"
+    },
+    {
+      "File": "主图_02.jpg",
+      "Bytes": 515774,
+      "SHA256": "499BFE807D3F169CFBF9A7BCD2B0FFA44D40EF4DF50B6877135992966D76FE88"
+    },
+    {
+      "File": "主图_03.jpg",
+      "Bytes": 544830,
+      "SHA256": "00345960B84432125B1F422F6402FE74569DEC9AF2502E717BD3DDFA0F30D0DE"
+    },
+    {
+      "File": "主图_04.jpg",
+      "Bytes": 142552,
+      "SHA256": "BC5B23D4F759915C1AD912354744E7CC56BE06A266B94BDE292720AD02F20294"
+    },
+    {
+      "File": "SKU 属性图_01.jpg",
+      "Bytes": 204354,
+      "SHA256": "F2AFB8B44D8E5E2BD76B829265520E9CA203CE83A0AACCBA7607F26B30123619"
+    }
+  ],
+  "DistinctPhotoHashes": 8,
+  "PrimaryPhoto": "主图_01.jpg",
+  "SecondaryPhoto": "主图_02.jpg",
+  "FactSource": "01_PRODUCT_FACTS.md",
+  "MarketSource": "02_MARKET_RESEARCH.md",
+  "ExcludedFromProductFactAuthority": [
+    "02_MARKET_RESEARCH.md",
+    "03_SEO_KEYWORDS.md",
+    "04_LISTING_CONTENT.md"
+  ],
+  "SourceInputsFrozenForProduction": false,
+  "PreparedFor": "supplemental native runtime probe only"
+}

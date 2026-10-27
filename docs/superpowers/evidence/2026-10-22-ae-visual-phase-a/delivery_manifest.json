@@ -1,0 +1,316 @@
+{
+  "destination": "D:\\ecom-translator\\output\\未成功上架产品\\韩国东大门爱小雏菊布艺笑脸花朵钥匙扣挂饰棒棒糖包包挂件高级感_903932105044_images__20261001T124144\\visual_feasibility\\RUN-20261022-PHASE-A-003",
+  "files": [
+    {
+      "relativePath": "app_server_image_attempt_01.json",
+      "bytes": 637,
+      "sha256": "9EA3AAD3954B8F44A82B3C8197CD15C910F747423296FED25954785D248D958D"
+    },
+    {
+      "relativePath": "app_server_image_probe.json",
+      "bytes": 1203,
+      "sha256": "98EA7CAF29ABE833205B695AE5E7B661D668CEB8DCC7C69207FDAF94E8DDFD28"
+    },
+    {
+      "relativePath": "app_server_independent_qc_probe.json",
+      "bytes": 2528,
+      "sha256": "5B938BC8EAB501BB70FE227928D4739285887DECC95F49E6FB60D58573F1D8C3"
+    },
+    {
+      "relativePath": "app_server_metadata_probe.json",
+      "bytes": 814,
+      "sha256": "D96F50A881765838D5436C66E8150665770AE877F59A5A67DC1CEB96A72CAE03"
+    },
+    {
+      "relativePath": "app_server_sandbox_probe.json",
+      "bytes": 313,
+      "sha256": "2A9403956E2EA3D9198356787615F6CCB089D4BED66A227BCEF1BBDBD4AAF79D"
+    },
+    {
+      "relativePath": "app_server_trigger_attempt_01.json",
+      "bytes": 928,
+      "sha256": "421A314CB772A30E9F4F121591DE2CE7EAD9092FF3910A8C89A522BA7D1E2D2B"
+    },
+    {
+      "relativePath": "app_server_trigger_probe.json",
+      "bytes": 1161,
+      "sha256": "14009721AFBA045EB9B48154F3F25AE0A9155CF4737636FEA7A2017BF9750F6A"
+    },
+    {
+      "relativePath": "audited_source_baseline.json",
+      "bytes": 2260,
+      "sha256": "73EDEBE2481C9366A7A7821B6068BE286E2DC2FDDA276AC8513508E997413790"
+    },
+    {
+      "relativePath": "candidates\\native-marketing-candidate.png",
+      "bytes": 1877933,
+      "sha256": "7BF27B45575034648799CAD8DC4128177FB0791CCBF085A819E4684F260178D4"
+    },
+    {
+      "relativePath": "chapter04_backend_revision_v1.3.md",
+      "bytes": 4462,
+      "sha256": "8567F0765CD6B91A45C43CEC2D1FAE64D1AEDFC8A247E7D8BE9D92E41D5DCB89"
+    },
+    {
+      "relativePath": "F07_entry_candidates.md",
+      "bytes": 3738,
+      "sha256": "C8AE2CB49D319A40558F8C9FE71B3B538F1B442674B4716CCB5ACFDBFBA7ACB8"
+    },
+    {
+      "relativePath": "fallback-01\\app_server_fallback_probe.json",
+      "bytes": 4093,
+      "sha256": "03CC65BFA3D89F946DC0527AD5B96C5A1457DCFB9970EE7B7B8D40BD5A28AC3E"
+    },
+    {
+      "relativePath": "fallback-01\\app_server_independent_qc.json",
+      "bytes": 6992,
+      "sha256": "6D5E05C52A32DA06D5A01E13FEB561CD2E4EF0EC89E0BFE8E2084E45C0081DE2"
+    },
+    {
+      "relativePath": "fallback-01\\candidate-fallback-01.png",
+      "bytes": 1879476,
+      "sha256": "2DAC2DCEDF7D99F31F6EF22EBDA9BC75A5414BE052F1B1E1F897D6B593A9DBC2"
+    },
+    {
+      "relativePath": "fallback-01\\fallback_prompt.txt",
+      "bytes": 1884,
+      "sha256": "373AFFAC7EF356E37CF3B0AD751460912705752ACE3BA369CF9BF37BBB381435"
+    },
+    {
+      "relativePath": "fallback-01\\file_validation.json",
+      "bytes": 749,
+      "sha256": "643820C8A8E3C4BB9DDD1AA1C13EE6CBE4E69874D9C4CC3BD85B5CEE12D7299C"
+    },
+    {
+      "relativePath": "fallback-01\\independent_qc_prompt.txt",
+      "bytes": 2282,
+      "sha256": "FFF898F219AAF650F09AAC829F5A3F6BE767AF4D7177FCD77F581055A79EA335"
+    },
+    {
+      "relativePath": "fallback-01\\probe_config.json",
+      "bytes": 793,
+      "sha256": "260564ADFF80FA088D98D13A0CCFA20F760F428C4BC6A6BFFC7DA2F75AF72F90"
+    },
+    {
+      "relativePath": "fallback-01\\prompt_fingerprints.json",
+      "bytes": 508,
+      "sha256": "C84FF21DBCD6816AC409E434EE9D5887746E647C520AF7ADCA3F9919EE88856C"
+    },
+    {
+      "relativePath": "fallback-01\\qc_probe_config.json",
+      "bytes": 1312,
+      "sha256": "062211FF76E471AB944390B2223695645CCE06EF6E4CF7CCEDDCD545B7A6064F"
+    },
+    {
+      "relativePath": "fallback-01\\qc_report.json",
+      "bytes": 5475,
+      "sha256": "8E40455203F57BC331ACCBD34916764028A8B2754B7AB39242926777277193AD"
+    },
+    {
+      "relativePath": "implementation_gap_matrix.md",
+      "bytes": 4069,
+      "sha256": "46ABF6ED1AF2AACF9580B2A9CF30134C3850AD732549FCB5DB62F67D14C704A1"
+    },
+    {
+      "relativePath": "latest_single_image_qc.json",
+      "bytes": 5475,
+      "sha256": "8E40455203F57BC331ACCBD34916764028A8B2754B7AB39242926777277193AD"
+    },
+    {
+      "relativePath": "native_image_file_validation.json",
+      "bytes": 613,
+      "sha256": "E31F5A816466D606ECBE295F31B2A96542E641E1D9FF911D9E97E9AC3CB7F9BA"
+    },
+    {
+      "relativePath": "official_sources.json",
+      "bytes": 1249,
+      "sha256": "2F0A061A2982ED3560CD4D33B2D37DC8C753634112B07A839540940D10D59BBD"
+    },
+    {
+      "relativePath": "offline_checks.json",
+      "bytes": 1719,
+      "sha256": "91CB4F8052011BAA2ED8727BA57B6A95949631529E39988A14351341D8F00BCB"
+    },
+    {
+      "relativePath": "phase_a_status.json",
+      "bytes": 5380,
+      "sha256": "1B12233B128ACC6F5034F584502572F457E76B6311DF23FFD25E6A84593B599D"
+    },
+    {
+      "relativePath": "product_identity_probe.json",
+      "bytes": 1617,
+      "sha256": "F537825901AE209E20031CAE8F45CA2EF725FD5BF035DFAFB4D3AF46CE89742A"
+    },
+    {
+      "relativePath": "qc_report.json",
+      "bytes": 1890,
+      "sha256": "6A41F8A9C1A2184F8805BC08FF31064411ACC4E05901F309AA09BE3EE7243F11"
+    },
+    {
+      "relativePath": "README.md",
+      "bytes": 5548,
+      "sha256": "9BFE9170ED07EEB01C344D6E6994EE6FDFF850653541209966431BA7D48B76F4"
+    },
+    {
+      "relativePath": "rejected\\01_native_attempt_01.png",
+      "bytes": 1877933,
+      "sha256": "7BF27B45575034648799CAD8DC4128177FB0791CCBF085A819E4684F260178D4"
+    },
+    {
+      "relativePath": "repair-01\\app_server_independent_qc.json",
+      "bytes": 7993,
+      "sha256": "13C929EF7B217A13E4448529C814C0499D3B27F985BE1E3BE8CF2F5B88C090D8"
+    },
+    {
+      "relativePath": "repair-01\\app_server_repair_probe.json",
+      "bytes": 4416,
+      "sha256": "87E3148F450E520A7057F813F204D80AA5AC3C6850D02F25650248A2191AE5C6"
+    },
+    {
+      "relativePath": "repair-01\\candidate-repair-01.png",
+      "bytes": 1825220,
+      "sha256": "B47D5D6BCF165D8E2BBE8B6479AAC774B75C908D20FA99378C8EEC7A39C23661"
+    },
+    {
+      "relativePath": "repair-01\\file_validation.json",
+      "bytes": 819,
+      "sha256": "B8D332B5DEE978175E23464B1E8934C05146752F0B4263D73EB8B16AB446107E"
+    },
+    {
+      "relativePath": "repair-01\\independent_qc_prompt.txt",
+      "bytes": 1732,
+      "sha256": "A95A91EF755EB6A95E6A5E51FEFFE98BF44F616425CB17D4BA010A4607EFC38D"
+    },
+    {
+      "relativePath": "repair-01\\prompt_fingerprints.json",
+      "bytes": 257,
+      "sha256": "B13EBF4E83B947BC48843FA29B59B4277DE6247B6183A3077F98E0737ADB17A0"
+    },
+    {
+      "relativePath": "repair-01\\qc_report.json",
+      "bytes": 6456,
+      "sha256": "6B065310F98800FECA2C447AFE236436533B442ACBF01A182ED9DAF09AC050CE"
+    },
+    {
+      "relativePath": "repair-01\\rejected\\01_identity_unverified.png",
+      "bytes": 1825220,
+      "sha256": "B47D5D6BCF165D8E2BBE8B6479AAC774B75C908D20FA99378C8EEC7A39C23661"
+    },
+    {
+      "relativePath": "repair-01\\repair_prompt.txt",
+      "bytes": 1860,
+      "sha256": "96E987980B9306A3447FCA351E1AA103FE366E1C587F83BBD971070F466C207D"
+    },
+    {
+      "relativePath": "repair-01\\scope_verification.json",
+      "bytes": 8424,
+      "sha256": "615E9B700AD74A872DCF111D954EBE9412D6457CD01E57E377A5961B3F9BB1C7"
+    },
+    {
+      "relativePath": "repair-01\\session_manifest.json",
+      "bytes": 1494,
+      "sha256": "D76B5EFED25C38AACAC70CB9116F88BCD7E4287EA37C1CEF3E2539524259BB94"
+    },
+    {
+      "relativePath": "repair-02\\app_server_independent_qc.json",
+      "bytes": 8325,
+      "sha256": "4926C9613C89153D4807ACEC6E0147356F7A6D83F6931CF14D25CD416DD22DF9"
+    },
+    {
+      "relativePath": "repair-02\\app_server_repair_attempt_01.json",
+      "bytes": 2921,
+      "sha256": "DCF49104FEC1CBCD641E8D254C497DAA9BCE11F631DFC7BEED1710CD6111E612"
+    },
+    {
+      "relativePath": "repair-02\\app_server_repair_probe.json",
+      "bytes": 3997,
+      "sha256": "404042C77C51435515C5B75776F2D7977BF650CC0C2CB60958027713D79324BA"
+    },
+    {
+      "relativePath": "repair-02\\candidate-repair-02.png",
+      "bytes": 1824984,
+      "sha256": "CD2A0C02E1775C311947F039DD39F4A6776DBFD25E96AAA8AE0173F5D122FACD"
+    },
+    {
+      "relativePath": "repair-02\\capacity_retry.json",
+      "bytes": 190,
+      "sha256": "057CCFBADBB6F81EB1B7AEBC3F00F267F76AA519927DDB7609C508EDE7C29A06"
+    },
+    {
+      "relativePath": "repair-02\\file_validation.json",
+      "bytes": 741,
+      "sha256": "4AE52D3D2F50608E5B0C19B0A4426FEC10E6DCB963DD5A0C39B4822DA1F2F5C3"
+    },
+    {
+      "relativePath": "repair-02\\independent_qc_prompt.txt",
+      "bytes": 2136,
+      "sha256": "2FB52D8C3B9A214D2B7F06C01DA90EBC2C6DB3B133F266D059510E3C1873F327"
+    },
+    {
+      "relativePath": "repair-02\\probe_config.json",
+      "bytes": 1314,
+      "sha256": "F500E9A37000D366A9C90CA3936BA6E37B56ABD4974DD6672BD4C9FBA7EEE2D5"
+    },
+    {
+      "relativePath": "repair-02\\prompt_fingerprints.json",
+      "bytes": 506,
+      "sha256": "B8F39049DD39882F63FF8B9A7C9B96DD1807C07950E92AC089BA0E596583F01F"
+    },
+    {
+      "relativePath": "repair-02\\qc_probe_config.json",
+      "bytes": 1298,
+      "sha256": "E445E887E3FB7BF6C6CB3CD63F3E4B37E28D7F0CFC81C8244D042ABA4234B4B0"
+    },
+    {
+      "relativePath": "repair-02\\qc_report.json",
+      "bytes": 6470,
+      "sha256": "328B8D3708CEC86A9D69481A42EB3A48A36CC38CA67182D112E32670AEB042A7"
+    },
+    {
+      "relativePath": "repair-02\\rejected\\02_identity_failed.png",
+      "bytes": 1824984,
+      "sha256": "CD2A0C02E1775C311947F039DD39F4A6776DBFD25E96AAA8AE0173F5D122FACD"
+    },
+    {
+      "relativePath": "repair-02\\repair_prompt.txt",
+      "bytes": 2462,
+      "sha256": "F7AC395E19E752C2C3FD857E9F566E70EE8DBF7BE210CDE42B22236EF8C3C3B4"
+    },
+    {
+      "relativePath": "repair_scope_verification.json",
+      "bytes": 468,
+      "sha256": "5B277033D921F44B5159003C39A64FD0B028408F5FE70822DF52D8CDE76682B6"
+    },
+    {
+      "relativePath": "repair_session_report.md",
+      "bytes": 5130,
+      "sha256": "88FD54426B75A5A19177DFCA0EA6ED2A0F7CC95F143541889024518DAC8AA100"
+    },
+    {
+      "relativePath": "repair_usage_partial.json",
+      "bytes": 2126,
+      "sha256": "87B0367B58C06AC1728EF1A0D102082B783FD8EFEA736D0110C95086FD64729C"
+    },
+    {
+      "relativePath": "repair_usage_summary.json",
+      "bytes": 4428,
+      "sha256": "262ECE3305A9295E1403FBACB2C2D07BE553639D40DEB70804EA1091E4D757D1"
+    },
+    {
+      "relativePath": "review\\01_fallback_ai_qc_pass.png",
+      "bytes": 1879476,
+      "sha256": "2DAC2DCEDF7D99F31F6EF22EBDA9BC75A5414BE052F1B1E1F897D6B593A9DBC2"
+    },
+    {
+      "relativePath": "scope_verification.json",
+      "bytes": 183,
+      "sha256": "44AE88C6D852F0783B05C5D632D241B40851D2C88EA9997A44A6E42593DC3370"
+    },
+    {
+      "relativePath": "sku_input_manifest.json",
+      "bytes": 2154,
+      "sha256": "AA7EDECC5D7F0F37CB1F3F12B54928F3A3CDB19D14C7C2600FB52BBD831EACB1"
+    }
+  ],
+  "manifestAndCopyValidationExcludedFromSelfHash": true
+}

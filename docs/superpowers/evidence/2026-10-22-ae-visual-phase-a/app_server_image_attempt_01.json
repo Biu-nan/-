@@ -1,0 +1,22 @@
+{
+  "probe": "official native-runtime single-image path",
+  "persistentConversationCreated": false,
+  "productSourceWritten": false,
+  "independentImageApiRequested": false,
+  "threadId": "01a163d7-b875-7763-b6b9-7faa2747aa94",
+  "ephemeral": true,
+  "turnId": "01a163d7-b965-73b1-9bfe-54648efa2d72",
+  "turnStatus": "failed",
+  "completionError": {
+    "message": "Selected model is at capacity. Please try a different model.",
+    "codexErrorInfo": "serverOverloaded",
+    "additionalDetails": null,
+    "misalignment": null
+  },
+  "imageItems": [],
+  "messages": [],
+  "toolTypes": [
+    "userMessage"
+  ],
+  "approvalRequests": []
+}

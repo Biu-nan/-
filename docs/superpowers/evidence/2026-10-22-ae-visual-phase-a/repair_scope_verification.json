@@ -1,0 +1,15 @@
+{
+  "sourceProductFilesChecked": 26,
+  "sourceProductFilesChanged": 0,
+  "sourceChanges": [],
+  "auditedSourceFilesChecked": 13,
+  "auditedSourceFilesChanged": 0,
+  "codeChanges": [],
+  "jsonFilesParsed": 42,
+  "jsonParseFailures": 0,
+  "reviewCopySha256": "2DAC2DCEDF7D99F31F6EF22EBDA9BC75A5414BE052F1B1E1F897D6B593A9DBC2",
+  "productCodeEdited": false,
+  "persistentChatsCreated": false,
+  "formalProductTestSuiteRun": false,
+  "temporaryProbeSyntaxCheck": "PASS"
+}

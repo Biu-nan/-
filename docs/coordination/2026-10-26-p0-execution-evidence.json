@@ -1,0 +1,148 @@
+{
+  "schema": "ceo-p0-evidence/v1",
+  "recordedAt": "2026-10-26T02:21:50.5033634Z",
+  "snapshot": {
+    "createdAt": "2026-10-25T23:33:58.989Z",
+    "branch": "backup/current-source-20261026",
+    "commit": "9563ff58fc599c71980ae9f0b8b2762280768ffd",
+    "tree": "d75954b4df413c73870ac603a5a218c638b4e4a0",
+    "parent": "bba5dcd8c79be893d4ebf50064499363fce66779",
+    "sourceFiles": 460,
+    "treeFiles": 461,
+    "sourceHashesVerified": true,
+    "stagedBytesVerified": true,
+    "originalIndexUnchanged": true,
+    "primaryHeadUnchanged": true,
+    "manifestPath": "docs/coordination/2026-10-26-source-baseline-manifest.json"
+  },
+  "remoteReadback": {
+    "checkedAt": "2026-10-26T02:13:36.3439641Z",
+    "remote": "private-backup",
+    "repository": "Biu-nan/yikuaborder-private-backup",
+    "private": true,
+    "branch": "backup/current-source-20261026",
+    "commit": "9563ff58fc599c71980ae9f0b8b2762280768ffd",
+    "remoteCommit": "9563ff58fc599c71980ae9f0b8b2762280768ffd",
+    "method": "Authenticated GitHub REST ref readback via curl",
+    "verified": true
+  },
+  "recovery": {
+    "directory": "F:/yikuaborder-deploy/.worktrees/ceo-source-recovery-20261026-raw",
+    "sourceFiles": 460,
+    "hashMismatches": 0,
+    "syntaxChecks": 33,
+    "syntaxPassed": true,
+    "missingRelativeModuleReferences": [],
+    "nodeVersion": "v24.14.1"
+  },
+  "tests": {
+    "command": "npm.cmd run test:reliability",
+    "workingDirectory": "F:/yikuaborder-deploy/.worktrees/ceo-source-recovery-20261026-raw",
+    "isolatedUserData": true,
+    "testCount": 45,
+    "passed": 45,
+    "failed": 0,
+    "skipped": 0,
+    "logSha256": "473a5a096e7600d76110aa20292d53a58d3488da6eed6f0b1e86cdbc83c0671f",
+    "dependencies": "Resolved from parent original checkout node_modules; clean install not tested"
+  },
+  "connection": {
+    "checkedAt": "2026-10-25T23:34:54.366Z",
+    "entry": "Codex engineering session; not proof of a configured ChatGPT Work/WorkBuddy business entry",
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/system/state",
+    "status": 200,
+    "schema": "system-state/v1",
+    "readOnly": true,
+    "generatedAt": "2026-10-25T23:34:54.406Z",
+    "responseSha256": "16c2c7989234374a1bd58a38c350f5eca85342b160a14108ca7271a9a5364645",
+    "summary": {
+      "unitCount": 5,
+      "archivedCount": 7,
+      "byState": {
+        "DRAFT": 0,
+        "READY": 0,
+        "RUNNING": 1,
+        "BLOCKED_NEEDS_HUMAN": 3,
+        "DONE": 0,
+        "FAILED": 1,
+        "CANCELLED": 0
+      },
+      "gateCount": 3,
+      "anomalyCount": 2,
+      "attentionRequired": 4,
+      "healthy": false
+    },
+    "sources": [
+      {
+        "name": "run_state",
+        "ok": true,
+        "reason": null
+      },
+      {
+        "name": "batch_listing",
+        "ok": true,
+        "reason": null
+      },
+      {
+        "name": "collect_batch",
+        "ok": true,
+        "reason": null
+      },
+      {
+        "name": "product_queue",
+        "ok": true,
+        "reason": null
+      },
+      {
+        "name": "charm_jobs",
+        "ok": true,
+        "reason": null
+      },
+      {
+        "name": "data_collection",
+        "ok": true,
+        "reason": null
+      },
+      {
+        "name": "daily_waiting",
+        "ok": true,
+        "reason": null
+      }
+    ],
+    "unitCount": 5,
+    "gates": 3,
+    "caveats": [
+      "本视图只归一化读取，不改变任何业务状态；6 套原始载体保持独立，未合并存储。",
+      "progress 为 null 表示该载体本身不提供进度，不是进度为 0；有值时统一为 0–100 的百分比，全响应单一量纲。",
+      "已结束且超过 7 天的单元归入 archived，不进活跃视图与 gates；需要历史时看 archived 索引。",
+      "listing 计数来自本地登记卡片，不代表平台真实在售数。",
+      "本接口不判断数据新鲜度是否足以支撑决策，那是 L4 决策层的职责。"
+    ],
+    "verified": true
+  },
+  "acceptance": {
+    "P01": "complete",
+    "P02": "complete",
+    "P03": "diagnosis complete; target business-entry acceptance unverified",
+    "P04": "partial: first-loop contract and P1 plan written; P2 detailed execution/approval/evidence/rollback plan pending"
+  },
+  "goal": {
+    "storeEnvironmentId": "400370",
+    "month": "2026-12",
+    "dailyPaidItems": 200,
+    "minimumMonthlyOperatingProfit": 12000,
+    "currency": "CNY",
+    "qualityPenaltiesExcluded": true
+  },
+  "productCodeModified": false,
+  "platformBusinessWrites": false,
+  "independentReview": {
+    "reviewer": "p0_delivery_review",
+    "importantFindings": 4,
+    "criticalFindings": 0,
+    "documentFixPass": 1,
+    "secondIndependentReviewPerformed": false,
+    "disposition": "docs/superpowers/reports/2026-10-26-p0-review-disposition.md"
+  }
+}

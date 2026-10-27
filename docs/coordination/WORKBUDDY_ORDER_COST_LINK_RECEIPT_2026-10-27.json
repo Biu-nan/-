@@ -1,0 +1,181 @@
+{
+  "schemaVersion": 1,
+  "requestId": "ceo-order-cost-link-20261027-01",
+  "requestDoc": "docs/coordination/2026-10-27-order-cost-link-request.md",
+  "supersedes": null,
+  "previousReceiptUntouched": "docs/coordination/WORKBUDDY_COST_EVIDENCE_RECEIPT_2026-10-27.json（本单未修改）",
+  "executor": "WorkBuddy（Anna / Lance 高级秘书执行会话）",
+  "executedAt": {
+    "startedAt": "2026-10-27T12:34:00+08:00",
+    "finishedAt": "2026-10-27T05:05:57Z",
+    "timezone": "Asia/Shanghai"
+  },
+  "status": "PARTIAL",
+  "statusMeaning": "PARTIAL = 4 项补证里 1 项完成、1 项部分完成（缺支付时间）、1 项已核查但结论为不可读、1 项因平台无字段而阻塞；4 条「已关联/已核准」判定中只有「订单事件已关联」成立。",
+  "identityChain": {
+    "storeId": "400370",
+    "envName": "纳物-箱包全托1店",
+    "sellerCenterLabel": "全托管 Shop1105227604 Store",
+    "channelId": "2358891",
+    "platformSkuId": "12000057579334742",
+    "goodsId": "1044258114123",
+    "productId": "1005011985916829",
+    "skuCodeAliasesPreservedSeparately": [
+      "WSN24X2 (CHOICE_SELF, 33 行)",
+      "WSN24*2 (HUO_TONG, 1 行)"
+    ],
+    "aliasPolicy": "两个写法在同一 SKU ID+货品ID 下并存，按销售渠道分列留存；不批准全局 X/* 替换，不跨渠道归集成本。"
+  },
+  "verifiedRecordCount": {
+    "targetSkuDeliveredLinesTotal": 34,
+    "ordersDrilledDown": 3,
+    "inventoryFlowRecordsMatched": 3,
+    "codeSearchPaths": 2,
+    "codeSearchZeroHits": 2,
+    "inventoryWindowsRead": 2,
+    "note": "按要求先核 3 条代表记录（取消单 / 数量2单 / HUO_TONG 单）；路径已证明有效，但未扩展到 34 条（见 remainingGaps）。"
+  },
+  "fieldsFilled": [
+    "订单号 → 销售出库事件（业务单据/交易主单=订单号）",
+    "关联仓储订单号（LBX…）与仓库（DGU029 / DGU016 优选仓）",
+    "库存变动数量、库存余额、库存变动时间",
+    "取消单仍产生出库 -1 的事实（取消≠未发货）",
+    "货品级进销存窗口汇总（期初在仓 / 补货入库 / 销售出库 / 销售退货入库 / 退仓报废）",
+    "WSN24X2 在 ERP 商品管理与全托管货品的双路径零命中，且各有正对照证明筛选有效"
+  ],
+  "fourWayVerdict": {
+    "currentPairingRead": "PARTIAL（编码层零命中，配对模块未读）",
+    "orderEventLinked": "YES（3/3 条代表记录）",
+    "periodPricingApproved": "NO（出库流水不含单价/金额；入仓批次单价未取）",
+    "netProfitComputable": "NO"
+  },
+  "evidence": [
+    {
+      "name": "01-x2-code-search.json",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/order-link-verification/workbuddy-order-evidence/01-x2-code-search.json",
+      "bytes": 3664,
+      "sha256": "cfcd3d87bc057907c1a69f3244f021104e99593a76620b623d5a8fd328b36da3"
+    },
+    {
+      "name": "02-order-delivery-flow.json",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/order-link-verification/workbuddy-order-evidence/02-order-delivery-flow.json",
+      "bytes": 6051,
+      "sha256": "c36ebe8b0b7a94bdf43a0b95c10f4dd84ab0ff7ab926adf8c75627aa931b5f29"
+    },
+    {
+      "name": "03-refund-return-chain.json",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/order-link-verification/workbuddy-order-evidence/03-refund-return-chain.json",
+      "bytes": 4269,
+      "sha256": "b772ecdc11faae2c5c3e3d30d89b38f278d6db9188cc72e301811464a43dcade"
+    },
+    {
+      "name": "04-inventory-window.json",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/order-link-verification/workbuddy-order-evidence/04-inventory-window.json",
+      "bytes": 3461,
+      "sha256": "2ea661f0082c1313fdeb5e6a39dd44432d37a8a4ddd34f7cec34696a890e31d7"
+    },
+    {
+      "name": "xm-platformsku-WSN24X2.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/order-link-verification/workbuddy-order-evidence/xm-platformsku-WSN24X2.png",
+      "bytes": 128005,
+      "sha256": "9b9caf0a5da4146e84b4ae10e3709e80b8b4388ea8c6509832eea93e76c7a08a"
+    },
+    {
+      "name": "xm-control-platformsku-WSN24-Black_2PCS.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/order-link-verification/workbuddy-order-evidence/xm-control-platformsku-WSN24-Black_2PCS.png",
+      "bytes": 143006,
+      "sha256": "57582f668e4d83ef28fdf15d07f9f0fcc5ae316e233194748879a408f30dcbea"
+    },
+    {
+      "name": "xm-goodsskucode-WSN24X2.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/order-link-verification/workbuddy-order-evidence/xm-goodsskucode-WSN24X2.png",
+      "bytes": 107649,
+      "sha256": "835d69c5122b790b9f8224d34d71a109c01624b6e84dac9485ec9c15a4a1398b"
+    },
+    {
+      "name": "xm-control-goodscode-1044258114123.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/order-link-verification/workbuddy-order-evidence/xm-control-goodscode-1044258114123.png",
+      "bytes": 131778,
+      "sha256": "23b31c09dc23f57753f40f72fda270a845b9e0c94484b314d20131423bd28ed8"
+    },
+    {
+      "name": "xm-control-goodsskucode-WSN24-1-With_4.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/order-link-verification/workbuddy-order-evidence/xm-control-goodsskucode-WSN24-1-With_4.png",
+      "bytes": 158801,
+      "sha256": "461ebc8cbaecbe2d0ad78dddf91a8c9afabcd060db55dc1944d1b183d2d1caf7"
+    },
+    {
+      "name": "ae-flow-3orders.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/order-link-verification/workbuddy-order-evidence/ae-flow-3orders.png",
+      "bytes": 200094,
+      "sha256": "b1d1cd8d249505c43a32de27180220bbe5b9fc91d61ac0fa3087a10c51e34325"
+    },
+    {
+      "name": "ae-inv-flow-detail2.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/order-link-verification/workbuddy-order-evidence/ae-inv-flow-detail2.png",
+      "bytes": 200274,
+      "sha256": "2b138da28530acd69dfb05a73fd224d30480471473f6c65f80a878900a624fea"
+    },
+    {
+      "name": "ae-order-cancelled-record.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/order-link-verification/workbuddy-order-evidence/ae-order-cancelled-record.png",
+      "bytes": 167082,
+      "sha256": "54ca0bb8c109ba0cf7b6b7e13fe9bd37a32b42483b0820962ebcbc3183eaded0"
+    },
+    {
+      "name": "ae-timetype-PAY_TIME.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/order-link-verification/workbuddy-order-evidence/ae-timetype-PAY_TIME.png",
+      "bytes": 178958,
+      "sha256": "4359de0190923f0aa40958cdc90683c7f93bd10b185051b22b36ac816271c4e6"
+    },
+    {
+      "name": "ae-income-tab2.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/order-link-verification/workbuddy-order-evidence/ae-income-tab2.png",
+      "bytes": 178985,
+      "sha256": "f7fa9b13419d14a439a3d484e2707fc2eb3d222ad7ea45cbbc16151867e83792"
+    },
+    {
+      "name": "ae-inv-win-1019-1025.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/order-link-verification/workbuddy-order-evidence/ae-inv-win-1019-1025.png",
+      "bytes": 157715,
+      "sha256": "90ac6ca97179b97c7025238bf750ca294dd0e6b5c3e02b71f4ccea0fe2750073"
+    },
+    {
+      "name": "ae-inv-flow-goods.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/order-link-verification/workbuddy-order-evidence/ae-inv-flow-goods.png",
+      "bytes": 157715,
+      "sha256": "90ac6ca97179b97c7025238bf750ca294dd0e6b5c3e02b71f4ccea0fe2750073"
+    },
+    {
+      "name": "ae-backend-login-check.png",
+      "localPath": "data/ceo-audits/2026-10-27-store-400370/cost-verification/order-link-verification/workbuddy-order-evidence/ae-backend-login-check.png",
+      "bytes": 669092,
+      "sha256": "5eade1fc4bbda056bd4cc2d4daf5f1f9614e1907d4e43de7f67470e84a08b8df"
+    }
+  ],
+  "evidenceRoot": "data/ceo-audits/2026-10-27-store-400370/cost-verification/order-link-verification/workbuddy-order-evidence/",
+  "evidenceRootNote": "位于 gitignore 的 data/ 下，未提交 Git；未收集客户地址/联系方式，未导出原始财务数据到源码目录。",
+  "remainingGaps": [
+    "支付时间：全托管卖家中心无单笔订单详情，资金明细无支付时间列，收支为日汇总；普通 Chrome 访问 csp 未登录且请求禁止新增登录。→ 支付时间与时区仍未取得。",
+    "入仓批次：窗口内有补货入库 60 件，但逐批备货单号与单价未取（业务类型下拉为 Fusion 组件 + 多值输入浮层拦截点击）。",
+    "出库单价/金额：平台流水只给数量与余额，无金额，不能直接构成期间计价。",
+    "未扩展至 34 条订单：3 条代表记录已证明路径有效，扩展会带来约 34 次逐单查询；按「路径有效才扩大」的节省原则留待 Codex 明确要求。",
+    "未读路径：物流账单明细、货品退仓、差异服务中心。",
+    "37 件支付观察 vs 35 件履约：未做同批次结论（缺支付时间字段）。注意 10-20~10-26 窗口的平台仓销售出库也是 37 件，属数值巧合，不可混用。"
+  ],
+  "boundaryNotes": [
+    "出库时间 ≠ 财务发货时间：样本中取消单出库(10-26 00:10)晚于发货(10-25 08:09)约 16 小时。",
+    "退款金额是资金快照，不等价于物理退货；该货品窗口内销售退货入库 0、退仓/报废 0。",
+    "负库存只记录「可能影响计价」，本次未修库存、未扩展全仓审计。",
+    "采购模块已知基线零行，按请求未重复测试。"
+  ],
+  "businessWritePerformed": false,
+  "businessWriteDetail": "未修改商品/绑定/价格/库存/订单；未补录采购；未创建退货/调拨；未点击保存/同步/发货/退款提交；未写生产 facts；未新增平台登录或浏览器安全设置。读取均在已授权页面上进行，页面查询只点「查询」，打开有编辑能力的页面仅读取。",
+  "environmentCleanup": "取证完成后对 self-opened 稳卖环境执行 closeEnv(400370)，浏览器标签恢复为打开前的 2 个；普通 Chrome(9223) 未接受到任何写入操作。",
+  "notClaimed": [
+    "PARTIAL 不代表成本已核准，也不代表净利润可核算。",
+    "不宣称 35 件履约与 37 件支付是同一批次。",
+    "不宣称取消单已物理退货或成本已冲回。",
+    "不宣称 WSN24X2 与 WSN24*2 可全局互换（仅记录平台自身并存两种写法）。"
+  ]
+}

@@ -1,0 +1,54 @@
+[
+  {
+    "Path": "F:\\yikuaborder-deploy\\agents\\ae-product-design\\README.md",
+    "SHA256": "47CA012DBFDB6BE590015A744C5DFAB6A6EE37852777824FD58424193B40D3EE"
+  },
+  {
+    "Path": "F:\\yikuaborder-deploy\\agents\\ae-product-design\\contract.md",
+    "SHA256": "9D2912D25AE18C956D569AF672384471909C0EBFC210C2D37B1BB6E69ED437E3"
+  },
+  {
+    "Path": "F:\\yikuaborder-deploy\\agents\\ae-product-design\\config\\image-slots.json",
+    "SHA256": "EB9D8F3D8C5EDD567F5E5A222F4A7290513F381A15B0F588E26AABB611A0E99E"
+  },
+  {
+    "Path": "F:\\yikuaborder-deploy\\agents\\ae-product-design\\src\\inputs.js",
+    "SHA256": "0A703AE6ECA702459E53C9515B66381BE3D2DE3BF1491B33C3B73C42CF12CEE6"
+  },
+  {
+    "Path": "F:\\yikuaborder-deploy\\agents\\ae-product-design\\src\\model.js",
+    "SHA256": "0692CF9880505DD7DCEA08FC1D64BF6E08162C623DD675F50596B662AEEF8E82"
+  },
+  {
+    "Path": "F:\\yikuaborder-deploy\\agents\\ae-product-design\\src\\generate.js",
+    "SHA256": "1FB70925B7C839F6B226EE52CCE53B87A6C0BFF219E6EC02C442A7E1DC3768EF"
+  },
+  {
+    "Path": "F:\\yikuaborder-deploy\\agents\\ae-product-design\\src\\qc.js",
+    "SHA256": "146C944EB721ED1995B9DC98CC61E17CC0A4AE349513B42A1550AA9C517BF92E"
+  },
+  {
+    "Path": "F:\\yikuaborder-deploy\\agents\\ae-product-design\\src\\runner.js",
+    "SHA256": "1E002646119E6FEB41DE532FA3FDDAFB2A18692456A7571D8305E6A9FAAAF3BB"
+  },
+  {
+    "Path": "F:\\yikuaborder-deploy\\agents\\ae-product-design\\src\\image-info.js",
+    "SHA256": "1990749E014CD9F74C0BE269C7B3C72C576F858BD9636A3EC1134F6982AF9DAC"
+  },
+  {
+    "Path": "F:\\yikuaborder-deploy\\agents\\ae-product-design\\src\\exact_size.py",
+    "SHA256": "460AB2257B74AFC03142882113A4CC14822BB55DB25B396CA38496B2DD2EEE87"
+  },
+  {
+    "Path": "F:\\yikuaborder-deploy\\agents\\_shared\\state.js",
+    "SHA256": "7AEC3F2E7B66E60E183EF43C1CED847BF131F708882434103162895383F5EBC4"
+  },
+  {
+    "Path": "F:\\yikuaborder-deploy\\agents\\_shared\\schemas.js",
+    "SHA256": "0D634182D1625507B61ABCEC501A51B34A8736305602360017005464927FB6BD"
+  },
+  {
+    "Path": "F:\\yikuaborder-deploy\\agents\\ae-product-design\\evals\\cases.json",
+    "SHA256": "E885B8CFE2E9362C5F911B0E775F0B67FB803E9483BB9E3403A21B5362D812DF"
+  }
+]

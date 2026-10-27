@@ -1,0 +1,121 @@
+{
+  "verdict": "FAIL",
+  "identity_match": false,
+  "component_checks": [
+    {
+      "component": "花瓣数量和形状",
+      "reference_observation": "六片桔色填充织物花瓣，呈圆头长瓣，排列略不对称。",
+      "candidate_observation": "可见六片圆头填充花瓣，形状与排列差异可由摆放和挤压解释。",
+      "status": "PASS"
+    },
+    {
+      "component": "花心脸部",
+      "reference_observation": "黄色圆形花心，两个黑色竖椭圆眼睛，黑色上扬弧形嘴，两端带短笔画。",
+      "candidate_observation": "黄色圆形花心及眼睛、笑嘴的主要特征保留。",
+      "status": "PASS"
+    },
+    {
+      "component": "颜色和织物纹理",
+      "reference_observation": "桔色花瓣具有细密织物纹理；橙绳和绿绳均带白色间断纹样。",
+      "candidate_observation": "上述配色、花瓣织物观感和绳上白色纹样保留；亮度与饱和度存在变化。",
+      "status": "PASS"
+    },
+    {
+      "component": "橙绳走向和绳结",
+      "reference_observation": "橙绳上方折回形成挂环，花朵左上方有连续多圈缠绕结，下方伸出两条长绳。",
+      "candidate_observation": "保留上方折回、左上方多圈缠绕和两条下垂绳的可见布局。",
+      "status": "PASS"
+    },
+    {
+      "component": "橙绳末端",
+      "reference_observation": "图1及图3可见橙绳末端收细，具有一段较平滑的橙色包覆端头；图2左侧端头也呈细长条状。",
+      "candidate_observation": "两条橙绳末端主要呈粗绳直接截断的形态，端面露出浅色截面；左端虽有短段收束，仍未保留参考中细长、平滑的端头形态。",
+      "status": "FAIL"
+    },
+    {
+      "component": "绿绳走向和末端",
+      "reference_observation": "绿色白纹绳从上方延伸至花后，下方有两条长绳；图1及图3可见两个深绿色细长包覆端头。",
+      "candidate_observation": "花后两条绿色白纹绳及两个深绿色端头均可见，弯曲方向属于合理摆放变化。",
+      "status": "PASS"
+    },
+    {
+      "component": "绿绳与心形扣的上部连接",
+      "reference_observation": "图1和图2可见具有完整编织粗度的绿绳弯折段绕过金属扣，之后向花后延伸。",
+      "candidate_observation": "金属扣交界处出现一小段明显变窄、近似扁带的绿色跨接，和下方粗绿绳如何连续连接无法清楚辨认。",
+      "status": "UNCERTAIN"
+    },
+    {
+      "component": "银色心形扣及开合段",
+      "reference_observation": "银色心形扣带较长直线开合段；图2左斜边和图3上边能够看到直杆及端部接合结构。",
+      "candidate_observation": "保留银色心形轮廓，但可见轮廓主要表现为连续弯曲金属管，未清楚呈现参考中的直线开合段及其接合结构；棕环遮住一小段边缘。",
+      "status": "UNCERTAIN"
+    },
+    {
+      "component": "棒棒糖金属连接件",
+      "reference_observation": "心形主扣与棒棒糖之间可见长形小扣、转接部和小连接环；不同照片中角度不同。",
+      "candidate_observation": "可见长形小扣、下方转接部和连接棒棒糖的小环，主要连接层级存在；细小交叠处不足以确认每个闭合点。",
+      "status": "PASS"
+    },
+    {
+      "component": "棕色可调环、滑扣和尾端",
+      "reference_observation": "棕色环带有重复凸节，穿过椭圆形滑扣，并伸出一条较平滑的细尾端。",
+      "candidate_observation": "凸节环、椭圆形滑扣和单条伸出尾端均保留，未见明确的配件增减。",
+      "status": "PASS"
+    },
+    {
+      "component": "棒棒糖挂件及相对比例",
+      "reference_observation": "橙色心形糖头搭配浅橙色细棒，糖头小于整朵花，挂在花朵右上侧。",
+      "candidate_observation": "保留心形糖头、细棒及右上侧位置，相对花朵的大小未见明确失真；表面光泽更强。",
+      "status": "PASS"
+    }
+  ],
+  "issues": [
+    {
+      "code": "ORANGE_CORD_END_STRUCTURE_CHANGED",
+      "component": "橙绳末端",
+      "reference_observation": "参考可见细长、收束且较平滑的橙色端头。",
+      "candidate_observation": "候选改为接近粗绳截断的末端，浅色截面明显，未保留原端头结构。",
+      "severity": "major"
+    },
+    {
+      "code": "GREEN_UPPER_CONNECTION_UNRESOLVED",
+      "component": "绿绳与心形扣的上部连接",
+      "reference_observation": "参考可见粗编织绿绳的弯折挂接段。",
+      "candidate_observation": "候选在新清楚展示的交界处出现细窄绿色跨接，其与粗绳的连接关系无法核实。",
+      "severity": "major"
+    },
+    {
+      "code": "HEART_CLASP_GATE_UNRESOLVED",
+      "component": "银色心形扣",
+      "reference_observation": "参考存在可辨认的直线开合杆及端部接合结构。",
+      "candidate_observation": "候选心形轮廓较完整，但开合杆及接合结构无法确认，不能仅凭心形外观判为匹配。",
+      "severity": "major"
+    }
+  ],
+  "text_observed": [
+    "SMILEY",
+    "FLOWER",
+    "BAG CHARM",
+    "A little color for your bag."
+  ],
+  "text_errors": [],
+  "unsupported_claims": [],
+  "visual_quality_issues": [],
+  "unverified": [
+    "绿绳上部细窄跨接与粗绳的连续关系未能确认，属于关键可见连接问题。",
+    "心形扣的开合结构未能确认；不推断其藏在被棕环遮挡的小段后方。",
+    "花朵背面的绳路及固定方式在参考与候选中均有自然遮挡，仅记录可见范围，不因共同遮挡单独判失败。",
+    "小金属连接件交叠处的内部闭合细节不可见，不据此断言完全一致。",
+    "未提供平台规范，未评估平台合规；仅有一张候选图，未评估系列一致性。",
+    "本结果为基于所给图片的AI视觉审查，不代表人工审查。"
+  ],
+  "binding": {
+    "candidateSha256": "CD2A0C02E1775C311947F039DD39F4A6776DBFD25E96AAA8AE0173F5D122FACD",
+    "generatorThreadId": "01a163ee-593d-7473-ad39-7b41a992908c",
+    "generatorTurnId": "01a163ee-5ac7-7e60-9f63-95a099eb897e",
+    "qcThreadId": "01a163f1-6ea8-72a3-ba19-6da40cf3f8a8",
+    "qcTurnId": "01a163f1-6f6d-7542-a271-74360d0c4ff4"
+  },
+  "qualified": false,
+  "reason": "FAIL blocks release; targeted repair limit reached."
+}

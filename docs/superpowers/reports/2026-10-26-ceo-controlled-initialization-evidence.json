@@ -1,0 +1,112 @@
+{
+  "schema": "ceo-controlled-context-delivery/v1",
+  "recordedAt": "2026-10-26T10:38:55.634Z",
+  "tests": {
+    "new": 30,
+    "allCeo": 148,
+    "reliability": 45,
+    "full": 316,
+    "pass": 292,
+    "fail": 24,
+    "unchangedFailures": true
+  },
+  "review": {
+    "important": 1,
+    "fixed": 1,
+    "fixPasses": 1,
+    "reReview": false,
+    "deferredMinor": "Deep JSON meta may cause unclassified RangeError; CLI rejects generically without raw data"
+  },
+  "rehearsal": {
+    "schema": "ceo-initialization-rehearsal/v1",
+    "recordedAt": "2026-10-26T10:33:21.300Z",
+    "isBusinessExecution": false,
+    "contextId": "context-47b99a1af8c0145f1aa595cd113c9ad51d1fc2c0943913198f6e78e1107e9882",
+    "sourceFiles": [
+      {
+        "path": "data/metrics/facts/aliexpress/2026-10-25.jsonl",
+        "sha256": "504245494c611a119045e8453cbfccca62d5a1b61012bc8cf649bbfb88994a4a",
+        "bytes": 10460
+      }
+    ],
+    "observations": 17,
+    "usableFacts": 0,
+    "actual": {
+      "planId": "ceo_plan_905cd5526be47e7456ac43e5",
+      "commitment": "UNCOMMITTED",
+      "tasks": 0,
+      "deferred": 3,
+      "retryCreated": false
+    },
+    "proposedScenario": {
+      "isSimulation": true,
+      "operators": 1,
+      "capacityMinutes": 120,
+      "bufferMinutes": 30,
+      "availableMinutes": 90,
+      "usedMinutes": 75,
+      "tasks": [
+        "store-400370-cost-reconciliation",
+        "store-400370-paid-caliber"
+      ],
+      "deferred": [
+        {
+          "taskId": "store-400370-comparable-baseline",
+          "reason": "CAPACITY_EXCEEDED"
+        }
+      ]
+    }
+  },
+  "logs": [
+    {
+      "name": "context-red.log",
+      "sha256": "d6d79a81819e44e60d2a7ae759be047a28dd315fe23cf14e027f1720e98b3d28"
+    },
+    {
+      "name": "workspace-red.log",
+      "sha256": "e6b280badbcac89835e9ecf7c4936eb08e613948af594f145d525a5d16a1cee4"
+    },
+    {
+      "name": "review-fix-red.log",
+      "sha256": "902e1dabef0fe0a8614c4f3100bbce41dc7de568d709c70f12302f9c8a205cbe"
+    },
+    {
+      "name": "final-unit.log",
+      "sha256": "8c2701cce07621a46b86dbc321afa1bcd89a6c76f85b7d8fb855122f8fc4a025"
+    },
+    {
+      "name": "final-full.log",
+      "sha256": "50a41bf54684b0749dca1704cf9f8d2a45f151af9ef4c314bc410f1e6333149f"
+    },
+    {
+      "name": "final-reliability.log",
+      "sha256": "a4c06c07f0753cf689028e200ac3a859e47135f4fc81183342e4887ea9f989c7"
+    }
+  ],
+  "fullFailures": [
+    "accepts all ten prompt start and end markers",
+    "assembles the smt_choice_listing sample chain",
+    "does not hard-stop image generation on storyboard or prompt-pack QC failures",
+    "does not hard-stop listing generation when ChatGPT web search cannot be toggled",
+    "does not upload the same image twice when ChatGPT resets its file input",
+    "exposes Listing visual workflow v2 prompt templates through the prompt registry",
+    "exposes a manual reset for insert market radar selection",
+    "exposes all backend prompts in the knowledge prompt library",
+    "keeps ChatGPT tool selection resilient to composer menu role changes",
+    "keeps legacy planning completion available for standard Listing",
+    "keeps the strict luxury insert layouts and fixed copy in the template",
+    "reads the agent job",
+    "reads the artifact sample",
+    "reads the context pack",
+    "reads the sample task",
+    "reads the smt_choice_listing workflow spec",
+    "recognizes stopped thinking with no assistant output instead of waiting for the global timeout",
+    "recovers listing content from previously sent Chinese listing prompts",
+    "reports ready health when all P0 fixtures and the sample chain are available",
+    "sends listing content with a stable backend fingerprint",
+    "shows the Listing visual workflow v2 stages without replacing legacy controls",
+    "supports the seven-image luxury insert prompt pack",
+    "surfaces write failures instead of swallowing them",
+    "uses the native editor insertion path for a long prompt"
+  ]
+}

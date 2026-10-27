@@ -1,0 +1,7 @@
+{
+  "reason": "serverOverloaded",
+  "sameConfiguredModel": true,
+  "maximumCapacityRetries": 1,
+  "completedImagesBeforeRetry": 0,
+  "retainedAttempt": "app_server_repair_attempt_01.json"
+}

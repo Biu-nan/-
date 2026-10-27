@@ -1,0 +1,12 @@
+{
+  "probe": "app-server metadata handshake only",
+  "threadCreated": false,
+  "inferenceRequested": false,
+  "productImagesTransmitted": false,
+  "probeError": "TIMEOUT:initialize",
+  "stderrDiagnostics": {
+    "containsAccessDenied": true,
+    "containsPathAliasWarning": true,
+    "containsError": false
+  }
+}

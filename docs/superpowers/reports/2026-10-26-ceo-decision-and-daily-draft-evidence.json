@@ -1,0 +1,72 @@
+{
+  "schema": "ceo-draft-delivery/v1",
+  "recordedAt": "2026-10-26T09:18:38.995Z",
+  "baseCommit": "b5dad6bb43e3583701d50fd9ffa0108bcdf5b4c5",
+  "codeCommit": "a19a8a9367b6ef41c6467b5d9fc3fa00ab85d282",
+  "tests": {
+    "newUnit": {
+      "total": 77,
+      "pass": 77,
+      "fail": 0
+    },
+    "reliability": {
+      "total": 45,
+      "pass": 45,
+      "fail": 0
+    },
+    "full": {
+      "total": 286,
+      "pass": 262,
+      "fail": 24
+    },
+    "baselineFailuresUnchanged": true
+  },
+  "review": {
+    "agent": "ceo_draft_code_review",
+    "initialImportant": 3,
+    "importantFixPasses": 1,
+    "reReviewPerformed": false,
+    "deferredMinor": "INVALID input reordering may change planId"
+  },
+  "example": {
+    "schema": "ceo-daily-plan/v1",
+    "status": "DRAFT",
+    "commitment": "UNCOMMITTED",
+    "tasks": 0,
+    "deferred": 3,
+    "blocked": 0,
+    "sourceFacts": 0,
+    "isBusinessExecution": false
+  },
+  "logs": [
+    {
+      "name": "t2-red.log",
+      "sha256": "56fae367e09c1fdc97a672edd8cc7c65076342b24e4d2ed9d39f0268db8bfcdf"
+    },
+    {
+      "name": "t2-final.log",
+      "sha256": "905e96cf1ce320660651e39b3e80d5920faaa7ae0c8c3bb02b563c7f0837235c"
+    },
+    {
+      "name": "t3-red.log",
+      "sha256": "08994611ed5094c0e6c3f06e7dee6c0c4fa875477811531f54aff6ea20d5bd0e"
+    },
+    {
+      "name": "review-fixes-red.log",
+      "sha256": "a6a7047ecad134ceaab3e9cf0cd45b51eec81e9f74e4b9f0d2e0b8d02ec3fe95"
+    },
+    {
+      "name": "t2-t3-final-unit.log",
+      "sha256": "1c715caa14b4453488407491a32d25c7cc3aa00f2153dc831095947604c0b7af"
+    },
+    {
+      "name": "t2-t3-reviewed-full.log",
+      "sha256": "b5c6cbcd04113fe1337e4f2cb57d5d838fb6c7b8ad926eabfdf1b0bec29c032b"
+    },
+    {
+      "name": "t2-t3-reviewed-reliability.log",
+      "sha256": "1f81036ceb1560286f169472ef0e7bec23bbac226ea79ce7bd840a1f981d4cce"
+    }
+  ],
+  "realDataAndAuthorizationIntegration": "P2 pending"
+}

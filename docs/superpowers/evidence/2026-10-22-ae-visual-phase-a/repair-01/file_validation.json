@@ -1,0 +1,14 @@
+{
+  "nativePath": "C:\\Users\\User\\.codex\\generated_images\\01a163e6-bd50-7e50-8469-44266946b02b\\exec-11e0bcba-80d2-4ac4-8bdf-7cc2425e7935.png",
+  "candidatePath": "F:\\yikuaborder-deploy\\docs\\superpowers\\evidence\\2026-10-22-ae-visual-phase-a\\repair-01\\candidate-repair-01.png",
+  "nativeSha256": "B47D5D6BCF165D8E2BBE8B6479AAC774B75C908D20FA99378C8EEC7A39C23661",
+  "candidateSha256": "B47D5D6BCF165D8E2BBE8B6479AAC774B75C908D20FA99378C8EEC7A39C23661",
+  "byteIdentical": true,
+  "file": "F:\\yikuaborder-deploy\\docs\\superpowers\\evidence\\2026-10-22-ae-visual-phase-a\\repair-01\\candidate-repair-01.png",
+  "bytes": 1825220,
+  "width": 1254,
+  "height": 1254,
+  "format": "png",
+  "readable": true,
+  "note": "Header parsing only; visual decode inspected separately. Platform compliance not evaluated."
+}

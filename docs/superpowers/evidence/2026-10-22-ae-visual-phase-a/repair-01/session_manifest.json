@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-22",
+  "phase": "A-single-image-repair",
+  "backendDirectionAccepted": true,
+  "acceptanceText": "接受 下一步",
+  "productionDevelopmentAuthorized": false,
+  "repairPolicy": {
+    "maximumTargetedRepairs": 2,
+    "maximumFallbacks": 1,
+    "currentRepair": 1
+  },
+  "inputs": [
+    {
+      "path": "F:\\yikuaborder-deploy\\docs\\superpowers\\evidence\\2026-10-22-ae-visual-phase-a\\candidates\\native-marketing-candidate.png",
+      "sha256": "7BF27B45575034648799CAD8DC4128177FB0791CCBF085A819E4684F260178D4"
+    },
+    {
+      "path": "D:\\ecom-translator\\output\\未成功上架产品\\韩国东大门爱小雏菊布艺笑脸花朵钥匙扣挂饰棒棒糖包包挂件高级感_903932105044_images__20261001T124144\\主图_01.jpg",
+      "sha256": "F2AFB8B44D8E5E2BD76B829265520E9CA203CE83A0AACCBA7607F26B30123619"
+    },
+    {
+      "path": "D:\\ecom-translator\\output\\未成功上架产品\\韩国东大门爱小雏菊布艺笑脸花朵钥匙扣挂饰棒棒糖包包挂件高级感_903932105044_images__20261001T124144\\主图_02.jpg",
+      "sha256": "499BFE807D3F169CFBF9A7BCD2B0FFA44D40EF4DF50B6877135992966D76FE88"
+    }
+  ],
+  "prompts": [
+    {
+      "file": "repair_prompt.txt",
+      "sha256": "96E987980B9306A3447FCA351E1AA103FE366E1C587F83BBD971070F466C207D"
+    },
+    {
+      "file": "independent_qc_prompt.txt",
+      "sha256": "A95A91EF755EB6A95E6A5E51FEFFE98BF44F616425CB17D4BA010A4607EFC38D"
+    }
+  ],
+  "productionCodeChangesPlanned": false
+}

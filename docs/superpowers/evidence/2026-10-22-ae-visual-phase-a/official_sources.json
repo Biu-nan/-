@@ -1,0 +1,30 @@
+{
+  "checked_date": "2026-10-22",
+  "sources": [
+    {
+      "title": "Codex App Server",
+      "url": "https://learn.chatgpt.com/docs/app-server",
+      "supports": "initialize/thread/start/turn/start及结果事件；不单独证明Work UI或完整生图链路"
+    },
+    {
+      "title": "Workspace Agent trigger",
+      "url": "https://learn.chatgpt.com/workspace-agents/trigger-runs",
+      "supports": "已发布workspace agent的API channel触发，beta run状态；202不等于任务完成"
+    },
+    {
+      "title": "Workspace Agent authentication",
+      "url": "https://developers.openai.com/workspace-agents/authentication",
+      "supports": "管理端启用与Workspace Agents scope token前置条件"
+    },
+    {
+      "title": "Earlier Workspace Agent cookbook",
+      "url": "https://developers.openai.com/cookbook/examples/chatgpt/workspace_agents/workspace-agents-api-trigger",
+      "supports": "异步触发与目标结果核验；其返回body/run id描述与现行指南不同"
+    },
+    {
+      "title": "Work Cloud local access",
+      "url": "https://learn.chatgpt.com/docs/enterprise/cloud-local-access",
+      "supports": "本地资源访问需单独满足条件，不由API key/Codex token自动授予"
+    }
+  ]
+}

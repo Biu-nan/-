@@ -1,0 +1,94 @@
+{
+  "schema": "ceo-brief-delivery/v1",
+  "codeCommit": "4c2557b",
+  "scope": "T1 only; T2/T3 not implemented",
+  "unitTests": {
+    "pass": 41,
+    "fail": 0
+  },
+  "reliabilityTests": {
+    "pass": 45,
+    "fail": 0
+  },
+  "fullSuite": {
+    "before": {
+      "total": 168,
+      "pass": 144,
+      "fail": 24
+    },
+    "after": {
+      "total": 209,
+      "pass": 185,
+      "fail": 24
+    },
+    "sameFailures": true,
+    "failures": [
+      "accepts all ten prompt start and end markers",
+      "assembles the smt_choice_listing sample chain",
+      "does not hard-stop image generation on storyboard or prompt-pack QC failures",
+      "does not hard-stop listing generation when ChatGPT web search cannot be toggled",
+      "does not upload the same image twice when ChatGPT resets its file input",
+      "exposes Listing visual workflow v2 prompt templates through the prompt registry",
+      "exposes a manual reset for insert market radar selection",
+      "exposes all backend prompts in the knowledge prompt library",
+      "keeps ChatGPT tool selection resilient to composer menu role changes",
+      "keeps legacy planning completion available for standard Listing",
+      "keeps the strict luxury insert layouts and fixed copy in the template",
+      "reads the agent job",
+      "reads the artifact sample",
+      "reads the context pack",
+      "reads the sample task",
+      "reads the smt_choice_listing workflow spec",
+      "recognizes stopped thinking with no assistant output instead of waiting for the global timeout",
+      "recovers listing content from previously sent Chinese listing prompts",
+      "reports ready health when all P0 fixtures and the sample chain are available",
+      "sends listing content with a stable backend fingerprint",
+      "shows the Listing visual workflow v2 stages without replacing legacy controls",
+      "supports the seven-image luxury insert prompt pack",
+      "surfaces write failures instead of swallowing them",
+      "uses the native editor insertion path for a long prompt"
+    ]
+  },
+  "liveEngineeringRead": {
+    "schema": "ceo-brief/v1",
+    "observedAt": "2026-10-26T02:52:40.580Z",
+    "sourceGeneratedAt": "2026-10-26T02:52:40.653Z",
+    "readOnly": true,
+    "connection": "VERIFIED",
+    "dataHealth": "DEGRADED",
+    "sourceCount": 7,
+    "unitCount": 5,
+    "allUnitsUnverified": true
+  },
+  "businessEntryReadVerified": false,
+  "logs": [
+    {
+      "name": "t1-red.log",
+      "sha256": "f155255ea7d0f31b28097d704ad81da06e2aa3607387a02be9169bd939dcb9fa"
+    },
+    {
+      "name": "t1-final-unit.log",
+      "sha256": "90f1d8bfd776e61b541d5d4386b705c1c82c41347ab34b9de39fa22a55427974"
+    },
+    {
+      "name": "t1-reliability.log",
+      "sha256": "f972ea332046a1da7b39bc50b4b9800feec47aee0228a79a3096c080ac3e3937"
+    },
+    {
+      "name": "baseline-full-permitted.log",
+      "sha256": "308fdee1112c5c622bddcb62de73bc8c71a91e47f9be6fa00f2adad52e08a437"
+    },
+    {
+      "name": "final-full-permitted.log",
+      "sha256": "f90c73db087efc6306e5431b07e66ef738bd7df0f6bfab5912a2d90500876982"
+    }
+  ],
+  "review": {
+    "agent": "ceo_brief_code_review",
+    "critical": 0,
+    "important": 0,
+    "minorDeferred": [
+      "Response body timeout classification and abort path coverage"
+    ]
+  }
+}

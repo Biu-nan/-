@@ -1,0 +1,36 @@
+{
+  "goal": {
+    "schema": "ceo-goal/v1", "goalId": "goal-store-400370-20261026", "version": 1,
+    "storeRef": { "platform": "aliexpress-choice", "environmentId": "400370" },
+    "period": { "fromDate": "2026-12-01", "toDate": "2026-12-31", "timeZone": "Asia/Shanghai" },
+    "targets": [
+      { "targetId": "daily-paid-items", "value": 200, "caliber": "sales.qty.total", "unit": "件", "window": "DAY", "metricStatus": "PENDING" },
+      { "targetId": "monthly-operating-profit-ex-quality-penalty", "value": 12000, "caliber": null, "unit": "CNY", "window": "MONTH", "metricStatus": "PENDING" }
+    ],
+    "deadline": null, "capacityMinutes": null, "bufferMinutes": null
+  },
+  "facts": [],
+  "decision": {
+    "schema": "ceo-decision/v1", "decisionId": "decision-store-400370-initialize-20261026", "status": "DRAFT",
+    "goalId": "goal-store-400370-20261026", "goalVersion": 1,
+    "storeRef": { "platform": "aliexpress-choice", "environmentId": "400370" }, "policyVersion": "ceo-policy/v1",
+    "options": [
+      { "actionId": "initialize-baseline", "description": "先核准口径与成本，建立可比较的经营基线" },
+      { "actionId": "hold", "description": "维持现状，等待可核验资料，不执行价格或供给变更" }
+    ],
+    "chosenActionId": "initialize-baseline", "evidenceRefs": [],
+    "affectsTargets": ["daily-paid-items", "monthly-operating-profit-ex-quality-penalty"],
+    "claims": [
+      { "claimId": "paid-unknown", "targetId": "daily-paid-items", "claimType": "TARGET_ASSESSMENT", "verdict": "INSUFFICIENT_EVIDENCE", "caliber": "sales.qty.total", "unit": "件", "period": null, "evidenceBindings": [] },
+      { "claimId": "profit-unknown", "targetId": "monthly-operating-profit-ex-quality-penalty", "claimType": "TARGET_ASSESSMENT", "verdict": "INSUFFICIENT_EVIDENCE", "caliber": null, "unit": "CNY", "period": null, "evidenceBindings": [] }
+    ],
+    "assumptions": ["这是按已确认目标提出的初始化草案，尚未采集真实经营事实", "任务耗时为初估，人工可用时间未确认，不能承诺今日完成"],
+    "stopConditions": ["目标或事实版本变化后重新判断", "成本或品质罚款归属不明时不计算达标或自动加回罚款"],
+    "reviewAt": "2026-10-27T18:00:00+08:00", "conclusion": "INSUFFICIENT_EVIDENCE"
+  },
+  "candidates": [
+    { "taskId": "store-400370-paid-caliber", "actionId": "initialize-baseline", "title": "核准每日支付件数的统计口径与日界线", "acceptance": "记录含货通范围、支付事件、退款处理、平台时区及来源证据；缺项明确待核实", "storeRef": { "platform": "aliexpress-choice", "environmentId": "400370" }, "mode": "INVESTIGATION", "priorityClass": "GOAL", "estimatedMinutes": 30, "deadline": null, "dependsOn": [], "requiresEvidence": [] },
+    { "taskId": "store-400370-cost-reconciliation", "actionId": "initialize-baseline", "title": "核对经营成本及品质罚款的扣除与归属", "acceptance": "列明货值、平台费、物流包装、广告、售后及适用固定成本；品质罚款单列，证明已扣才加回，缺金额不填0", "storeRef": { "platform": "aliexpress-choice", "environmentId": "400370" }, "mode": "INVESTIGATION", "priorityClass": "GOAL", "estimatedMinutes": 45, "deadline": null, "dependsOn": [], "requiresEvidence": [] },
+    { "taskId": "store-400370-comparable-baseline", "actionId": "initialize-baseline", "title": "建立首店同口径的销量与利润基线", "acceptance": "引用已核准口径、窗口、成本及来源；分别报告200件/日与月利润12000的可测性，不凭净收入宣称净利润达标", "storeRef": { "platform": "aliexpress-choice", "environmentId": "400370" }, "mode": "INVESTIGATION", "priorityClass": "GOAL", "estimatedMinutes": 20, "deadline": null, "dependsOn": ["store-400370-paid-caliber", "store-400370-cost-reconciliation"], "requiresEvidence": [] }
+  ]
+}

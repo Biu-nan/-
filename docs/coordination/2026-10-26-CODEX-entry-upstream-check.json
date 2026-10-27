@@ -1,0 +1,10 @@
+{
+  "checkedAt": "2026-10-26T07:21:38.287Z",
+  "sha256Matches": true,
+  "apiSchema": "system-state/v1",
+  "readOnly": true,
+  "sources": 7,
+  "units": 5,
+  "gates": 2,
+  "countsAgree": true
+}
