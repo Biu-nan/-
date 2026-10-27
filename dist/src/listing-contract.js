@@ -63,6 +63,14 @@ const TITLE_LABEL_LINE_RE =
 const TITLE_LABEL_VALUE_RE =
   /^(?:final\s+title|clean\s+title|product\s+title|title|最终标题|标题)\s*[:：]?\s*$/i;
 
+// 「字符核算行」：模型把标题逐词拆成 Word(3) Word(3) … 做字数自证。必须排除，否则会被当成标题。
+// 实测（2026-10-27）1056073865651 毛绒小熊、1073240245747 挂式收纳袋两份产物：
+// 真实标题只有 118 字，模型在「（核算字符数：126）」里声称 126 → 118 不落 126–128
+// → 走锚点回退 → 回看窗口里的 Teddy(5) Bear(4)… 折叠后正好 128 字，与断言只差 2，分数最高
+// → 被选为标题。结果一整串 Word(N) 被填进店小秘标题栏。
+// 判据用内容特征而非措辞：≥3 组「非空白串(数字)」且整行只由它们构成。
+const WORDCOUNT_LINE_RE = /^(?:\S+\(\d+\)\s*){3,}$/;
+
 export function fencedScope(text, name) {
   const re = new RegExp(`<<<\\s*${name}_START\\s*>>>(.*?)<<<\\s*${name}_END\\s*>>>`, "si");
   const m = re.exec(String(text ?? ""));
@@ -104,8 +112,10 @@ export function scanTitle(text) {
     if (!TITLE_LABEL_LINE_RE.test(lines[i])) continue;
     for (let j = i + 1; j < lines.length; j += 1) {
       if (!lines[j]) continue;
-      // 标签链（Final Title 下还有 Clean Title）和以冒号结尾的中文前导语都不是标题。
+      // 标签链（Final Title 下还有 Clean Title）、以冒号结尾的中文前导语、
+      // 字符核算行（Word(3) Word(3)…）都不是标题。
       if (TITLE_LABEL_VALUE_RE.test(lines[j]) || lines[j].endsWith(":") || lines[j].endsWith("：")) continue;
+      if (WORDCOUNT_LINE_RE.test(lines[j])) continue;
       candidates.push(clean(lines[j], TITLE_MAX));
       break;
     }
@@ -137,6 +147,7 @@ export function scanTitle(text) {
     window.forEach((candidate, gap) => {
       if (!candidate || TITLE_LABEL_VALUE_RE.test(candidate)) return;
       if (candidate.endsWith(":") || candidate.endsWith("：")) return;
+      if (WORDCOUNT_LINE_RE.test(candidate)) return;
       const cleaned = clean(candidate, TITLE_MAX);
       if (!cleaned) return;
       const score = [Math.abs(cleaned.length - asserted), gap];

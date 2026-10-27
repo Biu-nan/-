@@ -1,6 +1,7 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { DIANXIAOMI_TEMPLATE_PRODUCT_ID } from "./config.js";
+import { extractTitle as extractTitleFromListing } from "./listing-contract.js";
 // 店小秘 ERP 产品事实标准化（单真相源）。
 // 上品流程（generateSeoListingContent 桥接）与店小秘引用上架（reference-apply）
 // 共用此函数，保证两侧写入/消费的 product-facts 形状一致。
@@ -144,23 +145,19 @@ export async function buildProductFactsFallback({ factText = "", listingContentT
 //  - 含「Clean Title 强制校验版」+ 下一行「Final Title」（批量制作 seo_content_only 写法）。
 // 关键：跳过「Final Title / Clean Title / 字符核算」等标签行，取第一个像真实标题的行。
 function extractCleanTitleLocal(listingText) {
-    if (!listingText)
-        return "";
-    const lines = listingText.split(/\r?\n/);
-    for (let i = 0; i < lines.length; i += 1) {
-        if (!/Clean Title/i.test(lines[i]))
-            continue;
-        for (let j = i + 1; j < Math.min(i + 6, lines.length); j += 1) {
-            const line = lines[j].trim();
-            if (!line)
-                continue;
-            if (/^(Final Title|Clean Title|字符核算|校验|Title)/i.test(line))
-                continue;
-            if (line.length >= 10 && line.length <= 220)
-                return line;
-        }
-    }
-    return "";
+    // 2026-10-27：改为调用 listing-contract.js 的 extractTitle（从 ecom 的
+    // src/listing_contract.py 移植，已用真实产物做过金标对比）。
+    //
+    // 被替换掉的旧实现只认 "Clean Title" 这一种标签、只看其后 5 行、
+    // 长度 10–220 就返回。实测 450 份历史产物里有 **22 份（4.9%）不含该标签**，
+    // 旧实现对它们恒返回空 → facts 缺标题 → 产品上不了架。
+    // 而那正是 ecom 侧反复复发六次（O-002/004/007/013/014/O-082）的「格式漂移」问题：
+    // 措辞永远枚举不完，所以新实现改成「多措辞正则 → 围栏 → 标签行后继 →
+    // 126–128 优先 → 「核算字符数」锚点回退 → 最长英文候选兜底」。
+    //
+    // 保留函数名不动：本函数只在本文件被调用一次（buildProductFactsFallback），
+    // 留一个薄封装比改名更能说明「这里曾经有过另一套解析逻辑」。
+    return extractTitleFromListing(listingText || "");
 }
 // 从 Listing 文案提取「详情页」内容 = 3.2 AEO 结构化五点描述（Bullet Points & Q&A）与
 // 3.3 商品详情页内容之间的完整段落（含 Basic Information / Core Selling Points / Q And A / WARM NOTE 等，保留 markdown 结构）。
