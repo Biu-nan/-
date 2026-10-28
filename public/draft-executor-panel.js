@@ -203,4 +203,52 @@
       btn.disabled = false;
     }
   });
+
+  // ── ② 生成上架资料：把暂存区搬进 input/ 并提交 8765 生成 Listing ──
+  // 只开放 mode=none|listing（两个都不写草稿）。full_original 会一路写到
+  // ERP_DRAFT（真建草稿），与「先生成资料、人工确认再上架」的意图不符。
+  const genBtn = $('dossierGenerateButton');
+  if (genBtn) {
+    genBtn.addEventListener('click', async () => {
+      const ok = window.confirm(
+        '将把暂存区的产品包搬入 ecom 的 input/，并提交给 8765 控制台生成 Listing。\n\n'
+        + '这是长任务（可能数分钟），期间请勿关闭页面。确认继续？'
+      );
+      if (!ok) return;
+
+      setBadge('GENERATING', 'busy');
+      genBtn.disabled = true;
+      result.style.display = 'block';
+      result.innerHTML = '<div style="color:#475569;">正在搬运并提交流水线…（Listing 生成可能数分钟）</div>';
+
+      try {
+        const resp = await fetch('/api/dossier/promote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'listing' }),
+        });
+        const d = await resp.json();
+        if (d.ok) {
+          setBadge(d.submitted ? 'SUBMITTED' : 'PROMOTED', 'ok');
+          const movedList = (d.moved || []).map((m) => `<div style="color:#334155;">✓ ${esc(m)}</div>`).join('');
+          result.innerHTML = `
+            <div style="color:#059669;font-weight:500;margin-bottom:8px;">已完成 · 搬入 ${(d.moved || []).length} 个包</div>
+            ${movedList || '<div style="color:#64748b;">（没有新包搬入，可能已存在）</div>'}
+            ${d.submitted ? '<div style="color:#475569;margin-top:8px;">已提交 8765 控制台，Listing 生成中。完成后包会进「已完成产品」，届时用下方 ③ 填充草稿。</div>' : ''}
+            <div style="color:#94a3b8;font-size:.9em;margin-top:6px;">用时 ${Math.round((d.durationMs || 0) / 1000)}s</div>`;
+        } else {
+          setBadge(d.status || 'FAILED', 'bad');
+          result.innerHTML = `
+            <div style="color:#dc2626;font-weight:500;margin-bottom:8px;">未完成 · ${esc(d.status || '')}</div>
+            <div style="color:#dc2626;">${esc(d.error || '未取到原因')}</div>
+            ${(d.moved || []).length ? `<div style="color:#475569;margin-top:6px;">已搬入 ${d.moved.length} 个包（但未接进流程）</div>` : ''}`;
+        }
+      } catch (e) {
+        setBadge('REQUEST FAILED', 'bad');
+        result.innerHTML = `<div style="color:#dc2626;">请求失败：${esc(e && e.message ? e.message : e)}</div>`;
+      } finally {
+        genBtn.disabled = false;
+      }
+    });
+  }
 })();

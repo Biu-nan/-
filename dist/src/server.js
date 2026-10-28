@@ -9,8 +9,11 @@ import { normalizeDianxiaomiFacts, buildProductFactsFallback } from "./dianxiaom
 // 2026-10-28：草稿执行走 ecom 的成熟 executor（子进程桥），不在这里重写上架流程。
 import { runDraftExecutor } from "./draft-executor-bridge.js";
 // 2026-10-28：1688 采集同样走 ecom 的 collector（子进程桥）。
-import { runCollector } from "./collector-bridge.js";
-import { AutomationService } from "./automation-service.js";
+import { runCollector, promoteStaging } from "./collector-bridge.js";
+
+// 「上架资料」链路的统一暂存区：采集落这里，搬运也从这里取，
+// 两边必须同一个路径，否则会出现「采到 A 处、搬 B 处找不到」。
+const DOSSIER_STAGING_DIR = path.join(HIDDEN_DATA_DIR, "collect-staging");import { AutomationService } from "./automation-service.js";
 import { ChatGptAdapter } from "./chatgpt-adapter.js";
 import { GeminiAdapter } from "./gemini-adapter.js";
 import { importImagesToDirectory, importImageUrlsToDirectory, removeImageFromDirectory, scanImages } from "./directory-images.js";
@@ -1286,7 +1289,24 @@ app.post("/api/collect/from-url", async (request, response) => {
         }
         const title = String(body.title || "").trim();
         const mode = body.mode === "listing" ? "listing" : "none";
-        const result = await runCollector({ url, title, mode });
+        const result = await runCollector({ url, title, mode, stagingDir: DOSSIER_STAGING_DIR });
+        response.json(result);
+    }
+    catch (error) {
+        response.status(409).json({ ok: false, error: error instanceof Error ? error.message : String(error) });
+    }
+});
+// ── 上架资料 ②：把暂存区搬进 input/，并按 mode 接续流水线 ─────────────
+// collector 的 --promote 是「搬运 + 按 --mode 提交给 ecom 控制台(8765)」。
+// mode 白名单只放 none / listing：both 都不写草稿。
+// full_original 虽然也能跑，但它会一路写到 ERP_DRAFT（真建草稿），
+// 与「先生成资料、人工确认再上架」的意图不符，故不开放。
+app.post("/api/dossier/promote", async (request, response) => {
+    try {
+        const body = (request.body && typeof request.body === "object") ? request.body : {};
+        const rawMode = String(body.mode || "").trim();
+        const mode = (rawMode === "listing" || rawMode === "none") ? rawMode : "none";
+        const result = await promoteStaging({ stagingDir: DOSSIER_STAGING_DIR, mode });
         response.json(result);
     }
     catch (error) {

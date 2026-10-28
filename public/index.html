@@ -2000,8 +2000,8 @@
 
               <div class="row-actions">
                 <button id="dossierCollectButton" class="button primary" type="button">① 采集资料（SKU 表 + 图片）</button>
-                <button id="dossierGenerateButton" class="button secondary" type="button" disabled>② 生成上架资料</button>
-                <span id="dossierGenerateHint" class="profile-suggestion">② 待接入 ecom ERP 计划：产出 erp/field_plan.json</span>
+                <button id="dossierGenerateButton" class="button secondary" type="button">② 生成上架资料（搬入 input + 生成 Listing）</button>
+                <span id="dossierGenerateHint" class="profile-suggestion">需控制台 8765 在运行；Listing 是长任务，可能数分钟</span>
               </div>
 
               <hr class="soft-divider" />
@@ -2602,7 +2602,7 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
     <script src="/workflow-alert.js?v=20261028-1" defer></script>
     <script src="/app.js?v=20261028-alert-1" defer></script>
-    <script src="/draft-executor-panel.js?v=20261028-4" defer></script>
+    <script src="/draft-executor-panel.js?v=20261028-5" defer></script>
     <script type="module" src="/ceo-command-center.js"></script>
   </body>
 </html>

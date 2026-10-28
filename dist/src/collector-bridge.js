@@ -172,3 +172,87 @@ function extractError(stdout, stderr) {
   const hit = [...lines].reverse().find((l) => /Error|错误|未找到|拒绝|超时/.test(l));
   return (hit || '').slice(0, 500) || '采集失败（未取到原因行）';
 }
+
+/**
+ * 把暂存区里通过自检的产品包搬进 input/，并（可选）接续流水线。
+ *
+ * collector 的 --promote 语义：先搬运，再按 --mode 提交给 ecom 控制台(8765)。
+ *   mode='none'    只搬不提交（安全的搬运验证）
+ *   mode='listing' 搬运 + 原图导入 + 生成 Listing（不翻译）
+ * collector 的 mode 只有 none/listing/full_original/full 这几档，**没有「只到 ERP 计划」**，
+ * 所以「生成 Listing 后停下等人确认」需要分两次提交（见 server 侧）。
+ *
+ * @returns {Promise<{ok:boolean,status:string,moved:string[],skipped:Array,stdout:string,error:string,durationMs:number}>}
+ */
+export async function promoteStaging({ stagingDir, mode = 'none', timeoutMs = 60 * 60 * 1000, ecomRoot } = {}) {
+  const startedAt = Date.now();
+  const root = path.resolve(ecomRoot || ECOM_ROOT);
+  const python = path.join(root, '.venv', 'Scripts', 'python.exe');
+  const fail = (status, error) => ({ ok: false, status, moved: [], skipped: [], stdout: '', error, durationMs: Date.now() - startedAt });
+
+  if (!stagingDir) return fail('INVALID_ARGS', '缺少 stagingDir');
+  if (!existsSync(python)) return fail('PYTHON_MISSING', `找不到 ecom 的 python：${python}`);
+  const staging = path.resolve(stagingDir);
+  if (!existsSync(staging)) return fail('STAGING_MISSING', `暂存区不存在：${staging}`);
+
+  const args = ['-m', 'collector.batch', '--promote', '--mode', mode, '--staging', staging];
+  const env = Object.assign({}, process.env, {
+    NO_PROXY: '127.0.0.1,localhost',
+    no_proxy: '127.0.0.1,localhost',
+    PYTHONUTF8: '1',
+    PYTHONIOENCODING: 'utf-8',
+  });
+
+  return new Promise((resolve) => {
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+    let timer = null;
+    const child = spawn(python, args, { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+
+    const finish = (status, error) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      try {
+        if (process.platform === 'win32') spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+        else child.kill('SIGKILL');
+      } catch { /* 已退出 */ }
+
+      const moved = [];
+      for (const m of stdout.matchAll(/^\s*✓\s+(.+)$/gm)) moved.push(m[1].trim());
+      const skipped = [];
+      for (const m of stdout.matchAll(/^\s*-\s*跳过\s+(.+?)：(.+)$/gm)) skipped.push({ package: m[1].trim(), reason: m[2].trim() });
+
+      const submitted = /已提交控制台/.test(stdout);
+      const ok = status === 'OK' && (moved.length > 0 || submitted);
+      const rawError = error && !/^退出码/.test(error) ? error : '';
+      const finalError = ok ? '' : (extractPipelineError(stdout, stderr) || rawError || '搬运失败（未取到原因行）');
+
+      resolve({
+        ok,
+        status: ok ? (submitted ? 'SUBMITTED' : 'PROMOTED') : 'PROMOTE_FAILED',
+        moved,
+        skipped,
+        submitted,
+        mode,
+        stdout: stdout.slice(-2500),
+        error: finalError,
+        durationMs: Date.now() - startedAt,
+      });
+    };
+
+    child.stdout.on('data', (b) => { stdout += b.toString('utf8'); });
+    child.stderr.on('data', (b) => { stderr += b.toString('utf8'); });
+    child.on('error', (e) => finish('SPAWN_FAILED', e.message));
+    child.on('close', (code) => finish(code === 0 ? 'OK' : 'EXIT_NONZERO', code === 0 ? '' : `退出码 ${code}`));
+    timer = setTimeout(() => finish('TIMEOUT', `超过 ${Math.round(timeoutMs / 1000)}s 未结束`), timeoutMs);
+  });
+}
+
+/** 搬运/提交流程的错误行（和采集的「→ 失败」格式不同）。 */
+function extractPipelineError(stdout, stderr) {
+  const lines = `${stdout}\n${stderr}`.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const hit = [...lines].reverse().find((l) => /\[错误\]|\[警告\]|控制台不可用|PipelineError|失败/.test(l));
+  return (hit || '').replace(/^\[(错误|警告)\]\s*/, '').slice(0, 500);
+}
