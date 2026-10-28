@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { access, appendFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import express from "express";
@@ -9,7 +10,7 @@ import { normalizeDianxiaomiFacts, buildProductFactsFallback } from "./dianxiaom
 // 2026-10-28：草稿执行走 ecom 的成熟 executor（子进程桥），不在这里重写上架流程。
 import { runDraftExecutor } from "./draft-executor-bridge.js";
 // 2026-10-28：1688 采集同样走 ecom 的 collector（子进程桥）。
-import { runCollector, promoteStaging } from "./collector-bridge.js";
+import { runCollector, promoteStaging, ECOM_ROOT } from "./collector-bridge.js";
 
 // 「上架资料」链路的统一暂存区：采集落这里，搬运也从这里取，
 // 两边必须同一个路径，否则会出现「采到 A 处、搬 B 处找不到」。
@@ -1254,10 +1255,24 @@ app.post("/api/draft/execute", async (request, response) => {
             response.status(400).json({ ok: false, error: "packageName 不允许包含 .. 或为绝对路径" });
             return;
         }
-        const rootDir = path.resolve(COMPLETED_PRODUCTS_DIR);
-        const pkgDir = path.resolve(path.join(rootDir, packageName));
-        if (pkgDir !== rootDir && !pkgDir.startsWith(rootDir + path.sep)) {
-            response.status(400).json({ ok: false, error: "packageName 越出已完成产品目录" });
+        const completedRoot = path.resolve(COMPLETED_PRODUCTS_DIR);
+        // 也接受 ecom 的 input/：上架资料走到「计划已生成、尚未上架」时，包还停在
+        // ecom 的 input/（要等 ERP_DRAFT 验证通过才会归档到 已完成产品/）。
+        // 不认 input/ 的话，第③步在「先生成资料、人工确认」这条路上永远找不到包。
+        const inputRoot = path.resolve(path.join(ECOM_ROOT, "input"));
+        const pick = (root) => {
+            const dir = path.resolve(path.join(root, packageName));
+            if (dir !== root && !dir.startsWith(root + path.sep)) return null;
+            return existsSync(dir) ? dir : null;
+        };
+        let pkgDir = pick(completedRoot);
+        let pkgRoot = "已完成产品";
+        if (!pkgDir) { pkgDir = pick(inputRoot); pkgRoot = "input"; }
+        if (!pkgDir) {
+            response.status(404).json({
+                ok: false,
+                error: `找不到产品包「${packageName}」：已完成产品/ 与 ecom input/ 下都没有。`
+            });
             return;
         }
         const planPath = path.join(pkgDir, "erp", "field_plan.json");

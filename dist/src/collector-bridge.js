@@ -17,7 +17,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const ECOM_ROOT = process.env.ECOM_ROOT || 'D:\\ecom-translator';
+export const ECOM_ROOT = process.env.ECOM_ROOT || 'D:\\ecom-translator';
 const DEFAULT_TIMEOUT_MS = 20 * 60 * 1000;
 
 // 采集独占 9224 浏览器，并发会互相踩标签页；用 promise 链串行，失败也续链。
