@@ -1979,11 +1979,29 @@
               <p>将 Product 绑定到真实店铺 Listing、平台商品 ID、Listing URL 和 SKU Mapping，服务上架、履约、库存与后续运营。</p>
             </div>
             <!-- 上架资料（2026-10-28）：从来源 URL 生成「档案 + 店小秘填充资料」。
-                 ① 采集：1688 链接 → SKU 表 + 图片 + 来源URL
-                 ② 生成：Listing + ERP 计划（field_plan.json）
-                 ③ 填充：调 ecom executor 写入店小秘草稿
-                 一份资料两个用途：档案供商品生命周期存档；field_plan 供自动化上架填充。 -->
-            <article class="panel" style="margin-bottom:20px;">
+                 ① 采集 1688 链接 → SKU 表 + 图片；② 搬入 input/ 后跑 Listing + ERP 计划；
+                 ③ 用 field_plan.json 填充店小秘草稿。
+                 样式全部复用页面既有 class（panel / profile-card-heading / form-grid / button），
+                 只为本面板的三步布局补一小段作用域 CSS。 -->
+            <article class="panel dossier-panel" style="margin-bottom:20px;">
+              <style>
+                /* 只作用于本面板。宽度自适应：这个视图的 main 有 480px 右内边距
+                   （给右侧助手栏留位），内容区实际只有 ~417px，所以：
+                   · 输入框强制单列（两列会把每个 input 压到 ~180px）
+                   · 步骤用 flex-wrap，窄时按钮自动换到下一行并靠右 */
+                .dossier-panel .dossier-steps{display:flex;flex-direction:column}
+                .dossier-panel .dossier-step{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;padding:16px 0;border-top:1px solid #eef2f7}
+                .dossier-panel .dossier-step:first-child{border-top:0;padding-top:2px}
+                .dossier-panel .dossier-no{flex:0 0 22px;height:22px;margin-top:1px;border-radius:50%;background:#eef3ff;color:#2563eb;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center}
+                .dossier-panel .dossier-body{flex:1 1 240px;min-width:0}
+                .dossier-panel .dossier-title{font-size:13.5px;font-weight:600;color:#1e293b;margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+                .dossier-panel .dossier-title small{font-weight:400;color:#64748b}
+                .dossier-panel .dossier-act{flex:0 0 auto;margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+                .dossier-panel .dossier-out{padding-top:14px;border-top:1px solid #eef2f7}
+                .dossier-panel .form-grid{grid-template-columns:1fr}
+                .dossier-panel .form-grid label{min-width:0}
+              </style>
+
               <div class="profile-card-heading">
                 <div>
                   <span class="mini-label">LISTING DOSSIER</span>
@@ -1993,36 +2011,54 @@
                 <span id="dossierBadge" class="profile-status">IDLE</span>
               </div>
 
-              <div class="form-grid two">
-                <label>来源 URL（*.1688.com）<input id="dossierUrl" placeholder="https://detail.1688.com/offer/xxxx.html" /></label>
-                <label>产品名（可选）<input id="dossierTitle" placeholder="用于包名与日志" /></label>
+              <div class="dossier-steps">
+                <div class="dossier-step">
+                  <div class="dossier-no">1</div>
+                  <div class="dossier-body">
+                    <div class="dossier-title">采集资料 <small>1688 链接 → SKU 表 + 图片 + 来源URL</small></div>
+                    <div class="form-grid two">
+                      <label>来源 URL（*.1688.com）<input id="dossierUrl" placeholder="https://detail.1688.com/offer/xxxx.html" /></label>
+                      <label>产品名（可选）<input id="dossierTitle" placeholder="用于包名与日志" /></label>
+                    </div>
+                  </div>
+                  <div class="dossier-act">
+                    <button id="dossierCollectButton" class="button primary" type="button">开始采集</button>
+                  </div>
+                </div>
+
+                <div class="dossier-step">
+                  <div class="dossier-no">2</div>
+                  <div class="dossier-body">
+                    <div class="dossier-title">生成上架资料 <small>搬入 input/ → Listing → ERP 计划</small></div>
+                    <p class="profile-suggestion" style="margin:0;">需 8765 控制台在运行；Listing 是长任务，通常 5–40 分钟。</p>
+                  </div>
+                  <div class="dossier-act">
+                    <button id="dossierGenerateButton" class="button secondary" type="button">生成上架资料</button>
+                  </div>
+                </div>
+
+                <div class="dossier-step">
+                  <div class="dossier-no">3</div>
+                  <div class="dossier-body">
+                    <div class="dossier-title">填充店小秘草稿
+                      <span id="draftStatusBadge" class="profile-status">IDLE</span>
+                      <small>引用模板 → 填字段 → 勾变种 → 主图/营销图/描述 → 保存前回读；默认只填不保存，无发布能力</small>
+                    </div>
+                    <div class="form-grid">
+                      <label>产品包名（已完成产品/ 或 ecom input/ 下）<input id="draftPackageInput" placeholder="例如：xxx_1007786166645_images" /></label>
+                    </div>
+                  </div>
+                  <div class="dossier-act">
+                    <button id="draftFillButton" class="button secondary" type="button">只填不保存</button>
+                    <button id="draftCommitButton" class="button warning" type="button">写草稿</button>
+                  </div>
+                </div>
               </div>
 
-              <div class="row-actions">
-                <button id="dossierCollectButton" class="button primary" type="button">① 采集资料（SKU 表 + 图片）</button>
-                <button id="dossierGenerateButton" class="button secondary" type="button">② 生成上架资料（搬入 input + 生成 Listing）</button>
-                <span id="dossierGenerateHint" class="profile-suggestion">需控制台 8765 在运行；Listing 是长任务，可能数分钟</span>
+              <div class="dossier-out">
+                <div id="dossierResult" style="display:none;"></div>
+                <div id="draftResult" style="display:none;"></div>
               </div>
-
-              <hr class="soft-divider" />
-
-              <div class="profile-card-heading compact-heading">
-                <div><span class="mini-label">FILL DIANXIAOMI</span><h3>③ 填充店小秘草稿</h3></div>
-                <span id="draftStatusBadge" class="profile-status">IDLE</span>
-              </div>
-              <div class="form-grid two">
-                <label>产品包名（已完成产品/ 下，可含一级子目录）
-                  <input id="draftPackageInput" placeholder="例如：A已填充到店小秘产品文件夹中/xxx_images" />
-                </label>
-                <label>说明<span class="profile-suggestion">默认只填不保存；执行器没有发布能力。</span></label>
-              </div>
-              <div class="row-actions">
-                <button id="draftFillButton" class="button secondary" type="button">只填不保存</button>
-                <button id="draftCommitButton" class="button warning" type="button">写草稿</button>
-              </div>
-
-              <div id="dossierResult" style="display:none;margin-top:14px;"></div>
-              <div id="draftResult" style="display:none;margin-top:14px;"></div>
             </article>
 
             <div class="commerce-layout">
