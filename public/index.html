@@ -1643,6 +1643,32 @@
                 <p class="profile-empty">尚未导入商品队列</p>
               </div>
             </article>
+
+            <!-- 草稿执行（2026-10-28）：走 ecom 的 dianxiaomi_draft_executor.mjs，
+                 不在一跨重写上架流程。默认只填不保存；执行器无发布能力。 -->
+            <article class="panel queue-list-card">
+              <div class="profile-card-heading">
+                <div>
+                  <span class="mini-label">DRAFT EXECUTOR</span>
+                  <h3>草稿执行 · 走 ecom 成熟链路</h3>
+                </div>
+                <span id="draftStatusBadge" class="profile-status">IDLE</span>
+              </div>
+              <p class="notice" style="margin:0 0 12px 0;">
+                引用模板 → 填 19 个字段 → 勾变种 → 自定义名/SKU图 → 主图/营销图/描述图 → 保存前回读。
+                <strong>默认只填不保存</strong>；该执行器没有发布能力。
+              </p>
+              <div class="row-actions" style="align-items:flex-end;gap:12px;flex-wrap:wrap;">
+                <label style="flex:1 1 420px;display:flex;flex-direction:column;gap:6px;">
+                  <span class="mini-label">产品包名（已完成产品/ 下的一级目录）</span>
+                  <input id="draftPackageInput" type="text" placeholder="例如：xxx_864444663058_images"
+                         style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line,#333);background:transparent;color:inherit;" />
+                </label>
+                <button id="draftFillButton" class="button primary" type="button">只填不保存</button>
+                <button id="draftCommitButton" class="button warning" type="button">写草稿</button>
+              </div>
+              <div id="draftResult" class="draft-result" style="display:none;margin-top:14px;"></div>
+            </article>
           </section>
 
           <section class="workflow-view active" data-view-panel="daily-cockpit">
@@ -2552,6 +2578,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
     <script src="/app.js?v=20261026-2" defer></script>
+    <script src="/draft-executor-panel.js?v=20261028-1" defer></script>
     <script type="module" src="/ceo-command-center.js"></script>
   </body>
 </html>

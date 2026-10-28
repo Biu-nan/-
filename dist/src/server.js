@@ -6,6 +6,8 @@ import multer from "multer";
 import { HOST, OUTPUT_DIR, INSERT_BAG_IMAGES_DIR, INSERT_LINER_IMAGES_DIR, INSERT_OUTPUT_DIR, PORT, PRODUCT_IMAGES_DIR, PRODUCT_ROOT, PRODUCT_PROFILE_FILE, PROMPTS_DIR, PROJECT_ROOT, COMPLETED_PRODUCTS_DIR, HIDDEN_DATA_DIR, PUBLIC_DIR, USER_DATA_DIR, CHARM_REF_IMAGES_DIR, CHARM_CONTEXT_IMAGES_DIR, CHARM_OUTPUT_DIR, PRODUCT_STYLE_REF_DIR, MAX_STYLE_REFERENCE_IMAGES } from "./config.js";
 import { DIANXIAOMI_TEMPLATE_PRODUCT_ID, PRODUCT_FACT_FILE, DIANXIAOMI_CATEGORY_PROFILES, getDianxiaomiProfile, isXiangBaoProfile } from "./config.js";
 import { normalizeDianxiaomiFacts, buildProductFactsFallback } from "./dianxiaomi-facts.js";
+// 2026-10-28：草稿执行走 ecom 的成熟 executor（子进程桥），不在这里重写上架流程。
+import { runDraftExecutor } from "./draft-executor-bridge.js";
 import { AutomationService } from "./automation-service.js";
 import { ChatGptAdapter } from "./chatgpt-adapter.js";
 import { GeminiAdapter } from "./gemini-adapter.js";
@@ -1222,6 +1224,46 @@ app.post("/api/queue/clear-completed", async (_request, response) => {
         response.status(409).json({
             error: error instanceof Error ? error.message : String(error)
         });
+    }
+});
+// ── 草稿执行（2026-10-28）────────────────────────────────────────────────
+// 把 ecom 的 tools/dianxiaomi_draft_executor.mjs 当成外部执行器调用，不在这里
+// 重写上架流程 —— 那 932 行已经跑通引用模板/19字段/变种/SKU/图片/回读/存草稿，
+// 重写等于造第二套真相（此前在一跨重造 listing-engine 已证明走不通）。
+//
+// 安全边界：
+//   commit 默认 false → FILL_VERIFY（只填不保存）。写草稿必须显式传 commit:true。
+//   executor 本身只有 save/update draft 能力，文件头明写没有 publish action。
+app.post("/api/draft/execute", async (request, response) => {
+    try {
+        const body = (request.body && typeof request.body === "object") ? request.body : {};
+        const packageName = String(body.packageName || "").trim();
+        if (!packageName) {
+            response.status(400).json({ ok: false, error: "缺少 packageName" });
+            return;
+        }
+        // 防路径穿越：包名允许「子目录/包名」（已完成产品 下确有 A已填充…/xxx 这类二级结构），
+        // 但不许 .. 或绝对路径；最终以 resolve 后是否仍在 COMPLETED_PRODUCTS_DIR 之下为准。
+        // 用前缀校验而不是「禁斜杠」——后者会把合法的二级路径误杀（实测踩到）。
+        if (packageName.includes("..") || path.isAbsolute(packageName)) {
+            response.status(400).json({ ok: false, error: "packageName 不允许包含 .. 或为绝对路径" });
+            return;
+        }
+        const rootDir = path.resolve(COMPLETED_PRODUCTS_DIR);
+        const pkgDir = path.resolve(path.join(rootDir, packageName));
+        if (pkgDir !== rootDir && !pkgDir.startsWith(rootDir + path.sep)) {
+            response.status(400).json({ ok: false, error: "packageName 越出已完成产品目录" });
+            return;
+        }
+        const planPath = path.join(pkgDir, "erp", "field_plan.json");
+        const commit = body.commit === true;
+        const runId = new Date().toISOString().replace(/[:.]/g, "-");
+        const outDir = path.join(HIDDEN_DATA_DIR, "draft-runs", runId);
+        const result = await runDraftExecutor({ planPath, outDir, commit });
+        response.json(result);
+    }
+    catch (error) {
+        response.status(409).json({ ok: false, error: error instanceof Error ? error.message : String(error) });
     }
 });
 app.get("/api/product-profile/current", async (_request, response) => {
