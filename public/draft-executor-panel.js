@@ -128,11 +128,11 @@
 // 塞进同一个闭包会被它拦掉（两个面板的元素不一定同时存在）。
 (function () {
   const $ = (id) => document.getElementById(id);
-  const badge = $('collectStatusBadge');
-  const urlInput = $('collectUrlInput');
-  const titleInput = $('collectTitleInput');
-  const btn = $('collectButton');
-  const result = $('collectResult');
+  const badge = $('dossierBadge');
+  const urlInput = $('dossierUrl');
+  const titleInput = $('dossierTitle');
+  const btn = $('dossierCollectButton');
+  const result = $('dossierResult');
   if (!badge || !urlInput || !btn || !result) return;
 
   const MAP = {
