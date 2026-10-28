@@ -1260,26 +1260,47 @@ app.post("/api/draft/execute", async (request, response) => {
         // ecom 的 input/（要等 ERP_DRAFT 验证通过才会归档到 已完成产品/）。
         // 不认 input/ 的话，第③步在「先生成资料、人工确认」这条路上永远找不到包。
         const inputRoot = path.resolve(path.join(ECOM_ROOT, "input"));
-        const pick = (root) => {
-            const dir = path.resolve(path.join(root, packageName));
+        // 2026-10-29：补 ecom 的 output/。②（/api/dossier/prepare）就是直接在
+        // output/ 包上产出 erp/field_plan.json 的 —— ③ 只认 已完成产品/ + input/
+        // 会在「② 刚生成完计划、还没走完整流水线归档」这条路上必 404，
+        // 无缝连接正好断在第 ③ 步。约定与 prepare 一致：`output/xxx` = ecom 工作区。
+        const outputRoot = path.resolve(path.join(ECOM_ROOT, "output"));
+        const pick = (root, rel) => {
+            const dir = path.resolve(path.join(root, rel));
             if (dir !== root && !dir.startsWith(root + path.sep)) return null;
             return existsSync(dir) ? dir : null;
         };
-        let pkgDir = pick(completedRoot);
+        // 与 ② prepare 同一约定：`output/xxx` 里的 output/ 是**相对 ECOM_ROOT** 的前缀，
+        // 不是相对 outputRoot 的子路径 —— 拿全名去拼 outputRoot 会变成 output/output/xxx。
+        const outputRel = packageName.replace(/^output[\\/]/, "");
+        let pkgDir = pick(completedRoot, packageName);
         let pkgRoot = "已完成产品";
-        if (!pkgDir) { pkgDir = pick(inputRoot); pkgRoot = "input"; }
+        if (!pkgDir) { pkgDir = pick(inputRoot, packageName); pkgRoot = "input"; }
+        if (!pkgDir) { pkgDir = pick(outputRoot, outputRel); pkgRoot = "output"; }
         if (!pkgDir) {
             response.status(404).json({
                 ok: false,
-                error: `找不到产品包「${packageName}」：已完成产品/ 与 ecom input/ 下都没有。`
+                error: `找不到产品包「${packageName}」：已完成产品/、ecom input/、ecom output/ 下都没有。`
             });
             return;
         }
         const planPath = path.join(pkgDir, "erp", "field_plan.json");
+        // 包存在但没有计划 = ② 还没跑。旧实现会把这个一路带到 executor 里
+        // 变成「找不到 --plan」，看不出是缺哪一步。
+        if (!existsSync(planPath)) {
+            response.status(409).json({
+                ok: false,
+                pkgRoot,
+                error: `包「${packageName}」里没有 erp/field_plan.json：请先执行第 ② 步（生成上架资料）再写草稿。`
+            });
+            return;
+        }
         const commit = body.commit === true;
+        // 更新已有草稿（而不是再建一条重复的）：传 ② 之前查到的编辑页 URL。
+        const editUrl = String(body.editUrl || "").trim();
         const runId = new Date().toISOString().replace(/[:.]/g, "-");
         const outDir = path.join(HIDDEN_DATA_DIR, "draft-runs", runId);
-        const result = await runDraftExecutor({ planPath, outDir, commit });
+        const result = await runDraftExecutor({ planPath, outDir, commit, editUrl });
         response.json(result);
     }
     catch (error) {
