@@ -166,7 +166,11 @@ function extractCleanTitleLocal(listingText) {
 //  - 标准包：含「3.2 AEO 结构化五点描述 Bullet Points And Q&A」章节；
 //  - 英文批量包（seo_content_only）无「3.2」编号，改用「AEO Structured Bullet Points」起点。
 // 终点取下一个 3.x 小节 / Step / 商品详情页 / Product Detail Page 等标记处截断，避免把 3.3 详情页正文也塞进详情页。
-function extractDetailLocal(listingText) {
+// 2026-10-28：改为 export，供 automation-service.js 的 extractAeoSection 复用，
+// 消灭「同一份文本、两份重复提取实现」的双真相。此前主路径那份（extractAeoSection）
+// 起点要求 3.2 编号必需、措辞表少一条、终点又不截断详情页，实测 450 份产物里
+// 有 246 份（54.7%）提不到描述、另有 14 份把 3.3 正文一起吞掉。
+export function extractDetailLocal(listingText) {
     if (!listingText)
         return "";
     // 1) 定位 AEO 段起点（3.2 编号可选；兼容英文无编号写法）

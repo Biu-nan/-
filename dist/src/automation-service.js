@@ -3,10 +3,10 @@ import path from "node:path";
 import { OUTPUT_DIR, PLANNING_COMPLETION_PROMPT, PRODUCT_FACT_FILE, PRODUCT_FACT_PROMPT_FINGERPRINT, PRODUCT_IMAGES_DIR, PRODUCT_ROOT, TEST_PROMPT, MODEL_PROFILES, singleImageCommand, IMAGE_REFERENCE_REFRESH_INTERVAL } from "./config.js";
 // 参考风格图：只参考风格，不参考产品信息。风格图永不计入产品图 / 身份锁 / 店小秘图源。
 import { buildStyleGenerationClause, buildStylePlanningBlock, extractStyleLockFromPlanning, scanStyleReferenceImages, writeStyleLock } from "./style-reference-service.js";
-import { normalizeDianxiaomiFacts, buildProductFactsFallback } from "./dianxiaomi-facts.js";
+import { normalizeDianxiaomiFacts, buildProductFactsFallback, extractDetailLocal } from "./dianxiaomi-facts.js";
 // 2026-10-28：主路径标题提取兜底。此前本文件自带一份手写锚定正则，锚定失败时直接返回空，
 // 实测 450 份产物有 93 份（20.7%）提不到标题。改为锚定优先 + 解析层兜底后降到 6 份。
-import { extractTitle as extractTitleFromListing } from "./listing-contract.js";
+import { extractTitle as extractTitleFromListing, describeBoundary, descriptionLines } from "./listing-contract.js";
 import { loadVerifiedText, productKeyOf, recordArtifact } from "./progress-manifest.js";
 import { scanProductImages } from "./image-files.js";
 import { extractImagePrompt, isOutlineOnlyPlanningText, readPrompt, validatePromptPack } from "./prompt-files.js";
@@ -104,16 +104,23 @@ function extractProductDetailPage(listingText) {
 
 // 从 MVP5 Listing 文案中提取 AEO 结构化五点描述（3.2 小节），
 // 含 Basic Information / Core Selling Points / Q And A / WARM NOTE。
+//
+// 2026-10-28：改为复用 dianxiaomi-facts.js 的 extractDetailLocal，消灭重复实现。
+// 此前这里有一份独立实现，与 fallback 路径那份行为不一致（同一份文本产出不同内容）：
+//   1. 本份把「3.2」编号写成必需，那份写成可选 → 无编号的英文批量包这里恒返回空
+//   2. 本份措辞表缺 "AEO Structured Bullet Points"
+//   3. 本份终点不截断「商品详情页 / Product Detail Page」→ 3.x 编号缺失时串段
+// 实测 450 份产物：本份提不到描述 246 份（54.7%），另一份只有 26 份。
+// 改前回归对比（tools/verify-description-migration.mjs）：救回 240、回归 0、
+// 14 份内容变化全部是「串段被修好」，无其它变化。
 function extractAeoSection(listingText) {
-    if (!listingText) return "";
-    // 兼容空格差异：AEO结构化 / AEO 结构化；Bullet Points And Q&A / Bullet Points And Q And A
-    const startMatch = listingText.match(/3\.2\s*[\s\S]*?(?:AEO\s*结构化五点描述|Bullet Points And Q(?:\s*&\s*|\s+And\s+)A|Bullet Points And Q And A)[\s\S]*?\n/i);
-    if (!startMatch) return "";
-    const startIndex = startMatch.index + startMatch[0].length;
-    const remainder = listingText.slice(startIndex);
-    const endMatch = remainder.match(/\n\s*(?:3\.\d+\s+|Step\s+\d+\s*\||#{1,6}\s+3\.\d+|#{1,6}\s+Step\s+\d+)/i);
-    const endIndex = endMatch ? endMatch.index : remainder.length;
-    return remainder.slice(0, endIndex).trim();
+    const aeo = extractDetailLocal(listingText || "");
+    if (aeo) return aeo;
+    // 兜底：解析层（起点 Basic Information → 终点 Product Detail Page）。
+    // 措辞永远枚举不完，兜底只为「已知措辞都未命中」时仍能有内容。
+    const boundary = describeBoundary(listingText || "");
+    if (!boundary.matched) return "";
+    return descriptionLines(boundary.content).join("\n");
 }
 
 function extractJsonBlock(text) {
