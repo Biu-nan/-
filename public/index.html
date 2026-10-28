@@ -820,6 +820,34 @@
               #batch-listing-root .bl-overview-sub code{background:#e2e8f0;padding:1px 5px;border-radius:4px;font-size:11px}
             </style>
             <div id="batch-listing-root"></div>
+
+            <!-- 单品草稿执行（2026-10-28）：走 ecom 的 dianxiaomi_draft_executor.mjs。
+                 不在一跨重写上架流程；默认只填不保存，执行器无发布能力。 -->
+            <article class="bl-draft-card" style="max-width:960px;margin-top:20px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px 18px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;">
+                <div>
+                  <span style="font-size:11px;letter-spacing:.08em;color:#64748b;">DRAFT EXECUTOR</span>
+                  <h3 style="margin:2px 0 0;font-size:15px;color:#1e293b;">单品草稿执行 · 走 ecom 成熟链路</h3>
+                </div>
+                <span id="draftStatusBadge" style="padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:#f1f5f9;color:#64748b;white-space:nowrap;">IDLE</span>
+              </div>
+              <p style="font-size:12.5px;color:#475569;line-height:1.55;margin:0 0 12px;">
+                按产品包直接起草稿：引用模板 → 填字段 → 勾变种 → 自定义名/SKU图 → 主图/营销图/描述图 → 保存前回读。
+                <b style="color:#1e3a5f;">默认只填不保存</b>；该执行器没有发布能力。
+              </p>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+                <label style="flex:1 1 380px;display:flex;flex-direction:column;gap:5px;">
+                  <span style="font-size:11px;color:#64748b;">产品包名（已完成产品/ 下的目录，可含一级子目录）</span>
+                  <input id="draftPackageInput" type="text" placeholder="例如：A已填充到店小秘产品文件夹中/xxx_images"
+                         style="padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fafbfc;color:#1e293b;box-sizing:border-box;" />
+                </label>
+                <button id="draftFillButton" type="button"
+                        style="padding:9px 18px;border:0;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:#2563eb;color:#fff;">只填不保存</button>
+                <button id="draftCommitButton" type="button"
+                        style="padding:9px 18px;border:0;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:#f59e0b;color:#fff;">写草稿</button>
+              </div>
+              <div id="draftResult" style="display:none;margin-top:14px;"></div>
+            </article>
           </section>
 
           <section class="workflow-view" data-view-panel="batch-listing-create">
@@ -1642,32 +1670,6 @@
               <div id="queueTaskList" class="queue-task-list">
                 <p class="profile-empty">尚未导入商品队列</p>
               </div>
-            </article>
-
-            <!-- 草稿执行（2026-10-28）：走 ecom 的 dianxiaomi_draft_executor.mjs，
-                 不在一跨重写上架流程。默认只填不保存；执行器无发布能力。 -->
-            <article class="panel queue-list-card">
-              <div class="profile-card-heading">
-                <div>
-                  <span class="mini-label">DRAFT EXECUTOR</span>
-                  <h3>草稿执行 · 走 ecom 成熟链路</h3>
-                </div>
-                <span id="draftStatusBadge" class="profile-status">IDLE</span>
-              </div>
-              <p class="notice" style="margin:0 0 12px 0;">
-                引用模板 → 填 19 个字段 → 勾变种 → 自定义名/SKU图 → 主图/营销图/描述图 → 保存前回读。
-                <strong>默认只填不保存</strong>；该执行器没有发布能力。
-              </p>
-              <div class="row-actions" style="align-items:flex-end;gap:12px;flex-wrap:wrap;">
-                <label style="flex:1 1 420px;display:flex;flex-direction:column;gap:6px;">
-                  <span class="mini-label">产品包名（已完成产品/ 下的一级目录）</span>
-                  <input id="draftPackageInput" type="text" placeholder="例如：xxx_864444663058_images"
-                         style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line,#333);background:transparent;color:inherit;" />
-                </label>
-                <button id="draftFillButton" class="button primary" type="button">只填不保存</button>
-                <button id="draftCommitButton" class="button warning" type="button">写草稿</button>
-              </div>
-              <div id="draftResult" class="draft-result" style="display:none;margin-top:14px;"></div>
             </article>
           </section>
 
@@ -2578,7 +2580,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
     <script src="/app.js?v=20261026-2" defer></script>
-    <script src="/draft-executor-panel.js?v=20261028-1" defer></script>
+    <script src="/draft-executor-panel.js?v=20261028-2" defer></script>
     <script type="module" src="/ceo-command-center.js"></script>
   </body>
 </html>

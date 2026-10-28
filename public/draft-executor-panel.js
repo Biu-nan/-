@@ -24,14 +24,18 @@
     ERROR: '失败',
   };
 
+  // 页面是浅色主题：状态徽章用 pill 底色 + 深色文字，别用深色系的半透明。
   function setBadge(text, kind) {
+    const MAP = {
+      busy: { bg: '#fffbeb', fg: '#b45309' },
+      ok: { bg: '#ecfdf5', fg: '#059669' },
+      bad: { bg: '#fef2f2', fg: '#dc2626' },
+      idle: { bg: '#f1f5f9', fg: '#64748b' },
+    };
+    const c = MAP[kind] || MAP.idle;
     badge.textContent = text;
-    badge.style.opacity = '1';
-    badge.dataset.kind = kind || '';
-    if (kind === 'busy') badge.style.color = 'var(--warning, #d99)';
-    else if (kind === 'ok') badge.style.color = 'var(--success, #6c6)';
-    else if (kind === 'bad') badge.style.color = 'var(--danger, #f66)';
-    else badge.style.color = '';
+    badge.style.background = c.bg;
+    badge.style.color = c.fg;
   }
 
   function esc(s) {
@@ -48,31 +52,32 @@
 
     const stepRows = steps.map((s) => {
       const icon = STEP_ICON[s.status] || '·';
-      const val = s.value == null ? '' : `<span style="opacity:.7;">${esc(JSON.stringify(s.value).slice(0, 90))}</span>`;
-      const why = s.reason ? `<div style="opacity:.75;margin-left:20px;">${esc(s.reason)}</div>` : '';
-      return `<div style="padding:3px 0;">${icon} <strong>${esc(s.name)}</strong> ${val}${why}</div>`;
+      const color = s.status === 'ERROR' ? '#dc2626' : (s.status === 'ATTENTION' ? '#b45309' : '#334155');
+      const val = s.value == null ? '' : `<span style="color:#64748b;">${esc(JSON.stringify(s.value).slice(0, 90))}</span>`;
+      const why = s.reason ? `<div style="color:#b45309;margin-left:20px;">${esc(s.reason)}</div>` : '';
+      return `<div style="padding:3px 0;color:${color};">${icon} <strong>${esc(s.name)}</strong> ${val}${why}</div>`;
     }).join('');
 
     const attRows = attention.length
-      ? `<div style="margin-top:12px;"><div style="opacity:.8;margin-bottom:4px;">需人工复核（${attention.length}）</div>${
-          attention.map((a) => `<div style="opacity:.8;padding:2px 0;">• ${esc(a)}</div>`).join('')
+      ? `<div style="margin-top:12px;"><div style="color:#475569;margin-bottom:4px;">需人工复核（${attention.length}）</div>${
+          attention.map((a) => `<div style="color:#64748b;padding:2px 0;">• ${esc(a)}</div>`).join('')
         }</div>`
       : '';
 
     const errBox = res.error
-      ? `<div style="margin-top:12px;color:var(--danger,#f66);">失败原因：${esc(res.error)}</div>`
+      ? `<div style="margin-top:12px;color:#dc2626;">失败原因：${esc(res.error)}</div>`
       : '';
 
     result.innerHTML = `
       <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:baseline;margin-bottom:10px;">
-        <strong style="font-size:1.05em;color:${ok ? 'var(--success,#6c6)' : 'var(--danger,#f66)'};">${esc(statusText)}</strong>
-        <span style="opacity:.7;">${steps.length} 步 · 用时 ${Math.round((res.durationMs || 0) / 1000)}s</span>
-        <span style="opacity:.7;">${res.committed ? '已写草稿' : '未保存'}</span>
-        ${res.auditPath ? `<span style="opacity:.6;font-size:.9em;">audit: ${esc(res.auditPath)}</span>` : ''}
+        <strong style="font-size:1.05em;color:${ok ? '#059669' : '#dc2626'};">${esc(statusText)}</strong>
+        <span style="color:#64748b;">${steps.length} 步 · 用时 ${Math.round((res.durationMs || 0) / 1000)}s</span>
+        <span style="color:#64748b;">${res.committed ? '已写草稿' : '未保存'}</span>
+        ${res.auditPath ? `<span style="color:#94a3b8;font-size:.9em;">audit: ${esc(res.auditPath)}</span>` : ''}
       </div>
       ${errBox}
-      <div style="max-height:420px;overflow:auto;border-top:1px solid rgba(128,128,128,.25);padding-top:10px;font-size:.92em;">
-        ${stepRows || '<div style="opacity:.6;">没有步骤记录（可能执行器未产出 audit）</div>'}
+      <div style="max-height:420px;overflow:auto;border-top:1px solid #e2e8f0;padding-top:10px;font-size:.92em;">
+        ${stepRows || '<div style="color:#94a3b8;">没有步骤记录（可能执行器未产出 audit）</div>'}
       </div>
       ${attRows}
     `;
@@ -107,7 +112,7 @@
       else setBadge('FAILED', 'bad');
     } catch (e) {
       setBadge('REQUEST FAILED', 'bad');
-      result.innerHTML = `<div style="color:var(--danger,#f66);">请求失败：${esc(e && e.message ? e.message : e)}</div>`;
+      result.innerHTML = `<div style="color:#dc2626;">请求失败：${esc(e && e.message ? e.message : e)}</div>`;
     } finally {
       fillBtn.disabled = false;
       commitBtn.disabled = false;
