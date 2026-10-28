@@ -255,10 +255,18 @@
           const phaseText = { listing: '生成 Listing', plan: '生成 ERP 计划', done: '已完成', failed: '失败' }[s.phase] || s.phase;
           const stageText = (s.pipeline && s.pipeline.currentStage) ? ` · 当前阶段 ${esc(s.pipeline.currentStage)}` : '';
           setBadge(phaseText, s.phase === 'failed' ? 'bad' : (s.phase === 'done' ? 'ok' : 'busy'));
+          const reasonRows = (s.reasons || [])
+            .map((r) => `<div style="color:#b45309;margin-top:4px;">• [${esc(r.stage)}] ${esc(r.reason)}</div>`)
+            .join('');
+          const movedNote = (s.locations || []).some((l) => l.where === 'failed')
+            ? '<div style="color:#b45309;margin-top:8px;">包已被流程移入「未成功上架产品」，补上资料后可重新发起。</div>'
+            : '';
           result.innerHTML = `
             <div style="color:#334155;font-weight:500;">${esc(phaseText)}${stageText}</div>
             <div style="color:#64748b;margin-top:6px;">流水线状态 ${esc((s.pipeline && s.pipeline.status) || '-')} · job ${esc(s.jobId || '-')}</div>
             ${s.plansReady && s.plansReady.length ? `<div style="color:#059669;margin-top:6px;">✓ 已产出计划 ${s.plansReady.length} 个</div>` : ''}
+            ${reasonRows}
+            ${movedNote}
             ${s.error ? `<div style="color:#dc2626;margin-top:6px;">${esc(s.error)}</div>` : ''}`;
 
           if (s.phase === 'done' || s.phase === 'failed') {

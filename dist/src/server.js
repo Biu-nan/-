@@ -1406,6 +1406,7 @@ app.get("/api/dossier/status", async (request, response) => {
         }
         const st = await readPipelineJobState();
         const outputRoot = path.resolve(path.join(ECOM_ROOT, "output"));
+        const inputRoot = path.resolve(path.join(ECOM_ROOT, "input"));
         const planFiles = run.packages.map((n) => path.join(outputRoot, n, "erp", "field_plan.json"));
         const plansReady = planFiles.filter((p) => existsSync(p));
         if (run.phase === "listing") {
@@ -1435,7 +1436,17 @@ app.get("/api/dossier/status", async (request, response) => {
             ok: true, runId, phase: run.phase, jobId: run.jobId,
             packages: run.packages, checked: run.checked, error: run.error,
             pipeline: { status: st.status, currentStage: st.currentStage, stages: st.stages },
-            plansReady: plansReady.map((p) => path.basename(path.dirname(path.dirname(p))))
+            plansReady: plansReady.map((p) => path.basename(path.dirname(path.dirname(p)))),
+            // 包现在在哪：失败/待补资料时会被 _move_failed_product 移进
+            // output/未成功上架产品/，用户只会看到"产品不见了"。这里如实报位置。
+            locations: run.packages.map((name) => {
+                if (existsSync(path.join(outputRoot, name))) return { name, where: "output" };
+                if (existsSync(path.join(outputRoot, "未成功上架产品", name))) return { name, where: "failed" };
+                if (existsSync(path.join(inputRoot, name))) return { name, where: "input" };
+                return { name, where: "missing" };
+            }),
+            // 流水线给出的拦截原因（如 SKU 变体重名、缺主图），原样透给界面。
+            reasons: (st.stages || []).filter((x) => x.reason).map((x) => ({ stage: x.stage, reason: x.reason }))
         });
     }
     catch (error) {
