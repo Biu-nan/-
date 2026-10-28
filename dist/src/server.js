@@ -8,6 +8,8 @@ import { DIANXIAOMI_TEMPLATE_PRODUCT_ID, PRODUCT_FACT_FILE, DIANXIAOMI_CATEGORY_
 import { normalizeDianxiaomiFacts, buildProductFactsFallback } from "./dianxiaomi-facts.js";
 // 2026-10-28：草稿执行走 ecom 的成熟 executor（子进程桥），不在这里重写上架流程。
 import { runDraftExecutor } from "./draft-executor-bridge.js";
+// 2026-10-28：1688 采集同样走 ecom 的 collector（子进程桥）。
+import { runCollector } from "./collector-bridge.js";
 import { AutomationService } from "./automation-service.js";
 import { ChatGptAdapter } from "./chatgpt-adapter.js";
 import { GeminiAdapter } from "./gemini-adapter.js";
@@ -1260,6 +1262,31 @@ app.post("/api/draft/execute", async (request, response) => {
         const runId = new Date().toISOString().replace(/[:.]/g, "-");
         const outDir = path.join(HIDDEN_DATA_DIR, "draft-runs", runId);
         const result = await runDraftExecutor({ planPath, outDir, commit });
+        response.json(result);
+    }
+    catch (error) {
+        response.status(409).json({ ok: false, error: error instanceof Error ? error.message : String(error) });
+    }
+});
+// ── 来源 URL 采集（2026-10-28）──────────────────────────────────────────
+// 把 1688 链接交给 ecom 的 collector（AliPrice 驱动）。一跨只做入口，
+// 采集/反爬/图片下载/SKU 表双币种归一化全在 ecom，不在这里重写。
+app.post("/api/collect/from-url", async (request, response) => {
+    try {
+        const body = (request.body && typeof request.body === "object") ? request.body : {};
+        const url = String(body.url || "").trim();
+        if (!url) {
+            response.status(400).json({ ok: false, error: "缺少 url" });
+            return;
+        }
+        // 只接受 1688 商品链接：collector 只认这个域，顺便挡住误填与任意域名请求
+        if (!/^https?:\/\/([a-z0-9-]+\.)*1688\.com\//i.test(url)) {
+            response.status(400).json({ ok: false, error: "只接受 1688 商品链接（*.1688.com）" });
+            return;
+        }
+        const title = String(body.title || "").trim();
+        const mode = body.mode === "listing" ? "listing" : "none";
+        const result = await runCollector({ url, title, mode });
         response.json(result);
     }
     catch (error) {

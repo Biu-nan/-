@@ -7,6 +7,7 @@
     <title>一跨而境｜AI 跨境电商工作台</title>
     <link rel="stylesheet" href="/styles.css?v=20261026-2" />
     <link rel="stylesheet" href="/ceo-tasks.css" />
+    <link rel="stylesheet" href="/workflow-alert.css?v=20261028-1" />
     <script>
       // 致命错误兜底：任何未捕获错误 / Promise 拒绝都显示到页面顶部红条，避免白屏无提示
       (function () {
@@ -82,7 +83,7 @@
       </aside>
 
       <main class="workspace main-workspace">
-        <p id="heroErrorBanner" class="hero-error-banner hidden" role="alert"></p>
+        <section id="heroErrorBanner" class="hero-error-banner hidden" role="alert" aria-label="任务异常提醒"></section>
         <header id="productionTopbar" class="topbar hidden">
           <div>
             <p class="eyebrow">AI 跨境电商视觉与 Listing 工作台</p>
@@ -820,6 +821,38 @@
               #batch-listing-root .bl-overview-sub code{background:#e2e8f0;padding:1px 5px;border-radius:4px;font-size:11px}
             </style>
             <div id="batch-listing-root"></div>
+
+            <!-- 来源 URL 采集（2026-10-28）：拿 1688 链接调 ecom 的 collector，
+                 下载 SKU 表与图片。需 9224 采集浏览器 + AliPrice 扩展就绪。 -->
+            <article style="max-width:960px;margin-top:20px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px 18px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;">
+                <div>
+                  <span style="font-size:11px;letter-spacing:.08em;color:#64748b;">SOURCE URL</span>
+                  <h3 style="margin:2px 0 0;font-size:15px;color:#1e293b;">从来源 URL 采集</h3>
+                </div>
+                <span id="collectStatusBadge" style="padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:#f1f5f9;color:#64748b;white-space:nowrap;">IDLE</span>
+              </div>
+              <p style="font-size:12.5px;color:#475569;line-height:1.55;margin:0 0 12px;">
+                粘贴 1688 商品链接 → 调 ecom 采集器下载 <b style="color:#1e3a5f;">SKU 表 + 图片 + 来源URL</b>。
+                采集成功后产品包进入 input/，再走 Listing → 计划 → 上架。
+                <span style="color:#94a3b8;">（依赖 9224 采集浏览器与 AliPrice 扩展）</span>
+              </p>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+                <label style="flex:2 1 320px;display:flex;flex-direction:column;gap:5px;">
+                  <span style="font-size:11px;color:#64748b;">来源 URL（*.1688.com）</span>
+                  <input id="collectUrlInput" type="text" placeholder="https://detail.1688.com/offer/xxxx.html"
+                         style="padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fafbfc;color:#1e293b;box-sizing:border-box;" />
+                </label>
+                <label style="flex:1 1 180px;display:flex;flex-direction:column;gap:5px;">
+                  <span style="font-size:11px;color:#64748b;">产品名（可选）</span>
+                  <input id="collectTitleInput" type="text" placeholder="用于包名与日志"
+                         style="padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fafbfc;color:#1e293b;box-sizing:border-box;" />
+                </label>
+                <button id="collectButton" type="button"
+                        style="padding:9px 18px;border:0;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:#0f766e;color:#fff;">开始采集</button>
+              </div>
+              <div id="collectResult" style="display:none;margin-top:14px;"></div>
+            </article>
 
             <!-- 单品草稿执行（2026-10-28）：走 ecom 的 dianxiaomi_draft_executor.mjs。
                  不在一跨重写上架流程；默认只填不保存，执行器无发布能力。 -->
@@ -2579,8 +2612,9 @@
     </aside>
 
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
-    <script src="/app.js?v=20261026-2" defer></script>
-    <script src="/draft-executor-panel.js?v=20261028-2" defer></script>
+    <script src="/workflow-alert.js?v=20261028-1" defer></script>
+    <script src="/app.js?v=20261028-alert-1" defer></script>
+    <script src="/draft-executor-panel.js?v=20261028-3" defer></script>
     <script type="module" src="/ceo-command-center.js"></script>
   </body>
 </html>

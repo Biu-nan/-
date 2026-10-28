@@ -122,3 +122,85 @@
   fillBtn.addEventListener('click', () => run(false));
   commitBtn.addEventListener('click', () => run(true));
 })();
+
+// ── 来源 URL 采集面板 ────────────────────────────────────────────────────
+// 独立 IIFE：草稿面板那边有 `if (!badge ...) return` 的守卫，
+// 塞进同一个闭包会被它拦掉（两个面板的元素不一定同时存在）。
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const badge = $('collectStatusBadge');
+  const urlInput = $('collectUrlInput');
+  const titleInput = $('collectTitleInput');
+  const btn = $('collectButton');
+  const result = $('collectResult');
+  if (!badge || !urlInput || !btn || !result) return;
+
+  const MAP = {
+    busy: { bg: '#fef3c7', fg: '#b45309' },
+    ok: { bg: '#ecfdf5', fg: '#059669' },
+    bad: { bg: '#fef2f2', fg: '#dc2626' },
+    idle: { bg: '#f1f5f9', fg: '#64748b' },
+  };
+
+  function setBadge(text, kind) {
+    const c = MAP[kind] || MAP.idle;
+    badge.textContent = text;
+    badge.style.background = c.bg;
+    badge.style.color = c.fg;
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  btn.addEventListener('click', async () => {
+    const url = (urlInput.value || '').trim();
+    if (!url) {
+      window.alert('请先填写 1688 商品链接');
+      urlInput.focus();
+      return;
+    }
+    if (!/^https?:\/\/([a-z0-9-]+\.)*1688\.com\//i.test(url)) {
+      window.alert('只接受 1688 商品链接（*.1688.com）');
+      return;
+    }
+
+    setBadge('COLLECTING', 'busy');
+    btn.disabled = true;
+    result.style.display = 'block';
+    result.innerHTML = '<div style="color:#475569;">正在采集…（打开 1688 页面 + 下载图片 + 归一化 SKU 表，通常 30 秒–3 分钟）</div>';
+
+    try {
+      const resp = await fetch('/api/collect/from-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, title: (titleInput.value || '').trim(), mode: 'none' }),
+      });
+      const d = await resp.json();
+
+      if (d.ok) {
+        setBadge('COLLECTED', 'ok');
+        const c = d.counts || {};
+        result.innerHTML = `
+          <div style="color:#059669;font-weight:500;margin-bottom:8px;">采集成功 · 商品ID ${esc(d.productId)}</div>
+          <div style="color:#475569;">成功 ${c.succeeded || 0} · 待复核 ${c.review || 0} · 失败 ${c.failed || 0} · 跳过 ${c.skipped || 0} · 用时 ${Math.round((d.durationMs || 0) / 1000)}s</div>
+          <div style="color:#94a3b8;font-size:.9em;margin-top:6px;">产物已落采集暂存区，下一步可在 ecom 侧 promote 进 input/ 后继续 Listing。</div>`;
+      } else {
+        setBadge('FAILED', 'bad');
+        const c = d.counts || {};
+        result.innerHTML = `
+          <div style="color:#dc2626;font-weight:500;margin-bottom:8px;">采集失败 · ${esc(d.status)}</div>
+          ${d.productId ? `<div style="color:#475569;">商品ID ${esc(d.productId)}</div>` : ''}
+          <div style="color:#dc2626;margin-top:6px;">${esc(d.error || '未取到原因')}</div>
+          ${c.total ? `<div style="color:#64748b;margin-top:6px;">成功 ${c.succeeded || 0} · 失败 ${c.failed || 0} · 用时 ${Math.round((d.durationMs || 0) / 1000)}s</div>` : ''}
+          <div style="color:#94a3b8;font-size:.9em;margin-top:8px;">若是「未找到下载图片按钮」，说明 9224 采集浏览器里的 AliPrice 扩展未加载。</div>`;
+      }
+    } catch (e) {
+      setBadge('REQUEST FAILED', 'bad');
+      result.innerHTML = `<div style="color:#dc2626;">请求失败：${esc(e && e.message ? e.message : e)}</div>`;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+})();
