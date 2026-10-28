@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { access, appendFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { access, appendFile, copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import express from "express";
 import multer from "multer";
@@ -19,6 +19,7 @@ import { ChatGptAdapter } from "./chatgpt-adapter.js";
 import { GeminiAdapter } from "./gemini-adapter.js";
 import { importImagesToDirectory, importImageUrlsToDirectory, removeImageFromDirectory, scanImages } from "./directory-images.js";
 // 参考风格图：只参考风格，不参考产品信息（独立目录，不进 产品图/ 身份锁）
+import { buildContract, TITLE_MIN, TITLE_MAX } from "./listing-contract.js";
 import { getStyleReferenceStatus, importStyleReferenceImages, importStyleReferenceImageUrls, invalidateStyleLock, removeStyleReferenceImage, scanStyleReferenceImages } from "./style-reference-service.js";
 import { buildHandoff, importHandoff, listEcomProductSummaries, probeEcomService, scanEcomProducts } from "./ecom-connector.js";
 import { LuxuryInsertService } from "./luxury-insert-service.js";
@@ -1255,46 +1256,26 @@ app.post("/api/draft/execute", async (request, response) => {
             response.status(400).json({ ok: false, error: "packageName 不允许包含 .. 或为绝对路径" });
             return;
         }
-        const completedRoot = path.resolve(COMPLETED_PRODUCTS_DIR);
-        // 也接受 ecom 的 input/：上架资料走到「计划已生成、尚未上架」时，包还停在
-        // ecom 的 input/（要等 ERP_DRAFT 验证通过才会归档到 已完成产品/）。
-        // 不认 input/ 的话，第③步在「先生成资料、人工确认」这条路上永远找不到包。
-        const inputRoot = path.resolve(path.join(ECOM_ROOT, "input"));
-        // 2026-10-29：补 ecom 的 output/。②（/api/dossier/prepare）就是直接在
-        // output/ 包上产出 erp/field_plan.json 的 —— ③ 只认 已完成产品/ + input/
-        // 会在「② 刚生成完计划、还没走完整流水线归档」这条路上必 404，
-        // 无缝连接正好断在第 ③ 步。约定与 prepare 一致：`output/xxx` = ecom 工作区。
-        const outputRoot = path.resolve(path.join(ECOM_ROOT, "output"));
-        const pick = (root, rel) => {
-            const dir = path.resolve(path.join(root, rel));
-            if (dir !== root && !dir.startsWith(root + path.sep)) return null;
-            return existsSync(dir) ? dir : null;
-        };
-        // 与 ② prepare 同一约定：`output/xxx` 里的 output/ 是**相对 ECOM_ROOT** 的前缀，
-        // 不是相对 outputRoot 的子路径 —— 拿全名去拼 outputRoot 会变成 output/output/xxx。
-        const outputRel = packageName.replace(/^output[\\/]/, "");
-        let pkgDir = pick(completedRoot, packageName);
-        let pkgRoot = "已完成产品";
-        if (!pkgDir) { pkgDir = pick(inputRoot, packageName); pkgRoot = "input"; }
-        if (!pkgDir) { pkgDir = pick(outputRoot, outputRel); pkgRoot = "output"; }
-        if (!pkgDir) {
+        // ② 会把非 output/ 的包落成 output/<扁平名> 再生成计划，所以 ③ 不能"先命中就停"——
+        // 那样会停在「已完成产品/<包>」（那里从不会有 erp/field_plan.json），
+        // 报一句看不出原因的「包里没有 field_plan.json」。改成按候选顺序找第一个**真有计划的**。
+        const found = await findPlanDir(packageName);
+        if (!found.dir) {
             response.status(404).json({
                 ok: false,
-                error: `找不到产品包「${packageName}」：已完成产品/、ecom input/、ecom output/ 下都没有。`
+                error: `包「${packageName}」下还没有 erp/field_plan.json：请先执行第 ② 步（生成上架资料）。`,
+                detail: `已按顺序试过：${found.tried.join(" ｜ ")}`
             });
             return;
         }
-        const planPath = path.join(pkgDir, "erp", "field_plan.json");
-        // 包存在但没有计划 = ② 还没跑。旧实现会把这个一路带到 executor 里
-        // 变成「找不到 --plan」，看不出是缺哪一步。
-        if (!existsSync(planPath)) {
-            response.status(409).json({
-                ok: false,
-                pkgRoot,
-                error: `包「${packageName}」里没有 erp/field_plan.json：请先执行第 ② 步（生成上架资料）再写草稿。`
-            });
-            return;
-        }
+        const planPath = found.planPath;
+        const pkgDir = found.dir;
+        // 计划所在位置的根目录：output / input / 已完成产品 —— 回给前端，便于核对写的是哪份计划。
+        const pkgRoot = path.resolve(pkgDir).startsWith(path.resolve(path.join(ECOM_ROOT, "output")) + path.sep)
+            ? "output"
+            : (path.resolve(pkgDir).startsWith(path.resolve(COMPLETED_PRODUCTS_DIR) + path.sep)
+                ? "已完成产品"
+                : (path.resolve(pkgDir).startsWith(path.resolve(path.join(ECOM_ROOT, "input")) + path.sep) ? "input" : path.dirname(pkgDir)));
         const commit = body.commit === true;
         // 更新已有草稿（而不是再建一条重复的）：传 ② 之前查到的编辑页 URL。
         const editUrl = String(body.editUrl || "").trim();
@@ -1366,6 +1347,195 @@ async function countMainImages(pkgDir) {
     catch { return 0; }
 }
 
+// ── 上架资料：包定位 & 落地 ecom 工作区（2026-10-29）────────────────────
+// 起因：下拉里看得见「绿色四叶草金色五金挂件」，点 ② 却报「找不到带 Listing 产物的包」。
+// 根因是两层：
+//   1) **判定口径不一致**。列表承认两种包结构（<包>/04_LISTING_CONTENT.md 与
+//      <包>/output/04_LISTING_CONTENT.md），② 只认第一种。而「已完成产品/」里
+//      122/123 个包都是第二种 —— 于是「列表里有、点下去必 404」，用户看到的就是
+//      「总是找不到对应产品文档」。这条是纯粹的 bug，列表与消费者必须共用一套判定。
+//   2) **作用域与资料包要求**。ecom 流水线只接受 input/ 或 output/ 下的路径，
+//      且要求产品根目录有 product_info.json（build_plan 缺它就抛）、主图按
+//      「主图_NN」命名（assets_contract 按文件名前缀扫槽位）。历史两项都没有，
+//      就算第 1 层修好了，提交过去会被「产品路径必须位于 input/ 或 output/ 下」
+//      拒掉，或被计划阶段打成「没有任何可用主图」。
+// 修法：列表 / ②prepare / ③execute 三处共用 resolver；② 提交前把非 output 的包
+// 落成 output/ 下的正式资料包（复制 + ecom 官方 bootstrap_output_product 补
+// product_info.json + 主图命名对齐）；仍然缺的东西（SKU 表等）如实告诉人，
+// 不静默降级、不伪造数据。
+const LISTING_FILE = "04_LISTING_CONTENT.md";
+const IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".webp"];
+
+const isImageFile = (name) => IMAGE_EXTS.includes(path.extname(name).toLowerCase());
+const isMainImageFile = (name) => /^主图_\d+\.(jpe?g|png|webp)$/i.test(name);
+
+/** 返回真正的 ecom 产品目录：<包> 或 <包>/output；都不是包则返回 ""。 */
+function listingRootOf(dir) {
+    if (existsSync(path.join(dir, LISTING_FILE))) return dir;
+    const nested = path.join(dir, "output");
+    if (existsSync(path.join(nested, LISTING_FILE))) return nested;
+    return "";
+}
+/** 包的候选位置：`output/xxx` 相对 ECOM_ROOT，其余相对「已完成产品/」与 output/。 */
+function packageCandidates(relPath) {
+    const clean = String(relPath || "").trim().replace(/\\/g, "/").replace(/^\/+/, "");
+    if (!clean) return [];
+    return clean.startsWith("output/")
+        ? [path.resolve(path.join(ECOM_ROOT, clean))]
+        : [
+            path.resolve(path.join(COMPLETED_PRODUCTS_DIR, clean)),
+            path.resolve(path.join(ECOM_ROOT, "output", clean))
+        ];
+}
+async function resolvePackage(relPath) {
+    const candidates = packageCandidates(relPath);
+    for (const dir of candidates) {
+        const listingRoot = listingRootOf(dir);
+        if (listingRoot) return { pkgDir: dir, listingRoot, candidates };
+    }
+    return { pkgDir: "", listingRoot: "", candidates };
+}
+async function listFiles(dir) {
+    try {
+        const entries = await readdir(dir, { withFileTypes: true });
+        return entries.filter((e) => e.isFile()).map((e) => e.name);
+    }
+    catch { return []; }
+}
+async function countFiles(dir, test) {
+    return (await listFiles(dir)).filter(test).length;
+}
+/** output 顶层不接受嵌套（build_plan 会判「嵌套结构」），把层级摊平成 _ */
+function flatNameFor(relPath) {
+    return String(relPath || "").replace(/^output[\\/]/, "").replace(/[\\/]+/g, "_").replace(/[*:?"<>|]/g, "_").trim();
+}
+async function copyIfChanged(src, dst) {
+    try {
+        const [a, b] = await Promise.all([stat(src), stat(dst)]);
+        if (a.size === b.size && Math.floor(a.mtimeMs) === Math.floor(b.mtimeMs)) return false;
+    }
+    catch { /* 目标不存在 → 照拷 */ }
+    await copyFile(src, dst);
+    return true;
+}
+/** 调 ecom 官方 bootstrap_output_product 补建最小 product_info.json（缺 pic 不伪造事实）。 */
+function bootstrapEcomPackage(targetDir) {
+    const root = path.resolve(ECOM_ROOT);
+    const python = path.join(root, ".venv", "Scripts", "python.exe");
+    if (!existsSync(python)) throw new Error(`找不到 ecom 的 python：${python}`);
+    const script = [
+        "import sys",
+        `sys.path.insert(0, ${JSON.stringify(root)})`,
+        "from pathlib import Path",
+        "from listing_rebuild import bootstrap_output_product",
+        "from src.utils import load_config",
+        `out = bootstrap_output_product(Path(${JSON.stringify(targetDir)}), load_config() or {})`,
+        "print('__BOOTSTRAP__' + str(out.is_file()))"
+    ].join("\n");
+    return new Promise((resolve, reject) => {
+        const child = spawn(python, ["-"], {
+            cwd: root,
+            env: Object.assign({}, process.env, { PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" }),
+            stdio: ["pipe", "pipe", "pipe"], windowsHide: true
+        });
+        let stdout = "", stderr = "", timer = null;
+        const done = (error) => {
+            if (timer) clearTimeout(timer);
+            if (error) reject(new Error(error));
+            else if (/__BOOTSTRAP__True/.test(stdout)) resolve(true);
+            else reject(new Error(`补建 product_info.json 失败：${(stderr || stdout).slice(-400)}`));
+        };
+        child.stdout.on("data", (b) => { stdout += b.toString("utf8"); });
+        child.stderr.on("data", (b) => { stderr += b.toString("utf8"); });
+        child.on("error", (e) => done(e.message));
+        child.on("close", () => done(null));
+        timer = setTimeout(() => done("补建 product_info.json 超时"), 120000);
+        child.stdin.end(script, "utf8");
+    });
+}
+/**
+ * 把包落成 ecom 流水线能吃的形式（幂等）。
+ * 返回 { dir, staged, name, notes, error } —— error 非空即需人工裁决，**不覆盖**。
+ */
+async function stagePackageForPipeline({ relPath, pkgDir, listingRoot }) {
+    const outputRoot = path.resolve(path.join(ECOM_ROOT, "output"));
+    const rel = path.relative(outputRoot, path.resolve(listingRoot));
+    const alreadyInside = !!rel && !rel.startsWith("..") && !path.isAbsolute(rel);
+    if (alreadyInside) {
+        return { dir: path.resolve(listingRoot), staged: false, name: rel.split(path.sep).join("/"), notes: [] };
+    }
+    const name = flatNameFor(relPath);
+    const target = path.join(outputRoot, name);
+    const notes = [];
+    // 冲突保护（与 ecom-connector 同口径）：同名且 Listing 内容不同 → 不覆盖，交人工。
+    const targetListing = path.join(target, LISTING_FILE);
+    if (existsSync(targetListing)) {
+        const [a, b] = await Promise.all([
+            readFile(path.join(listingRoot, LISTING_FILE)), readFile(targetListing)
+        ]);
+        if (!a.equals(b)) {
+            return {
+                error: `ecom 的 output/ 下已有同名包「${name}」且 Listing 内容不同，已停止以免覆盖；`
+                    + `请先在 output/ 里处理同名包，或改用别的包名。`
+            };
+        }
+    }
+    await mkdir(target, { recursive: true });
+    for (const f of await listFiles(listingRoot)) {
+        await copyIfChanged(path.join(listingRoot, f), path.join(target, f));
+    }
+    notes.push(`把 Listing 产物落到 output/${name}（原包 ${path.basename(pkgDir)} 不在 ecom 作用域内）`);
+    // 主图：ecom 的主图判据是文件名前缀（assets_contract），历史包的图不叫这个名字。
+    if (await countFiles(target, isMainImageFile) === 0) {
+        const images = (await listFiles(listingRoot)).filter(isImageFile).sort((a, b) => a.localeCompare(b, "zh"));
+        if (images.length) {
+            let i = 0;
+            for (const f of images) {
+                i += 1;
+                await copyIfChanged(path.join(listingRoot, f), path.join(target, `主图_${String(i).padStart(2, "0")}${path.extname(f)}`));
+            }
+            notes.push(`包内 ${images.length} 张图按「主图_01…」命名对齐（原本叫 Image_NN，ecom 认不出来）`);
+        }
+        else {
+            const sourceDir = path.join(pkgDir, "产品图");
+            const sourceImages = (await listFiles(sourceDir)).filter(isImageFile).sort((a, b) => a.localeCompare(b, "zh"));
+            if (sourceImages.length) {
+                let i = 0;
+                for (const f of sourceImages) {
+                    i += 1;
+                    await copyIfChanged(path.join(sourceDir, f), path.join(target, `主图_${String(i).padStart(2, "0")}${path.extname(f)}`));
+                }
+                notes.push(`Listing 目录没有图，改用 <包>/产品图 的 ${sourceImages.length} 张源图作主图`);
+            }
+        }
+    }
+    if (!existsSync(path.join(target, "product_info.json"))) {
+        await bootstrapEcomPackage(target);
+        notes.push("用 ecom 官方 bootstrap_output_product 补建最小 product_info.json");
+    }
+    return { dir: target, staged: true, name, notes };
+}
+/** ③ 找 erp/field_plan.json：计划可能落在 output/（② 落成的包）也可能在原包里。 */
+async function findPlanDir(packageName) {
+    const hit = await resolvePackage(packageName);
+    const flat = flatNameFor(packageName);
+    const clean = String(packageName || "").trim().replace(/\\/g, "/").replace(/^\/+/, "");
+    const candidates = [
+        path.resolve(path.join(ECOM_ROOT, "output", flat)),
+        hit.listingRoot,
+        hit.pkgDir,
+        path.resolve(path.join(ECOM_ROOT, "input", flat)),
+        clean !== flat ? path.resolve(path.join(ECOM_ROOT, clean)) : ""
+    ].filter(Boolean);
+    const tried = [];
+    for (const dir of [...new Set(candidates)]) {
+        const planPath = path.join(dir, "erp", "field_plan.json");
+        tried.push(planPath);
+        if (existsSync(planPath)) return { dir, planPath, tried };
+    }
+    return { dir: "", planPath: "", tried };
+}
+
 // ── 上架资料：店铺/模板、可选产品包、生成上架信息 ──────────────────────
 // 这一步**不跑 Listing** —— Listing 由前面的 tab（商品事实/市场调研/Listing/作图）产出，
 // 这里只把既有 Listing 变成「店小秘上架信息」(erp/field_plan.json)，然后自动填充、不保存。
@@ -1398,15 +1568,16 @@ app.get("/api/dossier/packages", async (_request, response) => {
             if (!e.isDirectory() || e.name.startsWith(".")) continue;
             if (e.name === "未成功上架产品" || e.name === "review") continue;
             const full = path.join(dir, e.name);
-            // 包根判定：ecom 历史上有两种结构并存 ——
-            //   A) <包>/04_LISTING_CONTENT.md           （多数）
-            //   B) <包>/output/04_LISTING_CONTENT.md    （早期包）
-            // 两种都把 <包> 当根；否则会把 output/ 子目录误认成一个包。
-            const isPkg = existsSync(path.join(full, "04_LISTING_CONTENT.md"))
-                || existsSync(path.join(full, "output", "04_LISTING_CONTENT.md"));
-            if (isPkg) {
+            // 包根判定与 ②prepare / ③execute **必须是同一套**（listingRootOf）：
+            // 之前这里承认 <包>/output/ 结构而 ② 不承认，于是列表里 122/123 个包
+            // 点下去必 404「找不到带 Listing 产物的包」。
+            const listingRoot = listingRootOf(full);
+            if (listingRoot) {
                 let mtime = 0;
                 try { mtime = (await stat(full)).mtimeMs; } catch { /* ignore */ }
+                const mainImages = await countFiles(listingRoot, isMainImageFile);
+                const legacyImages = (await listFiles(listingRoot)).filter(isImageFile).length;
+                const hasSku = await countFiles(listingRoot, (f) => /\.(csv|xlsx|xls)$/i.test(f)) > 0;
                 items.push({
                     name: e.name, where, mtime,
                     // 统一成相对路径：output/ 下的带 output/ 前缀，其余相对 已完成产品/
@@ -1414,6 +1585,13 @@ app.get("/api/dossier/packages", async (_request, response) => {
                         ? `output/${e.name}`
                         : path.relative(path.resolve(COMPLETED_PRODUCTS_DIR), full).split(path.sep).join("/"),
                     hasPlan: existsSync(path.join(full, "erp", "field_plan.json"))
+                        || existsSync(path.join(listingRoot, "erp", "field_plan.json")),
+                    structure: listingRoot === full ? "root" : "output",
+                    mainImages,
+                    // ② 会用这些图补主图槽位（含 Image_NN 与 <包>/产品图 两条回退）
+                    imageCandidates: mainImages || legacyImages
+                        || await countFiles(path.join(full, "产品图"), isImageFile),
+                    hasSku
                 });
             }
             else if (depth > 0) await scan(full, where, depth - 1);
@@ -1436,33 +1614,77 @@ app.post("/api/dossier/prepare", async (request, response) => {
             response.status(400).json({ ok: false, error: "packageName 不合法" });
             return;
         }
-        // packageName 统一约定：`output/xxx` 指 ecom 工作区，其余相对「已完成产品/」
-        const candidates = relPath.startsWith("output/")
-            ? [path.resolve(path.join(ECOM_ROOT, relPath))]
-            : [
-                path.resolve(path.join(COMPLETED_PRODUCTS_DIR, relPath)),
-                path.resolve(path.join(ECOM_ROOT, "output", relPath))
-            ];
-        const pkgDir = candidates.find((p) => existsSync(p) && existsSync(path.join(p, "04_LISTING_CONTENT.md")));
-        if (!pkgDir) {
-            response.status(404).json({ ok: false, error: `找不到带 Listing 产物的包：${relPath}` });
+        // 与列表用同一套包判定（两种结构都认），不再出现「列表里有、这里说找不到」。
+        const hit = await resolvePackage(relPath);
+        if (!hit.listingRoot) {
+            response.status(404).json({
+                ok: false,
+                error: `找不到带 Listing 产物的包：${relPath}`,
+                detail: `已按顺序试过：${hit.candidates.join(" ｜ ")}`
+            });
             return;
         }
+        // 非 output/ 的包（绝大多数「已完成产品/」历史包）必须先落成 output/ 下的资料包，
+        // 否则提交给 ecom 会被「产品路径必须位于 input/ 或 output/ 下」拒掉。
+        let staged;
+        try {
+            staged = await stagePackageForPipeline({ relPath, pkgDir: hit.pkgDir, listingRoot: hit.listingRoot });
+        }
+        catch (error) {
+            response.status(409).json({ ok: false, step: "stage", error: error instanceof Error ? error.message : String(error) });
+            return;
+        }
+        if (staged.error) {
+            response.status(422).json({ ok: false, step: "stage", error: staged.error });
+            return;
+        }
+        const mainImages = await countFiles(staged.dir, isMainImageFile);
+        if (mainImages <= 0) {
+            response.status(422).json({
+                ok: false, step: "precheck",
+                error: `「${relPath}」找不到任何可用图片：既不在 ${LISTING_FILE} 同级，也没有 <包>/产品图。`
+                    + `没有主图会被计划阶段判「没有任何可用主图」，请先补图再生成上架信息。`
+            });
+            return;
+        }
+        const hasSku = await countFiles(staged.dir, (f) => /\.(csv|xlsx|xls)$/i.test(f)) > 0;
+        // Listing 自身能不能用（标题 / 买家描述）：这是店小秘保存前唯一能提前知道的。
+        // 历史包里有相当一部分标题不在 126–128 规范区间、或描述区间定位不到 ——
+        // 不在这里说清，用户只会在填充完才发现草稿是空的/被拒。
+        const contract = buildContract(await readFile(path.join(staged.dir, LISTING_FILE), "utf8").catch(() => ""));
+        const contractFields = contract.fields || {};
+        const titleLength = Number(contractFields.title_length || (contractFields.title || "").length || 0);
+        const descriptionLines = Array.isArray(contractFields.description_lines) ? contractFields.description_lines.length : 0;
+        const warnings = [];
+        if (!hasSku) warnings.push("这个包没有 SKU/供货价表，计划不会有任何变体行；草稿只会有标题、主图与描述，SKU 需人工在店小秘补齐（或补表后重跑 ②）。");
+        if (descriptionLines <= 0) warnings.push("没能从 04_LISTING_CONTENT.md 定位到买家描述区间：草稿的门店描述会是空的，建议先在 Listing tab 重做描述。");
+        for (const p of contract.problems || []) warnings.push(`⚠ Listing 契约问题：${p}`);
+        for (const w of contract.warnings || []) {
+            if (/标题长度/.test(w)) warnings.push(`⚠ ${w}：店小秘接受范围之外的标题可能被拒，重跑 Listing 才能修正。`);
+        }
         const sub = await submitPipelineTask({
-            packageDirs: [pkgDir], mode: "erp_plan",
+            packageDirs: [staged.dir], mode: "erp_plan",
             storeId, templateId, acknowledgeBlocking: true
         });
         if (!sub.ok) {
-            response.status(409).json({ ok: false, step: "submit-erp-plan", error: sub.error });
+            response.status(409).json({ ok: false, step: "submit-erp-plan", error: sub.error, staging: staged.notes });
             return;
         }
         const runId = `dossier_${Date.now()}`;
         dossierRuns.set(runId, {
             runId, kind: "prepare", phase: "plan", jobId: sub.jobId,
-            packages: [path.basename(pkgDir)], pkgDir, storeId, templateId,
+            packages: [path.basename(staged.dir)], pkgDir: staged.dir, storeId, templateId,
             startedAt: new Date().toISOString(), error: "", draftOutDir: "", fillingStarted: false
         });
-        response.json({ ok: true, runId, phase: "plan", jobId: sub.jobId, package: path.basename(pkgDir) });
+        response.json({
+            ok: true, runId, phase: "plan", jobId: sub.jobId, package: path.basename(staged.dir),
+            packageDir: staged.dir, staging: staged.notes, mainImages,
+            listingTitle: titleLength,
+            titleRange: [TITLE_MIN, TITLE_MAX],
+            descriptionLines,
+            warning: warnings.join(" "),
+            warnings
+        });
     }
     catch (error) {
         response.status(409).json({ ok: false, error: error instanceof Error ? error.message : String(error) });
@@ -1472,7 +1694,10 @@ app.post("/api/dossier/generate", async (request, response) => {
     try {
         // 1) 先只搬不改流程，拿到包名
         const moved = await promoteStaging({ stagingDir: DOSSIER_STAGING_DIR, mode: "none" });
-        const packages = moved.moved || [];
+        // 包已在 input/ 被跳过时 moved 为空，但桥会把它放进 packages（视为可用）
+        const packages = (moved.packages && moved.packages.length)
+            ? moved.packages
+            : (moved.moved || []);
         if (!packages.length) {
             // 区分「没东西可搬」和「搬运失败」：promoteStaging 在 0 个可搬时也返回 ok=false，
             // 把两者混成一句"搬运失败"，用户根本不知道该去检查什么。

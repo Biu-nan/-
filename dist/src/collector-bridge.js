@@ -225,15 +225,29 @@ export async function promoteStaging({ stagingDir, mode = 'none', timeoutMs = 60
       for (const m of stdout.matchAll(/^\s*-\s*跳过\s+(.+?)：(.+)$/gm)) skipped.push({ package: m[1].trim(), reason: m[2].trim() });
 
       const submitted = /已提交控制台/.test(stdout);
-      const ok = status === 'OK' && (moved.length > 0 || submitted);
+      // 2026-10-29：重复采集 / 重跑同一产品时，包已在 input/ 会被 --promote 跳过
+      // （stdout: 「- 跳过 xxx：input/ 下已存在同名产品包」）。
+      // 旧实现只看 moved，0 个就判 ok=false 并报「搬运失败（未取到原因行）」——
+      // 于是 ② 直接 409「暂存区没有新包可搬」流程卡死，而真实原因明明就在 stdout 里。
+      // 语义纠正：目标是「包在 input/ 可用」，已存在 = 目标已达成，**不是失败**。
+      const alreadyPresent = skipped
+        .filter((s) => /已存在/.test(s.reason))
+        .map((s) => s.package);
+      const packages = [...moved, ...alreadyPresent];
+      const ok = status === 'OK' && (moved.length > 0 || submitted || alreadyPresent.length > 0);
       const rawError = error && !/^退出码/.test(error) ? error : '';
-      const finalError = ok ? '' : (extractPipelineError(stdout, stderr) || rawError || '搬运失败（未取到原因行）');
+      const skipNote = alreadyPresent.length
+        ? ''  // 已在 input/ 可用，不算错误
+        : (skipped.length ? `搬运被跳过：${skipped.map((s) => `${s.package}（${s.reason}）`).join('；')}` : '');
+      const finalError = ok ? '' : (extractPipelineError(stdout, stderr) || rawError || skipNote || '搬运失败（未取到原因行）');
 
       resolve({
         ok,
         status: ok ? (submitted ? 'SUBMITTED' : 'PROMOTED') : 'PROMOTE_FAILED',
         moved,
         skipped,
+        packages,
+        alreadyPresent,
         submitted,
         mode,
         stdout: stdout.slice(-2500),
