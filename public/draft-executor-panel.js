@@ -211,38 +211,65 @@
   if (genBtn) {
     genBtn.addEventListener('click', async () => {
       const ok = window.confirm(
-        '将把暂存区的产品包搬入 ecom 的 input/，并提交给 8765 控制台生成 Listing。\n\n'
-        + '这是长任务（可能数分钟），期间请勿关闭页面。确认继续？'
+        '将把暂存区的产品包搬入 ecom 的 input/，然后依次生成 Listing 与 ERP 计划。\n\n'
+        + '这是长任务（Listing 可能数分钟），期间请不要关闭页面。确认继续？'
       );
       if (!ok) return;
 
       setBadge('GENERATING', 'busy');
       genBtn.disabled = true;
       result.style.display = 'block';
-      result.innerHTML = '<div style="color:#475569;">正在搬运并提交流水线…（Listing 生成可能数分钟）</div>';
+      result.innerHTML = '<div style="color:#475569;">正在搬运并校验主图…</div>';
 
       try {
-        const resp = await fetch('/api/dossier/promote', {
+        const resp = await fetch('/api/dossier/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode: 'listing' }),
+          body: JSON.stringify({}),
         });
         const d = await resp.json();
-        if (d.ok) {
-          setBadge(d.submitted ? 'SUBMITTED' : 'PROMOTED', 'ok');
-          const movedList = (d.moved || []).map((m) => `<div style="color:#334155;">✓ ${esc(m)}</div>`).join('');
+
+        if (!d.ok) {
+          setBadge('BLOCKED', 'bad');
+          const chk = (d.checked || []).map((x) => `<div style="color:#64748b;">${esc(x.name)}：主图 ${x.mains} 张</div>`).join('');
           result.innerHTML = `
-            <div style="color:#059669;font-weight:500;margin-bottom:8px;">已完成 · 搬入 ${(d.moved || []).length} 个包</div>
-            ${movedList || '<div style="color:#64748b;">（没有新包搬入，可能已存在）</div>'}
-            ${d.submitted ? '<div style="color:#475569;margin-top:8px;">已提交 8765 控制台，Listing 生成中。完成后包会进「已完成产品」，届时用下方 ③ 填充草稿。</div>' : ''}
-            <div style="color:#94a3b8;font-size:.9em;margin-top:6px;">用时 ${Math.round((d.durationMs || 0) / 1000)}s</div>`;
-        } else {
-          setBadge(d.status || 'FAILED', 'bad');
-          result.innerHTML = `
-            <div style="color:#dc2626;font-weight:500;margin-bottom:8px;">未完成 · ${esc(d.status || '')}</div>
+            <div style="color:#dc2626;font-weight:500;margin-bottom:8px;">未提交 · ${esc(d.step || '')}</div>
             <div style="color:#dc2626;">${esc(d.error || '未取到原因')}</div>
-            ${(d.moved || []).length ? `<div style="color:#475569;margin-top:6px;">已搬入 ${d.moved.length} 个包（但未接进流程）</div>` : ''}`;
+            ${chk ? `<div style="margin-top:8px;">${chk}</div>` : ''}`;
+          return;
         }
+
+        // 提交成功 → 轮询状态（listing → plan → done）
+        const runId = d.runId;
+        let ticks = 0;
+        while (ticks < 240) {
+          ticks += 1;
+          await new Promise((r) => setTimeout(r, 5000));
+          const r2 = await fetch(`/api/dossier/status?runId=${encodeURIComponent(runId)}`);
+          const s = await r2.json();
+          if (!s.ok) {
+            setBadge('STATUS LOST', 'bad');
+            result.innerHTML = `<div style="color:#dc2626;">${esc(s.error || '状态查询失败')}</div>`;
+            return;
+          }
+          const phaseText = { listing: '生成 Listing', plan: '生成 ERP 计划', done: '已完成', failed: '失败' }[s.phase] || s.phase;
+          const stageText = (s.pipeline && s.pipeline.currentStage) ? ` · 当前阶段 ${esc(s.pipeline.currentStage)}` : '';
+          setBadge(phaseText, s.phase === 'failed' ? 'bad' : (s.phase === 'done' ? 'ok' : 'busy'));
+          result.innerHTML = `
+            <div style="color:#334155;font-weight:500;">${esc(phaseText)}${stageText}</div>
+            <div style="color:#64748b;margin-top:6px;">流水线状态 ${esc((s.pipeline && s.pipeline.status) || '-')} · job ${esc(s.jobId || '-')}</div>
+            ${s.plansReady && s.plansReady.length ? `<div style="color:#059669;margin-top:6px;">✓ 已产出计划 ${s.plansReady.length} 个</div>` : ''}
+            ${s.error ? `<div style="color:#dc2626;margin-top:6px;">${esc(s.error)}</div>` : ''}`;
+
+          if (s.phase === 'done' || s.phase === 'failed') {
+            if (s.phase === 'done') {
+              result.innerHTML += '<div style="color:#475569;margin-top:8px;">上架资料已生成。可以用下方 ③ 填充店小秘草稿（包在「已完成产品」或 ecom 的 output/ 下）。</div>';
+            }
+            return;
+          }
+        }
+        setBadge('TIMEOUT', 'bad');
+        result.innerHTML = '<div style="color:#b45309;">轮询超时（20 分钟），任务可能仍在后台运行，请到 8765 控制台查看。</div>';
       } catch (e) {
         setBadge('REQUEST FAILED', 'bad');
         result.innerHTML = `<div style="color:#dc2626;">请求失败：${esc(e && e.message ? e.message : e)}</div>`;

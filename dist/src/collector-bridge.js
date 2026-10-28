@@ -14,7 +14,7 @@
 
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 export const ECOM_ROOT = process.env.ECOM_ROOT || 'D:\\ecom-translator';
@@ -255,4 +255,108 @@ function extractPipelineError(stdout, stderr) {
   const lines = `${stdout}\n${stderr}`.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const hit = [...lines].reverse().find((l) => /\[错误\]|\[警告\]|控制台不可用|PipelineError|失败/.test(l));
   return (hit || '').replace(/^\[(错误|警告)\]\s*/, '').slice(0, 500);
+}
+
+/**
+ * 提交一个流水线任务给 ecom 控制台（异步：提交即返回 job_id，任务在 8765 后台跑）。
+ *
+ * 用 python -c 走 collector.pipeline.submit_task 而不是自己拼 HTTP：
+ * 那里已经处理了 store_id/template_id 默认值、探活、错误翻译。
+ * 代码通过 stdin 传入（`python -`），避免中文路径在命令行上被编码破坏。
+ *
+ * acknowledge_blocking 默认 true：台账里的复发项多是本地模型类（O-049/O-100），
+ * 与纯计划阶段无关；放行会记入任务日志。要更严格就传 false。
+ */
+export async function submitPipelineTask({
+  packageDirs = [], mode = 'erp_plan', acknowledgeBlocking = true,
+  timeoutMs = 120000, ecomRoot,
+} = {}) {
+  const startedAt = Date.now();
+  const root = path.resolve(ecomRoot || ECOM_ROOT);
+  const python = path.join(root, '.venv', 'Scripts', 'python.exe');
+  const fail = (status, error) => ({ ok: false, status, jobId: '', error, durationMs: Date.now() - startedAt });
+
+  if (!Array.isArray(packageDirs) || !packageDirs.length) return fail('INVALID_ARGS', '缺少 packageDirs');
+  if (!existsSync(python)) return fail('PYTHON_MISSING', `找不到 ecom 的 python：${python}`);
+
+  const script = [
+    'import json',
+    'from collector.pipeline import submit_task',
+    `dirs = ${JSON.stringify(packageDirs)}`,
+    `r = submit_task(dirs, mode=${JSON.stringify(mode)}, acknowledge_blocking=${acknowledgeBlocking ? 'True' : 'False'})`,
+    "resp = r.get('response') or {}",
+    "print('__RESULT__' + json.dumps({'job_id': resp.get('job_id', ''), 'mode': resp.get('mode', '')}))",
+  ].join('\n');
+
+  const env = Object.assign({}, process.env, {
+    NO_PROXY: '127.0.0.1,localhost', no_proxy: '127.0.0.1,localhost',
+    PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8',
+  });
+
+  return new Promise((resolve) => {
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+    let timer = null;
+    const child = spawn(python, ['-'], { cwd: root, env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+
+    const finish = (status, error) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      try {
+        if (process.platform === 'win32') spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+        else child.kill('SIGKILL');
+      } catch { /* 已退出 */ }
+
+      const line = stdout.split(/\r?\n/).find((l) => l.startsWith('__RESULT__'));
+      let jobId = '';
+      if (line) { try { jobId = JSON.parse(line.slice('__RESULT__'.length)).job_id || ''; } catch { /* ignore */ } }
+
+      const ok = status === 'OK' && Boolean(jobId);
+      resolve({
+        ok,
+        status: ok ? 'SUBMITTED' : 'SUBMIT_FAILED',
+        jobId,
+        stdout: stdout.slice(-1500),
+        error: ok ? '' : (extractPipelineError(stdout, stderr) || error || '提交失败（未取到原因）'),
+        durationMs: Date.now() - startedAt,
+      });
+    };
+
+    child.stdout.on('data', (b) => { stdout += b.toString('utf8'); });
+    child.stderr.on('data', (b) => { stderr += b.toString('utf8'); });
+    child.on('error', (e) => finish('SPAWN_FAILED', e.message));
+    child.on('close', (code) => finish(code === 0 ? 'OK' : 'EXIT_NONZERO', code === 0 ? '' : `退出码 ${code}`));
+
+    try { child.stdin.write(script); child.stdin.end(); } catch { /* 已退出 */ }
+    timer = setTimeout(() => finish('TIMEOUT', `超过 ${Math.round(timeoutMs / 1000)}s 未结束`), timeoutMs);
+  });
+}
+
+/**
+ * 读 ecom 的任务状态（直接读状态文件，不必走 HTTP）。
+ * 注意状态文件里的 status 只有 RUNNING/PAUSED/INTERRUPTED/COMPLETED/ERROR 这几种，
+ * 面板上那个「RUNNING + 可能已过期」来自另一个文件 runtime_status.json，别读错。
+ */
+export async function readPipelineJobState({ ecomRoot } = {}) {
+  const root = path.resolve(ecomRoot || ECOM_ROOT);
+  const statePath = path.join(root, 'work', 'operations', 'job_state.json');
+  try {
+    const raw = await readFile(statePath, 'utf8');
+    const s = JSON.parse(raw);
+    const stages = Array.isArray(s.stages) ? s.stages : [];
+    return {
+      ok: true,
+      status: String(s.status || ''),
+      jobId: String(s.job_id || ''),
+      mode: String(s.mode || ''),
+      currentStage: String(s.current_stage || ''),
+      stages: stages.map((x) => ({ stage: x.stage, status: x.status, reason: x.reason || '' })),
+      productDirs: Array.isArray(s.product_dirs) ? s.product_dirs : [],
+      updatedAt: String(s.started_at || ''),
+    };
+  } catch (e) {
+    return { ok: false, status: '', jobId: '', mode: '', currentStage: '', stages: [], productDirs: [], error: e.message };
+  }
 }

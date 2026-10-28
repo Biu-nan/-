@@ -10,7 +10,7 @@ import { normalizeDianxiaomiFacts, buildProductFactsFallback } from "./dianxiaom
 // 2026-10-28：草稿执行走 ecom 的成熟 executor（子进程桥），不在这里重写上架流程。
 import { runDraftExecutor } from "./draft-executor-bridge.js";
 // 2026-10-28：1688 采集同样走 ecom 的 collector（子进程桥）。
-import { runCollector, promoteStaging, ECOM_ROOT } from "./collector-bridge.js";
+import { runCollector, promoteStaging, submitPipelineTask, readPipelineJobState, ECOM_ROOT } from "./collector-bridge.js";
 
 // 「上架资料」链路的统一暂存区：采集落这里，搬运也从这里取，
 // 两边必须同一个路径，否则会出现「采到 A 处、搬 B 处找不到」。
@@ -1323,6 +1323,120 @@ app.post("/api/dossier/promote", async (request, response) => {
         const mode = (rawMode === "listing" || rawMode === "none") ? rawMode : "none";
         const result = await promoteStaging({ stagingDir: DOSSIER_STAGING_DIR, mode });
         response.json(result);
+    }
+    catch (error) {
+        response.status(409).json({ ok: false, error: error instanceof Error ? error.message : String(error) });
+    }
+});
+// ── 上架资料 ②：「生成上架资料」的异步编排 ──────────────────────────────
+// 两步：Listing → ERP 计划。三条实测约束决定了这个编排的形状：
+//   · mode=listing 可以传 input/ 路径 —— 序列含 LISTING 不含 IMAGE_PIPELINE，
+//     resolve_stages 会自动前置 IMAGE_IMPORT，由它把 input 原图导入 output 工作区
+//   · mode=erp_plan 必须 output/ 已存在 —— 序列只有 ('ERP_PLAN',)，不会导入
+//   · 缺主图的包会被 ERP_PLAN 判「资料不齐」并移进 output/未成功上架产品/，
+//     所以提交前必须先查主图，否则用户只会看到"产品不见了"
+const dossierRuns = new Map();
+
+async function countMainImages(pkgDir) {
+    try {
+        const files = await readdir(pkgDir);
+        return files.filter((f) => /^主图_\d+\.(jpe?g|png|webp)$/i.test(f)).length;
+    }
+    catch { return 0; }
+}
+
+app.post("/api/dossier/generate", async (request, response) => {
+    try {
+        // 1) 先只搬不改流程，拿到包名
+        const moved = await promoteStaging({ stagingDir: DOSSIER_STAGING_DIR, mode: "none" });
+        const packages = moved.moved || [];
+        if (!packages.length) {
+            // 区分「没东西可搬」和「搬运失败」：promoteStaging 在 0 个可搬时也返回 ok=false，
+            // 把两者混成一句"搬运失败"，用户根本不知道该去检查什么。
+            response.status(409).json({
+                ok: false, step: "promote",
+                error: "暂存区没有新包可搬",
+                detail: "若刚采集过，包可能已在 input/（重复搬运会被跳过）；若从未采集，请先执行第①步采集。",
+                promoteError: moved.error || "",
+                stdout: moved.stdout
+            });
+            return;
+        }
+        // 2) 主图校验
+        const inputRoot = path.resolve(path.join(ECOM_ROOT, "input"));
+        const checked = [];
+        for (const name of packages) checked.push({ name, mains: await countMainImages(path.join(inputRoot, name)) });
+        const lacking = checked.filter((x) => x.mains <= 0);
+        if (lacking.length) {
+            response.status(422).json({
+                ok: false, step: "precheck",
+                error: `以下包没有主图，会被流程判为资料不齐并移入失败目录，已拦下：${lacking.map((x) => x.name).join("、")}`,
+                checked
+            });
+            return;
+        }
+        // 3) 提交 Listing（传 input/ 路径）
+        const sub = await submitPipelineTask({
+            packageDirs: packages.map((n) => path.join(inputRoot, n)),
+            mode: "listing",
+            acknowledgeBlocking: true
+        });
+        if (!sub.ok) {
+            response.status(409).json({ ok: false, step: "submit-listing", error: sub.error, checked });
+            return;
+        }
+        const runId = `dossier_${Date.now()}`;
+        dossierRuns.set(runId, {
+            runId, phase: "listing", jobId: sub.jobId, packages, checked,
+            startedAt: new Date().toISOString(), error: ""
+        });
+        response.json({ ok: true, runId, phase: "listing", jobId: sub.jobId, packages, checked });
+    }
+    catch (error) {
+        response.status(409).json({ ok: false, error: error instanceof Error ? error.message : String(error) });
+    }
+});
+app.get("/api/dossier/status", async (request, response) => {
+    try {
+        const runId = String(request.query.runId || "");
+        const run = dossierRuns.get(runId);
+        if (!run) {
+            response.status(404).json({ ok: false, error: "未知的 runId（服务重启会丢内存态，请重新发起）" });
+            return;
+        }
+        const st = await readPipelineJobState();
+        const outputRoot = path.resolve(path.join(ECOM_ROOT, "output"));
+        const planFiles = run.packages.map((n) => path.join(outputRoot, n, "erp", "field_plan.json"));
+        const plansReady = planFiles.filter((p) => existsSync(p));
+        if (run.phase === "listing") {
+            if (st.status === "ERROR" || st.status === "INTERRUPTED") {
+                run.phase = "failed"; run.error = `Listing 阶段未完成：${st.status}`;
+            }
+            else if (st.status === "COMPLETED") {
+                const sub = await submitPipelineTask({
+                    packageDirs: run.packages.map((n) => path.join(outputRoot, n)),
+                    mode: "erp_plan",
+                    acknowledgeBlocking: true
+                });
+                if (sub.ok) { run.phase = "plan"; run.jobId = sub.jobId; }
+                else { run.phase = "failed"; run.error = `提交计划阶段失败：${sub.error}`; }
+            }
+        }
+        else if (run.phase === "plan") {
+            if (st.status === "ERROR" || st.status === "INTERRUPTED") {
+                run.phase = "failed"; run.error = `计划阶段未完成：${st.status}`;
+            }
+            else if (st.status === "COMPLETED") {
+                run.phase = plansReady.length ? "done" : "failed";
+                if (!plansReady.length) run.error = "计划阶段完成但没有产出 erp/field_plan.json";
+            }
+        }
+        response.json({
+            ok: true, runId, phase: run.phase, jobId: run.jobId,
+            packages: run.packages, checked: run.checked, error: run.error,
+            pipeline: { status: st.status, currentStage: st.currentStage, stages: st.stages },
+            plansReady: plansReady.map((p) => path.basename(path.dirname(path.dirname(p))))
+        });
     }
     catch (error) {
         response.status(409).json({ ok: false, error: error instanceof Error ? error.message : String(error) });
