@@ -1978,17 +1978,11 @@
               <div><span class="section-index">ONBOARDING</span><h2>上架接入 / SKU 映射</h2></div>
               <p>将 Product 绑定到真实店铺 Listing、平台商品 ID、Listing URL 和 SKU Mapping，服务上架、履约、库存与后续运营。</p>
             </div>
-            <!-- 上架资料（2026-10-28）：从来源 URL 生成「档案 + 店小秘填充资料」。
-                 ① 采集 1688 链接 → SKU 表 + 图片；② 搬入 input/ 后跑 Listing + ERP 计划；
-                 ③ 用 field_plan.json 填充店小秘草稿。
-                 样式全部复用页面既有 class（panel / profile-card-heading / form-grid / button），
-                 只为本面板的三步布局补一小段作用域 CSS。 -->
+            <!-- 上架资料（2026-10-28）：不生成 Listing —— 那由前面 tab 完成。
+                 本面板只做：① 从 1688 采集原始资料；② 用已有 Listing 生成店小秘上架信息
+                 (erp/field_plan.json) 并自动填充店小秘（不保存）；③ 可选地把这次填充存成草稿。 -->
             <article class="panel dossier-panel" style="margin-bottom:20px;">
               <style>
-                /* 只作用于本面板。宽度自适应：这个视图的 main 有 480px 右内边距
-                   （给右侧助手栏留位），内容区实际只有 ~417px，所以：
-                   · 输入框强制单列（两列会把每个 input 压到 ~180px）
-                   · 步骤用 flex-wrap，窄时按钮自动换到下一行并靠右 */
                 .dossier-panel .dossier-steps{display:flex;flex-direction:column}
                 .dossier-panel .dossier-step{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;padding:16px 0;border-top:1px solid #eef2f7}
                 .dossier-panel .dossier-step:first-child{border-top:0;padding-top:2px}
@@ -2000,13 +1994,14 @@
                 .dossier-panel .dossier-out{padding-top:14px;border-top:1px solid #eef2f7}
                 .dossier-panel .form-grid{grid-template-columns:1fr}
                 .dossier-panel .form-grid label{min-width:0}
+                .dossier-panel select{width:100%}
               </style>
 
               <div class="profile-card-heading">
                 <div>
                   <span class="mini-label">LISTING DOSSIER</span>
-                  <h3>上架资料 · 从来源 URL 生成</h3>
-                  <p class="profile-suggestion">一份资料两个用途：档案供商品生命周期存档；field_plan 供店小秘自动填充。</p>
+                  <h3>上架资料 · 生成店小秘上架信息</h3>
+                  <p class="profile-suggestion">Listing 由前面 tab 产出；这里只把它变成店小秘上架信息，并自动填充（不保存）。</p>
                 </div>
                 <span id="dossierBadge" class="profile-status">IDLE</span>
               </div>
@@ -2015,8 +2010,8 @@
                 <div class="dossier-step">
                   <div class="dossier-no">1</div>
                   <div class="dossier-body">
-                    <div class="dossier-title">采集资料 <small>1688 链接 → SKU 表 + 图片 + 来源URL</small></div>
-                    <div class="form-grid two">
+                    <div class="dossier-title">采集原始资料 <small>1688 链接 → SKU 表 + 图片 + 来源URL</small></div>
+                    <div class="form-grid">
                       <label>来源 URL（*.1688.com）<input id="dossierUrl" placeholder="https://detail.1688.com/offer/xxxx.html" /></label>
                       <label>产品名（可选）<input id="dossierTitle" placeholder="用于包名与日志" /></label>
                     </div>
@@ -2029,27 +2024,27 @@
                 <div class="dossier-step">
                   <div class="dossier-no">2</div>
                   <div class="dossier-body">
-                    <div class="dossier-title">生成上架资料 <small>搬入 input/ → Listing → ERP 计划</small></div>
-                    <p class="profile-suggestion" style="margin:0;">需 8765 控制台在运行；Listing 是长任务，通常 5–40 分钟。</p>
+                    <div class="dossier-title">生成上架信息并填充店小秘
+                      <small>用已有 Listing 产出 field_plan.json，然后自动填入店小秘，<b>不保存</b></small>
+                    </div>
+                    <div class="form-grid">
+                      <label>产品包（需已完成 Listing）<select id="dossierPackageSelect"></select></label>
+                      <label>店铺<select id="dossierStoreSelect"></select></label>
+                      <label>引用模板<select id="dossierTemplateSelect"></select></label>
+                    </div>
                   </div>
                   <div class="dossier-act">
-                    <button id="dossierGenerateButton" class="button secondary" type="button">生成上架资料</button>
+                    <button id="dossierPrepareButton" class="button primary" type="button">生成并填充</button>
                   </div>
                 </div>
 
                 <div class="dossier-step">
                   <div class="dossier-no">3</div>
                   <div class="dossier-body">
-                    <div class="dossier-title">填充店小秘草稿
-                      <span id="draftStatusBadge" class="profile-status">IDLE</span>
-                      <small>引用模板 → 填字段 → 勾变种 → 主图/营销图/描述 → 保存前回读；默认只填不保存，无发布能力</small>
-                    </div>
-                    <div class="form-grid">
-                      <label>产品包名（已完成产品/ 或 ecom input/ 下）<input id="draftPackageInput" placeholder="例如：xxx_1007786166645_images" /></label>
-                    </div>
+                    <div class="dossier-title">写草稿 <small>可选：把上面这次填充真正保存为店小秘草稿（不发布）</small></div>
+                    <p class="profile-suggestion" style="margin:0;">会新建一条待发布草稿；默认不执行。</p>
                   </div>
                   <div class="dossier-act">
-                    <button id="draftFillButton" class="button secondary" type="button">只填不保存</button>
                     <button id="draftCommitButton" class="button warning" type="button">写草稿</button>
                   </div>
                 </div>
@@ -2057,7 +2052,6 @@
 
               <div class="dossier-out">
                 <div id="dossierResult" style="display:none;"></div>
-                <div id="draftResult" style="display:none;"></div>
               </div>
             </article>
 
@@ -2638,7 +2632,7 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
     <script src="/workflow-alert.js?v=20261028-1" defer></script>
     <script src="/app.js?v=20261028-alert-1" defer></script>
-    <script src="/draft-executor-panel.js?v=20261028-7" defer></script>
+    <script src="/draft-executor-panel.js?v=20261028-8" defer></script>
     <script type="module" src="/ceo-command-center.js"></script>
   </body>
 </html>

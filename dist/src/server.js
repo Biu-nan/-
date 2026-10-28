@@ -1345,6 +1345,108 @@ async function countMainImages(pkgDir) {
     catch { return 0; }
 }
 
+// ── 上架资料：店铺/模板、可选产品包、生成上架信息 ──────────────────────
+// 这一步**不跑 Listing** —— Listing 由前面的 tab（商品事实/市场调研/Listing/作图）产出，
+// 这里只把既有 Listing 变成「店小秘上架信息」(erp/field_plan.json)，然后自动填充、不保存。
+
+// 店铺 / 引用模板直接取 8765 的配置，避免两边各存一份造成漂移
+app.get("/api/dossier/config", async (_request, response) => {
+    try {
+        const r = await fetch("http://127.0.0.1:8765/api/config");
+        const d = await r.json();
+        const norm = (list) => (Array.isArray(list) ? list : []).map((x) => ({
+            id: String(x.id || ""), label: String(x.label || x.name || x.id || "")
+        }));
+        response.json({ ok: true, stores: norm(d.stores), templates: norm(d.templates) });
+    }
+    catch (error) {
+        response.status(409).json({ ok: false, error: `读不到 8765 配置（控制台是否在运行？）：${error instanceof Error ? error.message : String(error)}` });
+    }
+});
+// 可选产品包：只列**已有 04_LISTING_CONTENT.md** 的（避免选到还没做 Listing 的包）
+app.get("/api/dossier/packages", async (_request, response) => {
+    const roots = [
+        { dir: path.resolve(COMPLETED_PRODUCTS_DIR), where: "已完成产品" },
+        { dir: path.resolve(path.join(ECOM_ROOT, "output")), where: "output" }
+    ];
+    const items = [];
+    const scan = async (dir, where, depth) => {
+        let entries = [];
+        try { entries = await readdir(dir, { withFileTypes: true }); } catch { return; }
+        for (const e of entries) {
+            if (!e.isDirectory() || e.name.startsWith(".")) continue;
+            if (e.name === "未成功上架产品" || e.name === "review") continue;
+            const full = path.join(dir, e.name);
+            // 包根判定：ecom 历史上有两种结构并存 ——
+            //   A) <包>/04_LISTING_CONTENT.md           （多数）
+            //   B) <包>/output/04_LISTING_CONTENT.md    （早期包）
+            // 两种都把 <包> 当根；否则会把 output/ 子目录误认成一个包。
+            const isPkg = existsSync(path.join(full, "04_LISTING_CONTENT.md"))
+                || existsSync(path.join(full, "output", "04_LISTING_CONTENT.md"));
+            if (isPkg) {
+                let mtime = 0;
+                try { mtime = (await stat(full)).mtimeMs; } catch { /* ignore */ }
+                items.push({
+                    name: e.name, where, mtime,
+                    // 统一成相对路径：output/ 下的带 output/ 前缀，其余相对 已完成产品/
+                    relPath: where === "output"
+                        ? `output/${e.name}`
+                        : path.relative(path.resolve(COMPLETED_PRODUCTS_DIR), full).split(path.sep).join("/"),
+                    hasPlan: existsSync(path.join(full, "erp", "field_plan.json"))
+                });
+            }
+            else if (depth > 0) await scan(full, where, depth - 1);
+        }
+    };
+    for (const r of roots) await scan(r.dir, r.where, 1);
+    items.sort((a, b) => b.mtime - a.mtime);
+    response.json({ ok: true, packages: items.slice(0, 300) });
+});
+// 生成上架信息（mode=erp_plan，带店铺/模板）。完成后由 status 自动接填充。
+app.post("/api/dossier/prepare", async (request, response) => {
+    try {
+        const body = (request.body && typeof request.body === "object") ? request.body : {};
+        const relPath = String(body.packageName || "").trim();
+        const storeId = String(body.storeId || "").trim();
+        const templateId = String(body.templateId || "").trim();
+        if (!relPath) { response.status(400).json({ ok: false, error: "缺少 packageName" }); return; }
+        if (!storeId || !templateId) { response.status(400).json({ ok: false, error: "请选择店铺与引用模板" }); return; }
+        if (relPath.includes("..") || path.isAbsolute(relPath)) {
+            response.status(400).json({ ok: false, error: "packageName 不合法" });
+            return;
+        }
+        // packageName 统一约定：`output/xxx` 指 ecom 工作区，其余相对「已完成产品/」
+        const candidates = relPath.startsWith("output/")
+            ? [path.resolve(path.join(ECOM_ROOT, relPath))]
+            : [
+                path.resolve(path.join(COMPLETED_PRODUCTS_DIR, relPath)),
+                path.resolve(path.join(ECOM_ROOT, "output", relPath))
+            ];
+        const pkgDir = candidates.find((p) => existsSync(p) && existsSync(path.join(p, "04_LISTING_CONTENT.md")));
+        if (!pkgDir) {
+            response.status(404).json({ ok: false, error: `找不到带 Listing 产物的包：${relPath}` });
+            return;
+        }
+        const sub = await submitPipelineTask({
+            packageDirs: [pkgDir], mode: "erp_plan",
+            storeId, templateId, acknowledgeBlocking: true
+        });
+        if (!sub.ok) {
+            response.status(409).json({ ok: false, step: "submit-erp-plan", error: sub.error });
+            return;
+        }
+        const runId = `dossier_${Date.now()}`;
+        dossierRuns.set(runId, {
+            runId, kind: "prepare", phase: "plan", jobId: sub.jobId,
+            packages: [path.basename(pkgDir)], pkgDir, storeId, templateId,
+            startedAt: new Date().toISOString(), error: "", draftOutDir: "", fillingStarted: false
+        });
+        response.json({ ok: true, runId, phase: "plan", jobId: sub.jobId, package: path.basename(pkgDir) });
+    }
+    catch (error) {
+        response.status(409).json({ ok: false, error: error instanceof Error ? error.message : String(error) });
+    }
+});
 app.post("/api/dossier/generate", async (request, response) => {
     try {
         // 1) 先只搬不改流程，拿到包名
@@ -1409,7 +1511,35 @@ app.get("/api/dossier/status", async (request, response) => {
         const inputRoot = path.resolve(path.join(ECOM_ROOT, "input"));
         const planFiles = run.packages.map((n) => path.join(outputRoot, n, "erp", "field_plan.json"));
         const plansReady = planFiles.filter((p) => existsSync(p));
-        if (run.phase === "listing") {
+        if (run.kind === "prepare") {
+            // 两段：生成上架信息(erp_plan) → 自动填充店小秘(commit=false)
+            if (run.phase === "plan") {
+                if (st.status === "ERROR" || st.status === "INTERRUPTED") {
+                    run.phase = "failed"; run.error = `生成上架信息未完成：${st.status}`;
+                }
+                else if (st.status === "COMPLETED") {
+                    const planPath = path.join(run.pkgDir, "erp", "field_plan.json");
+                    if (!existsSync(planPath)) {
+                        run.phase = "failed"; run.error = "计划阶段完成但没有产出 erp/field_plan.json";
+                    }
+                    else if (!run.fillingStarted) {
+                        // 填充约 2 分钟，不 await：结果靠 audit 文件/回调回填，
+                        // 否则 status 请求会被挂住两分钟，前端看起来像死了。
+                        run.fillingStarted = true;
+                        run.phase = "filling";
+                        run.draftOutDir = path.join(HIDDEN_DATA_DIR, "draft-runs", run.runId);
+                        runDraftExecutor({ planPath, outDir: run.draftOutDir, commit: false })
+                            .then((r) => { run.fillResult = r; })
+                            .catch((e) => { run.fillResult = { ok: false, error: e.message }; });
+                    }
+                }
+            }
+            else if (run.phase === "filling" && run.fillResult) {
+                run.phase = run.fillResult.ok ? "ready" : "failed";
+                if (!run.fillResult.ok) run.error = run.fillResult.error || "填充失败";
+            }
+        }
+        else if (run.phase === "listing") {
             if (st.status === "ERROR" || st.status === "INTERRUPTED") {
                 run.phase = "failed"; run.error = `Listing 阶段未完成：${st.status}`;
             }
@@ -1446,7 +1576,17 @@ app.get("/api/dossier/status", async (request, response) => {
                 return { name, where: "missing" };
             }),
             // 流水线给出的拦截原因（如 SKU 变体重名、缺主图），原样透给界面。
-            reasons: (st.stages || []).filter((x) => x.reason).map((x) => ({ stage: x.stage, reason: x.reason }))
+            reasons: (st.stages || []).filter((x) => x.reason).map((x) => ({ stage: x.stage, reason: x.reason })),
+            // prepare 流程的填充结果（commit=false：只填不保存）
+            fill: run.fillResult ? {
+                ok: run.fillResult.ok,
+                status: run.fillResult.status,
+                error: run.fillResult.error,
+                committed: run.fillResult.committed,
+                durationMs: run.fillResult.durationMs,
+                steps: (run.fillResult.steps || []).map((x) => ({ name: x.name, status: x.status, reason: x.reason || "", value: x.value })),
+                attention: run.fillResult.attention || []
+            } : null
         });
     }
     catch (error) {

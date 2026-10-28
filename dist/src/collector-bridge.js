@@ -269,6 +269,7 @@ function extractPipelineError(stdout, stderr) {
  */
 export async function submitPipelineTask({
   packageDirs = [], mode = 'erp_plan', acknowledgeBlocking = true,
+  storeId = '', templateId = '',
   timeoutMs = 120000, ecomRoot,
 } = {}) {
   const startedAt = Date.now();
@@ -283,9 +284,9 @@ export async function submitPipelineTask({
     'import json',
     'from collector.pipeline import submit_task',
     `dirs = ${JSON.stringify(packageDirs)}`,
-    `r = submit_task(dirs, mode=${JSON.stringify(mode)}, acknowledge_blocking=${acknowledgeBlocking ? 'True' : 'False'})`,
+    `r = submit_task(dirs, mode=${JSON.stringify(mode)}, store_id=${JSON.stringify(storeId || '')}, template_id=${JSON.stringify(templateId || '')}, acknowledge_blocking=${acknowledgeBlocking ? 'True' : 'False'})`,
     "resp = r.get('response') or {}",
-    "print('__RESULT__' + json.dumps({'job_id': resp.get('job_id', ''), 'mode': resp.get('mode', '')}))",
+    "print('__RESULT__' + json.dumps({'job_id': resp.get('job_id', ''), 'mode': resp.get('mode', ''), 'store_id': resp.get('store_id', ''), 'template_id': resp.get('template_id', '')}))",
   ].join('\n');
 
   const env = Object.assign({}, process.env, {
