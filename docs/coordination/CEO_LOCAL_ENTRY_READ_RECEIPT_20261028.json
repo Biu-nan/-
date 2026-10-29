@@ -1,0 +1,151 @@
+{
+  "schema": "ceo-local-entry-read-receipt/v1",
+  "requestId": "ceo-local-entry-read-20261028-01",
+  "recordedAt": "2026-10-27T23:16:39.701Z",
+  "timezone": "Asia/Shanghai",
+  "conversationId": "01a17fa5-79b8-7b21-b6db-0580a64fb7a9",
+  "conversationIdSource": "CODEX_THREAD_ID environment variable",
+  "actualExecutionSurface": "Codex desktop local exec_command; PowerShell; specified Node runtime and existing ceo-task-loop.mjs CLI",
+  "cwd": "F:\\yikuaborder-deploy",
+  "localExecutionAvailable": true,
+  "serviceReadAvailable": false,
+  "status": "BLOCKED_READ_CALLS_FAILED",
+  "cliPath": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\scripts\\ceo-task-loop.mjs",
+  "baseUrl": "http://127.0.0.1:3173",
+  "calls": [
+    {
+      "command": "context",
+      "startedAt": "2026-10-27T23:15:55.866Z",
+      "finishedAt": "2026-10-27T23:15:56.252Z",
+      "exitCode": 1,
+      "signal": null,
+      "spawnErrorCode": null,
+      "jsonParseSucceeded": false,
+      "success": false,
+      "evidence": {
+        "stdout": {
+          "path": "F:\\yikuaborder-deploy\\data\\ceo-audits\\2026-10-28-store-400370\\local-entry-probe\\2026-10-27T23-15-55-865Z-context.stdout.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        "stderr": {
+          "path": "F:\\yikuaborder-deploy\\data\\ceo-audits\\2026-10-28-store-400370\\local-entry-probe\\2026-10-27T23-15-55-865Z-context.stderr.txt",
+          "sha256": "b7798051fb65fa237b7bbf6b8e0858cdeeb46013775526f15d7396704fc2c4bf",
+          "bytes": 20
+        }
+      },
+      "errorCode": "SERVICE_UNAVAILABLE",
+      "httpStatus": null,
+      "actualResult": null
+    },
+    {
+      "command": "receipt",
+      "startedAt": "2026-10-27T23:15:56.255Z",
+      "finishedAt": "2026-10-27T23:15:56.653Z",
+      "exitCode": 1,
+      "signal": null,
+      "spawnErrorCode": null,
+      "jsonParseSucceeded": false,
+      "success": false,
+      "evidence": {
+        "stdout": {
+          "path": "F:\\yikuaborder-deploy\\data\\ceo-audits\\2026-10-28-store-400370\\local-entry-probe\\2026-10-27T23-15-55-865Z-receipt.stdout.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        "stderr": {
+          "path": "F:\\yikuaborder-deploy\\data\\ceo-audits\\2026-10-28-store-400370\\local-entry-probe\\2026-10-27T23-15-55-865Z-receipt.stderr.txt",
+          "sha256": "b7798051fb65fa237b7bbf6b8e0858cdeeb46013775526f15d7396704fc2c4bf",
+          "bytes": 20
+        }
+      },
+      "errorCode": "SERVICE_UNAVAILABLE",
+      "httpStatus": null,
+      "actualResult": null
+    },
+    {
+      "command": "read",
+      "startedAt": "2026-10-27T23:15:56.653Z",
+      "finishedAt": "2026-10-27T23:15:57.033Z",
+      "exitCode": 1,
+      "signal": null,
+      "spawnErrorCode": null,
+      "jsonParseSucceeded": false,
+      "success": false,
+      "evidence": {
+        "stdout": {
+          "path": "F:\\yikuaborder-deploy\\data\\ceo-audits\\2026-10-28-store-400370\\local-entry-probe\\2026-10-27T23-15-55-865Z-read.stdout.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        "stderr": {
+          "path": "F:\\yikuaborder-deploy\\data\\ceo-audits\\2026-10-28-store-400370\\local-entry-probe\\2026-10-27T23-15-55-865Z-read.stderr.txt",
+          "sha256": "b7798051fb65fa237b7bbf6b8e0858cdeeb46013775526f15d7396704fc2c4bf",
+          "bytes": 20
+        }
+      },
+      "errorCode": "SERVICE_UNAVAILABLE",
+      "httpStatus": null,
+      "actualResult": null
+    }
+  ],
+  "comparison": {
+    "originalRequestId": "ceo-first-real-plan-20261027-01",
+    "expectedPlanId": "ceo_plan_3246bc34ab4d496b7b022356",
+    "actualPlanId": null,
+    "samePlanId": null,
+    "expectedTaskIds": [
+      "store-400370-20261027-calendar",
+      "store-400370-20261027-measurement",
+      "store-400370-20261027-supply",
+      "store-400370-20261027-growth-options"
+    ],
+    "actualTaskIds": null,
+    "sameTaskIds": null,
+    "actualDemoTaskCount": null,
+    "actualRealTaskCount": null,
+    "tasks": [],
+    "actualContextId": null,
+    "receiptContextId": null,
+    "contextConsistent": null,
+    "contextStatus": "UNVERIFIED_READ_FAILED"
+  },
+  "businessWritePerformed": false,
+  "businessCommandsInvoked": [
+    "context",
+    "receipt",
+    "read"
+  ],
+  "taskCreationPerformed": false,
+  "taskApprovalPerformed": false,
+  "taskExecutionPerformed": false,
+  "shopActionPerformed": false,
+  "configurationChanged": false,
+  "credentialsDirectlyOpenedOrPrinted": false,
+  "serviceRestartPerformed": false,
+  "dependencyInstallationPerformed": false,
+  "evidenceManifest": {
+    "path": "F:\\yikuaborder-deploy\\data\\ceo-audits\\2026-10-28-store-400370\\local-entry-probe\\2026-10-27T23-15-55-865Z-manifest.json",
+    "sha256": "a7aab3a5630e85ebfe9262f8753152401f962e984ffecc193155f68999390f1d"
+  },
+  "verification": {
+    "allThreeCommandsAttempted": true,
+    "successfulCalls": 0,
+    "failedCalls": 3,
+    "evidenceHashesVerified": true,
+    "rawEvidenceGitIgnored": true
+  },
+  "limitations": [
+    "All three CLI processes exited with code 1 and SERVICE_UNAVAILABLE; no successful JSON response was returned.",
+    "The existing CLI maps multiple underlying failures to SERVICE_UNAVAILABLE; the exact cause and HTTP status are unconfirmed.",
+    "Plan ID, task IDs, task status/version/attempt, DEMO count and context consistency could not be verified. Expected values are reference-only.",
+    "The operating draft dated 2026-10-27 has not automatically become a confirmed plan for 2026-10-28.",
+    "Full operating costs and operating outcomes remain unverified."
+  ],
+  "backlog": [],
+  "productCodeModified": false,
+  "localWriteScope": [
+    "F:\\yikuaborder-deploy\\data\\ceo-audits\\2026-10-28-store-400370\\local-entry-probe",
+    "F:\\yikuaborder-deploy\\docs\\coordination\\CEO_LOCAL_ENTRY_READ_RECEIPT_20261028.json"
+  ]
+}

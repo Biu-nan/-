@@ -1,0 +1,40 @@
+{
+  "schema": "ceo-entry-delivery-receipt/v1",
+  "date": "2026-10-28",
+  "status": "PARTIAL_ACCEPTANCE",
+  "implementationCommit": "3516f0383c2a221403df1a6002b4a569419b9e17",
+  "committedFiles": 11,
+  "allCommittedBytesMatch": true,
+  "privateBackupRemoteCommit": "067edbd6b59445b7039a64bbbde99dc5db195755",
+  "incrementalPrivateBackupVerified": false,
+  "requestId": "ceo-first-real-plan-20261027-01",
+  "planId": "ceo_plan_3246bc34ab4d496b7b022356",
+  "planDate": "2026-10-27",
+  "draftTaskCount": 4,
+  "estimatedMinutes": 150,
+  "availableMinutes": 240,
+  "taskStatus": "PROPOSED",
+  "sameServiceReadbackVerified": true,
+  "overnightReadbackVerified": true,
+  "renderedCommandCenterVerified": false,
+  "actualCaller": "current engineering conversation via authorized local CLI",
+  "dedicatedBusinessConversationVerified": false,
+  "workbuddyNewEntryVerified": false,
+  "businessWritePerformed": false,
+  "actualTaskApprovedOrStarted": false,
+  "tests": {
+    "entryAndTask": { "total": 35, "passed": 35 },
+    "reliability": { "total": 45, "passed": 45 },
+    "ceoBaseline": { "total": 174, "passed": 163, "failed": 11 },
+    "ceoCurrent": { "total": 183, "passed": 172, "failed": 11 },
+    "newHistoricalTestFailures": 0,
+    "projectFullSuiteGreen": false
+  },
+  "independentReview": { "blockingFindings": 0, "deferredMinorTestCoverageItems": 2 },
+  "remainingGaps": [
+    "Incremental GitHub backup: push timeout; independently reread ref still at prior commit",
+    "Original command-center rendered same-ID check: browser transport and native window binding failed",
+    "Dedicated CEO business conversation and independent ChatGPT Work/WorkBuddy identities and handoff",
+    "Cross-plan aggregate daily capacity; business executors; automatic wakeup"
+  ]
+}

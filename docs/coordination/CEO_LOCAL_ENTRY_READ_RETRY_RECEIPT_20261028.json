@@ -1,0 +1,228 @@
+{
+  "schema": "ceo-local-entry-read-retry-receipt/v1",
+  "requestId": "ceo-local-entry-read-20261028-01",
+  "attemptId": "ceo-local-entry-read-retry-20261028-01",
+  "recordedAt": "2026-10-27T23:19:16.759Z",
+  "timezone": "Asia/Shanghai",
+  "conversationId": "01a17fa5-79b8-7b21-b6db-0580a64fb7a9",
+  "conversationIdSource": "CODEX_THREAD_ID environment variable",
+  "actualExecutionSurface": "Codex desktop local exec_command; PowerShell; specified Node runtime and existing ceo-task-loop.mjs CLI; normal require_escalated approval path",
+  "cwd": "F:\\yikuaborder-deploy",
+  "localExecutionAvailable": true,
+  "serviceReadAvailable": true,
+  "status": "PASSED_READ_ONLY_VERIFICATION",
+  "permission": {
+    "requested": "require_escalated",
+    "approved": true,
+    "rejectionObserved": false,
+    "securityOrNetworkSettingsChanged": false
+  },
+  "calls": [
+    {
+      "command": "context",
+      "startedAt": "2026-10-27T23:18:41.797Z",
+      "finishedAt": "2026-10-27T23:18:42.093Z",
+      "exitCode": 0,
+      "signal": null,
+      "spawnErrorCode": null,
+      "errorCodes": [],
+      "jsonParseSucceeded": true,
+      "success": true,
+      "evidence": {
+        "stdout": {
+          "path": "F:\\yikuaborder-deploy\\data\\ceo-audits\\2026-10-28-store-400370\\local-entry-probe\\2026-10-27T23-18-41-796Z-retry-context.stdout.txt",
+          "sha256": "66190e2c50f54e2e82bd3f595476a46629290c4219311d5c7b39325d8a7db78a",
+          "bytes": 812
+        },
+        "stderr": {
+          "path": "F:\\yikuaborder-deploy\\data\\ceo-audits\\2026-10-28-store-400370\\local-entry-probe\\2026-10-27T23-18-41-796Z-retry-context.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        }
+      }
+    },
+    {
+      "command": "receipt",
+      "startedAt": "2026-10-27T23:18:42.095Z",
+      "finishedAt": "2026-10-27T23:18:42.395Z",
+      "exitCode": 0,
+      "signal": null,
+      "spawnErrorCode": null,
+      "errorCodes": [],
+      "jsonParseSucceeded": true,
+      "success": true,
+      "evidence": {
+        "stdout": {
+          "path": "F:\\yikuaborder-deploy\\data\\ceo-audits\\2026-10-28-store-400370\\local-entry-probe\\2026-10-27T23-18-41-796Z-retry-receipt.stdout.txt",
+          "sha256": "b5b955da98e5cb1840c7dca2eebaf3a9e81da4b9667f2e097177bf32d26e7e47",
+          "bytes": 3286
+        },
+        "stderr": {
+          "path": "F:\\yikuaborder-deploy\\data\\ceo-audits\\2026-10-28-store-400370\\local-entry-probe\\2026-10-27T23-18-41-796Z-retry-receipt.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        }
+      }
+    },
+    {
+      "command": "read",
+      "startedAt": "2026-10-27T23:18:42.395Z",
+      "finishedAt": "2026-10-27T23:18:42.679Z",
+      "exitCode": 0,
+      "signal": null,
+      "spawnErrorCode": null,
+      "errorCodes": [],
+      "jsonParseSucceeded": true,
+      "success": true,
+      "evidence": {
+        "stdout": {
+          "path": "F:\\yikuaborder-deploy\\data\\ceo-audits\\2026-10-28-store-400370\\local-entry-probe\\2026-10-27T23-18-41-796Z-retry-read.stdout.txt",
+          "sha256": "0a2a8605f2ff1d8068bac916af995393f2d11ef1a6cf77679d0be636862662b5",
+          "bytes": 9486
+        },
+        "stderr": {
+          "path": "F:\\yikuaborder-deploy\\data\\ceo-audits\\2026-10-28-store-400370\\local-entry-probe\\2026-10-27T23-18-41-796Z-retry-read.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        }
+      }
+    }
+  ],
+  "comparison": {
+    "originalRequestId": "ceo-first-real-plan-20261027-01",
+    "actualRequestId": "ceo-first-real-plan-20261027-01",
+    "expectedPlanId": "ceo_plan_3246bc34ab4d496b7b022356",
+    "actualPlanId": "ceo_plan_3246bc34ab4d496b7b022356",
+    "samePlanId": true,
+    "expectedTaskIds": [
+      "store-400370-20261027-calendar",
+      "store-400370-20261027-measurement",
+      "store-400370-20261027-supply",
+      "store-400370-20261027-growth-options"
+    ],
+    "actualTaskIds": [
+      "store-400370-20261027-calendar",
+      "store-400370-20261027-growth-options",
+      "store-400370-20261027-measurement",
+      "store-400370-20261027-supply"
+    ],
+    "receiptTaskIds": [
+      "store-400370-20261027-calendar",
+      "store-400370-20261027-measurement",
+      "store-400370-20261027-supply",
+      "store-400370-20261027-growth-options"
+    ],
+    "sameTaskIds": true,
+    "actualTaskCount": 7,
+    "actualDemoTaskCount": 3,
+    "actualRealTaskCount": 4,
+    "tasks": [
+      {
+        "taskId": "store-400370-20261027-calendar",
+        "planId": "ceo_plan_3246bc34ab4d496b7b022356",
+        "contextId": "context-83b0fe9fae5f8c052f6681b348d792a7a0c5652a26a05a3ec846f3fe0d590f91",
+        "status": "PROPOSED",
+        "version": 1,
+        "attempt": 0
+      },
+      {
+        "taskId": "store-400370-20261027-growth-options",
+        "planId": "ceo_plan_3246bc34ab4d496b7b022356",
+        "contextId": "context-83b0fe9fae5f8c052f6681b348d792a7a0c5652a26a05a3ec846f3fe0d590f91",
+        "status": "PROPOSED",
+        "version": 1,
+        "attempt": 0
+      },
+      {
+        "taskId": "store-400370-20261027-measurement",
+        "planId": "ceo_plan_3246bc34ab4d496b7b022356",
+        "contextId": "context-83b0fe9fae5f8c052f6681b348d792a7a0c5652a26a05a3ec846f3fe0d590f91",
+        "status": "PROPOSED",
+        "version": 1,
+        "attempt": 0
+      },
+      {
+        "taskId": "store-400370-20261027-supply",
+        "planId": "ceo_plan_3246bc34ab4d496b7b022356",
+        "contextId": "context-83b0fe9fae5f8c052f6681b348d792a7a0c5652a26a05a3ec846f3fe0d590f91",
+        "status": "PROPOSED",
+        "version": 1,
+        "attempt": 0
+      }
+    ],
+    "demoTasks": [
+      {
+        "taskId": "DEMO-01-shared-loop",
+        "planId": "ceo_plan_f1d7b78c4ed04f5d91f8539a",
+        "contextId": "context-83b0fe9fae5f8c052f6681b348d792a7a0c5652a26a05a3ec846f3fe0d590f91",
+        "status": "READY",
+        "version": 2,
+        "attempt": 0
+      },
+      {
+        "taskId": "DEMO-02-shared-loop",
+        "planId": "ceo_plan_f1d7b78c4ed04f5d91f8539a",
+        "contextId": "context-83b0fe9fae5f8c052f6681b348d792a7a0c5652a26a05a3ec846f3fe0d590f91",
+        "status": "DONE",
+        "version": 5,
+        "attempt": 1
+      },
+      {
+        "taskId": "DEMO-03-shared-loop",
+        "planId": "ceo_plan_f1d7b78c4ed04f5d91f8539a",
+        "contextId": "context-83b0fe9fae5f8c052f6681b348d792a7a0c5652a26a05a3ec846f3fe0d590f91",
+        "status": "DONE",
+        "version": 5,
+        "attempt": 1
+      }
+    ],
+    "actualContextId": "context-83b0fe9fae5f8c052f6681b348d792a7a0c5652a26a05a3ec846f3fe0d590f91",
+    "receiptContextId": "context-83b0fe9fae5f8c052f6681b348d792a7a0c5652a26a05a3ec846f3fe0d590f91",
+    "contextConsistent": true,
+    "planStatus": "DRAFT",
+    "receiptStatus": "DRAFT",
+    "goalId": "goal-store-400370-20261026",
+    "goalVersion": 2,
+    "contextStatus": "CONSISTENT"
+  },
+  "businessWritePerformed": false,
+  "businessCommandsInvoked": [
+    "context",
+    "receipt",
+    "read"
+  ],
+  "taskCreationPerformed": false,
+  "taskApprovalPerformed": false,
+  "taskExecutionPerformed": false,
+  "shopActionPerformed": false,
+  "configurationChanged": false,
+  "credentialsDirectlyOpenedOrPrinted": false,
+  "serviceRestartPerformed": false,
+  "dependencyInstallationPerformed": false,
+  "productCodeModified": false,
+  "originalReceipt": {
+    "path": "F:\\yikuaborder-deploy\\docs\\coordination\\CEO_LOCAL_ENTRY_READ_RECEIPT_20261028.json",
+    "sha256": "1e10144a245fa2221a0b72006024a96120999d1ccfa6aa2f87e35d2aa6872b21",
+    "preserved": true,
+    "originalEvidenceHashesVerified": true
+  },
+  "evidenceManifest": {
+    "path": "F:\\yikuaborder-deploy\\data\\ceo-audits\\2026-10-28-store-400370\\local-entry-probe\\2026-10-27T23-18-41-796Z-retry-manifest.json",
+    "sha256": "9e8e73e633235a32a15f5527f87c26437e76448809fcfff33d80bfe300832168"
+  },
+  "verification": {
+    "successfulCalls": 3,
+    "failedCalls": 0,
+    "evidenceHashesVerified": true
+  },
+  "limitations": [
+    "The 2026-10-27 operating draft remains DRAFT and has not automatically become a confirmed plan for 2026-10-28.",
+    "Full operating costs and operating outcomes remain unverified.",
+    "Initial default-permission CLI calls returned SERVICE_UNAVAILABLE; this session did not independently attribute that initial failure to a specific underlying error code."
+  ],
+  "backlog": [],
+  "localWriteScope": [
+    "F:\\yikuaborder-deploy\\data\\ceo-audits\\2026-10-28-store-400370\\local-entry-probe",
+    "F:\\yikuaborder-deploy\\docs\\coordination\\CEO_LOCAL_ENTRY_READ_RETRY_RECEIPT_20261028.json"
+  ]
+}

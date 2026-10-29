@@ -70,9 +70,17 @@
       }
       if (p.ok) {
         const list = p.packages || [];
+        // 标签带上「能不能跑」的实况：没有 SKU 表 / 没有可用图，用户在选择时就该看见，
+        // 而不是等 ② 跑完了才发现草稿里没有变体。
+        const gap = (x) => {
+          const gaps = [];
+          if (!(x.imageCandidates > 0)) gaps.push('无图');
+          if (!x.hasSku) gaps.push('无SKU表');
+          return gaps.length ? ` ⚠ ${gaps.join('·')}` : '';
+        };
         fillSelect(pkgSel, list.map((x) => ({
           value: x.relPath,
-          label: `${x.name}${x.hasPlan ? '（已有计划）' : ''} · ${x.where}`,
+          label: `${x.name}${x.hasPlan ? '（已有计划）' : ''} · ${x.where}${gap(x)}`,
         })), list.length ? '请选择产品包' : '没有已完成 Listing 的产品包');
         if (list.length) pkgSel.value = list[0].relPath;   // 默认选最新的一个
       } else {
@@ -142,9 +150,17 @@
       const d = await r.json();
       if (!d.ok) {
         setBadge('BLOCKED', 'bad');
-        show(errBox(`未生成 · ${d.step || ''}`, d.error));
+        show(errBox(`未生成 · ${d.step || ''}`, d.error)
+          + (d.detail ? `<div style="color:#b45309;margin-top:6px;">${esc(d.detail)}</div>` : ''));
         return;
       }
+      // 「这个包被搬到了哪里、补了什么、还缺什么」—— 必须让用户看见，不能只显示"处理中"
+      const notes = (d.staging || []).map((x) => `<div style="color:#64748b;">• ${esc(x)}</div>`).join('');
+      const warn = d.warning
+        ? `<div style="color:#b45309;margin-top:6px;">⚠ ${esc(d.warning)}</div>` : '';
+      show(`<div style="color:#475569;">正在生成上架信息（ERP 计划）…</div>
+        ${d.packageDir ? `<div style="color:#64748b;">实际处理的包：${esc(d.packageDir)}</div>` : ''}
+        ${notes}${warn}`);
 
       const runId = d.runId;
       let ticks = 0;
@@ -222,7 +238,8 @@
             <div style="color:#475569;margin-top:6px;">已核对待发布列表，用时 ${Math.round((d.durationMs || 0) / 1000)}s。</div>`);
         } else {
           setBadge('FAILED', 'bad');
-          show(errBox('写草稿失败', d.error));
+          show(errBox('写草稿失败', d.error)
+            + (d.detail ? `<div style="color:#b45309;margin-top:6px;">${esc(d.detail)}</div>` : ''));
         }
       } catch (e) {
         setBadge('REQUEST FAILED', 'bad');

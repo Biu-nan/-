@@ -1,0 +1,16 @@
+.hero-error-banner{padding:16px 20px;border:1px solid #edc8a3;background:#fff8ef;color:#624329;border-radius:14px;font-size:13px;line-height:1.65}
+.hero-error-banner .workflow-alert__heading{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.hero-error-banner .workflow-alert__heading strong{font-size:16px;color:#56351b}
+.hero-error-banner .workflow-alert__badge,.hero-error-banner .workflow-alert__status{padding:2px 8px;border-radius:6px;background:#f6e4cc;color:#734214;font-size:12px}
+.hero-error-banner .workflow-alert__status{margin-left:auto;background:#fff;border:1px solid #edc8a3}
+.hero-error-banner p{margin:6px 0;color:#624329}
+.hero-error-banner .workflow-alert__meta{font-size:12px;color:#76604d}
+.hero-error-banner .workflow-alert__summary{font-weight:650}
+.hero-error-banner .workflow-alert__actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.hero-error-banner button{padding:7px 12px;border:1px solid #c6a27c;background:white;color:#624329;border-radius:8px;font:inherit;cursor:pointer}
+.hero-error-banner button:hover{background:#faeddb}
+.hero-error-banner button:focus-visible,.hero-error-banner summary:focus-visible{outline:2px solid #95541a;outline-offset:3px}
+.hero-error-banner .workflow-alert__details{border-top:1px solid #eddbc4;padding-top:8px}
+.hero-error-banner summary{cursor:pointer;color:#734214}
+.hero-error-banner pre{max-height:180px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#fff;padding:10px;border-radius:8px;color:#584a3d;font-size:12px}
+@media(max-width:700px){.hero-error-banner{padding:13px}.hero-error-banner .workflow-alert__status{margin-left:0}.hero-error-banner .workflow-alert__meta{overflow-wrap:anywhere}}

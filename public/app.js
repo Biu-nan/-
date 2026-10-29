@@ -5761,17 +5761,20 @@ function render(payload) {
   elements.errorBox.classList.toggle("hidden", !state.error);
   elements.errorBox.textContent = state.error || "";
 
-  /* 失败可见性（2026-10-23）：
-     此前失败原因只写在右下角默认收起的 #errorBox 里，顶部指标还显示「待开始 0%」，
-     用户完全看不出后台其实跑过并失败了。现在做三件事：
-     ① 错误顶到首屏横幅；② 失败时自动展开任务坞；③ 记录上一次的 stage，避免重复展开。 */
+  // Keep the persisted failure visible, with readable context and opt-in technical details.
   const showHeroError = Boolean(state.error) && state.stage === "FAILED";
   if (elements.heroErrorBanner) {
-    elements.heroErrorBanner.classList.toggle("hidden", !showHeroError);
-    elements.heroErrorBanner.textContent = showHeroError ? state.error : "";
+    if (window.WorkflowAlerts) window.WorkflowAlerts.render(elements.heroErrorBanner, state, {
+      onOpenTask: (view) => switchView(view),
+      onOpenDetails: () => setTaskDockExpanded(true)
+    });
+    else {
+      elements.heroErrorBanner.classList.toggle("hidden", !showHeroError);
+      elements.heroErrorBanner.textContent = showHeroError ? "任务出现异常，请查看运行详情。" : "";
+    }
   }
   if (showHeroError && lastRenderedStage !== "FAILED") {
-    setTaskDockExpanded(true);
+    setTaskDockExpanded(false);
   }
   lastRenderedStage = state.stage;
   const queueRunning = queue.status === "running" || queue.status === "preparing";

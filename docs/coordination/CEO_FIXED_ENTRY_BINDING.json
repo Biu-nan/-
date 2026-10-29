@@ -1,0 +1,45 @@
+{
+  "schema": "ceo-entry-binding-record/v1",
+  "date": "2026-10-28",
+  "scope": "Documented native sidebar entries; not an automatic message relay or permission grant",
+  "cloudConversation": {
+    "title": "电商AI经营系统",
+    "conversationId": "6addf289-cb88-83ee-b1da-c110c0be6a10",
+    "projectId": "g-p-6a4b46043b388191a71703b0fb5145cf",
+    "source": "chatgpt",
+    "pinned": true,
+    "localExecutionAvailable": false,
+    "verificationStatus": "BLOCKED_NO_LOCAL_EXECUTION"
+  },
+  "localExecutor": {
+    "requestedTitle": "一跨电商 CEO",
+    "threadId": "01a17fa5-79b8-7b21-b6db-0580a64fb7a9",
+    "projectId": "104b5a69-b59c-48b2-8008-966b01a2f9f2",
+    "hostId": "local",
+    "source": "codex",
+    "cwd": "F:/yikuaborder-deploy",
+    "pinned": true,
+    "verificationRequestId": "ceo-local-entry-read-20261028-01",
+    "verificationStatus": "PASSED_READ_ONLY_VERIFICATION",
+    "localExecutionAvailable": true,
+    "serviceReadAvailable": true,
+    "samePlanId": true,
+    "sameTaskIds": true,
+    "contextConsistent": true,
+    "successfulReadCommands": ["context", "receipt", "read"],
+    "independentReceipt": "docs/coordination/CEO_LOCAL_ENTRY_READ_RETRY_RECEIPT_20261028.json",
+    "independentReceiptSha256": "88d48892a90a66adf482e52ba2d6842c4c19c7da88e7324aceef97a47c7ab094",
+    "normalExecutionApprovalRequired": true
+  },
+  "sharedOs": {
+    "commandCenter": "http://localhost:3000/#",
+    "taskService": "http://127.0.0.1:3173",
+    "existingRequestId": "ceo-first-real-plan-20261027-01",
+    "existingPlanId": "ceo_plan_3246bc34ab4d496b7b022356",
+    "renderedSameTaskIdsVerified": true,
+    "actualTaskApprovedOrStarted": false
+  },
+  "automaticCloudToLocalRelayVerified": false,
+  "perClientAgentIdentityIsolationVerified": false,
+  "businessExecutionVerified": false
+}

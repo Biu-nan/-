@@ -1,0 +1,109 @@
+{
+  "requestId": "ceo-daily-operating-plan-20261028-01",
+  "operatingCycleRequestId": "ceo-first-operating-cycle-20261028-01",
+  "planId": "ceo_plan_f25a866026e218af2d9333c0",
+  "date": "2026-10-28",
+  "serverCreatedAt": "2026-10-27T23:35:48.612Z",
+  "contextId": "context-83b0fe9fae5f8c052f6681b348d792a7a0c5652a26a05a3ec846f3fe0d590f91",
+  "goalVersion": 2,
+  "conversationId": "01a17fa5-79b8-7b21-b6db-0580a64fb7a9",
+  "status": "STAGE_A_COMPLETE_AWAITING_APPROVAL",
+  "planStatus": "DRAFT",
+  "reviewAt": "2026-10-28T18:00:00+08:00",
+  "tasks": [
+    {
+      "taskId": "store-400370-20261027-calendar",
+      "previousVersion": 1,
+      "version": 2,
+      "status": "PROPOSED",
+      "attempt": 0,
+      "estimatedMinutes": 45,
+      "approved": false
+    },
+    {
+      "taskId": "store-400370-20261027-supply",
+      "previousVersion": 1,
+      "version": 2,
+      "status": "PROPOSED",
+      "attempt": 0,
+      "estimatedMinutes": 45,
+      "approved": false
+    },
+    {
+      "taskId": "store-400370-20261027-measurement",
+      "previousVersion": 1,
+      "version": 2,
+      "status": "PROPOSED",
+      "attempt": 0,
+      "estimatedMinutes": 30,
+      "approved": false
+    }
+  ],
+  "timeBudget": {
+    "totalPlannedMinutes": 120,
+    "dailyMinutes": 300,
+    "emergencyMinutes": 60,
+    "regularMinutes": 240,
+    "unallocatedRegularMinutes": 120
+  },
+  "decisionReasonSummary": {
+    "basis": "按已确认目标及已知缺口提出起步草案；不制造USABLE事实、利润差距或增长判断。",
+    "calendar": "优先补齐2026年12月全托管活动节点、价格约束及本店适用性，为每日支付商品200件目标识别机会与时限，并为利润约束保留判断依据；当前不承诺报名或让价。",
+    "supply": "复用34单与入仓批次成果，只补当前可售、在途及18件部分收货差额状态，核对实现支付目标所需供给条件；不判损失、不采购。",
+    "measurement": "复用支付、费用及成本证据，补齐时区、渠道、退款、单位及费用覆盖缺口，为每日支付件数与扣经营成本、不含品质罚款的月经营净利润12000元目标建立可验收口径。",
+    "confirmedCostsAndStaffing": "沿用已确认两件套组成、采购成本依据、人力及费用补充安排；不重复询问或重做34单/批次审计。"
+  },
+  "gaps": [
+    "COSTS_UNRECONCILED",
+    "METRIC_DEFINITIONS_UNVERIFIED",
+    "PERIOD_AND_COVERAGE_UNVERIFIED",
+    "UNIT_UNVERIFIED",
+    "当前活动规则和适用性待批准后的只读调查",
+    "主推品当前可售、在途及18件部分收货差额状态待核",
+    "平台日界、渠道、退款与目标口径对齐待核",
+    "完整已售成本与费用尚未核准；店小秘/稳卖费用按原指示待手动后补"
+  ],
+  "internalStateWritePerformed": true,
+  "internalWrites": {
+    "draftSaved": true,
+    "existingTasksRevised": 3,
+    "newTasksCreated": 0,
+    "tasksDeleted": 0,
+    "expectedVersions": {
+      "store-400370-20261027-calendar": 1,
+      "store-400370-20261027-supply": 1,
+      "store-400370-20261027-measurement": 1
+    },
+    "operationId": "ceo-daily-operating-import-20261028-01"
+  },
+  "businessWritePerformed": true,
+  "businessWriteScope": "仅OS内部草案保存和三个未执行任务的版本修订",
+  "shopBusinessWritePerformed": false,
+  "taskApprovalPerformed": false,
+  "taskExecutionPerformed": false,
+  "ownerCredentialsUsed": false,
+  "preservation": {
+    "demoAndGrowthOptionsUnchanged": true,
+    "unchangedTaskIds": [
+      "DEMO-01-shared-loop",
+      "DEMO-02-shared-loop",
+      "DEMO-03-shared-loop",
+      "store-400370-20261027-growth-options"
+    ]
+  },
+  "verification": {
+    "checks": {
+      "allApplyCallsSucceeded": true,
+      "sameContext": true,
+      "goalPreserved": true,
+      "serverSavedPlanDateIsToday": true,
+      "sameTaskSet": true,
+      "unselectedTasksUnchanged": true,
+      "threeTasksRevisedWithCAS": true,
+      "capacityCorrect": true,
+      "stillDraft": true
+    },
+    "evidenceSummaryPath": "F:\\yikuaborder-deploy\\data\\ceo-audits\\2026-10-28-store-400370\\first-operating-cycle\\verification.json",
+    "evidenceSummarySha256": "742e91bd53a9104990062596b418cc8e91de731fe3066a526dfafdd594eedbcc"
+  }
+}

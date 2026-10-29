@@ -1,0 +1,251 @@
+{
+  "schema": "ceo-calendar-investigation-receipt/v1",
+  "requestId": "ceo-first-operating-cycle-20261028-01",
+  "taskId": "store-400370-20261027-calendar",
+  "planId": "ceo_plan_f25a866026e218af2d9333c0",
+  "date": "2026-10-28",
+  "recordedAt": "2026-10-27T23:46:05.542Z",
+  "conversationId": "01a17fa5-79b8-7b21-b6db-0580a64fb7a9",
+  "contextId": "context-83b0fe9fae5f8c052f6681b348d792a7a0c5652a26a05a3ec846f3fe0d590f91",
+  "goalVersion": 2,
+  "authorizationRecord": "F:/yikuaborder-deploy/docs/coordination/2026-10-28-CEO-calendar-read-authorization.json",
+  "approvalExpiryObserved": "2026-10-28T00:37:00.000Z",
+  "stateChain": [
+    {
+      "status": "READY",
+      "version": 3,
+      "attempt": 0
+    },
+    {
+      "status": "RUNNING",
+      "version": 4,
+      "attempt": 1
+    },
+    {
+      "status": "PENDING_VERIFICATION",
+      "version": 5,
+      "attempt": 1
+    }
+  ],
+  "operationIds": {
+    "start": "ceo-calendar-start-20261028-01",
+    "report": "ceo-calendar-report-20261028-01"
+  },
+  "status": "PENDING_VERIFICATION",
+  "version": 5,
+  "attempt": 1,
+  "outcome": "REPORTED",
+  "coverageStatus": "PARTIAL_WITH_EXPLICIT_GAPS",
+  "queryScope": "当前官方公开资料与首店现有登录只读查看；未取得本店活动详情。未访问其他店铺，未登录新账号。",
+  "queries": [
+    {
+      "batch": "calendar-web-01.json",
+      "terms": [
+        "site.sell.aliexpress.com 2026 12月 全托管 活动 报名",
+        "site.gsp.aliexpress.com 2026 双11 全托管 备货",
+        "site.seller.aliexpress.com 2026 December Choice full managed campaign"
+      ]
+    },
+    {
+      "batch": "calendar-web-02.json",
+      "terms": [
+        "2026 12月 全托管 活动 报名 备货",
+        "2026 11.11 Choice merchant deadline stock"
+      ],
+      "domainFilters": [
+        "aliexpress.com",
+        "alibabagroup.com",
+        "alizila.com"
+      ]
+    },
+    {
+      "batch": "calendar-web-03.json",
+      "terms": [
+        "site:rule.aliexpress.com 速卖通Choice频道（全托管）备货入仓商家规则",
+        "site:rule.aliexpress.com 2026 活动",
+        "site:sell.aliexpress.com 2026 双11",
+        "site:sell.aliexpress.com 2026 12月"
+      ]
+    }
+  ],
+  "officialSources": [
+    {
+      "sourceId": "OFFICIAL-LEGAL",
+      "title": "货通项目跨境商品多渠道供货协议",
+      "url": "https://terms.alicdn.com/legal-agreement/terms/b_end_product_protocol/20231011130622172/20231011130622172.html",
+      "official": true,
+      "publishedAt": null,
+      "publicationDateStatus": "页面未核得发布日期；URL中的数字不作为生效日期",
+      "collectedAt": "2026-10-27T23:45:22.666Z",
+      "retrieval": "PUBLIC_TEXT_RETRIEVED",
+      "mode": "货通项目，引用Choice全托管规则",
+      "applicability": "只用于识别相关规则及工作台核查字段；未核对首店已签版本，不认定为本店当前12月活动条款",
+      "evidenceFiles": [
+        "calendar-web-02.json",
+        "calendar-web-04.json"
+      ]
+    },
+    {
+      "sourceId": "RULE-GENERAL",
+      "title": "Choice全托管商家规则入口",
+      "url": "https://rule.aliexpress.com/rule-channels/37978884/131480150",
+      "official": true,
+      "publishedAt": null,
+      "collectedAt": "2026-10-27T23:45:22.666Z",
+      "retrieval": "WEB_OPEN_FAILED_CONTENT_UNVERIFIED",
+      "applicability": "规则标题与链接由官方协议引用；未读取当前版本"
+    },
+    {
+      "sourceId": "RULE-INBOUND",
+      "title": "Choice全托管备货入仓规则入口",
+      "url": "https://rule.aliexpress.com/rule-channels/37978884/136190839",
+      "official": true,
+      "publishedAt": null,
+      "collectedAt": "2026-10-27T23:45:22.666Z",
+      "retrieval": "WEB_OPEN_FAILED_AND_BROWSER_SITE_SAFETY_BLOCKED",
+      "applicability": "未核准现行具体时限，禁止外推12月日期"
+    },
+    {
+      "sourceId": "RULE-JIT",
+      "title": "Choice全托管JIT规则入口",
+      "url": "https://rule.aliexpress.com/rule-channels/37978884/131482766",
+      "official": true,
+      "publishedAt": null,
+      "collectedAt": "2026-10-27T23:45:22.666Z",
+      "retrieval": "WEB_OPEN_FAILED_CONTENT_UNVERIFIED",
+      "applicability": "仅如本店相应商品适用JIT时再核对，未认定适用"
+    },
+    {
+      "sourceId": "HISTORICAL-CHOICE",
+      "title": "What is AliExpress Choice?",
+      "url": "https://www.alibabagroup.com/en-US/document-1696296090350911488",
+      "official": true,
+      "publishedAt": "2024-02-19",
+      "collectedAt": "2026-10-27T23:45:22.666Z",
+      "retrieval": "HISTORICAL_BACKGROUND_ONLY",
+      "applicability": "不用于2026年12月活动节点或优惠承诺"
+    }
+  ],
+  "facts": [
+    {
+      "id": "F1",
+      "type": "DOCUMENT_CONTENT_OBSERVED_NOT_STORE_CONTRACT_VERIFICATION",
+      "sourceId": "OFFICIAL-LEGAL",
+      "finding": "官方货通协议列明全托管规则及备货、JIT规则入口；送货时间按具体订单并涉及预约。仅作为后续核对入口，不推出活动统一备货日期。"
+    },
+    {
+      "id": "F2",
+      "type": "DOCUMENT_CONTENT_OBSERVED_NOT_DECEMBER_EVENT",
+      "sourceId": "OFFICIAL-LEGAL",
+      "finding": "协议提及超级爆发日，竞价成功通知与补货单以CSP为准，参与竞价的供货价涉及结算；未取得本店适用活动详情、具体门槛或日期。"
+    }
+  ],
+  "activityChecks": [
+    {
+      "name": "2026年12月本店Choice全托管活动（具体活动名待核）",
+      "mode": "Choice全托管",
+      "publishedAt": null,
+      "collectedAt": "2026-10-27T23:45:22.666Z",
+      "officialDetailUrl": null,
+      "registrationDeadline": null,
+      "stockArrivalDeadline": null,
+      "priceConstraint": null,
+      "storeApplicability": "UNVERIFIED",
+      "status": "NOT_ESTABLISHED_IN_THIS_QUERY_SCOPE",
+      "note": "本轮未取得；不等同于官方未发布或本店无活动。"
+    },
+    {
+      "name": "超级爆发日（官方协议所述营销机制）",
+      "mode": "协议中的货通/全托管关联竞价机制",
+      "publishedAt": null,
+      "collectedAt": "2026-10-27T23:45:22.666Z",
+      "officialDetailUrl": "https://terms.alicdn.com/legal-agreement/terms/b_end_product_protocol/20231011130622172/20231011130622172.html",
+      "registrationDeadline": null,
+      "stockArrivalDeadline": null,
+      "priceConstraint": "协议描述竞价供货价与结算关联；具体活动供货价/折扣/门槛未核",
+      "storeApplicability": "CONDITIONAL_UNVERIFIED",
+      "status": "MECHANISM_ONLY_NOT_CONFIRMED_DECEMBER_CAMPAIGN"
+    },
+    {
+      "name": "2026年11月准备节点（如双11、黑五）",
+      "mode": "本店全托管适用性待核",
+      "publishedAt": null,
+      "collectedAt": "2026-10-27T23:45:22.666Z",
+      "officialDetailUrl": null,
+      "registrationDeadline": null,
+      "stockArrivalDeadline": null,
+      "priceConstraint": null,
+      "storeApplicability": "UNVERIFIED",
+      "status": "NO_APPLICABLE_CURRENT_OFFICIAL_MERCHANT_NODE_ESTABLISHED",
+      "note": "不能以天猫2026双11官方新闻、往年规则或消费者促销日历代替本店安排。"
+    }
+  ],
+  "gaps": [
+    "12月活动名、官方详情与发布日期待核",
+    "本店适用资格、商品范围待核",
+    "报名截止、备货/入仓节点及时区待核",
+    "供货价/折扣/结算及价格约束待核",
+    "当前全托管商家、入仓及JIT规则版本待核"
+  ],
+  "nextEvidenceActions": [
+    "在可靠且无人占用的首店会话读取商品运营/商品推广的活动详情或消息公告，记录当前URL、活动名、发布时间、资格与节点；不提交报名。",
+    "由经营者提供现有本店官方活动通知或可读详情截图后沿用本taskId补证；无需重做34单或批次审计。",
+    "取得官方活动规则后再核对供给任务的快照和可承受价格；不预设采购/报名日期或利润提升。"
+  ],
+  "limitations": [
+    "未取得本店活动详情，12月及11月具体活动节点均未核准；不意味着官方没有发布。",
+    "官方协议的发布日期、首店所签版本及现行活动适用性未核，不能作为12月活动批准依据。",
+    "规则站受到浏览器站点安全策略阻止，没有绕过。",
+    "首店窗口观察与输入定位存在异常，停止不可靠的页面操作；未证实另一执行者占用。"
+  ],
+  "evidenceSummary": {
+    "manifestPath": "F:\\yikuaborder-deploy\\data\\ceo-audits\\2026-10-28-store-400370\\first-operating-cycle\\calendar-evidence-manifest.json",
+    "manifestSha256": "25ca118c915e720f0628cebd396f9b0d3e21bb4f7a3d6650fa058fa8451194fa",
+    "reportedEvidence": [
+      {
+        "reference": "F:\\yikuaborder-deploy\\data\\ceo-audits\\2026-10-28-store-400370\\first-operating-cycle\\calendar-investigation-result.json",
+        "sha256": "9a946bc30a49080ad50e32e016283d838e204075146f6362209ac50f6b86cd08",
+        "summary": "部分调查结果，12月具体活动节点仍待核"
+      },
+      {
+        "reference": "F:\\yikuaborder-deploy\\data\\ceo-audits\\2026-10-28-store-400370\\first-operating-cycle\\calendar-evidence-manifest.json",
+        "sha256": "25ca118c915e720f0628cebd396f9b0d3e21bb4f7a3d6650fa058fa8451194fa",
+        "summary": "七份公开检索及本机观察证据摘要"
+      },
+      {
+        "reference": "F:\\yikuaborder-deploy\\data\\ceo-audits\\2026-10-28-store-400370\\first-operating-cycle\\calendar-official-sources.json",
+        "sha256": "b097e9a8ab3453cac69940806fab6d4292e13f2cf7571778eaf937c880348b1c",
+        "summary": "官方来源、日期缺口与适用性限制"
+      },
+      {
+        "reference": "F:\\yikuaborder-deploy\\data\\ceo-audits\\2026-10-28-store-400370\\first-operating-cycle\\calendar-browser-observations.json",
+        "sha256": "ac0cef75a5d196ab16a38c47fdca90e25c728e7fe8879ae8160c24b1ef9b4334",
+        "summary": "本店只读尝试、窗口工具异常及规则站安全阻止记录"
+      }
+    ],
+    "hashChecksPassed": 25,
+    "startManifestSha256": "577b51aace218a429d1c65c9a2e032a20a495022854d80b2175a90fe3581e5aa",
+    "reportManifestSha256": "da4ad66f9b12e79f1cb0ff9842703b58b03af53ad0b9c1267394b384ddef85b4"
+  },
+  "verification": {
+    "pendingVerification": true,
+    "version": 5,
+    "attempt": 1,
+    "reported": true,
+    "noSelfVerification": true,
+    "otherTasksUnchanged": true,
+    "taskSetUnchanged": true
+  },
+  "internalStateWritePerformed": true,
+  "businessWritePerformed": true,
+  "businessWriteScope": "仅OS内部calendar start及report状态流转",
+  "externalBusinessWritePerformed": false,
+  "shopBusinessWritePerformed": false,
+  "ownerCredentialsUsed": false,
+  "selfVerifyPerformed": false,
+  "otherTaskActionsPerformed": false,
+  "securitySettingsChanged": false,
+  "finalHumanAcceptanceGranted": false,
+  "operatingEffect": "PENDING_OBSERVATION",
+  "backlog": []
+}
