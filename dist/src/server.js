@@ -1,4 +1,5 @@
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
 import { access, appendFile, copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -6268,10 +6269,37 @@ app.get("/api/listing/status/:jobId", (request, response) => {
   });
 });
 
+// ── 版本自检（2026-10-29）：任何时候都能回答「我现在跑的是哪个版本」──────
+// 代码根 = server.js 所在仓库根（dist/src 向上两级），与 PROJECT_ROOT（cwd，数据/配置根）区分。
+const CODE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+function readCodeVersion() {
+    try {
+        const branch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: CODE_ROOT, encoding: "utf8" }).trim();
+        const commit = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: CODE_ROOT, encoding: "utf8" }).trim();
+        return { branch, commit };
+    } catch (error) {
+        return { branch: "unknown", commit: "unknown" };
+    }
+}
+const CODE_VERSION = { ...readCodeVersion(), codeRoot: CODE_ROOT };
+const SERVER_STARTED_AT = new Date().toISOString();
+app.get("/api/version", (request, response) => {
+    response.json({
+        ...CODE_VERSION,
+        projectRoot: PROJECT_ROOT,
+        userDataDir: USER_DATA_DIR,
+        host: HOST,
+        port: PORT,
+        startedAt: SERVER_STARTED_AT,
+        pid: process.pid,
+    });
+});
+
 const server = app.listen(PORT, HOST, () => {
     const displayHost = HOST === "0.0.0.0" ? "0.0.0.0" : HOST;
     console.log(`Server listening on http://${displayHost}:${PORT}`);
     console.log(`Product images: ${PRODUCT_IMAGES_DIR}`);
+    console.log(`[version] code=${CODE_VERSION.codeRoot} (${CODE_VERSION.branch}@${CODE_VERSION.commit}) projectRoot=${PROJECT_ROOT} startedAt=${SERVER_STARTED_AT}`);
 });
 server.on("error", (error) => {
     console.error("Local server failed:", error);
