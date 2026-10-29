@@ -1,8 +1,9 @@
 @echo off
+chcp 65001 >nul
 setlocal
 REM ============================================================
 REM  一跨而境 - 生产运行启动（代码锁定在独立 run 目录）
-REM  代码: 本脚本所在目录（git worktree, 跟踪 master）——只放代码
+REM  代码: 本脚本所在目录（git worktree，跟踪 master）——只放代码
 REM  数据: F:\yikuaborder-deploy（PROJECT_ROOT/USER_DATA_DIR，单一真相）
 REM  规则: 更新版本 = 在本目录 git merge --ff-only <分支或tag> 后重启本脚本
 REM ============================================================
@@ -17,6 +18,7 @@ if /I not "%RUN_DIR%"=="F:\yikuaborder-run" (
   pause
   exit /b 1
 )
+
 set HOST=0.0.0.0
 set PORT=3000
 
