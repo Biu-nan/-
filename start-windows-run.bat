@@ -9,6 +9,14 @@ REM ============================================================
 set "RUN_DIR=%~dp0"
 if "%RUN_DIR:~-1%"=="\" set "RUN_DIR=%RUN_DIR:~0,-1%"
 set "DATA_DIR=F:\yikuaborder-deploy"
+
+REM 防呆护栏：源码副本（deploy 里那份）不允许直接启动生产
+if /I not "%RUN_DIR%"=="F:\yikuaborder-run" (
+  echo [提示] 你点的是源码副本：%RUN_DIR%\start-windows-run.bat
+  echo        生产启动请双击: F:\yikuaborder-run\start-windows-run.bat
+  pause
+  exit /b 1
+)
 set HOST=0.0.0.0
 set PORT=3000
 
