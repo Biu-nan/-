@@ -6,6 +6,6 @@ for /f "tokens=5" %%a in ('netstat -ano ^| findstr :3000 ^| findstr LISTENING') 
     taskkill /F /PID %%a
 )
 timeout /t 2 /nobreak >nul
-cd /d F:\yikuaborder-deploy
-echo 正在启动服务...
-npm start
+REM 2026-10-29 生产/开发隔离：代码从 run 目录（锁定 master）加载，数据/配置根仍是 deploy
+echo 正在从生产运行目录启动服务 (F:\yikuaborder-run)...
+call "F:\yikuaborder-run\start-windows-run.bat"
