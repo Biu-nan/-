@@ -43,7 +43,13 @@ objective_1688.json
 fetch_listing.cjs
 inspect_chat.cjs
 fix_keychain_facts.mjs
-scripts/
+# scripts/ 整体仍忽略（探档脚本居多），但阶段 1 的三个验收脚本必须入库。
+# 注意：必须写成 scripts/* 而不是 scripts/ —— 目录被整体忽略时 Git 不遍历，
+# 后续 ! 例外规则无法生效（已实测确认）。
+scripts/*
+!/scripts/verify-phase1-identity-state.mjs
+!/scripts/audit-product-identity.mjs
+!/scripts/build-provisional-identity.mjs
 dist/src/dx_verify_detail.mjs
 dist/src/poll_runall.mjs
 

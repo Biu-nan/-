@@ -1,0 +1,170 @@
+{
+  "schemaVersion": "1.0",
+  "specRef": "YKB-V1-PHASE1-IDENTITY-STATE-20261030-R1 / H.474件关注分层保护 / Q5",
+  "generatedAt": "2026-10-30",
+  "designIntent": "474 件历史分层商品的原始层 ID、原始记录与分层结果全部不动。本文件只提供一个**只读语义命名空间**，解释每个层 ID 在 ATTENTION_PRIORITY 语境下代表什么，并显式声明它不代表生命周期、经营表现等级或库存等级。",
+  "hardRules": [
+    "不重命名任何层 ID。",
+    "不重算任何分层结果。",
+    "不用层 ID 推断 lifecycle_stage。",
+    "不用层 ID 推断 inventory_grade / 备货天数。",
+    "不把 S/A/B 当作纳物安全库存 V1.0 的 S/A/B（同形不同义，见 LIFE-C09）。",
+    "本文件是旁挂映射；product-stratification.json 保持字节不变。"
+  ],
+  "sourceOfTruth": {
+    "configFile": "config/product-stratification.json",
+    "configVersion": "1.0",
+    "layerOrder": "按文件内 ordering 顺序判定，先命中先定层；层序 = 关注优先级，不是价值高低",
+    "note": "层 ID 的语义由该配置的 layers.<id>.label / question / why 定义。本映射不做二次解释。"
+  },
+  "namespace": "ATTENTION_PRIORITY",
+  "layers": {
+    "S": {
+      "legacy_layer_id": "S",
+      "semantic_alias": "主力现金牛",
+      "alias_source": "config/product-stratification.json:layers.S.label",
+      "alias_status": "OBSERVED_FROM_CONFIG",
+      "attention_question": "它今天有没有可能少卖？",
+      "lifecycle_stage": "NOT_DERIVED",
+      "inventory_grade": "NOT_DERIVED",
+      "do_not_confuse_with": [
+        {
+          "legacy_source": "纳物安全库存 V1.0",
+          "code": "S",
+          "meaning": "超级爆款（L1 目标天数 3，主动备货）",
+          "conflict_id": "LIFE-C09",
+          "reason": "同为 S，但那是销量等级 + 备货天数，这里是关注优先级；数值不可互推"
+        }
+      ]
+    },
+    "A": {
+      "legacy_layer_id": "A",
+      "semantic_alias": "苗头成长期",
+      "alias_source": "config/product-stratification.json:layers.A.label",
+      "alias_status": "OBSERVED_FROM_CONFIG",
+      "attention_question": "它会不会成为下一个现金牛？我有没有错过窗口？",
+      "lifecycle_stage": "NOT_DERIVED",
+      "inventory_grade": "NOT_DERIVED",
+      "do_not_confuse_with": [
+        {
+          "legacy_source": "纳物安全库存 V1.0",
+          "code": "A",
+          "meaning": "爆款（L1 目标天数 2，主动备货）",
+          "conflict_id": "LIFE-C09",
+          "reason": "层 A 表示「苗头」而非「已爆」；且不携带备货天数"
+        },
+        {
+          "legacy_source": "纳物采购 C6",
+          "code": "A",
+          "meaning": "资金层级 A（采购参数）",
+          "conflict_id": "LIFE-C09",
+          "reason": "资金层级与关注优先级无关"
+        }
+      ]
+    },
+    "B": {
+      "legacy_layer_id": "B",
+      "semantic_alias": "衰退清仓",
+      "alias_source": "config/product-stratification.json:layers.B.label",
+      "alias_status": "OBSERVED_FROM_CONFIG",
+      "attention_question": "它还在吃我的钱吗？该退出了吗？",
+      "lifecycle_stage": "NOT_DERIVED",
+      "inventory_grade": "NOT_DERIVED",
+      "do_not_confuse_with": [
+        {
+          "legacy_source": "纳物安全库存 V1.0",
+          "code": "B",
+          "meaning": "稳定款（L1 目标天数 1，极薄备货）",
+          "conflict_id": "LIFE-C09",
+          "reason": "**最危险的一处同名反义**：层 B 是「衰退清仓」，安全库存 B 是「稳定款」。把层 B 当成稳定款会直接给衰退品备货。"
+        }
+      ]
+    },
+    "M": {
+      "legacy_layer_id": "M",
+      "semantic_alias": "常规稳定",
+      "alias_source": "config/product-stratification.json:layers.M.label",
+      "alias_status": "OBSERVED_FROM_CONFIG",
+      "attention_question": "它是不是可以不看？",
+      "lifecycle_stage": "NOT_DERIVED",
+      "inventory_grade": "NOT_DERIVED",
+      "do_not_confuse_with": [
+        {
+          "legacy_source": "生命周期规范（R1 §5.1）",
+          "code": "MATURE",
+          "meaning": "成熟期",
+          "conflict_id": "LIFE-C05",
+          "reason": "层 M 是关注优先级中的「常规稳定」，不等同 MATURE 成熟期；MATURE 首期未启用"
+        }
+      ]
+    },
+    "N": {
+      "legacy_layer_id": "N",
+      "semantic_alias": "刚上架观察",
+      "alias_source": "config/product-stratification.json:layers.N.label",
+      "alias_status": "OBSERVED_FROM_CONFIG",
+      "attention_question": "它来得及吗？",
+      "lifecycle_stage": "NOT_DERIVED",
+      "inventory_grade": "NOT_DERIVED",
+      "do_not_confuse_with": [
+        {
+          "legacy_source": "生命周期规范（R1 §5.1）",
+          "code": "NEW_OBSERVATION",
+          "meaning": "新品观察期（旧版 N / C7 E）",
+          "conflict_id": "LIFE-C04",
+          "reason": "层 N 用于关注排序，不含 21 个有效可售日等生命周期参数；不得据此判定是否毕业"
+        }
+      ]
+    },
+    "C1": {
+      "legacy_layer_id": "C1",
+      "semantic_alias": "新品未起量",
+      "alias_source": "config/product-stratification.json:layers.C1.label",
+      "alias_status": "OBSERVED_FROM_CONFIG",
+      "attention_question": "它是没被发现，还是没被接受？",
+      "lifecycle_stage": "NOT_DERIVED",
+      "inventory_grade": "NOT_DERIVED",
+      "do_not_confuse_with": [
+        {
+          "legacy_source": "生命周期规范（R1 §5.1）",
+          "code": "LONG_TAIL",
+          "meaning": "长尾期（C7 C）",
+          "conflict_id": "LIFE-C02",
+          "reason": "C1 是「新品未起量」，与 C7 的 C 长尾不是同一批商品；C/D 边界本身仍未裁决"
+        }
+      ]
+    },
+    "C2": {
+      "legacy_layer_id": "C2",
+      "semantic_alias": "沉睡长尾",
+      "alias_source": "config/product-stratification.json:layers.C2.label",
+      "alias_status": "OBSERVED_FROM_CONFIG",
+      "attention_question": "它凭什么还占着一个坑位？",
+      "lifecycle_stage": "NOT_DERIVED",
+      "inventory_grade": "NOT_DERIVED",
+      "do_not_confuse_with": [
+        {
+          "legacy_source": "生命周期规范（R1 §5.1）",
+          "code": "DORMANT",
+          "meaning": "沉睡期（C7 D）",
+          "conflict_id": "LIFE-C03",
+          "reason": "C2 含「长尾」语义；且 DEAD_STOCK 是叠加风险信号而非层，两者不可合并"
+        }
+      ]
+    }
+  },
+  "unresolvedItems": [
+    {
+      "id": "ALIAS-01",
+      "issue": "各层 ID 的**业务定义原文**尚未从纳物原始分层说明中核验；当前 semantic_alias 直接取自 product-stratification.json 的 label，属于「来自配置」而非「经业务确认」",
+      "status": "NEEDS_VALIDATION",
+      "impact": "不影响系统运行（本文件只做只读解释），影响后续把层 ID 用于任何决策前必须先做的人工核验"
+    },
+    {
+      "id": "ALIAS-02",
+      "issue": "474 这个数字的口径：是当前分层结果的商品数，还是当时快照数",
+      "status": "NEEDS_VALIDATION",
+      "impact": "无运行时影响；报告中的 checksum 对比以实际文件为准"
+    }
+  ]
+}

@@ -600,6 +600,7 @@ const NAV_WORKSPACES = [
     defaultView: "selection-overview",
     items: [
       { label: "选品", view: "selection-overview", status: "ready", isPlaceholder: false, semanticRole: "business-selection" },
+      { label: "选品看板", view: "selection-board", status: "ready", isPlaceholder: false, semanticRole: "business-selection-board" },
       { label: "上品", view: "materials", status: "ready", isPlaceholder: false, semanticRole: "business-production" },
       { label: "店小秘上品·乳贴", view: "agent-dianxiaomi", status: "ready", isPlaceholder: false, semanticRole: "business-dianxiaomi-listing" },
       { label: "批量上架", view: "batch-listing", status: "ready", isPlaceholder: false, semanticRole: "business-batch-listing" },
@@ -716,6 +717,7 @@ const viewWorkspace = NAV_WORKSPACES.reduce((mapping, workspace) => {
   queue: "business",
   "selection-overview": "today",
   "selection-radar": "today",
+  "selection-board": "today",
   "product-selection": "today",
   "agent-dianxiaomi": "business",
   "batch-listing": "business",
@@ -844,6 +846,13 @@ const commerceTopbarCopy = {
     eyebrow: "RADAR",
     title: "每日市场选款设计",
     description: "全网热销包型机会雷达、候选分层与一键导入 Listing 工作台。",
+    primary: ["上品工作台", "materials"],
+    secondary: ["选品开发", "selection-overview"]
+  },
+  "selection-board": {
+    eyebrow: "SELECTION BOARD",
+    title: "选品看板",
+    description: "人工选品的单一事实来源：图片、来源 URL、客观信息、参考风格图与 SKU 表全部落在一行，状态一路标到店小秘已保存。",
     primary: ["上品工作台", "materials"],
     secondary: ["选品开发", "selection-overview"]
   },
@@ -2780,8 +2789,7 @@ function switchView(view) {
   }
 }
 
-function updateSidebarWorkspace(workspace) {
-  const currentView = activeViewName() || workspaceDefaults[workspace] || "daily-cockpit";
+function updateSidebarWorkspace(workspace) {  const currentView = activeViewName() || workspaceDefaults[workspace] || "daily-cockpit";
   elements.workspaceTabs.forEach((tab) => {
     tab.classList.toggle("active", tab.dataset.workspace === workspace);
   });
@@ -2815,6 +2823,9 @@ function updateWorkspaceHeader(view) {
   configureTopbarAction(elements.commercePrimaryAction, copy.primary);
   configureTopbarAction(elements.commerceSecondaryAction, copy.secondary);
 }
+
+/* 供独立模块（选品看板等）在不重复实现视图路由的前提下切换视图 */
+window.__ykSwitchView = switchView;
 
 function activeViewName() {
   return elements.viewPanels.find((panel) => panel.classList.contains("active"))?.dataset.viewPanel;

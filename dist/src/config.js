@@ -65,6 +65,16 @@ export const CHARM_CONTEXT_IMAGES_DIR = path.join(PRODUCT_ROOT, "挂件场景图
 export const CHARM_OUTPUT_DIR = path.join(PRODUCT_ROOT, "挂件output");
 export const SELECTION_DIR = path.join(PROJECT_ROOT, "selection-output");
 export const SELECTION_CANDIDATES_FILE = path.join(PROJECT_ROOT, "selection-candidates.json");
+
+/* ── 选品看板（Selection Board）──
+   人工选品的单一事实来源：一行一个候选产品，承载图片、来源 URL、客观信息、
+   参考风格图、SKU 表格与生命周期状态。
+   边界：看板图片独立存放，**不得**直接写进 当前产品/产品图/；
+   只有「推送上品」这个显式动作才会复制进上品流程，避免候选池污染运行态。 */
+export const SELECTION_BOARD_DIR = path.join(PRODUCT_QUEUE_DIR, "选品看板");
+export const SELECTION_BOARD_FILE = path.join(SELECTION_BOARD_DIR, "board.json");
+export const SELECTION_BOARD_IMAGES_DIR = path.join(SELECTION_BOARD_DIR, "images");
+export const SELECTION_BOARD_STYLE_DIR = path.join(SELECTION_BOARD_DIR, "style-refs");
 export const PROMPTS_DIR = path.join(PROJECT_ROOT, "prompts");
 export const INSERT_PROMPT_FILE = path.join(PROMPTS_DIR, "05_LUXURY_INSERT_PROMPT.md");
 export const INSERT_MARKET_RADAR_PROMPT_FILE = path.join(PROMPTS_DIR, "06_INSERT_MARKET_RADAR_PROMPT.md");

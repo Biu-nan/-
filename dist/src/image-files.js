@@ -31,6 +31,8 @@ export function detectImageExtension(buffer) {
     }
     return undefined;
 }
+/** Phase1 守卫：即使有人把风格参考图误放进 产品图/，命名带 style-ref / 风格参考 的一律不当产品事实图。 */
+const STYLE_REF_NAME_PATTERN = /(^|[_\-\s.])(style[-_ ]?ref|风格参考)/i;
 export async function scanProductImages() {
     await mkdir(PRODUCT_IMAGES_DIR, { recursive: true });
     const entries = await readdir(PRODUCT_IMAGES_DIR, { withFileTypes: true });
@@ -38,6 +40,10 @@ export async function scanProductImages() {
     const hashes = new Set();
     for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
         if (!entry.isFile() || !isSupportedImage(entry.name))
+            continue;
+        // 深层隔离靠目录（风格图在 当前产品/风格参考图/），这里只挡"放错目录 + 命名可辨"的情况。
+        // 内容哈希级重复由 image-isolation-guard.js 的 auditImageIsolation() 负责。
+        if (STYLE_REF_NAME_PATTERN.test(entry.name))
             continue;
         const imagePath = path.join(PRODUCT_IMAGES_DIR, entry.name);
         const content = await readFile(imagePath);

@@ -27,6 +27,10 @@ import { LuxuryInsertService } from "./luxury-insert-service.js";
 import { BagCharmService } from "./bag-charm-service.js";
 import { CharmListingWorkspaceService } from "./charm-listing-workspace-service.js";
 import { SelectionService } from "./product-selection-service.js";
+import { SelectionBoardService, DEVELOPMENT_STAGES, DIANXIAOMI_SYNC_STATUSES, STORE_LISTING_STATUSES, LEGACY_STATUS_TO_STATE } from "./selection-board-service.js";
+import { ProductIdentityService } from "./product-identity-service.js";
+import { ListingTemplateSnapshotService, PLATFORM_VERSION_UNAVAILABLE } from "./listing-template-snapshot-service.js";
+import { auditImageIsolation } from "./image-isolation-guard.js";
 import { NotebookLmAdapter } from "./notebooklm-adapter.js";
 import { clearProductImages, importProductImageUrls, importProductImages, removeProductImage, scanProductImages } from "./image-files.js";
 import { StateStore } from "./state-store.js";
@@ -101,6 +105,9 @@ const insertService = new LuxuryInsertService(store, adapters, new NotebookLmAda
 const bagCharmService = new BagCharmService(store, adapters);
 const charmListingWorkspaceService = new CharmListingWorkspaceService();
 const selectionService = new SelectionService(store, adapters);
+const selectionBoardService = new SelectionBoardService();
+const identityService = new ProductIdentityService();
+const templateSnapshotService = new ListingTemplateSnapshotService();
 const sleepInhibitor = new SleepInhibitor();
 const productProfiles = new ProductProfileService();
 // 发现源（二阶段）后台结果暂存（进程内即可，截图已落盘）
@@ -381,6 +388,28 @@ if (store.get().running || store.get().autoRun) {
 store.setUpdateObserver((state) => productProfiles.syncFromState(state));
 await productProfiles.syncFromState(store.get());
 await queueService.load();
+await selectionBoardService.load();
+/* ══ Phase 1：统一身份层启动 ══
+   数据落 data/identity/（运行态，已 gitignore），不改生产文件 store-profiles.json。
+   纳物-箱包全托1店按 Q2 登记为「待核验」：内部 UUID + 外部编号字符串 400370，
+   publishing_allowed=false。重复启动幂等，不会产生第二条记录。 */
+await identityService.load();
+await templateSnapshotService.load();
+try {
+    const storeRegistration = await identityService.registerStore({
+        storeName: "纳物-箱包全托1店",
+        externalStoreCode: "400370",
+        externalIdNamespace: "UNKNOWN_PENDING_VERIFICATION",
+        source: "MANUAL_REGISTRATION_PHASE1",
+        evidenceRef: "docs/SPEC_REVIEW_LIFECYCLE_V1_2026-10-30.md#Q2 / 05_开发基线决策记录_R1.md#Q2"
+    });
+    if (storeRegistration.created) {
+        console.log("[identity] 已登记待核验店铺 400370 →", storeRegistration.store.store_id);
+    }
+}
+catch (error) {
+    console.warn("[identity] 400370 登记跳过:", error instanceof Error ? error.message : String(error));
+}
 app.use(express.json());
 app.use(express.static(PUBLIC_DIR));
 // 产品图静态文件服务（用于前端预览已上传的图片）
@@ -1537,6 +1566,26 @@ async function findPlanDir(packageName) {
     return { dir: "", planPath: "", tried };
 }
 
+/**
+ * 读控制台自己的判定：某个产品是不是被判「待补资料」、卡在哪些资料上。
+ * 控制台是上架门禁的唯一权威，这里只做转述，不另起一套判定。
+ */
+async function fetchPlanPending(productId) {
+    try {
+        const r = await fetch("http://127.0.0.1:8765/api/snapshot");
+        const d = await r.json();
+        const stages = Array.isArray(d?.job?.stages) ? d.job.stages : [];
+        for (let i = stages.length - 1; i >= 0; i -= 1) {
+            const res = stages[i].result || {};
+            const hit = (res.pending_products || []).find((x) => String(x.product_id || "") === String(productId));
+            if (hit) return { blockers: hit.blockers || [], notice: res.notice || "" };
+        }
+        const last = stages[stages.length - 1] || {};
+        return { blockers: [], notice: (last.result || {}).notice || "" };
+    }
+    catch { return null; }
+}
+
 // ── 上架资料：店铺/模板、可选产品包、生成上架信息 ──────────────────────
 // 这一步**不跑 Listing** —— Listing 由前面的 tab（商品事实/市场调研/Listing/作图）产出，
 // 这里只把既有 Listing 变成「店小秘上架信息」(erp/field_plan.json)，然后自动填充、不保存。
@@ -1657,7 +1706,7 @@ app.post("/api/dossier/prepare", async (request, response) => {
         const titleLength = Number(contractFields.title_length || (contractFields.title || "").length || 0);
         const descriptionLines = Array.isArray(contractFields.description_lines) ? contractFields.description_lines.length : 0;
         const warnings = [];
-        if (!hasSku) warnings.push("这个包没有 SKU/供货价表，计划不会有任何变体行；草稿只会有标题、主图与描述，SKU 需人工在店小秘补齐（或补表后重跑 ②）。");
+        if (!hasSku) warnings.push("这个包没有 SKU/供货价表：控制台的 ERP 门禁会直接把它判为「待补资料」、**不生成计划**（2026-10-29 实测），需用第 ① 步重新采集该产品的资料包，或人工补 SKU 表后重跑。");
         if (descriptionLines <= 0) warnings.push("没能从 04_LISTING_CONTENT.md 定位到买家描述区间：草稿的门店描述会是空的，建议先在 Listing tab 重做描述。");
         for (const p of contract.problems || []) warnings.push(`⚠ Listing 契约问题：${p}`);
         for (const w of contract.warnings || []) {
@@ -1767,7 +1816,16 @@ app.get("/api/dossier/status", async (request, response) => {
                 else if (st.status === "COMPLETED") {
                     const planPath = path.join(run.pkgDir, "erp", "field_plan.json");
                     if (!existsSync(planPath)) {
-                        run.phase = "failed"; run.error = "计划阶段完成但没有产出 erp/field_plan.json";
+                        // 计划没落盘 ≠ 莫名其妙失败：控制台会把资料不全的产品判「待补资料」
+                        // （实测：缺 SKU 表 → 计划一条都不生成）。把它的原话捞出来，
+                        // 否则用户只看到「未完成」，不知道该补什么。
+                        const pending = await fetchPlanPending(path.basename(run.pkgDir));
+                        run.phase = "failed";
+                        const blockers = (pending && pending.blockers) || [];
+                        run.error = blockers.length
+                            ? `计划未生成：控制台把该产品判为「待补资料」—— ${blockers.join("；")}`
+                            : ((pending && pending.notice) || "计划阶段完成但没有产出 erp/field_plan.json");
+                        run.blockers = blockers;
                     }
                     else if (!run.fillingStarted) {
                         // 填充约 2 分钟，不 await：结果靠 audit 文件/回调回填，
@@ -1811,7 +1869,9 @@ app.get("/api/dossier/status", async (request, response) => {
         }
         response.json({
             ok: true, runId, phase: run.phase, jobId: run.jobId,
-            packages: run.packages, checked: run.checked, error: run.error,
+            packages: run.packages, checked: run.checked,             error: run.error,
+            // 待补资料时控制台给出的具体缺口（如「未找到 SKU 表」），单独给界面用
+            blockers: run.blockers || [],
             pipeline: { status: st.status, currentStage: st.currentStage, stages: st.stages },
             plansReady: plansReady.map((p) => path.basename(path.dirname(path.dirname(p)))),
             // 包现在在哪：失败/待补资料时会被 _move_failed_product 移进
@@ -3189,6 +3249,283 @@ app.get("/api/selection/preview-image", async (request, response) => {
     }
     catch (error) {
         response.status(404).send(error instanceof Error ? error.message : String(error));
+    }
+});
+/* ══════════════════════════════════════════════════════════════
+   选品看板（Selection Board）
+   人工选品的单一事实来源。本期只做「候选池 + 状态标注 + 推送上品」，
+   不跑 AI、不写店小秘、不自动发布；自动巡检只提供只读预测视图。
+   ══════════════════════════════════════════════════════════════ */
+function failSelectionBoard(response, error, status = 400) {
+    response.status(status).json({ error: error instanceof Error ? error.message : String(error) });
+}
+app.get("/api/selection-board", async (_request, response, next) => {
+    try {
+        response.setHeader("Cache-Control", "no-store");
+        response.json(selectionBoardService.snapshot());
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.get("/api/selection-board/statuses", (_request, response) => {
+    /* Phase 1：三套独立状态机 + 旧七态映射表（旧客户端仍可读 statuses 里的 legacyId） */
+    response.json({
+        developmentStages: DEVELOPMENT_STAGES,
+        dianxiaomiSyncStatuses: DIANXIAOMI_SYNC_STATUSES,
+        storeListingStatuses: STORE_LISTING_STATUSES,
+        legacyStatusMap: LEGACY_STATUS_TO_STATE,
+        statuses: DEVELOPMENT_STAGES
+    });
+});
+app.post("/api/selection-board/items", async (request, response) => {
+    try {
+        const body = request.body ?? {};
+        const created = await selectionBoardService.createItem({
+            name: body.name,
+            sourceUrl: body.sourceUrl,
+            sourcePlatform: body.sourcePlatform,
+            sourceNote: body.sourceNote,
+            objectiveInfo: body.objectiveInfo,
+            notes: body.notes,
+            status: body.status
+        });
+        /* 录入时若直接给了图片直链，一并下载落盘；失败不阻塞条目创建，由前端提示补图 */
+        const urls = Array.isArray(body.imageUrls) ? body.imageUrls : [];
+        let imageResult = null;
+        if (urls.length) {
+            try {
+                imageResult = (await selectionBoardService.addImageUrls(created.item.id, urls)).result;
+            }
+            catch (error) {
+                imageResult = { error: error instanceof Error ? error.message : String(error) };
+            }
+        }
+        response.status(201).json({ ...selectionBoardService.snapshot(), itemId: created.item.id, imageResult });
+    }
+    catch (error) {
+        failSelectionBoard(response, error);
+    }
+});
+app.patch("/api/selection-board/items/:id", async (request, response) => {
+    try {
+        const result = await selectionBoardService.updateItem(request.params.id, request.body ?? {});
+        response.json({ ...result.board, item: result.item });
+    }
+    catch (error) {
+        failSelectionBoard(response, error);
+    }
+});
+app.delete("/api/selection-board/items/:id", async (request, response) => {
+    try {
+        const result = await selectionBoardService.removeItem(request.params.id, {
+            purge: request.query.purge === "1"
+        });
+        response.json(result.board);
+    }
+    catch (error) {
+        failSelectionBoard(response, error);
+    }
+});
+app.post("/api/selection-board/items/:id/images", upload.array("images", 12), async (request, response) => {
+    try {
+        const result = await selectionBoardService.addImages(request.params.id, request.files ?? []);
+        response.json({ ...result.board, item: result.item, result: result.result });
+    }
+    catch (error) {
+        failSelectionBoard(response, error);
+    }
+});
+app.post("/api/selection-board/items/:id/image-urls", async (request, response) => {
+    try {
+        const urls = Array.isArray(request.body?.urls) ? request.body.urls : [];
+        const result = await selectionBoardService.addImageUrls(request.params.id, urls);
+        response.json({ ...result.board, item: result.item, result: result.result });
+    }
+    catch (error) {
+        failSelectionBoard(response, error);
+    }
+});
+app.delete("/api/selection-board/items/:id/images/:name", async (request, response) => {
+    try {
+        const result = await selectionBoardService.removeImage(request.params.id, request.params.name);
+        response.json({ ...result.board, item: result.item });
+    }
+    catch (error) {
+        failSelectionBoard(response, error);
+    }
+});
+app.post("/api/selection-board/items/:id/style-refs", upload.array("images", 3), async (request, response) => {
+    try {
+        const result = await selectionBoardService.addStyleRefs(request.params.id, request.files ?? []);
+        response.json({ ...result.board, item: result.item, result: result.result });
+    }
+    catch (error) {
+        failSelectionBoard(response, error);
+    }
+});
+app.delete("/api/selection-board/items/:id/style-refs/:name", async (request, response) => {
+    try {
+        const result = await selectionBoardService.removeStyleRef(request.params.id, request.params.name);
+        response.json({ ...result.board, item: result.item });
+    }
+    catch (error) {
+        failSelectionBoard(response, error);
+    }
+});
+/* 看板素材预览：只从看板自己的目录读，name 做了 basename 校验，防止路径穿越 */
+app.get("/api/selection-board/items/:id/:kind/:name", async (request, response) => {
+    try {
+        const kind = request.params.kind === "style-refs" ? "style" : "image";
+        const name = path.basename(String(request.params.name ?? ""));
+        if (name !== request.params.name || !/^sb_[A-Za-z0-9_]+$/.test(String(request.params.id ?? ""))) {
+            response.status(400).json({ error: "无效的素材路径" });
+            return;
+        }
+        const item = selectionBoardService.findItem(request.params.id);
+        const dir = selectionBoardService.itemDir(item, kind);
+        response.setHeader("Cache-Control", "no-store");
+        response.sendFile(path.join(dir, name));
+    }
+    catch (error) {
+        response.status(404).json({ error: error instanceof Error ? error.message : String(error) });
+    }
+});
+/* 推送上品：整目录替换 当前产品/产品图 与 风格参考图，并把客观信息带进运行态 */
+app.post("/api/selection-board/items/:id/push-to-listing", async (request, response) => {
+    try {
+        if (rejectIfQueueLocked(response))
+            return;
+        const state = store.get();
+        if (state.running || state.autoRun) {
+            response.status(409).json({ error: "当前有流程正在运行，不能替换当前产品素材；请先重置或等任务结束" });
+            return;
+        }
+        const result = await selectionBoardService.pushToListing(request.params.id);
+        const images = await scanProductImages();
+        const nextState = await store.update({
+            objectiveInfo: result.objectiveInfo,
+            imageCount: images.length,
+            imageNames: images.map((image) => image.name),
+            message: `已从选品看板推送「${result.item.name}」：${images.length} 张产品图，${result.listing.styleRefCount} 张参考风格图`,
+            error: undefined
+        });
+        response.json({
+            ...result.board,
+            item: result.item,
+            listing: result.listing,
+            product: result.product,
+            style: result.style,
+            imageCount: images.length,
+            state: nextState
+        });
+    }
+    catch (error) {
+        failSelectionBoard(response, error);
+    }
+});
+/* 自动化预留：周期检查「哪些条目已可上架」。只读，不触发任何写操作。 */
+app.get("/api/selection-board/pickup-preview", (_request, response) => {
+    response.json({ candidates: selectionBoardService.pickupCandidates() });
+});
+/* 逐店刊登状态写入：只动指定店铺，不影响其他店铺（基线 §03.3 / §03.6-4） */
+app.patch("/api/selection-board/items/:id/store-listings", async (request, response) => {
+    try {
+        const result = await selectionBoardService.upsertStoreListing(request.params.id, request.body ?? {});
+        response.json({ ...result.board, item: result.item });
+    }
+    catch (error) {
+        failSelectionBoard(response, error);
+    }
+});
+
+/* ══════════════════════════════════════════════════════════════
+   Phase 1：统一身份层（Product UUID / 历史映射 / Store 登记 / 模板快照）
+   YKB-V1-PHASE1-IDENTITY-STATE-20261030-R1
+   ══════════════════════════════════════════════════════════════ */
+function failIdentity(response, error, status = 400) {
+    response.status(status).json({ error: error instanceof Error ? error.message : String(error) });
+}
+app.post("/api/identity/products", async (request, response) => {
+    try {
+        response.status(201).json(await identityService.registerProduct(request.body ?? {}));
+    }
+    catch (error) {
+        failIdentity(response, error);
+    }
+});
+app.get("/api/identity/products", (_request, response) => {
+    response.json({ products: identityService.listProducts(), mappings: identityService.listMappings(), summary: identityService.snapshot() });
+});
+app.get("/api/identity/products/:id", (request, response) => {
+    const product = identityService.findProduct(request.params.id);
+    if (!product) {
+        response.status(404).json({ error: "规范产品不存在" });
+        return;
+    }
+    response.json({ product, mappings: identityService.listMappings().filter((mapping) => mapping.product_id === product.product_id) });
+});
+app.post("/api/identity/mappings", async (request, response) => {
+    try {
+        response.status(201).json(await identityService.mapLegacyId(request.body ?? {}));
+    }
+    catch (error) {
+        failIdentity(response, error);
+    }
+});
+app.get("/api/identity/mappings", (_request, response) => {
+    response.json({ mappings: identityService.listMappings(), summary: identityService.snapshot() });
+});
+/* dry-run：只读比对，绝不写库（基线 §04.D2：先生成 dry-run crosswalk，不批量写历史生产档案） */
+app.post("/api/identity/crosswalk-dry-run", (request, response) => {
+    const records = Array.isArray(request.body?.records) ? request.body.records : [];
+    response.json(identityService.buildCrosswalkDryRun(records));
+});
+app.post("/api/identity/stores", async (request, response) => {
+    try {
+        response.status(201).json(await identityService.registerStore(request.body ?? {}));
+    }
+    catch (error) {
+        failIdentity(response, error);
+    }
+});
+app.get("/api/identity/stores", (_request, response) => {
+    response.json({ stores: identityService.listStores() });
+});
+app.get("/api/identity/stores/:id/publish-gate", (request, response) => {
+    response.json({ storeId: request.params.id, gate: identityService.canPublishToStore(request.params.id) });
+});
+app.post("/api/identity/template-snapshots", async (request, response) => {
+    try {
+        response.status(201).json(await templateSnapshotService.capture(request.body ?? {}));
+    }
+    catch (error) {
+        failIdentity(response, error);
+    }
+});
+app.get("/api/identity/template-snapshots", (request, response) => {
+    const templateRef = request.query.ref ? String(request.query.ref) : "";
+    if (templateRef) {
+        response.json({ requirement: templateSnapshotService.requireUsableSnapshot(templateRef) });
+        return;
+    }
+    response.json({ snapshots: templateSnapshotService.list(), platformVersionPolicy: PLATFORM_VERSION_UNAVAILABLE });
+});
+app.get("/api/identity/template-snapshots/require", (request, response) => {
+    const templateRef = String(request.query.ref ?? "");
+    if (!templateRef) {
+        response.status(400).json({ error: "缺少 ref 参数" });
+        return;
+    }
+    response.json(templateSnapshotService.requireUsableSnapshot(templateRef));
+});
+/* 只读审计：产品事实图与风格参考图是否存在内容重叠 */
+app.get("/api/identity/image-isolation-audit", async (_request, response) => {
+    try {
+        response.json(await auditImageIsolation());
+    }
+    catch (error) {
+        failIdentity(response, error, 500);
     }
 });
 app.put("/api/insert/bag-confirmation", async (request, response) => {

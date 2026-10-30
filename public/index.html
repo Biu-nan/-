@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f5f5f7" />
     <title>一跨而境｜AI 跨境电商工作台</title>
-    <link rel="stylesheet" href="/styles.css?v=20261026-2" />
+    <link rel="stylesheet" href="/styles.css?v=20261030-5" />
     <link rel="stylesheet" href="/ceo-tasks.css" />
     <link rel="stylesheet" href="/workflow-alert.css?v=20261028-1" />
     <script>
@@ -1012,9 +1012,122 @@
             <div class="scene-tabs" aria-label="选品场景页内入口">
               <button type="button" class="scene-tab active" data-home-view="product-selection">标品选品</button>
               <button type="button" class="scene-tab" data-home-view="selection-radar">内胆包型选品</button>
+              <button type="button" class="scene-tab" data-home-view="selection-board">选品看板</button>
               <button type="button" class="scene-tab" data-home-view="operation-review">选品复盘</button>
             </div>
-            <p class="profile-suggestion">标品选品：用 Bob v0.1 选品研究 Prompt 联网搜索候选机会，结构化交付后人工逐条采纳进入开发池；内胆包型选品：每日市场选款雷达（包型机会）。两者独立运行、互不干扰。</p>
+            <p class="profile-suggestion">标品选品：用 Bob v0.1 选品研究 Prompt 联网搜索候选机会，结构化交付后人工逐条采纳进入开发池；内胆包型选品：每日市场选款雷达（包型机会）；选品看板：人工选品的单一事实来源，一行一个候选，带素材、SKU 表与状态。三者独立运行、互不干扰。</p>
+            <button type="button" class="board-entry-card" data-home-view="selection-board">
+              <span class="board-entry-body">
+                <span class="mini-label">SELECTION BOARD</span>
+                <strong>选品看板 · 人工选品的单一事实来源</strong>
+                <span class="board-entry-desc">一行一个候选：产品图 / 图片直链 / 来源 URL / 客观信息 / 参考生图风格 / SKU 表 / 状态，一路标到店小秘已保存。</span>
+              </span>
+              <span class="board-entry-arrow">进入看板 →</span>
+            </button>
+          </section>
+
+          <!-- ══ 选品看板：人工选品的单一事实来源（候选池 + 状态标注 + 推送上品）══ -->
+          <section class="workflow-view" data-view-panel="selection-board">
+            <div class="section-heading">
+              <div><span class="section-index">BOARD</span><h2>选品看板</h2></div>
+              <p>人工选品 → 图片 / 直链 → 客观信息 → 参考生图风格（可选）→ 来源 URL → SKU 表抓取 → Listing 制作 → 店小秘保存草稿。一行一个候选，状态就是唯一事实。</p>
+            </div>
+
+            <div class="scene-tabs" aria-label="选品场景页内入口">
+              <button type="button" class="scene-tab" data-home-view="selection-overview">选品开发</button>
+              <button type="button" class="scene-tab" data-home-view="product-selection">标品选品</button>
+              <button type="button" class="scene-tab" data-home-view="selection-radar">内胆包型选品</button>
+              <button type="button" class="scene-tab active" data-home-view="selection-board">选品看板</button>
+              <button type="button" class="scene-tab" data-home-view="operation-review">选品复盘</button>
+            </div>
+
+            <div id="sbMetrics" class="board-metrics">
+              <button type="button" class="board-metric" data-sb-filter=""><strong id="sbMetricTotal">0</strong><span>全部候选</span></button>
+              <button type="button" class="board-metric" data-sb-filter="data-entry"><strong id="sbMetricPicked">0</strong><span>待补料</span></button>
+              <button type="button" class="board-metric" data-sb-filter="ready"><strong id="sbMetricReady">0</strong><span>待制作 Listing</span></button>
+              <button type="button" class="board-metric" data-sb-filter="listing"><strong id="sbMetricListing">0</strong><span>Listing 中</span></button>
+              <button type="button" class="board-metric" data-sb-filter="synced"><strong id="sbMetricSaved">0</strong><span>已存店小秘</span></button>
+            </div>
+
+            <article class="panel board-create-card">
+              <div class="profile-card-heading">
+                <div>
+                  <span class="mini-label">NEW CANDIDATE</span>
+                  <h3>录入一个候选</h3>
+                </div>
+                <button id="sbToggleCreate" class="text-button" type="button">收起</button>
+              </div>
+              <div id="sbCreateBody" class="board-create-body">
+                <div class="board-form-grid">
+                  <label>产品名称
+                    <input id="sbName" type="text" placeholder="如：帆布多格笔袋 / 真空压缩收纳袋" />
+                  </label>
+                  <label>来源平台
+                    <input id="sbPlatform" type="text" placeholder="1688 / AliExpress / 线下" />
+                  </label>
+                  <label class="span2">来源 URL
+                    <input id="sbSourceUrl" type="text" placeholder="https://detail.1688.com/offer/xxxx.html" spellcheck="false" />
+                  </label>
+                  <label class="span2">客观信息（人工已确认的参数，AI 不得猜测）
+                    <textarea id="sbObjectiveInfo" rows="3" placeholder="规格：20 × 15 × 8 cm&#10;材质：帆布 + EVA&#10;重量：320 g&#10;产地：中国广东" spellcheck="false"></textarea>
+                  </label>
+                  <label class="span2">图片直链（每行一个，最多 12 条）
+                    <textarea id="sbImageUrls" rows="2" placeholder="https://cbu01.alicdn.com/img/ibank/xxxx.jpg" spellcheck="false"></textarea>
+                  </label>
+                  <div class="span2 board-form-actions">
+                    <button id="sbCreateButton" class="button primary" type="button">＋ 加入看板</button>
+                    <label class="button secondary compact-button" for="sbCreateImages">选择本地图片</label>
+                    <input id="sbCreateImages" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple hidden />
+                    <span id="sbCreateImagesHint" class="board-hint">可选，也可加入后再补图</span>
+                    <span id="sbCreateStatus" class="board-status"></span>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="panel board-table-card">
+              <div class="profile-card-heading">
+                <div>
+                  <span class="mini-label">CANDIDATES</span>
+                  <h3>候选清单</h3>
+                </div>
+                <div class="board-table-tools">
+                  <input id="sbSearch" type="search" placeholder="搜索名称 / 来源" />
+                  <select id="sbStatusFilter">
+                    <option value="">全部状态</option>
+                  </select>
+                  <button id="sbRefreshButton" class="text-button" type="button">刷新</button>
+                </div>
+              </div>
+              <div class="board-table-wrap">
+                <table class="board-table">
+                  <thead>
+                    <tr>
+                      <th class="col-seq">#</th>
+                      <th class="col-thumb">图</th>
+                      <th class="col-product">产品</th>
+                      <th class="col-source">来源</th>
+                      <th class="col-status">状态</th>
+                      <th class="col-assets">素材</th>
+                      <th class="col-sku">SKU 表</th>
+                      <th class="col-updated">更新</th>
+                      <th class="col-actions">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="sbTableBody">
+                    <tr><td colspan="9" class="profile-empty">加载中…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p id="sbBoardMessage" class="board-hint board-footer-hint">看板数据存放于 商品队列/选品看板/board.json；只有「推送上品」才会把素材复制进当前产品目录。</p>
+            </article>
+
+            <div id="sbDetailModal" class="board-modal hidden" aria-hidden="true">
+              <div class="board-modal-backdrop" data-sb-close="1"></div>
+              <div class="board-modal-panel" role="dialog" aria-modal="true" aria-labelledby="sbDetailTitle">
+                <div id="sbDetailBody"></div>
+              </div>
+            </div>
           </section>
 
           <section class="workflow-view" data-view-panel="selection-radar">
@@ -2631,8 +2744,9 @@
 
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
     <script src="/workflow-alert.js?v=20261028-1" defer></script>
-    <script src="/app.js?v=20261028-alert-1" defer></script>
-    <script src="/draft-executor-panel.js?v=20261029-1" defer></script>
+    <script src="/app.js?v=20261030-2" defer></script>
+    <script src="/selection-board.js?v=20261030-3" defer></script>
+    <script src="/draft-executor-panel.js?v=20261029-2" defer></script>
     <script type="module" src="/ceo-command-center.js"></script>
   </body>
 </html>
