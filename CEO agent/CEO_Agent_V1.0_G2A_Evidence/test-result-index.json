@@ -1,0 +1,523 @@
+[
+  {
+    "label": "archival-state-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-workflow-catalog.test.js",
+      "dist/test/ceo-g2a-service.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 0.643,
+    "summary": {
+      "tests": "7",
+      "pass": "7",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "583.6189"
+    }
+  },
+  {
+    "label": "archival-state-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-workflow-catalog.test.js",
+      "dist/test/ceo-g2a-service.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 0.656,
+    "summary": {
+      "tests": "7",
+      "pass": "4",
+      "fail": "3",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "590.833"
+    }
+  },
+  {
+    "label": "contracts-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-g2a-contracts.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 0.324,
+    "summary": {
+      "tests": "3",
+      "pass": "3",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "258.6549"
+    }
+  },
+  {
+    "label": "contracts-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-g2a-contracts.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 0.338,
+    "summary": {
+      "tests": "3",
+      "pass": "2",
+      "fail": "1",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "271.3787"
+    }
+  },
+  {
+    "label": "final-full",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "cmd",
+      "/d",
+      "/c",
+      "npm",
+      "test"
+    ],
+    "exitCode": 1,
+    "seconds": 90.1,
+    "summary": {
+      "tests": "540",
+      "pass": "514",
+      "fail": "26",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "88803.0213"
+    }
+  },
+  {
+    "label": "final-g2a",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-vnext-context.test.js",
+      "dist/test/ceo-shadow-analysis.test.js",
+      "dist/test/ceo-task-read-model.test.js",
+      "dist/test/ceo-workflow-catalog.test.js",
+      "dist/test/ceo-shadow-trace.test.js",
+      "dist/test/ceo-g2a-service.test.js",
+      "dist/test/ceo-g2a-contracts.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 50.533,
+    "summary": {
+      "tests": "68",
+      "pass": "68",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "50466.5878"
+    }
+  },
+  {
+    "label": "final-reliability",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "cmd",
+      "/d",
+      "/c",
+      "npm",
+      "run",
+      "test:reliability"
+    ],
+    "exitCode": 0,
+    "seconds": 37.113,
+    "summary": {
+      "tests": "45",
+      "pass": "45",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "14958.869"
+    }
+  },
+  {
+    "label": "m03-m05-green-2",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-vnext-context.test.js",
+      "dist/test/ceo-shadow-analysis.test.js",
+      "dist/test/ceo-workflow-catalog.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 0.233,
+    "summary": {
+      "tests": "20",
+      "pass": "20",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "173.9235"
+    }
+  },
+  {
+    "label": "m03-m05-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-vnext-context.test.js",
+      "dist/test/ceo-shadow-analysis.test.js",
+      "dist/test/ceo-workflow-catalog.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 0.274,
+    "summary": {
+      "tests": "20",
+      "pass": "19",
+      "fail": "1",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "197.8466"
+    }
+  },
+  {
+    "label": "m03-m05-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-vnext-context.test.js",
+      "dist/test/ceo-shadow-analysis.test.js",
+      "dist/test/ceo-workflow-catalog.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 0.222,
+    "summary": {
+      "tests": "32",
+      "pass": "0",
+      "fail": "32",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "148.0209"
+    }
+  },
+  {
+    "label": "m04-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-task-read-model.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 9.548,
+    "summary": {
+      "tests": "17",
+      "pass": "17",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "9490.7479"
+    }
+  },
+  {
+    "label": "m04-hardening-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-task-read-model.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 8.56,
+    "summary": {
+      "tests": "17",
+      "pass": "16",
+      "fail": "1",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "8495.2455"
+    }
+  },
+  {
+    "label": "m04-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-task-read-model.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 7.077,
+    "summary": {
+      "tests": "15",
+      "pass": "0",
+      "fail": "15",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "7005.8007"
+    }
+  },
+  {
+    "label": "m06-governance-regression",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-governance.test.js",
+      "dist/test/ceo-shadow-trace.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 4.034,
+    "summary": {
+      "tests": "37",
+      "pass": "37",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "3954.1448"
+    }
+  },
+  {
+    "label": "m06-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-shadow-trace.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 4.092,
+    "summary": {
+      "tests": "18",
+      "pass": "18",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "4029.8574"
+    }
+  },
+  {
+    "label": "m06-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-shadow-trace.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 0.179,
+    "summary": {
+      "tests": "13",
+      "pass": "0",
+      "fail": "13",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "108.5931"
+    }
+  },
+  {
+    "label": "m06-summary-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-shadow-trace.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 3.931,
+    "summary": {
+      "tests": "18",
+      "pass": "17",
+      "fail": "1",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "3862.2854"
+    }
+  },
+  {
+    "label": "m06-sync-retry-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-shadow-trace.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 3.638,
+    "summary": {
+      "tests": "17",
+      "pass": "16",
+      "fail": "1",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "3578.5092"
+    }
+  },
+  {
+    "label": "quality-review-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-vnext-context.test.js",
+      "dist/test/ceo-shadow-analysis.test.js",
+      "dist/test/ceo-g2a-service.test.js",
+      "dist/test/ceo-workflow-catalog.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 0.668,
+    "summary": {
+      "tests": "26",
+      "pass": "26",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "605.1871"
+    }
+  },
+  {
+    "label": "quality-review-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-vnext-context.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 0.218,
+    "summary": {
+      "tests": "15",
+      "pass": "12",
+      "fail": "3",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "147.543"
+    }
+  },
+  {
+    "label": "report-binding-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-vnext-context.test.js",
+      "dist/test/ceo-shadow-analysis.test.js",
+      "dist/test/ceo-g2a-service.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 0.68,
+    "summary": {
+      "tests": "21",
+      "pass": "18",
+      "fail": "3",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "610.9701"
+    }
+  },
+  {
+    "label": "service-composed",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-g2a-service.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 0.591,
+    "summary": {
+      "tests": "2",
+      "pass": "2",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "532.0655"
+    }
+  },
+  {
+    "label": "service-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-g2a-service.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 0.47,
+    "summary": {
+      "tests": "2",
+      "pass": "2",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "411.7678"
+    }
+  },
+  {
+    "label": "service-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-g2a-service.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 0.203,
+    "summary": {
+      "tests": "2",
+      "pass": "0",
+      "fail": "2",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "134.1575"
+    }
+  },
+  {
+    "label": "trace-freshness-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-workflow-catalog.test.js",
+      "dist/test/ceo-shadow-trace.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 4.398,
+    "summary": {
+      "tests": "24",
+      "pass": "24",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "4327.0517"
+    }
+  },
+  {
+    "label": "trace-freshness-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-workflow-catalog.test.js",
+      "dist/test/ceo-shadow-trace.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 4.001,
+    "summary": {
+      "tests": "24",
+      "pass": "22",
+      "fail": "2",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "3937.2983"
+    }
+  }
+]

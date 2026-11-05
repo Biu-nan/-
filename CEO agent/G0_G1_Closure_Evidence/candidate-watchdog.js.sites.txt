@@ -1,0 +1,19 @@
+19: import fs from "node:fs";
+20: import { fileURLToPath } from "node:url";
+21: import { requireG1FixtureRoot } from "./dist/src/ceo-main-boundary.js";
+22: 
+23: // This candidate is not approved for deployment. Fail before probing any existing service.
+24: if (!process.env.CEO_G1_FIXTURE_ROOT || !process.env.PORT || !/^\d+$/.test(process.env.PORT) || Number(process.env.PORT)<1024 || Number(process.env.PORT)>65535 || [3000,3001,3002,3173,3200,8765,9222,9223,9224].includes(Number(process.env.PORT))) {
+25:   console.error("G1_FIXTURE_REQUIRED");
+26:   process.exit(1);
+27: }
+28: const FIXTURE_ROOT = requireG1FixtureRoot({fixtureRoot:process.env.CEO_G1_FIXTURE_ROOT,dataRoot:process.env.CEO_G1_FIXTURE_ROOT});
+29: 
+30: const PROJECT_ROOT = path.dirname(fileURLToPath(import.meta.url));
+31: const NODE = process.execPath; // 当前 node 运行时（托管版）
+55:   return new Promise((resolve) => {
+56:     const req = http.get(
+57:       { host: "127.0.0.1", port: PORT, path: "/healthz", timeout: HTTP_TIMEOUT },
+58:       (res) => {
+59:         let data = "";
+60:         res.on("data", (c) => (data += c));

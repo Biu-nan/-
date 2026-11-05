@@ -1,0 +1,116 @@
+[
+  {
+    "path": "config/ceo-g2b0-connection-contract.v1.json",
+    "kind": "ADDED",
+    "sha256": "5e88a459e0b74f2242a4e1e19e6d78ba01aa62cf50a10e6f494c56a84e20803f",
+    "bytes": 2706
+  },
+  {
+    "path": "config/ceo-g2b0-package.v1.json",
+    "kind": "ADDED",
+    "sha256": "5b3a4f66c0a83b781ea3e8029532900b79c26e5017c4a4ddcc1700f1db1e0380",
+    "bytes": 1273
+  },
+  {
+    "path": "config/ceo-paid-orders.synthetic.v1.json",
+    "kind": "ADDED",
+    "sha256": "d5686dacc400fb5a64c9f60c6be88243c7c097bd89d90d0d73df61c100eb8b4b",
+    "bytes": 381
+  },
+  {
+    "path": "dist/src/ceo-payment-domain.js",
+    "kind": "ADDED",
+    "sha256": "119cacec9d0a488bbc734a932259ec0cb297b7f9924249eeeb7b9eaf9d67d553",
+    "bytes": 7355
+  },
+  {
+    "path": "dist/src/ceo-payment-loop.js",
+    "kind": "ADDED",
+    "sha256": "0abe289f108624e6c2d66e88bc91aa3f4aefadac623804cb97a4eef760dce790",
+    "bytes": 10508
+  },
+  {
+    "path": "dist/src/ceo-readiness-versions.js",
+    "kind": "ADDED",
+    "sha256": "77e3d9db1e61b393393c038930a0104324865ea25957b842e27e84294a614056",
+    "bytes": 1877
+  },
+  {
+    "path": "dist/src/ceo-report-archive.js",
+    "kind": "ADDED",
+    "sha256": "1af4ab2e14b1a3f80d02c5e806c7e93b23e2ae89f0d61c1d7b4738daad41c3cf",
+    "bytes": 19700
+  },
+  {
+    "path": "dist/src/ceo-shadow-trace.js",
+    "kind": "MODIFIED",
+    "sha256": "0289f1f3e77c2cccdf787e9b6e9568bd9c14eab56067bf20e4d6db67edd8a2a5",
+    "bytes": 11667
+  },
+  {
+    "path": "dist/src/ceo-vnext-analysis.js",
+    "kind": "MODIFIED",
+    "sha256": "f4a83dddb5eff0344a8b3fba8759cfcdd4f9aa367178820bd346eb8083533d66",
+    "bytes": 4357
+  },
+  {
+    "path": "dist/src/ceo-vnext-context.js",
+    "kind": "MODIFIED",
+    "sha256": "77da276b01c43035f4b6c94d9b1f7ebf64150439d7e2979a02daa3e6392a4b5a",
+    "bytes": 6829
+  },
+  {
+    "path": "dist/test/ceo-payment-domain.test.js",
+    "kind": "ADDED",
+    "sha256": "05af48983b2e642f799d6a483c105bac68af1545f876f074bbc8aab28efacebb",
+    "bytes": 4598
+  },
+  {
+    "path": "dist/test/ceo-payment-loop.test.js",
+    "kind": "ADDED",
+    "sha256": "67f6482c6651e3f872a5a6635bce1931feaa4b2133425c1ba60fa3ef379976ef",
+    "bytes": 12041
+  },
+  {
+    "path": "dist/test/ceo-report-archive.test.js",
+    "kind": "ADDED",
+    "sha256": "915e640f7221cd962c895fa8bbe2843975fd994c5ded5e8363e5c216c6c292bc",
+    "bytes": 13489
+  },
+  {
+    "path": "dist/test/ceo-report-linkage.test.js",
+    "kind": "ADDED",
+    "sha256": "db5449837cd823f7d1cca2993c4b71344367c68ddb84609c3e116840be3f85ab",
+    "bytes": 1614
+  },
+  {
+    "path": "dist/test/fixtures/ceo-payment-fixture.js",
+    "kind": "ADDED",
+    "sha256": "164eef493be37270bb42529eac06b630b81f71ceec9deb9c732e62604404bebf",
+    "bytes": 790
+  },
+  {
+    "path": "docs/superpowers/plans/2026-11-05-ceo-g2b0.md",
+    "kind": "ADDED",
+    "sha256": "5955f9c97e938210eb893c4c1506642ad75e3d536c262e90570079636a49d724",
+    "bytes": 2687
+  },
+  {
+    "path": "schemas/ceo-shadow-event.schema.json",
+    "kind": "MODIFIED",
+    "sha256": "cf742e7dad65ad732cf2aaa2e5ae618d3e9cbc0453c77e2a5d09a3d0bde10c8e",
+    "bytes": 2167
+  },
+  {
+    "path": "schemas/ceo-shadow-report.schema.json",
+    "kind": "MODIFIED",
+    "sha256": "ede5d8c898384963466a9d1b6863641130faa50155548adc10b3bb29876ed672",
+    "bytes": 3362
+  },
+  {
+    "path": "schemas/ceo-vnext-context.schema.json",
+    "kind": "MODIFIED",
+    "sha256": "f8ba3180605d65d4b6b086baad815783566df03f200ddf2474f4be10cb18768d",
+    "bytes": 2330
+  }
+]

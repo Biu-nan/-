@@ -1,0 +1,11 @@
+{
+  "label": "standalone-cli-green",
+  "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+  "command": [
+    "node",
+    "--test",
+    "dist/test/ceo-cli-safety.test.js"
+  ],
+  "exitCode": 0,
+  "seconds": 1.189
+}

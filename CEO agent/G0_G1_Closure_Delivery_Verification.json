@@ -1,0 +1,18 @@
+{
+  "verifiedAt": "2026-11-05T02:45:52.765714+00:00",
+  "report": "F:\\yikuaborder-deploy\\CEO agent\\G0_G1_Closure_And_G2_Readiness_Report.md",
+  "reportSha256": "b98f0b60a2facd880342963e8527d135be214821ae4d93ebe498b679b614baae",
+  "linksVerified": 32,
+  "closureEvidenceHashesVerified": 132,
+  "candidateFilesUnchanged": 64,
+  "failureFilesNamesAndDiagnosticsMatched": 26,
+  "documentedLineShifts": 2,
+  "newIsolationValidation": {
+    "tests": 3,
+    "pass": 3,
+    "exitCode": 0
+  },
+  "oldSuitesRerun": false,
+  "G2State": "NOT_AUTHORIZED; LIVE_BINDINGS_BLOCKED",
+  "productCodeChanged": false
+}

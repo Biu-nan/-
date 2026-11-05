@@ -1,0 +1,200 @@
+--- original-ceo/dist/src/ceo-task-http.js
++++ candidate/dist/src/ceo-task-http.js
+@@ -5,6 +5,7 @@
+ import {fileURLToPath} from 'node:url';
+ import {replanErrorCodes} from './ceo-review-replanning.js';
+ import {requireCeoEvidenceCheck} from './ceo-task-evidence.js';
++import {requireG1FixtureRoot} from './ceo-main-boundary.js';
+ 
+ const fail=code=>{const e=new Error(code);e.code=code;throw e;};
+ const codes=new Set(['FORBIDDEN','INVALID_OPERATION','OPERATION_CONFLICT','PLAN_NOT_FOUND','PLAN_NOT_COMMITTED','NO_ALLOCATED_TASKS','CONTEXT_CHANGED','INVALID_CONTEXT','UNSUPPORTED_CAPABILITY','TASK_VERSION_CONFLICT','TASK_IN_FLIGHT','DECISION_EXPIRED','DEADLINE_PASSED','STORAGE_FAILED','INVALID_COMMAND','TASK_NOT_FOUND','VERSION_CONFLICT','RESULT_UNKNOWN','INVALID_TRANSITION','DEPENDENCY_BLOCKED','INVALID_APPROVAL','APPROVAL_EXPIRED','INVALID_RECEIPT','INVALID_EVIDENCE','SELF_VERIFICATION','INVALID_VERIFICATION','INVALID_BLOCKER','INVALID_RESOLUTION','INVALID_TIME','INVALID_INPUT','BODY_TOO_LARGE','UNAUTHORIZED']);
+@@ -23,10 +24,12 @@
+  req.on('error',()=>reject(Object.assign(new Error(),{code:'INVALID_INPUT'})));
+  req.on('end',()=>{if(oversized){reject(Object.assign(new Error(),{code:'BODY_TOO_LARGE'}));return;}try{const v=JSON.parse(Buffer.concat(chunks).toString('utf8'));if(!v||typeof v!=='object'||Array.isArray(v))fail('INVALID_INPUT');resolve(v);}catch{reject(Object.assign(new Error(),{code:'INVALID_INPUT'}));}});
+ });}
+-export function createCeoTaskServer({workspace,loadContext,loadBrief=async()=>({schema:'ceo-operating-brief/v1',status:'NOT_CONFIGURED',readOnly:true}),captureReviewInputs=null,checkEvidence=null,credentials,publicDir=fileURLToPath(new URL('../../public/',import.meta.url)),now=()=>new Date(),commandCenterOrigins=[]}){
++export function createCeoTaskServer({workspace,loadContext,loadBrief=async()=>({schema:'ceo-operating-brief/v1',status:'NOT_CONFIGURED',readOnly:true}),captureReviewInputs=null,checkEvidence=null,credentials,publicDir=fileURLToPath(new URL('../../public/',import.meta.url)),now=()=>new Date(),commandCenterOrigins=[],manualFixtureRoot=null}){
+  if(!workspace||typeof loadContext!=='function')fail('INVALID_CREDENTIALS');
+  for(const role of ['owner','agent']){const c=credentials?.[role];if(!c||typeof c.id!=='string'||!c.id||c.storeId!=='400370'||!tokenOK(c.token))fail('INVALID_CREDENTIALS');}
+  if(credentials.owner.id===credentials.agent.id||credentials.owner.token===credentials.agent.token)fail('INVALID_CREDENTIALS');
++ const manualFixture=manualFixtureRoot!==null;
++ if(manualFixture)requireG1FixtureRoot({fixtureRoot:manualFixtureRoot,dataRoot:path.dirname(workspace.dbPath)});
+  if(!Array.isArray(commandCenterOrigins)||commandCenterOrigins.some(o=>!['http://localhost:3000','http://127.0.0.1:3000'].includes(o)))fail('INVALID_CREDENTIALS');
+  const sessions=new Map(),principals=Object.entries(credentials).map(([role,c])=>({token:c.token,actor:{id:c.id,role,storeId:c.storeId}}));
+  function findToken(token){return principals.find(c=>equals(token,c.token))?.actor??null;}
+@@ -67,9 +70,15 @@
+    const session=sessions.get(sid);if(session&&session.expires<=now().getTime())sessions.delete(sid);
+    const actor=bearer?findToken(bearer):sessions.get(sid)?.actor;
+    if(!actor)fail('UNAUTHORIZED');
++    // Existing investigative writes are available only to explicitly marked synthetic regression fixtures.
++    // Production binding is unconfirmed in G1; default GETs must not lazily create a task database.
++    if(!manualFixture){
++     if(req.method!=='GET'&&!(route==='/api/ceo/session'&&req.method==='DELETE'))fail('FORBIDDEN');
++     if(!['/api/ceo/me','/api/ceo/context','/api/ceo/session'].includes(route)){send(503,{error:'READ_MODEL_UNCONFIGURED'});return;}
++    }
+    if(req.method!=='GET'&&!bearer&&!allowedOrigin)fail('FORBIDDEN');
+    if(route==='/api/ceo/session'&&req.method==='DELETE'){sessions.delete(sid);res.setHeader('Set-Cookie','ceo_session=; HttpOnly; SameSite=Strict; Path=/api/ceo; Max-Age=0');send(200,{loggedOut:true});return;}
+-   if(route==='/api/ceo/me'&&req.method==='GET'){send(200,{actor,capabilities:['manual.investigation'],externalExecution:false});return;}
++    if(route==='/api/ceo/me'&&req.method==='GET'){send(200,{actor,capabilities:manualFixture?['manual.investigation']:['read'],externalExecution:false});return;}
+    if(route==='/api/ceo/context'&&req.method==='GET'){const c=await loadContext();send(200,{contextId:c.contextId,loadedAt:c.loadedAt,goal:c.goal,gaps:c.gaps});return;}
+    if(route==='/api/ceo/operating-brief'&&req.method==='GET'){send(200,await loadBrief({context:await loadContext(),tasks:workspace.listTasks(),now:now()}));return;}
+    if(route==='/api/ceo/replanning-brief'&&req.method==='GET'){
+
+--- original-ceo/dist/test/ceo-conversation-entry.test.js
++++ candidate/dist/test/ceo-conversation-entry.test.js
+@@ -10,7 +10,7 @@
+ const credentials={owner:{id:'owner-local',storeId:'400370',token:'o'.repeat(48)},agent:{id:'agent-local',storeId:'400370',token:'a'.repeat(48)}};
+ async function setup(t){
+  const x=await fixture(t);
+- const server=createCeoTaskServer({workspace:x.workspace,loadContext:async()=>x.context,credentials,now:()=>now});
++ const server=createCeoTaskServer({workspace:x.workspace,manualFixtureRoot:x.dir,loadContext:async()=>x.context,credentials,now:()=>now});
+  server.listen(0,'127.0.0.1');await once(server,'listening');
+  t.after(()=>new Promise(resolve=>{server.close(resolve);server.closeAllConnections();}));
+  const base=`http://127.0.0.1:${server.address().port}`;
+@@ -87,7 +87,7 @@
+ test('a different authenticated agent cannot read or reuse another entry request',async t=>{
+  const x=await setup(t);assert.equal((await x.request()).status,200);
+  const other={...credentials,agent:{...credentials.agent,id:'other-agent',token:'b'.repeat(48)}};
+- const server=createCeoTaskServer({workspace:x.workspace,loadContext:async()=>x.context,credentials:other,now:()=>now});
++ const server=createCeoTaskServer({workspace:x.workspace,manualFixtureRoot:x.dir,loadContext:async()=>x.context,credentials:other,now:()=>now});
+  server.listen(0,'127.0.0.1');await once(server,'listening');t.after(()=>new Promise(resolve=>{server.close(resolve);server.closeAllConnections();}));
+  const base=`http://127.0.0.1:${server.address().port}`,headers={authorization:`Bearer ${other.agent.token}`};
+  assert.equal((await fetch(base+`/api/ceo/draft-requests/${x.input.requestId}`,{headers})).status,403);
+
+--- original-ceo/dist/test/ceo-task-cli.test.js
++++ candidate/dist/test/ceo-task-cli.test.js
+@@ -9,14 +9,16 @@
+ import {CeoTaskWorkspace} from '../src/ceo-task-workspace.js';
+ 
+ const cli=fileURLToPath(new URL('../../scripts/ceo-task-loop.mjs',import.meta.url));
+-function run(args){return new Promise(resolve=>{const child=spawn(process.execPath,[cli,...args],{windowsHide:true,stdio:['ignore','pipe','pipe']});let out='',err='';child.stdout.on('data',b=>out+=b);child.stderr.on('data',b=>err+=b);child.on('error',e=>resolve({code:1,out,err:e.code}));child.on('close',code=>resolve({code,out,err}));});}
++let fixtureRoot;
++function run(args){return new Promise(resolve=>{const child=spawn(process.execPath,[cli,...args],{env:{...process.env,...(fixtureRoot?{CEO_G1_FIXTURE_ROOT:fixtureRoot}:{})},windowsHide:true,stdio:['ignore','pipe','pipe']});let out='',err='';child.stdout.on('data',b=>out+=b);child.stderr.on('data',b=>err+=b);child.on('error',e=>resolve({code:1,out,err:e.code}));child.on('close',code=>resolve({code,out,err}));});}
+ async function boot(args){
+- const child=spawn(process.execPath,[cli,...args],{windowsHide:true,stdio:['ignore','pipe','pipe']});
++ const child=spawn(process.execPath,[cli,...args],{env:{...process.env,CEO_G1_FIXTURE_ROOT:fixtureRoot},windowsHide:true,stdio:['ignore','pipe','pipe']});
+  const ready=await new Promise((resolve,reject)=>{let s='',error='';const timer=setTimeout(()=>reject(new Error('BOOT_TIMEOUT')),8000);child.stdout.on('data',b=>{s+=b;const line=s.split('\n')[0];try{const r=JSON.parse(line);clearTimeout(timer);resolve(r);}catch{}});child.stderr.on('data',b=>error+=b);child.on('exit',()=>{clearTimeout(timer);reject(new Error('BOOT_FAILED '+error));});});
+  return{child,ready,stop:()=>new Promise(resolve=>{child.once('close',resolve);child.kill();})};
+ }
+ test('CLI and page API complete one isolated manual task and read it after restart',async t=>{
+  const root=await mkdtemp(path.join(os.tmpdir(),'ceo-loop-cli-'));let server;
++ fixtureRoot=root;await writeFile(path.join(root,'.ceo-isolated-fixture.json'),'{"synthetic":true}');
+  t.after(async()=>{if(server)await server.stop();await rm(root,{recursive:true,force:true});});
+  await mkdir(path.join(root,'config'));await mkdir(path.join(root,'data/metrics/facts/aliexpress'),{recursive:true});
+  const config=JSON.parse(await readFile(new URL('../../config/ceo-store-400370.json',import.meta.url)));
+
+--- original-ceo/dist/test/ceo-task-http.test.js
++++ candidate/dist/test/ceo-task-http.test.js
+@@ -35,7 +35,7 @@
+ });
+ async function setup(t,options={}){
+  const x=await fixture(t),{createCeoTaskServer}=await import('../src/ceo-task-http.js');
+- const server=createCeoTaskServer({workspace:x.workspace,loadContext:async()=>x.context,captureReviewInputs:()=>()=>{},credentials,now:()=>now,...options});
++ const server=createCeoTaskServer({workspace:x.workspace,manualFixtureRoot:x.dir,loadContext:async()=>x.context,captureReviewInputs:()=>()=>{},credentials,now:()=>now,...options});
+  server.listen(0,'127.0.0.1');await once(server,'listening');
+  t.after(()=>new Promise(resolve=>{server.close(resolve);server.closeAllConnections();}));
+  const base=`http://127.0.0.1:${server.address().port}`;
+
+--- original-ceo/dist/test/ceo-workspace-cli.test.js
++++ candidate/dist/test/ceo-workspace-cli.test.js
+@@ -8,9 +8,10 @@
+ const cliUrl=new URL('../../scripts/ceo-workspace.mjs',import.meta.url),cli=fileURLToPath(cliUrl);
+ const config=await readFile(new URL('../../config/ceo-store-400370.json',import.meta.url),'utf8');
+ const example=JSON.parse(await readFile(new URL('../../docs/superpowers/examples/ceo-first-loop-draft-input.json',import.meta.url)));
+-const run=args=>spawnSync(process.execPath,args,{encoding:'utf8',timeout:10000,windowsHide:true,env:{...process.env,NODE_NO_WARNINGS:'1'}});
++const run=args=>spawnSync(process.execPath,args,{encoding:'utf8',timeout:10000,windowsHide:true,env:{...process.env,NODE_NO_WARNINGS:'1',...(args.includes('--root')?{CEO_G1_FIXTURE_ROOT:args[args.indexOf('--root')+1]}:{})}});
+ async function setup(t){
+  const root=await mkdtemp(path.join(os.tmpdir(),'ceo-cli-'));t.after(()=>rm(root,{recursive:true,force:true}));await mkdir(path.join(root,'config'));
++ await writeFile(path.join(root,'.ceo-isolated-fixture.json'),'{"synthetic":true}');
+  await writeFile(path.join(root,'config/ceo-store-400370.json'),config);await writeFile(path.join(root,'config/metrics-schema.json'),'{"calibers":{}}');
+  const input=path.join(root,'input.json'),db=path.join(root,'draft.sqlite');
+  const value={decision:structuredClone(example.decision),candidates:example.candidates};value.decision.reviewAt=new Date(Date.now()+86400000).toISOString();
+
+--- original-ceo/dist/test/fixtures/ceo-task-fixture.js
++++ candidate/dist/test/fixtures/ceo-task-fixture.js
+@@ -1,4 +1,4 @@
+-import {mkdtemp,readFile,rm} from 'node:fs/promises';
++import {mkdtemp,readFile,rm,writeFile} from 'node:fs/promises';
+ import path from 'node:path';
+ import os from 'node:os';
+ import {ceoContextId} from '../../src/ceo-operating-context.js';
+@@ -11,6 +11,7 @@
+ export const evidence=[{reference:'local-audit:demo-result',sha256:'a'.repeat(64),summary:'演练验收记录'}];
+ export async function fixture(t){
+  const dir=await mkdtemp(path.join(os.tmpdir(),'ceo-tasks-')),resources=[];
++ await writeFile(path.join(dir,'.ceo-isolated-fixture.json'),'{"synthetic":true}');
+  t.after(async()=>{for(const r of resources.reverse())r.close();await rm(dir,{recursive:true,force:true});});
+  const {CeoTaskWorkspace}=await import('../../src/ceo-task-workspace.js');
+  const workspace=new CeoTaskWorkspace({dbPath:path.join(dir,'tasks.sqlite')});resources.push(workspace);
+
+--- original-ceo/scripts/ceo-task-loop.mjs
++++ candidate/scripts/ceo-task-loop.mjs
+@@ -9,6 +9,7 @@
+ import {captureCeoReviewInputs} from '../dist/src/ceo-review-input-guard.js';
+ import {replanErrorCodes} from '../dist/src/ceo-review-replanning.js';
+ import {checkCeoTaskEvidence} from '../dist/src/ceo-task-evidence.js';
++import {requireG1FixtureRoot,requireG1FixturePath} from '../dist/src/ceo-main-boundary.js';
+ 
+ const fail=code=>{const e=new Error(code);e.code=code;throw e;};
+ const specs={'init-credentials':['--out'],serve:['--root','--db','--credentials','--port'],read:['--base-url','--token-file'],plans:['--base-url','--token-file'],context:['--base-url','--token-file'],brief:['--base-url','--token-file'],reviews:['--base-url','--token-file'],draft:['--base-url','--token-file','--input'],receipt:['--base-url','--token-file','--request-id'],import:['--base-url','--token-file','--input'],command:['--base-url','--token-file','--input']};
+@@ -25,6 +26,12 @@
+   const [command,...args]=argv,keys=specs[command],opts={};
+   if(!keys||args.length!==keys.length*2)fail('INVALID_ARGUMENTS');
+   for(let i=0;i<args.length;i+=2){if(!keys.includes(args[i])||Object.hasOwn(opts,args[i])||!args[i+1])fail('INVALID_ARGUMENTS');opts[args[i]]=args[i+1];}
++  const fixtureRoot=process.env.CEO_G1_FIXTURE_ROOT;
++  if(['init-credentials','serve','draft','import','command','replan'].includes(command)){
++   if(!fixtureRoot)fail('G1_DEPLOYMENT_NOT_APPROVED');
++   requireG1FixtureRoot({fixtureRoot,dataRoot:command==='serve'?opts['--root']:fixtureRoot});
++   for(const key of ['--out','--db','--credentials','--token-file','--input'])if(opts[key])requireG1FixturePath(opts[key],fixtureRoot);
++  }
+   if(command==='init-credentials'){
+    const out=opts['--out'];if(!path.isAbsolute(out))fail('INVALID_ARGUMENTS');
+    const files=['server-credentials.json','owner-token.json','agent-token.json'];
+@@ -40,7 +47,7 @@
+    const root=opts['--root'];await loadCeoOperatingContext({projectRoot:root});
+    const credentials=await json(opts['--credentials'],8192);
+    workspace=new CeoTaskWorkspace({dbPath:opts['--db']});
+-   const server=createCeoTaskServer({workspace,loadContext:()=>loadCeoOperatingContext({projectRoot:root}),loadBrief:args=>loadCeoOperatingBrief({projectRoot:root,...args}),captureReviewInputs:()=>captureCeoReviewInputs({projectRoot:root}),checkEvidence:task=>checkCeoTaskEvidence({projectRoot:root,task}),credentials,commandCenterOrigins:['http://localhost:3000','http://127.0.0.1:3000']});
++   const server=createCeoTaskServer({workspace,manualFixtureRoot:root,loadContext:()=>loadCeoOperatingContext({projectRoot:root}),loadBrief:args=>loadCeoOperatingBrief({projectRoot:root,...args}),captureReviewInputs:()=>captureCeoReviewInputs({projectRoot:root}),checkEvidence:task=>checkCeoTaskEvidence({projectRoot:root,task}),credentials,commandCenterOrigins:['http://localhost:3000','http://127.0.0.1:3000']});
+    await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(Number(opts['--port']),'127.0.0.1',resolve);});
+    console.log(JSON.stringify({schema:'ceo-task-service/v1',baseUrl:`http://127.0.0.1:${server.address().port}`,storeId:'400370',capabilities:['manual.investigation'],externalExecution:false}));
+    let closing=false;const stop=()=>{if(closing)return;closing=true;server.close(()=>{workspace.close();});server.closeAllConnections();};process.once('SIGINT',stop);process.once('SIGTERM',stop);return;
+@@ -58,6 +65,6 @@
+   let count=0;const chunks=[];for await(const chunk of response.body){count+=chunk.length;if(count>1048576)fail('INVALID_RESPONSE');chunks.push(chunk);}
+   const result=JSON.parse(Buffer.concat(chunks).toString('utf8'));if(!response.ok)fail(/^[A-Z_]+$/.test(result.error)?result.error:'SERVICE_UNAVAILABLE');
+   console.log(JSON.stringify(result));
+- }catch(e){const safe=new Set(['INVALID_ARGUMENTS','INVALID_BASE_URL','INVALID_INPUT','INVALID_RESPONSE','INVALID_CREDENTIALS','CREDENTIALS_EXIST','FORBIDDEN','UNAUTHORIZED','PLAN_NOT_FOUND','PLAN_NOT_COMMITTED','CONTEXT_CHANGED','DECISION_EXPIRED','TASK_NOT_FOUND','VERSION_CONFLICT','OPERATION_CONFLICT','RESULT_UNKNOWN','INVALID_TRANSITION','DEPENDENCY_BLOCKED','APPROVAL_EXPIRED','INVALID_EVIDENCE','UNSUPPORTED_CAPABILITY','TASK_VERSION_CONFLICT']);console.error(safe.has(e.code)||draftErrors.has(e.code)?e.code:'SERVICE_UNAVAILABLE');workspace?.close();process.exitCode=1;}
++  }catch(e){const safe=new Set(['G1_DEPLOYMENT_NOT_APPROVED','INVALID_ARGUMENTS','INVALID_BASE_URL','INVALID_INPUT','INVALID_RESPONSE','INVALID_CREDENTIALS','CREDENTIALS_EXIST','FORBIDDEN','UNAUTHORIZED','PLAN_NOT_FOUND','PLAN_NOT_COMMITTED','CONTEXT_CHANGED','DECISION_EXPIRED','TASK_NOT_FOUND','VERSION_CONFLICT','OPERATION_CONFLICT','RESULT_UNKNOWN','INVALID_TRANSITION','DEPENDENCY_BLOCKED','APPROVAL_EXPIRED','INVALID_EVIDENCE','UNSUPPORTED_CAPABILITY','TASK_VERSION_CONFLICT']);console.error(safe.has(e.code)||draftErrors.has(e.code)?e.code:'SERVICE_UNAVAILABLE');workspace?.close();process.exitCode=1;}
+ }
+ if(process.argv[1]&&pathToFileURL(path.resolve(process.argv[1])).href===import.meta.url)await main(process.argv.slice(2));
+
+--- original-ceo/scripts/ceo-workspace.mjs
++++ candidate/scripts/ceo-workspace.mjs
+@@ -3,6 +3,7 @@
+ import { pathToFileURL } from 'node:url';
+ import { loadCeoOperatingContext } from '../dist/src/ceo-operating-context.js';
+ import { CeoDraftWorkspace } from '../dist/src/ceo-draft-workspace.js';
++import {requireG1FixtureRoot,requireG1FixturePath} from '../dist/src/ceo-main-boundary.js';
+ 
+ const codes=new Set(['INVALID_ARGUMENTS','INVALID_INPUT','INVALID_CONFIG','INVALID_SOURCE','SOURCE_LIMIT','UNSAFE_SOURCE','CONTEXT_CHANGED','INVALID_CONTEXT','INVALID_DECISION','INVALID_DB_PATH','GOAL_VERSION_CONFLICT','DECISION_VERSION_CONFLICT','DECISION_CONTEXT_CONFLICT','PLAN_VERSION_CONFLICT','STORAGE_FAILED']);
+ function fail(code){const e=new Error(code);e.code=code;throw e;}
+@@ -13,6 +14,10 @@
+   const expected=command==='inspect'?['--root']:command==='save-draft'?['--root','--db','--input','--expected-context']:null;
+   if(!expected||rest.length!==expected.length*2)fail('INVALID_ARGUMENTS');
+   for(let i=0;i<rest.length;i+=2){if(!expected.includes(rest[i])||Object.hasOwn(opts,rest[i])||!rest[i+1])fail('INVALID_ARGUMENTS');opts[rest[i]]=rest[i+1];}
++  if(command==='save-draft'){
++   const fixtureRoot=process.env.CEO_G1_FIXTURE_ROOT;if(!fixtureRoot)fail('G1_DEPLOYMENT_NOT_APPROVED');
++   requireG1FixtureRoot({fixtureRoot,dataRoot:opts['--root']});requireG1FixturePath(opts['--db'],fixtureRoot);requireG1FixturePath(opts['--input'],fixtureRoot);
++  }
+   const context=await loadCeoOperatingContext({projectRoot:opts['--root']});
+   if(command==='inspect'){console.log(JSON.stringify(context));return;}
+   if(context.contextId!==opts['--expected-context'])fail('CONTEXT_CHANGED');
+@@ -26,7 +31,7 @@
+   workspace=new CeoDraftWorkspace({dbPath:opts['--db']});
+   const receipt=workspace.saveDraft({context,decision:input.decision,candidates:input.candidates,expectedContextId:opts['--expected-context']});
+   console.log(JSON.stringify(receipt));
+- } catch(e){console.error(codes.has(e.code)?e.code:'CONTEXT_UNAVAILABLE');process.exitCode=1;}
++ } catch(e){console.error(e.code==='G1_DEPLOYMENT_NOT_APPROVED'||codes.has(e.code)?e.code:'CONTEXT_UNAVAILABLE');process.exitCode=1;}
+  finally{workspace?.close();}
+ }
+ if(process.argv[1]&&pathToFileURL(path.resolve(process.argv[1])).href===import.meta.url)await main(process.argv.slice(2));

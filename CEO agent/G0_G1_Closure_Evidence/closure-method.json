@@ -1,0 +1,23 @@
+{
+  "scope": "A/B/C closure only; no new product code or production writes",
+  "testsRerun": "only dictionary-impact 3 cases; old 55/142/45/472 evidence hash-verified rather than rerun",
+  "lookupCorrections": [
+    {
+      "operation": "initial metrics consumer search",
+      "reason": "scripts/lib directory absent; corrected to scripts/metrics-store.mjs",
+      "productTestRun": false
+    },
+    {
+      "operation": "static import audit",
+      "reason": "Windows subprocess default GBK decode; rerun with explicit UTF-8 bytes decode",
+      "productTestRun": false
+    },
+    {
+      "operation": "node_modules metadata",
+      "reason": "candidate has no own node_modules; traced actual ancestor resolution to main/node_modules",
+      "productTestRun": false
+    }
+  ],
+  "secretPolicy": "no .env, production credential files, shell histories or full process environments read; no live business DB opened",
+  "finalEvidenceReview": "Detected two expected CLI test line shifts (19->20, 24->25); report clarified identity matching rather than claiming identical line numbers. No product test rerun or code fix."
+}

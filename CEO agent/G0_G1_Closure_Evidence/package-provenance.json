@@ -1,0 +1,92 @@
+{
+  "npmScripts": {
+    "start": "node dist/src/server.js",
+    "start:test": "PORT=3101 node dist/src/server.js",
+    "test": "node --test dist/test/*.test.js",
+    "test:reliability": "node --test dist/test/state-store.test.js dist/test/visual-qc-safety.test.js dist/test/visual-runner-safety.test.js listing-agent/test/*.test.js"
+  },
+  "packages": [
+    {
+      "name": "ajv-formats",
+      "version": "3.0.1",
+      "packageJson": "F:\\yikuaborder-deploy\\node_modules\\ajv-formats\\package.json",
+      "outsideWorktree": true,
+      "tracked": false,
+      "declaredRange": "^3.0.1",
+      "lockVersion": "3.0.1",
+      "installedMatchesLock": true
+    },
+    {
+      "name": "ajv",
+      "version": "8.20.0",
+      "packageJson": "F:\\yikuaborder-deploy\\node_modules\\ajv\\package.json",
+      "outsideWorktree": true,
+      "tracked": false,
+      "declaredRange": "^8.20.0",
+      "lockVersion": "8.20.0",
+      "installedMatchesLock": true
+    },
+    {
+      "name": "express",
+      "version": "4.22.2",
+      "packageJson": "F:\\yikuaborder-deploy\\node_modules\\express\\package.json",
+      "outsideWorktree": true,
+      "tracked": false,
+      "declaredRange": "^4.21.2",
+      "lockVersion": "4.22.2",
+      "installedMatchesLock": true
+    },
+    {
+      "name": "jsonrepair",
+      "version": "3.14.0",
+      "packageJson": "F:\\yikuaborder-deploy\\node_modules\\jsonrepair\\package.json",
+      "outsideWorktree": true,
+      "tracked": false,
+      "declaredRange": "^3.14.0",
+      "lockVersion": "3.14.0",
+      "installedMatchesLock": true
+    },
+    {
+      "name": "multer",
+      "version": "2.1.1",
+      "packageJson": "F:\\yikuaborder-deploy\\node_modules\\multer\\package.json",
+      "outsideWorktree": true,
+      "tracked": false,
+      "declaredRange": "^2.0.0",
+      "lockVersion": "2.1.1",
+      "installedMatchesLock": true
+    },
+    {
+      "name": "playwright-core",
+      "version": "1.60.0",
+      "packageJson": "F:\\yikuaborder-deploy\\node_modules\\playwright-core\\package.json",
+      "outsideWorktree": true,
+      "tracked": false,
+      "declaredRange": "^1.52.0",
+      "lockVersion": "1.60.0",
+      "installedMatchesLock": true
+    },
+    {
+      "name": "xlsx",
+      "version": "0.18.5",
+      "packageJson": "F:\\yikuaborder-deploy\\node_modules\\xlsx\\package.json",
+      "outsideWorktree": true,
+      "tracked": false,
+      "declaredRange": "^0.18.5",
+      "lockVersion": "0.18.5",
+      "installedMatchesLock": true
+    }
+  ],
+  "manifests": [
+    {
+      "path": "package.json",
+      "matchesHeadIgnoringCRLF": true,
+      "currentSha256": "24b151ea5ee83d0d9b7b8e4b6e79f9e4653c2a212dbe5ae00e2b7e43ed737582"
+    },
+    {
+      "path": "package-lock.json",
+      "matchesHeadIgnoringCRLF": true,
+      "currentSha256": "93c26e741645ef2f9dd31f9a4f41aaf6f5ac6b1760c94cdd0e851a4bf3fb1cad"
+    }
+  ]
+}

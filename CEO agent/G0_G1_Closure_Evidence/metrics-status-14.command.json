@@ -1,0 +1,12 @@
+{
+  "at": "2026-11-05T02:30:07.770691+00:00",
+  "cwd": "F:\\yikuaborder-phase2d-b2-b3-e5-wt",
+  "command": [
+    "git",
+    "status",
+    "--short",
+    "--",
+    "config/metrics-schema.json"
+  ],
+  "exitCode": 0
+}

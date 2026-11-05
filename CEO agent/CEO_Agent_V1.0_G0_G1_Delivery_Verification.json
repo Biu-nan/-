@@ -1,0 +1,11 @@
+{
+  "checkedAt": "2026-11-05T02:19:22.060444+00:00",
+  "report": "F:\\yikuaborder-deploy\\CEO agent\\CEO_Agent_V1.0_G0_G1_Implementation_Report.md",
+  "reportSha256": "c117238b17342c0e61eb4bf88565288612d24eec5ebae17fa6a987012c9258a2",
+  "reportLinksVerified": 12,
+  "evidenceHashesVerified": 155,
+  "candidateFilesVerified": 64,
+  "patchMatchesCurrentDiff": true,
+  "fullTestExitCode": 1,
+  "stopState": "G1_ISOLATED_DELIVERED; D1_PARTIAL; HUMAN_ACCEPTANCE_PENDING; NO_G2_OR_DEPLOYMENT"
+}

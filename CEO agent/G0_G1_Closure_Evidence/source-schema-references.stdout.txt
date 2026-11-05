@@ -1,0 +1,12 @@
+scripts\explore-ae-shape.mjs:5:import { saveRaw, localDate } from './metrics-store.mjs';
+scripts\fetch-dxm-metrics.mjs:16:} from './metrics-store.mjs';
+scripts\fetch-ae-metrics.mjs:17:import { appendFacts, saveRaw, localDate } from './metrics-store.mjs';
+scripts\metrics-store.mjs:22:export const SCHEMA_PATH = path.join(PROJECT_ROOT, 'config', 'metrics-schema.json');
+scripts\metrics-store.mjs:34:    throw new Error(`未知口径 "${caliber}"。请先在 config/metrics-schema.json 的 calibers 中定义，禁止临时造词。`);
+scripts\ingest-ixspy-raw.mjs:12://   - caliber 必须已在 config/metrics-schema.json 注册，否则 appendFacts 直接抛错（禁止临时造词）
+scripts\ingest-ixspy-raw.mjs:14://   - 同一 factKey 只保留最后一条，写库由 metrics-store 保证幂等
+scripts\ingest-ixspy-raw.mjs:19:import { appendFacts } from './metrics-store.mjs';
+scripts\recompute-metrics.mjs:11:} from './metrics-store.mjs';
+scripts\verify-market-scan.mjs:7://   V4 caliberMap 里每个口径都已注册在 config/metrics-schema.json
+scripts\verify-market-scan.mjs:96:check('V4', 'caliberMap 全部口径已在 metrics-schema 注册', () => {
+scripts\verify-market-scan.mjs:97:  const schema = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, 'config', 'metrics-schema.json'), 'utf8'));

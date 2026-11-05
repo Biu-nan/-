@@ -1,0 +1,40 @@
+{
+  "mainPath": "F:\\yikuaborder-deploy\\config\\metrics-schema.json",
+  "currentHash": "933d63c4e5f1c3223aacb60708a6a2ce2302a385f425c3ca10a0ab3692b905ed",
+  "versionBefore": "1.0.0",
+  "versionAfter": "1.1.0",
+  "calibersBefore": 23,
+  "calibersAfter": 33,
+  "addedCalibers": [
+    "market.category.products@category_research",
+    "market.category.sales_1m@category_research",
+    "market.category.supply_demand_1m@category_research",
+    "market.category.top100_price@category_research",
+    "market.keyword.competitive@keyword_rank",
+    "market.keyword.cvr@keyword_rank",
+    "market.keyword.searches@keyword_rank",
+    "market.rank.price@product_rank",
+    "market.rank.sales7d@product_rank",
+    "market.rank.total_sales@product_rank"
+  ],
+  "removedCalibers": [],
+  "changedExistingCalibers": [],
+  "changedOtherTopLevel": [
+    "version",
+    "updatedAt"
+  ],
+  "gitBlobSha256": "fd324de17c5ed8f17c89f0fbb28e7465808e65c720d7a06ca730daafd8515b0d",
+  "g0DiskSha256": "f3fbfb1454a934cbfc8b155b3513f5c64d5ec62470bd9391b018846986f68efc",
+  "g0DiskMatchesGitBlobAfterCRLFNormalization": true,
+  "rawByteDictionaryHashChanges": true,
+  "existingCaliberSemanticsPreserved": true,
+  "otherSectionsPreserved": {
+    "note": true,
+    "windows": true,
+    "timezone": true,
+    "freshness": true,
+    "metrics": true,
+    "forbidden": true
+  },
+  "candidateDictionarySha256": "f3fbfb1454a934cbfc8b155b3513f5c64d5ec62470bd9391b018846986f68efc"
+}

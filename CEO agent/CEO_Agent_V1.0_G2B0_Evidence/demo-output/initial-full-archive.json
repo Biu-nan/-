@@ -1,0 +1,400 @@
+{
+  "schema": "ceo-full-report-archive/v1",
+  "reportId": "report-0cf812600b7c06bceb7d79e5a6dd62f9e6bb75c72c68f56238f7468ae95d3b0b",
+  "storeId": "400370",
+  "requestId": "demo-question",
+  "requestHash": "0cf812600b7c06bceb7d79e5a6dd62f9e6bb75c72c68f56238f7468ae95d3b0b",
+  "actorId": "fixture-shadow",
+  "createdAt": "2026-11-05T00:00:00.000Z",
+  "contextId": "ctx-5ea5b4ad93101bb9886395fb2a7cf3ff49cc485705cf321f5f4e66552eb76981",
+  "analysisId": "analysis-3efde9d257f2894ae3d69faf836947455b582e12b5dbe613326d6bf0af0a7987",
+  "taskSnapshotId": "task-snapshot-a262b3f1ad4fc024d8808d63f0cfc5d50bec641b6db150e7a2ed2ec7295a81d8",
+  "sourceHash": "c84f7eeb5b412dbd9e2f8d320723752970c904747cbfcab0194c89b00d13a18e",
+  "policyVersion": "ceo-governance/v1",
+  "proposalRef": null,
+  "versionsHash": "d9ad7aff8e97822711eaad7659290ab986ff7c80b48888965eacc40d9d5d7a55",
+  "objects": {
+    "context": {
+      "sha256": "845f4bc72562f25b8e31801320c0305052b2cea92ef79dc18db8ff1c0ac8e94e",
+      "size": 2475
+    },
+    "report": {
+      "sha256": "1069c61f921a346fd3da5374f031da9b0852cf4ee472dc823b76d3f5c10dff43",
+      "size": 3191
+    },
+    "versions": {
+      "sha256": "4ebd006116567f2f5bdb41ab1a7c5a748fc3123e6154006f3314c84722e3641f",
+      "size": 611
+    },
+    "taskSnapshot": {
+      "sha256": "4abca9c95744b516bed53b1a674dbc212068455f9272f3e8837d62d9a3dc0c7f",
+      "size": 233
+    },
+    "workflowState": {
+      "sha256": "4b1a91be9c52c6920bf93c43340d61aa2c6475e324150ca250ac76c186e78f72",
+      "size": 1084
+    }
+  },
+  "evidence": [
+    {
+      "path": "paid-orders.synthetic.json",
+      "sha256": "de08f23f6dd93bc60913beb3fd7b536e9290218425dd2b44e838267d17ff78f3",
+      "size": 463,
+      "content": "{\"schema\":\"ceo-paid-order-snapshot/v1\",\"mode\":\"SYNTHETIC\",\"revision\":1,\"storeId\":\"400370\",\"sourceKind\":\"OWN_STORE_ORDER_EXPORT\",\"period\":{\"start\":\"2026-11-01\",\"end\":\"2026-11-04\",\"timeZone\":\"Asia/Shanghai\"},\"exportedAt\":\"2026-11-04T23:00:00Z\",\"coverage\":\"COMPLETE\",\"currency\":\"CNY\",\"rows\":[{\"orderRef\":\"syn-order-1\",\"storeId\":\"400370\",\"orderStatus\":\"OPEN\",\"itemCount\":2,\"payment\":{\"status\":\"PAID\",\"paidAt\":\"2026-11-02T00:00:00Z\",\"amount\":12.34,\"currency\":\"CNY\"}}]}"
+    },
+    {
+      "path": "approval.synthetic.json",
+      "sha256": "d79ad03f3123c2e78032a2dabd28c58a427e40efe23959f4556a2d21d767ab16",
+      "size": 980,
+      "content": "{\"scope\":\"SYNTHETIC\",\"accepted\":true,\"sourceApproval\":{\"scope\":\"SYNTHETIC\",\"storeId\":\"400370\",\"snapshotHash\":\"de08f23f6dd93bc60913beb3fd7b536e9290218425dd2b44e838267d17ff78f3\",\"periodHash\":\"fe3d38739dbcb1b75e5e46c394b5d4635b9568b7fd75436e163c352061ec4ff0\",\"reviewerId\":\"fixture-data-owner\",\"reviewedAt\":\"2026-11-04T23:30:00Z\"},\"factApprovals\":[{\"factId\":\"payment-0\",\"version\":1,\"factHash\":\"26eea870b4815658c12b08aff4bc148e0550d45da81c3640b74b76779b6876ba\",\"reviewerId\":\"fixture-data-owner\",\"reviewedAt\":\"2026-11-04T23:30:00Z\"},{\"factId\":\"payment-1\",\"version\":1,\"factHash\":\"ae28ae3e900c7c186eb0701cc6e5ae79d809030ac28e647308f752c6aa25a52b\",\"reviewerId\":\"fixture-data-owner\",\"reviewedAt\":\"2026-11-04T23:30:00Z\"},{\"factId\":\"payment-2\",\"version\":1,\"factHash\":\"743d94f38ff541c08d8e063f1021ee8d054b4ce85a000c4d0bb9481ba1fb6226\",\"reviewerId\":\"fixture-data-owner\",\"reviewedAt\":\"2026-11-04T23:30:00Z\"}],\"sourcePolicyHash\":\"b5d1f576e3ddb7bbb01ced762ee7821ecfd7a38e987a446638498e6525127c78\"}"
+    }
+  ],
+  "correctsReportId": null,
+  "revision": 1,
+  "manifestHash": "cb2d217bae81dfa99b64598ba301203057bd7b13f12e9a4fbc30a91d3b9402c8",
+  "context": {
+    "schema": "ceo-vnext-context/v1",
+    "storeId": "400370",
+    "mode": "SHADOW",
+    "sourcePolicyVersion": "paid-orders.synthetic.v1",
+    "sourcePolicyHash": "b5d1f576e3ddb7bbb01ced762ee7821ecfd7a38e987a446638498e6525127c78",
+    "reviewHash": "99446bc22632a840991a65b7167356765713d13319ad1eef3f36eb15dd8ece0c",
+    "dictionaryVersion": "1.0.0 + paid-orders.synthetic.v1",
+    "dictionaryHash": "b2fa3cdd6088fede1819b5e8cbac8b25bacf8fc5f478cfc928ecce7b2b11fdae",
+    "knowledgeVersion": "1.0.0",
+    "knowledgeHash": "be32c347cb54b92ae69346bd2f670581aa5ee3347750f95eaaeb13ebf3cf0b9d",
+    "period": {
+      "start": "2026-11-01",
+      "end": "2026-11-04",
+      "timeZone": "Asia/Shanghai"
+    },
+    "facts": [
+      {
+        "factId": "payment-0",
+        "version": 1,
+        "storeId": "400370",
+        "caliber": "orders.payment.count",
+        "value": 1,
+        "unit": "单",
+        "currency": null,
+        "period": {
+          "start": "2026-11-01",
+          "end": "2026-11-04",
+          "timeZone": "Asia/Shanghai"
+        },
+        "quality": "VERIFIED",
+        "reasons": [],
+        "validUntil": "2026-11-05T23:00:00.000Z",
+        "source": {
+          "path": "paid-orders.synthetic.json",
+          "sha256": "de08f23f6dd93bc60913beb3fd7b536e9290218425dd2b44e838267d17ff78f3",
+          "sourceId": "fixture-paid-export"
+        }
+      },
+      {
+        "factId": "payment-1",
+        "version": 1,
+        "storeId": "400370",
+        "caliber": "orders.payment.units",
+        "value": 2,
+        "unit": "件",
+        "currency": null,
+        "period": {
+          "start": "2026-11-01",
+          "end": "2026-11-04",
+          "timeZone": "Asia/Shanghai"
+        },
+        "quality": "VERIFIED",
+        "reasons": [],
+        "validUntil": "2026-11-05T23:00:00.000Z",
+        "source": {
+          "path": "paid-orders.synthetic.json",
+          "sha256": "de08f23f6dd93bc60913beb3fd7b536e9290218425dd2b44e838267d17ff78f3",
+          "sourceId": "fixture-paid-export"
+        }
+      },
+      {
+        "factId": "payment-2",
+        "version": 1,
+        "storeId": "400370",
+        "caliber": "orders.payment.gross",
+        "value": 12.34,
+        "unit": "CNY",
+        "currency": "CNY",
+        "period": {
+          "start": "2026-11-01",
+          "end": "2026-11-04",
+          "timeZone": "Asia/Shanghai"
+        },
+        "quality": "VERIFIED",
+        "reasons": [],
+        "validUntil": "2026-11-05T23:00:00.000Z",
+        "source": {
+          "path": "paid-orders.synthetic.json",
+          "sha256": "de08f23f6dd93bc60913beb3fd7b536e9290218425dd2b44e838267d17ff78f3",
+          "sourceId": "fixture-paid-export"
+        }
+      }
+    ],
+    "dataGaps": [
+      {
+        "gapId": "REAL_STORE_BINDING_UNVERIFIED",
+        "quality": "UNVERIFIED"
+      },
+      {
+        "gapId": "REAL_SOURCE_AND_REVIEWER_UNVERIFIED",
+        "quality": "UNVERIFIED"
+      },
+      {
+        "gapId": "COMPARISON_PERIOD_MISSING",
+        "quality": "UNVERIFIED"
+      },
+      {
+        "gapId": "REFUNDS_AND_NET_INCOME_UNVERIFIED",
+        "quality": "UNVERIFIED"
+      }
+    ],
+    "sourceRefs": [
+      "de08f23f6dd93bc60913beb3fd7b536e9290218425dd2b44e838267d17ff78f3"
+    ],
+    "capturedAt": "2026-11-05T00:00:00.000Z",
+    "validUntil": "2026-11-05T00:05:00.000Z",
+    "readOnlyBusiness": true,
+    "contextId": "ctx-5ea5b4ad93101bb9886395fb2a7cf3ff49cc485705cf321f5f4e66552eb76981"
+  },
+  "report": {
+    "schema": "ceo-shadow-report/v1",
+    "requestRef": "demo-question",
+    "storeId": "400370",
+    "contextId": "ctx-5ea5b4ad93101bb9886395fb2a7cf3ff49cc485705cf321f5f4e66552eb76981",
+    "snapshotId": "ctx-5ea5b4ad93101bb9886395fb2a7cf3ff49cc485705cf321f5f4e66552eb76981",
+    "taskSnapshotId": "task-snapshot-a262b3f1ad4fc024d8808d63f0cfc5d50bec641b6db150e7a2ed2ec7295a81d8",
+    "workflowSnapshotId": "wf-9579e300edc9ba406ad5bc8f3c2a61e24c22318eb2ddde219596283f07fb960a",
+    "knowledgeVersion": "1.0.0",
+    "knowledgeHash": "be32c347cb54b92ae69346bd2f670581aa5ee3347750f95eaaeb13ebf3cf0b9d",
+    "dictionaryHash": "b2fa3cdd6088fede1819b5e8cbac8b25bacf8fc5f478cfc928ecce7b2b11fdae",
+    "sourceRefs": [
+      "de08f23f6dd93bc60913beb3fd7b536e9290218425dd2b44e838267d17ff78f3"
+    ],
+    "claims": [
+      {
+        "claimId": "payment-fact-0",
+        "kind": "FACT",
+        "text": "orders.payment.count = 1 单",
+        "factIds": [
+          "payment-0"
+        ],
+        "metric": "sales",
+        "assertions": [
+          {
+            "factId": "payment-0",
+            "version": 1,
+            "caliber": "orders.payment.count",
+            "value": 1,
+            "unit": "单",
+            "period": {
+              "start": "2026-11-01",
+              "end": "2026-11-04",
+              "timeZone": "Asia/Shanghai"
+            }
+          }
+        ],
+        "status": "SUPPORTED",
+        "value": null
+      },
+      {
+        "claimId": "payment-fact-1",
+        "kind": "FACT",
+        "text": "orders.payment.units = 2 件",
+        "factIds": [
+          "payment-1"
+        ],
+        "metric": "sales",
+        "assertions": [
+          {
+            "factId": "payment-1",
+            "version": 1,
+            "caliber": "orders.payment.units",
+            "value": 2,
+            "unit": "件",
+            "period": {
+              "start": "2026-11-01",
+              "end": "2026-11-04",
+              "timeZone": "Asia/Shanghai"
+            }
+          }
+        ],
+        "status": "SUPPORTED",
+        "value": null
+      },
+      {
+        "claimId": "payment-fact-2",
+        "kind": "FACT",
+        "text": "orders.payment.gross = 12.34 CNY",
+        "factIds": [
+          "payment-2"
+        ],
+        "metric": "sales",
+        "assertions": [
+          {
+            "factId": "payment-2",
+            "version": 1,
+            "caliber": "orders.payment.gross",
+            "value": 12.34,
+            "unit": "CNY",
+            "period": {
+              "start": "2026-11-01",
+              "end": "2026-11-04",
+              "timeZone": "Asia/Shanghai"
+            }
+          }
+        ],
+        "status": "SUPPORTED",
+        "value": null
+      },
+      {
+        "claimId": "diagnosis-scope",
+        "kind": "HYPOTHESIS",
+        "text": "支付后履约、退款或转化可能影响表现；当前证据不能确认具体原因。",
+        "factIds": [],
+        "metric": "general",
+        "assertions": [],
+        "status": "NOT_A_FACT",
+        "value": null
+      }
+    ],
+    "priorities": [
+      {
+        "title": "核对支付后履约与退款",
+        "kind": "INVESTIGATE",
+        "factIds": [
+          "payment-0",
+          "payment-1",
+          "payment-2"
+        ],
+        "rationale": "已有同期间原始支付事实，尚缺履约和退款结果，不能等同净收入。",
+        "acceptance": "补充同店同期间的履约及退款对账，列出异常订单数量和原因；不触发任何订单操作。"
+      },
+      {
+        "title": "补齐同口径对比期再判断趋势",
+        "kind": "INVESTIGATE",
+        "factIds": [
+          "payment-0",
+          "payment-1",
+          "payment-2"
+        ],
+        "rationale": "只有一个期间，不能把规模变化归因于流量、价格或转化。",
+        "acceptance": "提供相邻等长闭期且口径、时区、币种一致的核准快照，输出可复核差异。"
+      }
+    ],
+    "planCandidates": [],
+    "dataGaps": [
+      {
+        "gapId": "REAL_STORE_BINDING_UNVERIFIED",
+        "quality": "UNVERIFIED"
+      },
+      {
+        "gapId": "REAL_SOURCE_AND_REVIEWER_UNVERIFIED",
+        "quality": "UNVERIFIED"
+      },
+      {
+        "gapId": "COMPARISON_PERIOD_MISSING",
+        "quality": "UNVERIFIED"
+      },
+      {
+        "gapId": "REFUNDS_AND_NET_INCOME_UNVERIFIED",
+        "quality": "UNVERIFIED"
+      }
+    ],
+    "stopReasons": [],
+    "createdAt": "2026-11-05T00:00:00.000Z",
+    "readOnlyBusiness": true,
+    "workflowExecutions": 0,
+    "formalTaskWrites": 0,
+    "analysisId": "analysis-3efde9d257f2894ae3d69faf836947455b582e12b5dbe613326d6bf0af0a7987"
+  },
+  "versions": {
+    "runtimeVersion": "ceo-g2b0-fixture/v1",
+    "runtimeHash": "89784e8243e3e5b1895cf7958dbd94ba823ab9721cef86f34bc9ea6f2dcd28c2",
+    "nodeVersion": "v24.14.1",
+    "knowledgeVersion": "1.0.0",
+    "knowledgeHash": "be32c347cb54b92ae69346bd2f670581aa5ee3347750f95eaaeb13ebf3cf0b9d",
+    "dictionaryVersion": "1.0.0 + paid-orders.synthetic.v1",
+    "dictionaryHash": "b2fa3cdd6088fede1819b5e8cbac8b25bacf8fc5f478cfc928ecce7b2b11fdae",
+    "sourcePolicyVersion": "paid-orders.synthetic.v1",
+    "sourcePolicyHash": "b5d1f576e3ddb7bbb01ced762ee7821ecfd7a38e987a446638498e6525127c78",
+    "packageHash": "f127eb04de2fc872be704fa1808be989c5388b0348c9e807b8d5612752be60ef"
+  },
+  "taskSnapshot": {
+    "schema": "ceo-task-snapshot/v1",
+    "storeId": "400370",
+    "snapshotId": "task-snapshot-a262b3f1ad4fc024d8808d63f0cfc5d50bec641b6db150e7a2ed2ec7295a81d8",
+    "capturedAt": "2026-11-05T00:00:00.000Z",
+    "tasks": [],
+    "events": [],
+    "readOnlyBusiness": true
+  },
+  "workflowState": {
+    "schema": "ceo-workflow-state/v1",
+    "storeId": "400370",
+    "capturedAt": "2026-11-05T00:00:00.000Z",
+    "sourceCapturedAt": "2026-11-05T00:00:00.000Z",
+    "sourceHash": "a5327ee306b3203e8c38a00fb429ac2f8db8246fe5ce85ef9ddac58acf825ad3",
+    "catalogVersion": "1",
+    "workflows": [
+      {
+        "workflowId": "system.state.read",
+        "version": "1",
+        "handlerRef": "synthetic-system-state-projection",
+        "effects": [],
+        "requiredCapability": "read",
+        "requiredInputs": [],
+        "timeoutMs": 5000,
+        "approvalRequired": false,
+        "verification": "SYNTHETIC_VERIFIED",
+        "executionStatus": "UNKNOWN",
+        "availability": "DISABLED",
+        "disabledReasons": [
+          "STATE_MISSING"
+        ]
+      },
+      {
+        "workflowId": "listing.create",
+        "version": "UNKNOWN",
+        "handlerRef": "UNWIRED",
+        "effects": [
+          "BUSINESS_WRITE"
+        ],
+        "requiredCapability": "workflow.execute",
+        "requiredInputs": [
+          "taskId"
+        ],
+        "timeoutMs": 30000,
+        "approvalRequired": true,
+        "verification": "UNVERIFIED",
+        "executionStatus": "UNKNOWN",
+        "availability": "DISABLED",
+        "disabledReasons": [
+          "WORKFLOW_UNVERIFIED",
+          "SIDE_EFFECTS_DISABLED",
+          "STATE_MISSING"
+        ]
+      }
+    ],
+    "readOnlyBusiness": true,
+    "executorCalls": 0,
+    "snapshotId": "wf-9579e300edc9ba406ad5bc8f3c2a61e24c22318eb2ddde219596283f07fb960a"
+  },
+  "status": "COMPLETE",
+  "traceRecordHash": "98c8d116295a8c43acb441137ca2079e9ef282d2df7c31e67179b8e3dc0d8eba",
+  "traceReceipt": {
+    "schema": "ceo-report-trace-receipt/v1",
+    "reportId": "report-0cf812600b7c06bceb7d79e5a6dd62f9e6bb75c72c68f56238f7468ae95d3b0b",
+    "manifestHash": "cb2d217bae81dfa99b64598ba301203057bd7b13f12e9a4fbc30a91d3b9402c8",
+    "versionsHash": "d9ad7aff8e97822711eaad7659290ab986ff7c80b48888965eacc40d9d5d7a55",
+    "traceRecordHash": "98c8d116295a8c43acb441137ca2079e9ef282d2df7c31e67179b8e3dc0d8eba",
+    "traceSequence": 1,
+    "traceEventId": "archive-0cf812600b7c06bceb7d79e5a6dd62f9e6bb75c72c68f56238f7468ae95d3b0b",
+    "receiptHash": "b867b468bd2bcd1e2835da65e9be17811d2d691967a9d2f2a5fe11f0b73415e2"
+  }
+}

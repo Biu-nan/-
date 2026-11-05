@@ -1,0 +1,19 @@
+{
+  "verifiedAt": "2026-11-05T05:50:02.201028+00:00",
+  "report": "F:\\yikuaborder-deploy\\CEO agent\\CEO_Agent_V1.0_G2A_Implementation_Report.md",
+  "reportSha256": "30209d7db6e71e95856205799d01c63630c1809f712de169ef5e21ffd5adb665",
+  "evidenceFilesVerified": 123,
+  "linksVerified": 10,
+  "g2aChangedPaths": 27,
+  "g1OriginalFilesUnchanged": 64,
+  "protectedSamplesUnchanged": 13,
+  "g2aTestPass": 68,
+  "reliabilityPass": 45,
+  "fullTests": 540,
+  "fullPass": 514,
+  "fullFail": 26,
+  "newRegressionNames": [],
+  "g2aPatchSha256": "aad00ae76242e8fe7f0305af58c9810a7c7a0a9691bbb734d17399b5cb8dbdfb",
+  "state": "G2A_DELIVERED; HUMAN_ACCEPTANCE_PENDING; NO_G2B_OR_G3",
+  "productionActionsTaken": false
+}

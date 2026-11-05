@@ -1,0 +1,202 @@
+--- /dev/null
++++ b/dist/test/ceo-shadow-trace.test.js
+@@ -0,0 +1,199 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import {mkdtempSync, writeFileSync, readFileSync, readdirSync, mkdirSync, symlinkSync, existsSync, rmSync} from 'node:fs';
++import {join, resolve} from 'node:path';
++import {tmpdir} from 'node:os';
++import {spawn} from 'node:child_process';
++import fs from 'node:fs';
++import {syncBuiltinESMExports} from 'node:module';
++import {pathToFileURL} from 'node:url';
++import {createCeoGovernance} from '../src/ceo-governance.js';
++const api = await import('../src/ceo-shadow-trace.js').catch(e => {if (e.code === 'ERR_MODULE_NOT_FOUND') return {}; throw e;});
++const credentials = {
++ shadow: {id:'shadow',role:'agent',profile:'shadow',storeId:'400370',token:'s'.repeat(48)},
++ human: {id:'human',role:'owner',profile:'human',storeId:'400370',token:'h'.repeat(48)},
++ legacy: {id:'legacy',role:'agent',profile:'legacy',storeId:'400370',token:'l'.repeat(48)}
++};
++const event = (overrides = {}) => ({type:'ANALYSIS',storeId:'400370',eventId:'event-1',analysisId:'analysis-1',contextId:'context-1',snapshotId:'snapshot-1',sourceHash:'a'.repeat(64),policyVersion:'1.0.0',proposalRef:null,...overrides});
++function fixture(t, options = {}) {
++ assert.equal(typeof api.createCeoShadowTrace, 'function', 'shadow trace feature missing');
++ const fixtureRoot = mkdtempSync(join(tmpdir(), 'ceo-shadow-trace-'));
++ t.after(() => rmSync(fixtureRoot,{recursive:true,force:true}));
++ writeFileSync(join(fixtureRoot,'.ceo-isolated-fixture.json'),JSON.stringify({synthetic:true}));
++ const filePath = join(fixtureRoot,'trace.jsonl');
++ const governance = createCeoGovernance({credentials});
++ const principals = Object.fromEntries(Object.entries(credentials).map(([k,c])=>[k,governance.authenticateToken(c.token)]));
++ const open = () => api.createCeoShadowTrace({filePath,fixtureRoot,governance,now:()=>new Date('2026-11-05T00:00:00Z'),...options});
++ return {fixtureRoot,filePath,governance,...principals,open,trace:open()};
++}
++const humanEvent = (type,overrides={}) => event({type,eventId:`${type}-1`,feedbackId:`feedback-${type}`,note:'Synthetic human review',...overrides});
++
++test('missing trace reads return [] and create no file or lock',async t=>{
++ const f=fixture(t);const before=readdirSync(f.fixtureRoot);
++ assert.deepEqual(await f.trace.read({principal:f.legacy,storeId:'400370'}),[]);
++ assert.deepEqual(readdirSync(f.fixtureRoot),before);
++});
++
++test('append commits a durable record and restart returns exactly the same event',async t=>{
++ const f=fixture(t),record=await f.trace.append({principal:f.shadow,event:event()});
++ assert.equal(record.sequence,1);assert.equal(record.actorId,'shadow');assert.equal(record.event.eventId,'event-1');
++ assert.equal(record.recordedAt,'2026-11-05T00:00:00.000Z');assert.match(record.contentHash,/^[a-f0-9]{64}$/);
++ assert.deepEqual(await f.open().read({principal:f.human,storeId:'400370'}),[record]);
++});
++
++test('analysis decisionSummary persists immutably and rejects unsafe or unbounded text',async t=>{
++ const f=fixture(t),summary='status=NEEDS_REVIEW; priorities=inventory,listing; gaps=snapshot age';
++ const record=await f.trace.append({principal:f.shadow,event:event({decisionSummary:summary})});
++ assert.equal(record.event.decisionSummary,summary);assert.ok(Object.isFrozen(record.event));
++ assert.equal((await f.open().read({principal:f.human,storeId:'400370'}))[0].event.decisionSummary,summary);
++ const before=readFileSync(f.filePath);
++ for(const decisionSummary of ['x'.repeat(2001),'Authorization: Bearer synthetic-secret','api_key=synthetic-secret','bad\u0000text',{},'']) {
++  await assert.rejects(f.trace.append({principal:f.shadow,event:event({eventId:'bad-summary',analysisId:'bad-summary',decisionSummary})}),{code:'INVALID_TRACE_EVENT'});
++ }
++ await assert.rejects(f.trace.append({principal:f.human,event:humanEvent('HUMAN_FEEDBACK',{decisionSummary:summary})}),{code:'INVALID_TRACE_EVENT'});
++ assert.deepEqual(readFileSync(f.filePath),before);
++});
++
++test('event and analysis dedup survive restart; conflicting IDs never overwrite history',async t=>{
++ const f=fixture(t),first=await f.trace.append({principal:f.shadow,event:event()}),bytes=readFileSync(f.filePath);
++ assert.deepEqual(await f.open().append({principal:f.shadow,event:event()}),first);
++ const retry=await f.open().append({principal:f.shadow,event:event({eventId:'event-alias'})});
++ assert.deepEqual(retry,first);assert.equal(retry.event.eventId,'event-1');
++ await assert.rejects(f.open().append({principal:f.shadow,event:event({snapshotId:'changed'})}),{code:'TRACE_CONFLICT'});
++ await assert.rejects(f.open().append({principal:f.shadow,event:event({analysisId:'changed'})}),{code:'TRACE_CONFLICT'});
++ assert.deepEqual(readFileSync(f.filePath),bytes);
++});
++
++test('only governance-issued principals and store capabilities can read or append; no denied call mutates files',async t=>{
++ const f=fixture(t),before=readdirSync(f.fixtureRoot);
++ const forged={id:'human',role:'owner',profile:'human',storeId:'400370'};
++ for(const principal of [forged,f.legacy,f.human]) await assert.rejects(f.trace.append({principal,event:event()}),e=>['UNAUTHORIZED','FORBIDDEN'].includes(e.code));
++ await assert.rejects(f.trace.append({principal:f.shadow,event:humanEvent('HUMAN_FEEDBACK')}),{code:'FORBIDDEN'});
++ await assert.rejects(f.trace.append({principal:f.shadow,event:event({storeId:'400371'})}),{code:'FORBIDDEN'});
++ await assert.rejects(f.trace.read({principal:forged,storeId:'400370'}),{code:'UNAUTHORIZED'});
++ await assert.rejects(f.trace.read({principal:f.shadow,storeId:'400371'}),{code:'FORBIDDEN'});
++ assert.deepEqual(readdirSync(f.fixtureRoot),before);
++});
++
++test('schema rejects unknown keys, task/run mutations and secrets without filesystem mutation',async t=>{
++ const f=fixture(t),before=readdirSync(f.fixtureRoot);
++ for(const bad of [event({type:'TASK_COMMAND'}),event({taskId:'task-1'}),event({run:{status:'STOPPED'}}),event({sourceHash:'bad'}),event({eventId:'a\nsecret'}),event({proposalRef:'https://secret.example'}),event({note:'x'}),humanEvent('HUMAN_FEEDBACK',{note:'Authorization: Bearer abcdefghijklmnopqrstuvwxyz'}),humanEvent('HUMAN_FEEDBACK',{note:'api_key=secret'}),humanEvent('HUMAN_FEEDBACK',{note:'x'.repeat(2001)}),humanEvent('HUMAN_CORRECTION')]) {
++  await assert.rejects(f.trace.append({principal:bad.type==='ANALYSIS'?f.shadow:f.human,event:bad}),{code:'INVALID_TRACE_EVENT'});
++ }
++ assert.deepEqual(readdirSync(f.fixtureRoot),before);
++});
++
++test('Human correction appends links while original bytes remain; invalid links fail',async t=>{
++ const f=fixture(t);await f.trace.append({principal:f.shadow,event:event()});
++ await f.trace.append({principal:f.human,event:humanEvent('HUMAN_FEEDBACK')});const before=readFileSync(f.filePath);
++ const correction=await f.trace.append({principal:f.human,event:humanEvent('HUMAN_CORRECTION',{correctsEventId:'HUMAN_FEEDBACK-1'})});
++ assert.equal(correction.event.correctsEventId,'HUMAN_FEEDBACK-1');assert.deepEqual(readFileSync(f.filePath).subarray(0,before.length),before);
++ assert.equal((await f.trace.read({principal:f.human,storeId:'400370'})).length,3);
++ await assert.rejects(f.trace.append({principal:f.human,event:humanEvent('HUMAN_CORRECTION',{eventId:'bad-link',feedbackId:'bad-link',correctsEventId:'missing'})}),{code:'TRACE_REFERENCE_MISMATCH'});
++ await assert.rejects(f.trace.append({principal:f.human,event:humanEvent('HUMAN_FEEDBACK',{eventId:'bad-analysis',feedbackId:'bad-analysis',analysisId:'missing'})}),{code:'TRACE_REFERENCE_MISMATCH'});
++ await assert.rejects(f.trace.append({principal:f.human,event:humanEvent('HUMAN_FEEDBACK',{eventId:'bad-source',feedbackId:'bad-source',sourceHash:'b'.repeat(64)})}),{code:'TRACE_REFERENCE_MISMATCH'});
++});
++
++test('pause blocks new analyses across restart but permits feedback, duplicate analysis and Human resume',async t=>{
++ const f=fixture(t),first=await f.trace.append({principal:f.shadow,event:event()});
++ await f.trace.append({principal:f.human,event:humanEvent('HUMAN_PAUSE')});
++ await assert.rejects(f.open().append({principal:f.shadow,event:event({eventId:'event-2',analysisId:'analysis-2'})}),{code:'TRACE_PAUSED'});
++ assert.deepEqual(await f.open().append({principal:f.shadow,event:event()}),first);
++ await f.open().append({principal:f.human,event:humanEvent('HUMAN_FEEDBACK')});
++ await f.open().append({principal:f.human,event:humanEvent('HUMAN_RESUME')});
++ assert.equal((await f.open().append({principal:f.shadow,event:event({eventId:'event-2',analysisId:'analysis-2'})})).sequence,5);
++});
++
++test('corruption, truncation and tampering fail closed without overwriting bytes',async t=>{
++ for(const transform of [b=>b+'{',b=>b.slice(0,-1),b=>b.replace('context-1','context-2'),b=>b+'\n',()=> '']) {
++  const f=fixture(t);await f.trace.append({principal:f.shadow,event:event()});
++  writeFileSync(f.filePath,transform(readFileSync(f.filePath,'utf8')));const before=readFileSync(f.filePath);
++  await assert.rejects(f.trace.read({principal:f.shadow,storeId:'400370'}),{code:'TRACE_CORRUPT'});
++  await assert.rejects(f.trace.append({principal:f.shadow,event:event({eventId:'event-2',analysisId:'analysis-2'})}),{code:'TRACE_CORRUPT'});
++  assert.deepEqual(readFileSync(f.filePath),before);
++ }
++});
++
++test('unmarked fixtures and lexical/symlink path escapes never create outside output',async t=>{
++ const f=fixture(t),outside=mkdtempSync(join(tmpdir(),'ceo-trace-outside-'));t.after(()=>rmSync(outside,{recursive:true,force:true}));
++ const make=filePath=>api.createCeoShadowTrace({filePath,fixtureRoot:f.fixtureRoot,governance:f.governance});
++ assert.throws(()=>make(join(outside,'trace.jsonl')),{code:'ISOLATED_FIXTURE_REQUIRED'});
++ symlinkSync(outside,join(f.fixtureRoot,'escape'),'junction');
++ assert.throws(()=>make(join(f.fixtureRoot,'escape','trace.jsonl')),{code:'ISOLATED_FIXTURE_REQUIRED'});
++ writeFileSync(join(f.fixtureRoot,'.ceo-isolated-fixture.json'),'{"synthetic":false}');
++ assert.throws(()=>make(f.filePath),{code:'ISOLATED_FIXTURE_REQUIRED'});assert.deepEqual(readdirSync(outside),[]);
++});
++
++test('path swap after construction fails closed',async t=>{
++ const f=fixture(t),outside=mkdtempSync(join(tmpdir(),'ceo-trace-outside-'));t.after(()=>rmSync(outside,{recursive:true,force:true}));
++ symlinkSync(outside,f.filePath,'junction');
++ await assert.rejects(f.trace.append({principal:f.shadow,event:event()}),{code:'ISOLATED_FIXTURE_REQUIRED'});assert.deepEqual(readdirSync(outside),[]);
++});
++
++test('pre-existing lock is never stolen; a symlink lock is rejected',async t=>{
++ const f=fixture(t),lock=`${f.filePath}.lock`;
++ writeFileSync(lock,'synthetic abandoned lock');
++ await assert.rejects(f.trace.append({principal:f.shadow,event:event()}),{code:'TRACE_LOCKED'});
++ assert.equal(readFileSync(lock,'utf8'),'synthetic abandoned lock');assert.equal(existsSync(f.filePath),false);
++ rmSync(lock);symlinkSync(f.fixtureRoot,lock,'junction');
++ await assert.rejects(f.trace.append({principal:f.shadow,event:event()}),{code:'ISOLATED_FIXTURE_REQUIRED'});
++});
++
++test('failed append does not report a saved record and retains existing bytes',async t=>{
++ const f=fixture(t);mkdirSync(f.filePath);
++ await assert.rejects(f.trace.append({principal:f.shadow,event:event()}));
++ assert.deepEqual(readdirSync(f.filePath),[]);
++ assert.equal(existsSync(`${f.filePath}.lock`),false);
++});
++
++test('write errors reject without claiming saved and never overwrite historical bytes',async t=>{
++ const f=fixture(t);await f.trace.append({principal:f.shadow,event:event()});const before=readFileSync(f.filePath);
++ const original=fs.writeSync;
++ fs.writeSync=()=>{throw Object.assign(new Error('synthetic disk full'),{code:'ENOSPC'});};syncBuiltinESMExports();
++ try {await assert.rejects(f.trace.append({principal:f.shadow,event:event({eventId:'new',analysisId:'new'})}),{code:'ENOSPC'});}
++ finally {fs.writeSync=original;syncBuiltinESMExports();}
++ assert.deepEqual(readFileSync(f.filePath),before);assert.equal(existsSync(`${f.filePath}.lock`),false);
++ assert.equal((await f.trace.read({principal:f.shadow,storeId:'400370'})).length,1);
++});
++
++test('fsync errors reject initial and duplicate writes; successful retry resolves to the same record',async t=>{
++ const f=fixture(t),original=fs.fsyncSync;
++ fs.fsyncSync=()=>{throw Object.assign(new Error('synthetic sync failure'),{code:'EIO'});};syncBuiltinESMExports();
++ try {
++  await assert.rejects(f.trace.append({principal:f.shadow,event:event()}),{code:'EIO'});
++  await assert.rejects(f.open().append({principal:f.shadow,event:event()}),{code:'EIO'});
++ }
++ finally {fs.fsyncSync=original;syncBuiltinESMExports();}
++ assert.equal((await f.open().append({principal:f.shadow,event:event()})).sequence,1);
++ assert.equal((await f.trace.read({principal:f.shadow,storeId:'400370'})).length,1);
++});
++
++test('partial append failure leaves prior bytes intact and subsequent operations fail closed',async t=>{
++ const f=fixture(t);await f.trace.append({principal:f.shadow,event:event()});const before=readFileSync(f.filePath),original=fs.writeSync;let calls=0;
++ fs.writeSync=(fd,bytes,offset,length)=>{
++  if(calls++===0)return original(fd,bytes,offset,15);
++  throw Object.assign(new Error('synthetic partial write'),{code:'ENOSPC'});
++ };syncBuiltinESMExports();
++ try {await assert.rejects(f.trace.append({principal:f.shadow,event:event({eventId:'partial',analysisId:'partial'})}),{code:'ENOSPC'});}
++ finally {fs.writeSync=original;syncBuiltinESMExports();}
++ assert.deepEqual(readFileSync(f.filePath).subarray(0,before.length),before);
++ await assert.rejects(f.open().read({principal:f.human,storeId:'400370'}),{code:'TRACE_CORRUPT'});
++ await assert.rejects(f.open().append({principal:f.shadow,event:event({eventId:'partial',analysisId:'partial'})}),{code:'TRACE_CORRUPT'});
++});
++
++test('parallel instances serialize unique writes and deduplicate competing identical analyses',async t=>{
++ const f=fixture(t),results=await Promise.all(Array.from({length:10},(_,i)=>f.open().append({principal:f.shadow,event:event({eventId:`parallel-${i}`,analysisId:`analysis-${i}`})})));
++ assert.deepEqual(results.map(r=>r.sequence).sort((a,b)=>a-b),[1,2,3,4,5,6,7,8,9,10]);
++ const same=await Promise.all(Array.from({length:8},()=>f.open().append({principal:f.shadow,event:event({eventId:'duplicate',analysisId:'same'})})));
++ assert.ok(same.every(r=>r.sequence===11));assert.equal((await f.trace.read({principal:f.shadow,storeId:'400370'})).length,11);
++});
++
++test('separate processes serialize concurrent appends and restart dedup',async t=>{
++ const f=fixture(t),moduleUrl=pathToFileURL(resolve('dist/src/ceo-shadow-trace.js')).href,governanceUrl=pathToFileURL(resolve('dist/src/ceo-governance.js')).href;
++ const child = index => new Promise((resolveChild,reject)=>{
++  const code=`import {createCeoShadowTrace} from ${JSON.stringify(moduleUrl)};import {createCeoGovernance} from ${JSON.stringify(governanceUrl)};const g=createCeoGovernance({credentials:${JSON.stringify(credentials)}});const s=createCeoShadowTrace({filePath:${JSON.stringify(f.filePath)},fixtureRoot:${JSON.stringify(f.fixtureRoot)},governance:g});await s.append({principal:g.authenticateToken('s'.repeat(48)),event:${JSON.stringify(event({eventId:`process-${index}`,analysisId:`process-${index}`}))}});`;
++  const p=spawn(process.execPath,['--input-type=module','-e',code],{env:process.env,stdio:['ignore','pipe','pipe']});let stderr='';p.stderr.on('data',b=>stderr+=b);p.on('error',reject);p.on('close',code=>code===0?resolveChild():reject(new Error(stderr)));
++ });
++ await Promise.all([child(1),child(2),child(3),child(4),child(1),child(2)]);
++ const rows=await f.open().read({principal:f.human,storeId:'400370'});assert.equal(rows.length,4);assert.deepEqual(rows.map(r=>r.sequence),[1,2,3,4]);
++});

@@ -1,0 +1,13 @@
+{
+  "label": "review-fixes-green",
+  "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+  "command": [
+    "node",
+    "--test",
+    "dist/test/ceo-payment-domain.test.js",
+    "dist/test/ceo-payment-loop.test.js",
+    "dist/test/ceo-report-linkage.test.js"
+  ],
+  "exitCode": 0,
+  "seconds": 5.825
+}

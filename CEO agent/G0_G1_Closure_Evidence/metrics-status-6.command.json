@@ -1,0 +1,12 @@
+{
+  "at": "2026-11-05T02:30:06.253591+00:00",
+  "cwd": "F:\\yikuaborder-deploy\\.worktrees\\reliability-phase2",
+  "command": [
+    "git",
+    "status",
+    "--short",
+    "--",
+    "config/metrics-schema.json"
+  ],
+  "exitCode": 0
+}

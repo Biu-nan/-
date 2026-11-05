@@ -1,0 +1,9 @@
+{
+  "label": "real-adapter-chain",
+  "failure": "test cleanup removed fresh synthetic SQLite before its after-hook checksum; later server stop hook skipped, leaving isolated worker",
+  "stop": "verified node.exe PID13044 had full current-worktree ceo-payment-loop.test.js command; only this worker stopped",
+  "productCodeFix": false,
+  "testFix": "single owner teardown closes HTTP, validates DB before removing new fixture root",
+  "retainedResult": "10/10 failed attempt recorded; adapter-chain-green later10/10",
+  "formalInstanceTouched": false
+}

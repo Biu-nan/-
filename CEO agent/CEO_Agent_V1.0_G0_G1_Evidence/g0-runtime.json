@@ -1,0 +1,103 @@
+{
+  "observedAt": "2026-11-05T01:29:48.658335+00:00",
+  "runtime": {
+    "branch": "feature/ykb-v1-phase1-identity-state",
+    "commit": "052abd7",
+    "codeRoot": "F:\\yikuaborder-deploy",
+    "projectRoot": "F:\\yikuaborder-deploy",
+    "userDataDir": "F:\\yikuaborder-deploy",
+    "host": "0.0.0.0",
+    "port": 3000,
+    "startedAt": "2026-10-31T01:24:13.295Z",
+    "pid": 18656
+  },
+  "assets": [
+    {
+      "path": "public/index.html",
+      "servedSha256": "dfd787f397b8032d66297db42f99136e11261242eb04e113b7f3385da39b3764",
+      "diskSha256": "dfd787f397b8032d66297db42f99136e11261242eb04e113b7f3385da39b3764",
+      "matchesDisk": true
+    },
+    {
+      "path": "public/ceo-command-center.js",
+      "servedSha256": "37dee4528b25ff41ff2ed1299fe7064863e1c1361e36d59111804a4790fbf837",
+      "diskSha256": "37dee4528b25ff41ff2ed1299fe7064863e1c1361e36d59111804a4790fbf837",
+      "matchesDisk": true
+    },
+    {
+      "path": "public/ceo-tasks.js",
+      "servedSha256": "8d08435448bceadb947b322ae7bd67ede877f1ba31b83e78a4b4de02241fdd93",
+      "diskSha256": "8d08435448bceadb947b322ae7bd67ede877f1ba31b83e78a4b4de02241fdd93",
+      "matchesDisk": true
+    },
+    {
+      "path": "public/app.js",
+      "servedSha256": "3718c77def79e00a3589cae728b25615d641f454e90a7dd17bb5cd54f5cc3481",
+      "diskSha256": "3718c77def79e00a3589cae728b25615d641f454e90a7dd17bb5cd54f5cc3481",
+      "matchesDisk": true
+    },
+    {
+      "path": "public/styles.css",
+      "servedSha256": "fdb366f97ea869379b3099db7b025e0ac480744555fd92c3046cf493f69878ec",
+      "diskSha256": "fdb366f97ea869379b3099db7b025e0ac480744555fd92c3046cf493f69878ec",
+      "matchesDisk": true
+    }
+  ],
+  "taskboardBinding": {
+    "lastVerifiedPath": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\.superpowers\\sdd\\2026-10-27-ceo-shared-task-loop\\manual-loop-preview.sqlite",
+    "evidence": [
+      "restart-service.ps1",
+      "runtime-before.json",
+      "runtime-after.json"
+    ],
+    "currentBinding": "PENDING_CONFIRMATION_NO_3173_LISTENER",
+    "productionWiringEnabled": false
+  },
+  "ownership": {
+    "3000": {
+      "pid": 18656,
+      "parentPid": 17160,
+      "entry": "F:\\yikuaborder-deploy\\watchdog.js",
+      "dataRoot": "F:\\yikuaborder-deploy"
+    },
+    "3173": "STOPPED_OR_NOT_LISTENING; current owner unverified",
+    "logs": "3000 owns HiddenDataLoopService; no exclusive cross-process writer enforcement currently verified"
+  },
+  "secretsRead": false,
+  "startupReferences": {
+    "vbs": "F:\\yikuaborder-deploy\\start-workbench.vbs",
+    "commandTarget": "F:\\yikuaborder-deploy\\watchdog.js",
+    "nodeReference": "F:/软件/node.exe",
+    "observedParent": "PID17160 watchdog -> PID18656; watchdog parent16664 is cmd.exe",
+    "CEO3173Autostart": "No current binding found in inspected startup/service references",
+    "serviceEnvironment": "Full process environment deliberately not read; code references and version response used"
+  },
+  "databaseEvidence": {
+    "lastDocumentedBinding": "Historical start-script plus independent runtime-before/after agree; not proof of current formal designation",
+    "fileNameUsedAsAuthority": false,
+    "currentFormalBinding": "UNCONFIRMED",
+    "productionWiringEnabled": false,
+    "replacementDatabaseCreated": false,
+    "userSteering": "Continue all independent G1 fixture work; do not repeat confirmation question"
+  },
+  "writeOwnership": [
+    {
+      "area": "main business root and application JSONL",
+      "root": "F:\\yikuaborder-deploy\\data",
+      "owner": "3000 application helpers; no exclusive cross-process lock verified",
+      "exclusiveWriterVerified": false
+    },
+    {
+      "area": "historical CEO DB",
+      "root": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\.superpowers\\sdd\\2026-10-27-ceo-shared-task-loop\\manual-loop-preview.sqlite",
+      "owner": "last documented3173; current service not listening",
+      "exclusiveWriterVerified": false
+    },
+    {
+      "area": "G1 synthetic test roots",
+      "root": "F:/tmp/ceog1-20261105-isolated",
+      "owner": "new test processes under filesystem/network guard",
+      "productionDataUsed": false
+    }
+  ]
+}

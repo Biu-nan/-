@@ -1,0 +1,284 @@
+diff --git a/config/metrics-schema.json b/config/metrics-schema.json
+index 536082c..0a612f1 100644
+--- a/config/metrics-schema.json
++++ b/config/metrics-schema.json
+@@ -1,8 +1,7 @@
+ {
+-  "version": "1.0.0",
+-  "updatedAt": "2026-10-25",
++  "version": "1.1.0",
++  "updatedAt": "2026-11-05",
+   "note": "口径字典（Single Source of Caliber）。任何指标计算必须显式声明 caliber，禁止跨口径聚合。此文件是唯一权威定义，代码里不得硬编码口径含义。",
+-
+   "calibers": {
+     "sales.qty.total": {
+       "label": "含货通销量",
+@@ -25,7 +24,9 @@
+       "definition": "成交金额 = 待结算金额 + 放款前退款金额 + 已放款金额",
+       "source": "aliexpress.funds",
+       "unit": "CNY",
+-      "comparableWith": ["sales.qty.total"],
++      "comparableWith": [
++        "sales.qty.total"
++      ],
+       "warning": "发货时间口径，非下单时间。"
+     },
+     "sales.amount.pending": {
+@@ -33,14 +34,18 @@
+       "definition": "已成交但平台尚未放款的金额",
+       "source": "aliexpress.funds",
+       "unit": "CNY",
+-      "comparableWith": ["sales.amount.gmv"]
++      "comparableWith": [
++        "sales.amount.gmv"
++      ]
+     },
+     "sales.amount.net": {
+       "label": "净收入",
+       "definition": "总收入 - 总支出，平台扣费后口径",
+       "source": "aliexpress.funds",
+       "unit": "CNY",
+-      "comparableWith": ["sales.amount.gmv"],
++      "comparableWith": [
++        "sales.amount.gmv"
++      ],
+       "warning": "不含采购成本、头程、包装。绝不可等同于利润。"
+     },
+     "traffic.pv": {
+@@ -48,14 +53,18 @@
+       "definition": "店铺商品页被浏览的页面次数",
+       "source": "aliexpress.store-overview",
+       "unit": "次",
+-      "comparableWith": ["traffic.uv"]
++      "comparableWith": [
++        "traffic.uv"
++      ]
+     },
+     "traffic.uv": {
+       "label": "访客数",
+       "definition": "去重后的访问人数",
+       "source": "aliexpress.store-overview",
+       "unit": "人",
+-      "comparableWith": ["traffic.pv"]
++      "comparableWith": [
++        "traffic.pv"
++      ]
+     },
+     "traffic.impression": {
+       "label": "搜索曝光量",
+@@ -69,7 +78,9 @@
+       "definition": "完成支付的去重买家数",
+       "source": "aliexpress.store-overview",
+       "unit": "人",
+-      "comparableWith": ["traffic.uv"]
++      "comparableWith": [
++        "traffic.uv"
++      ]
+     },
+     "conv.rate": {
+       "label": "支付转化率",
+@@ -158,56 +169,179 @@
+       "definition": "全部规格无库存的商品数（平台口径，延迟 1 小时）",
+       "source": "aliexpress.sales-manage",
+       "unit": "个"
++    },
++    "market.rank.sales7d@product_rank": {
++      "label": "榜单周期销量",
++      "definition": "product_rank 返回的 sales_count_7d，语义为\"该榜单周期内的销量增量\"，与 product_detail 同名指标不一致（实测同 ID 36346 vs 0）",
++      "source": "ixspy.product_rank",
++      "unit": "件",
++      "comparableWith": [],
++      "warning": "只认 product_rank；禁止与 product_detail 的 sales_count_7d 混用；禁止对 total_sales_trend 做日差分推日销。"
++    },
++    "market.rank.total_sales@product_rank": {
++      "label": "商品近一年累计销量",
++      "definition": "product_rank 返回的 total_sales（近一年口径）",
++      "source": "ixspy.product_rank",
++      "unit": "件",
++      "comparableWith": [],
++      "warning": "与 product_detail.total_sales 存在 1-6% 偏差（取数时点不同）。"
++    },
++    "market.rank.price@product_rank": {
++      "label": "榜单展示价",
++      "definition": "product_rank 返回的 product_price，USD",
++      "source": "ixspy.product_rank",
++      "unit": "USD",
++      "comparableWith": [
++        "market.category.top100_price@category_research"
++      ],
++      "warning": "为前台展示价，非供货价，不可直接进利润测算。"
++    },
++    "market.category.sales_1m@category_research": {
++      "label": "类目近1月销量",
++      "definition": "category_research 返回的 sales_count_1m，二级类目聚合",
++      "source": "ixspy.category_research",
++      "unit": "件",
++      "comparableWith": [],
++      "warning": "类目级市场值，禁止与自家 sales.qty.total 直接相除当份额以外的用途。"
++    },
++    "market.category.products@category_research": {
++      "label": "类目在售商品数",
++      "definition": "category_research 返回的 total_products",
++      "source": "ixspy.category_research",
++      "unit": "个",
++      "comparableWith": [],
++      "warning": "店铺数按二级类目加总会重复计数，未去重。"
++    },
++    "market.category.supply_demand_1m@category_research": {
++      "label": "类目供需比(1月)",
++      "definition": "category_research 返回的 supply_demand_1m，>1 表示需求大于供给",
++      "source": "ixspy.category_research",
++      "unit": "比值",
++      "comparableWith": [],
++      "warning": "官方未说明计算公式，仅可作相对排序用。"
++    },
++    "market.category.top100_price@category_research": {
++      "label": "类目Top100均价",
++      "definition": "category_research 返回的 top100_avg_price，USD",
++      "source": "ixspy.category_research",
++      "unit": "USD",
++      "comparableWith": [
++        "market.rank.price@product_rank"
++      ],
++      "warning": "与自家供货价不同口径，比价前须换算渠道成本。"
++    },
++    "market.keyword.searches@keyword_rank": {
++      "label": "关键词周搜索人数",
++      "definition": "keyword_rank 返回的 searches_count（周），或 search_cookies_count",
++      "source": "ixspy.keyword_rank",
++      "unit": "次",
++      "comparableWith": [],
++      "warning": "关键词榜最新日期比产品榜晚一周，跨榜关联分析必须声明时间窗差异。"
++    },
++    "market.keyword.competitive@keyword_rank": {
++      "label": "关键词竞争指数",
++      "definition": "keyword_rank 返回的 competitive_index，越高越红海",
++      "source": "ixspy.keyword_rank",
++      "unit": "指数",
++      "comparableWith": [],
++      "warning": "官方未说明量纲，只可做同类目内相对比较。"
++    },
++    "market.keyword.cvr@keyword_rank": {
++      "label": "关键词转化率",
++      "definition": "keyword_rank 返回的 conversion_rate",
++      "source": "ixspy.keyword_rank",
++      "unit": "比率",
++      "comparableWith": [],
++      "warning": "实测 0.06%-0.78%，量级远低于店铺支付转化率 3.06%，两者不可比。"
+     }
+   },
+-
+   "windows": {
+-    "today": { "label": "今日", "days": 0 },
+-    "7d": { "label": "近7日", "days": 7 },
+-    "30d": { "label": "近30日", "days": 30 },
+-    "1y": { "label": "近1年", "days": 365 },
+-    "custom": { "label": "自定义区间", "days": null }
++    "today": {
++      "label": "今日",
++      "days": 0
++    },
++    "7d": {
++      "label": "近7日",
++      "days": 7
++    },
++    "30d": {
++      "label": "近30日",
++      "days": 30
++    },
++    "1y": {
++      "label": "近1年",
++      "days": 365
++    },
++    "custom": {
++      "label": "自定义区间",
++      "days": null
++    }
+   },
+-
+   "timezone": {
+     "note": "速卖通后台销售额/流量一律 PDT（UTC-8），店铺数据页与销售管理页时间口径可能差 1 天，抓取时必须记录页面声明的时间范围，不得自行换算成北京时间后聚合。",
+     "platformTimezone": "PDT",
+     "localTimezone": "Asia/Shanghai"
+   },
+-
+   "freshness": {
+     "note": "平台官方声明：已断货/已断码延迟 1 小时；售罄预警/备货建议延迟 1 天。抓取时若拿不到平台自身的更新时间声明，一律标记 dataFreshness=UNKNOWN，不得当作实时数据使用。",
+     "rules": [
+-      { "metric": "catalog.brokenSize", "maxDelayMinutes": 60 },
+-      { "metric": "catalog.outOfStock", "maxDelayMinutes": 60 },
+-      { "metric": "inventory.sellable", "maxDelayMinutes": 1440 },
+-      { "metric": "sales.qty.total", "maxDelayMinutes": 1440 }
++      {
++        "metric": "catalog.brokenSize",
++        "maxDelayMinutes": 60
++      },
++      {
++        "metric": "catalog.outOfStock",
++        "maxDelayMinutes": 60
++      },
++      {
++        "metric": "inventory.sellable",
++        "maxDelayMinutes": 1440
++      },
++      {
++        "metric": "sales.qty.total",
++        "maxDelayMinutes": 1440
++      }
+     ],
+     "stalePolicy": "超过 maxDelayMinutes 未更新时，指标值必须为 null 且 reason=STALE，禁止沿用上一周期数值。"
+   },
+-
+   "metrics": {
+     "sellThroughRate": {
+       "label": "动销率",
+       "formula": "lifecycle.activeSkus / denominator",
+-      "denominatorOptions": ["catalog.platformItems", "catalog.online", "catalog.total"],
++      "denominatorOptions": [
++        "catalog.platformItems",
++        "catalog.online",
++        "catalog.total"
++      ],
+       "denominatorNote": "三个分母都合法但结论不同，报告必须显式标注用了哪个。默认用 catalog.platformItems（与平台动销商品数同源）。",
+       "unit": "%",
+-      "threshold": { "warn": 40, "critical": 20, "direction": "below" },
++      "threshold": {
++        "warn": 40,
++        "critical": 20,
++        "direction": "below"
++      },
+       "requiresSameSource": true
+     },
+     "brokenSizeRate": {
+       "label": "断码率",
+       "formula": "catalog.brokenSize / catalog.platformItems",
+       "unit": "%",
+-      "threshold": { "warn": 5, "critical": 10, "direction": "above" },
++      "threshold": {
++        "warn": 5,
++        "critical": 10,
++        "direction": "above"
++      },
+       "note": "分子分母必须同源（都是 aliexpress.sales-manage）。用店小秘 online 数当分母是错的，两者统计对象不同。"
+     },
+     "publishFailureRate": {
+       "label": "发布失败率",
+       "formula": "catalog.publishFail / (catalog.online + catalog.waitPublish + catalog.publishFail)",
+       "unit": "%",
+-      "threshold": { "warn": 2, "critical": 5, "direction": "above" },
++      "threshold": {
++        "warn": 2,
++        "critical": 5,
++        "direction": "above"
++      },
+       "note": "纯店小秘同源口径，不与平台数据混用。"
+     },
+     "settlementCycleDays": {
+@@ -230,7 +364,6 @@
+       "note": "供给端积压，配合 publishFail 一起看。"
+     }
+   },
+-
+   "forbidden": [
+     "把 sales.qty.direct 当作全店销量",
+     "把 sales.amount.net 当作利润",

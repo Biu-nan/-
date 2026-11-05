@@ -1,0 +1,67 @@
+3: // 设计铁律（来自 docs/SYSTEM_OPERATING_LOOP_v0.2.md）：
+4: //   1. 原始事实落库，指标永远重算 —— 不存算好的结论
+5: //   2. 抓取幂等，可补历史 —— 同一 (source,storeId,caliber,subject,window,statDate)
+6: //      同值不重复写；值变了追加一条新记录（历史保留），读取时取最后一条
+7: //   3. 抓不到就写 null + reason，绝不沿用上一周期数值
+8: //
+9: // 目录：
+10: //   data/metrics/facts/<source>/<YYYY-MM-DD>.jsonl   规范化事实
+11: //   data/metrics/raw/<source>/<YYYY-MM-DD>/<name>.json  原始响应快照（便于事后追溯）
+20: export const FACTS_DIR = path.join(METRICS_DIR, 'facts');
+21: export const RAW_DIR = path.join(METRICS_DIR, 'raw');
+22: export const SCHEMA_PATH = path.join(PROJECT_ROOT, 'config', 'metrics-schema.json');
+23: 
+24: let _schemaCache = null;
+25: export async function loadSchema() {
+26:   if (_schemaCache) return _schemaCache;
+27:   const txt = await fs.readFile(SCHEMA_PATH, 'utf8');
+28:   _schemaCache = JSON.parse(txt);
+29:   return _schemaCache;
+30: }
+31: 
+32: export function assertKnownCaliber(schema, caliber) {
+33:   if (!schema.calibers[caliber]) {
+34:     throw new Error(`未知口径 "${caliber}"。请先在 config/metrics-schema.json 的 calibers 中定义，禁止临时造词。`);
+35:   }
+36: }
+37: 
+38: export function localDate(d = new Date()) {
+39:   const p = (n) => String(n).padStart(2, '0');
+40:   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+42: 
+43: export function factKey(f) {
+44:   return [f.source, f.storeId || '-', f.caliber, f.subject || '-', f.window || '-', f.statDate].join('|');
+45: }
+46: 
+47: function sameValue(a, b) {
+48:   if (a === b) return true;
+49:   if (typeof a === 'number' && typeof b === 'number') return Math.abs(a - b) < 1e-9;
+50:   return false;
+65: /**
+66:  * 幂等写入事实。返回 { written, skipped, unchanged, total }
+67:  * facts[]: { source, storeId, caliber, subject, window, statDate, value, unit, reason?, meta? }
+68:  */
+69: export async function appendFacts(facts, { date } = {}) {
+70:   const schema = await loadSchema();
+71:   const byDate = new Map();
+72: 
+73:   for (const f of facts) {
+74:     assertKnownCaliber(schema, f.caliber);
+75:     if (!f.statDate) f.statDate = date || localDate();
+76:     if (!f.source) throw new Error('fact 缺少 source');
+77:     const d = f.statDate;
+78:     if (!byDate.has(d)) byDate.set(d, []);
+79:     byDate.get(d).push(f);
+80:   }
+147: 
+148: /** 按口径取值（找不到返回 null，绝不猜） */
+149: export function pick(facts, { source, caliber, subject = '-', window = '-', storeId }) {
+150:   for (const f of facts) {
+151:     if (f.source !== source) continue;
+152:     if (f.caliber !== caliber) continue;
+153:     if ((f.subject || '-') !== subject) continue;
+154:     if ((f.window || '-') !== window) continue;
+155:     if (storeId && f.storeId !== storeId) continue;
+156:     return f;
+157:   }
+158:   return null;

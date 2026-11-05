@@ -1,0 +1,16 @@
+{
+  "label": "final-related",
+  "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+  "command": [
+    "node",
+    "--test",
+    "dist/test/ceo-task-cli.test.js",
+    "dist/test/ceo-task-http.test.js",
+    "dist/test/ceo-conversation-entry.test.js",
+    "dist/test/ceo-read-brief.test.js",
+    "dist/test/ceo-decision-contract.test.js",
+    "dist/test/ceo-daily-plan.test.js"
+  ],
+  "exitCode": 0,
+  "seconds": 30.07
+}

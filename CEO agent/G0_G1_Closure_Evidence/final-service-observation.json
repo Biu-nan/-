@@ -1,0 +1,11 @@
+{
+  "observedAt": "2026-11-05T02:45:50.9930285Z",
+  "listeners": [
+    {
+      "address": "0.0.0.0",
+      "port": 3000,
+      "pid": 18656
+    }
+  ],
+  "serviceControlPerformed": false
+}

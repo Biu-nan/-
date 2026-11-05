@@ -1,0 +1,107 @@
+{
+  "schema": "ceo-cockpit-projection/v1",
+  "status": "BLOCKED",
+  "storeAlias": "纳物一店",
+  "storeId": "400370",
+  "period": {
+    "start": "2026-11-01",
+    "end": "2026-11-04",
+    "timeZone": "Asia/Shanghai"
+  },
+  "verification": {
+    "status": "REJECTED",
+    "receipt": "verify-78f4e91c2fafeccc3ba17a24b6ca07119a8a4119467ad68de7b1be9d918a200e",
+    "failed": [
+      "REAL_CONTRACT_NOT_APPROVED",
+      "REAL_POLICY_NOT_APPROVED",
+      "STORE_MAPPING_UNVERIFIED",
+      "STORE_SCOPE_UNRESOLVED",
+      "REAL_APPROVAL_REVIEWER_UNAUTHORIZED",
+      "PREREQUISITE_FAILED"
+    ],
+    "notEvaluated": [
+      "CONTRACT_BOUND",
+      "STORE_REF_BOUND",
+      "EXPORT_COLUMNS_CONTRACTED",
+      "NO_PERSONAL_DATA",
+      "CLOSED_PERIOD",
+      "TIMEZONE_DECLARED",
+      "CURRENCY_DECLARED",
+      "COVERAGE_COMPLETE",
+      "NO_SYNTHETIC_MARKERS"
+    ]
+  },
+  "report": {
+    "reportId": null,
+    "analysisId": "analysis-5c65e424f7d11f763156d94f26f89619db29b39e2b5dca921ece8e9dc4865da8",
+    "contextId": "ctx-eacb965ed0cb56c0802ebc37066925176b7e32307c9f4c726a1a834922fe287b",
+    "createdAt": "2026-11-05T01:00:00.000Z",
+    "revision": null,
+    "correctsReportId": null
+  },
+  "facts": [
+    {
+      "factId": "payment-0",
+      "caliber": "orders.payment.count",
+      "label": "支付订单数",
+      "value": null,
+      "unit": "单",
+      "quality": "UNVERIFIED",
+      "reasons": [
+        "VERIFICATION_NOT_VERIFIED"
+      ]
+    },
+    {
+      "factId": "payment-1",
+      "caliber": "orders.payment.units",
+      "label": "支付件数",
+      "value": null,
+      "unit": "件",
+      "quality": "UNVERIFIED",
+      "reasons": [
+        "VERIFICATION_NOT_VERIFIED"
+      ]
+    },
+    {
+      "factId": "payment-2",
+      "caliber": "orders.payment.gross",
+      "label": "支付原始金额（非净收入）",
+      "value": null,
+      "unit": "CNY",
+      "quality": "UNVERIFIED",
+      "reasons": [
+        "VERIFICATION_NOT_VERIFIED"
+      ]
+    }
+  ],
+  "gaps": [
+    "COMPARISON_PERIOD_MISSING",
+    "COSTS_AND_PENALTIES_UNVERIFIED",
+    "REFUNDS_AND_NET_INCOME_UNVERIFIED"
+  ],
+  "unverifiedFacts": [],
+  "priorities": [
+    {
+      "title": "核对支付后履约与退款",
+      "kind": "INVESTIGATE",
+      "factIds": [
+        "payment-0",
+        "payment-1",
+        "payment-2"
+      ],
+      "rationale": "已有同期间原始支付事实，尚缺履约和退款结果，不能等同净收入。",
+      "acceptance": "补充同店同期间的履约及退款对账；不触发任何订单操作。"
+    }
+  ],
+  "claimsSummary": {
+    "SUPPORTED": 3,
+    "CANNOT_DETERMINE": 0,
+    "NOT_A_FACT": 1
+  },
+  "actions": [],
+  "readOnly": true,
+  "formalTaskWrites": 0,
+  "workflowExecutions": 0,
+  "generatedAt": "2026-11-05T01:00:00.000Z",
+  "cockpitId": "cockpit-228490358c466040f188578b418ef4e1d89f101ef8cbc3697ad7a6857ff08c7a"
+}

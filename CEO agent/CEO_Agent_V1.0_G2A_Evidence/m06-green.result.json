@@ -1,0 +1,11 @@
+{
+  "label": "m06-green",
+  "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+  "command": [
+    "node",
+    "--test",
+    "dist/test/ceo-shadow-trace.test.js"
+  ],
+  "exitCode": 0,
+  "seconds": 4.092
+}

@@ -1,0 +1,11 @@
+{
+  "label": "m04-hardening-red",
+  "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+  "command": [
+    "node",
+    "--test",
+    "dist/test/ceo-task-read-model.test.js"
+  ],
+  "exitCode": 1,
+  "seconds": 8.56
+}

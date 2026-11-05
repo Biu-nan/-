@@ -1,0 +1,378 @@
+TAP version 13
+# Subtest: a verified real analysis projects a READY cockpit with values and no actions
+ok 1 - a verified real analysis projects a READY cockpit with values and no actions
+  ---
+  duration_ms: 49.475
+  type: 'test'
+  ...
+# Subtest: a rejected chain yields a BLOCKED cockpit with no numbers but visible reasons
+ok 2 - a rejected chain yields a BLOCKED cockpit with no numbers but visible reasons
+  ---
+  duration_ms: 16.7232
+  type: 'test'
+  ...
+# Subtest: the WorkBuddy entry can ask and read, but carries no authority and is not wired
+ok 3 - the WorkBuddy entry can ask and read, but carries no authority and is not wired
+  ---
+  duration_ms: 15.4181
+  type: 'test'
+  ...
+# Subtest: a projection that claims write capability is refused
+ok 4 - a projection that claims write capability is refused
+  ---
+  duration_ms: 14.3126
+  type: 'test'
+  ...
+# Subtest: cockpit identity is deterministic for the same evidence and changes with the period
+ok 5 - cockpit identity is deterministic for the same evidence and changes with the period
+  ---
+  duration_ms: 27.3875
+  type: 'test'
+  ...
+# Subtest: the shipped connection contract keeps every real gate closed and lists the 15 checks
+ok 6 - the shipped connection contract keeps every real gate closed and lists the 15 checks
+  ---
+  duration_ms: 1.9283
+  type: 'test'
+  ...
+# Subtest: a report from a different context cannot be projected as this cockpit
+ok 7 - a report from a different context cannot be projected as this cockpit
+  ---
+  duration_ms: 17.9782
+  type: 'test'
+  ...
+# Subtest: generated cockpit and verification artifacts satisfy their published schemas
+ok 8 - generated cockpit and verification artifacts satisfy their published schemas
+  ---
+  duration_ms: 195.5216
+  type: 'test'
+  ...
+# Subtest: the schema gate itself rejects a cockpit that carries an action or a write counter
+ok 9 - the schema gate itself rejects a cockpit that carries an action or a write counter
+  ---
+  duration_ms: 39.4891
+  type: 'test'
+  ...
+# Subtest: config contracts stay mutually consistent about the closed gates
+ok 10 - config contracts stay mutually consistent about the closed gates
+  ---
+  duration_ms: 4.2815
+  type: 'test'
+  ...
+# (node:7712) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: a verified real export drives the shared shadow loop end to end
+ok 11 - a verified real export drives the shared shadow loop end to end
+  ---
+  duration_ms: 279.9039
+  type: 'test'
+  ...
+# Subtest: retrying the same real request replays the original report instead of rereading data
+ok 12 - retrying the same real request replays the original report instead of rereading data
+  ---
+  duration_ms: 222.9132
+  type: 'test'
+  ...
+# Subtest: Human correction on real data keeps the previous report and version history
+ok 13 - Human correction on real data keeps the previous report and version history
+  ---
+  duration_ms: 414.1055
+  type: 'test'
+  ...
+# Subtest: a real loop still refuses legacy principals, replayed bodies and formal execution routes over HTTP
+ok 14 - a real loop still refuses legacy principals, replayed bodies and formal execution routes over HTTP
+  ---
+  duration_ms: 290.8884
+  type: 'test'
+  ...
+# Subtest: the loop rejects an unknown verification scope label at construction
+ok 15 - the loop rejects an unknown verification scope label at construction
+  ---
+  duration_ms: 38.024
+  type: 'test'
+  ...
+# Subtest: the shipped real contract is a DRAFT and the real path is refused by default
+ok 16 - the shipped real contract is a DRAFT and the real path is refused by default
+  ---
+  duration_ms: 5.3742
+  type: 'test'
+  ...
+# Subtest: a test-only approved contract is usable only inside a marked isolated fixture root
+ok 17 - a test-only approved contract is usable only inside a marked isolated fixture root
+  ---
+  duration_ms: 16.5853
+  type: 'test'
+  ...
+# Subtest: editing the contract after approval breaks the approval binding
+ok 18 - editing the contract after approval breaks the approval binding
+  ---
+  duration_ms: 0.6935
+  type: 'test'
+  ...
+# Subtest: expired or future-dated contract approvals are refused
+ok 19 - expired or future-dated contract approvals are refused
+  ---
+  duration_ms: 8.5893
+  type: 'test'
+  ...
+# Subtest: exporter-owned column names are resolved through the contract, never by position or guesswork
+ok 20 - exporter-owned column names are resolved through the contract, never by position or guesswork
+  ---
+  duration_ms: 24.319
+  type: 'test'
+  ...
+# Subtest: renaming an export column to an unmapped one is a structural failure, not a silent skip
+ok 21 - renaming an export column to an unmapped one is a structural failure, not a silent skip
+  ---
+  duration_ms: 2.0994
+  type: 'test'
+  ...
+# Subtest: personal data columns are rejected outright
+ok 22 - personal data columns are rejected outright
+  ---
+  duration_ms: 1.1493
+  type: 'test'
+  ...
+# Subtest: partial coverage, open periods and missing time zones cannot be admitted
+ok 23 - partial coverage, open periods and missing time zones cannot be admitted
+  ---
+  duration_ms: 3.8867
+  type: 'test'
+  ...
+# Subtest: store mapping mismatch and currency mismatch are refused
+ok 24 - store mapping mismatch and currency mismatch are refused
+  ---
+  duration_ms: 2.3789
+  type: 'test'
+  ...
+# Subtest: unknown status, imprecise money and out-of-period payments become declared gaps instead of zeros
+ok 25 - unknown status, imprecise money and out-of-period payments become declared gaps instead of zeros
+  ---
+  duration_ms: 1.7816
+  type: 'test'
+  ...
+# Subtest: identical retries dedupe while conflicting duplicates are flagged
+ok 26 - identical retries dedupe while conflicting duplicates are flagged
+  ---
+  duration_ms: 2.6714
+  type: 'test'
+  ...
+# Subtest: paid timestamps must carry an explicit offset
+ok 27 - paid timestamps must carry an explicit offset
+  ---
+  duration_ms: 1.578
+  type: 'test'
+  ...
+# Subtest: the draft contract on disk is never mutated by test fixtures
+ok 28 - the draft contract on disk is never mutated by test fixtures
+  ---
+  duration_ms: 1.1728
+  type: 'test'
+  ...
+# Subtest: a fully approved chain verifies every gate and yields a usable context
+ok 29 - a fully approved chain verifies every gate and yields a usable context
+  ---
+  duration_ms: 49.4556
+  type: 'test'
+  ...
+# Subtest: the shipped drafts reject without throwing and name every missing link
+ok 30 - the shipped drafts reject without throwing and name every missing link
+  ---
+  duration_ms: 35.9257
+  type: 'test'
+  ...
+# Subtest: personal data in the export is named as its own failed check
+ok 31 - personal data in the export is named as its own failed check
+  ---
+  duration_ms: 9.5967
+  type: 'test'
+  ...
+# Subtest: partial coverage, currency drift and open periods map to their own checks
+ok 32 - partial coverage, currency drift and open periods map to their own checks
+  ---
+  duration_ms: 11.1123
+  type: 'test'
+  ...
+# Subtest: an unverified mapping is reported as a mapping failure, not as a data failure
+ok 33 - an unverified mapping is reported as a mapping failure, not as a data failure
+  ---
+  duration_ms: 10.1196
+  type: 'test'
+  ...
+# Subtest: a fixture reviewer is refused even inside an isolated fixture root
+ok 34 - a fixture reviewer is refused even inside an isolated fixture root
+  ---
+  duration_ms: 9.638
+  type: 'test'
+  ...
+# Subtest: store scope drift between mapping and policy blocks alignment
+ok 35 - store scope drift between mapping and policy blocks alignment
+  ---
+  duration_ms: 8.3454
+  type: 'test'
+  ...
+# Subtest: the checklist receipt is deterministic and changes when one link changes
+ok 36 - the checklist receipt is deterministic and changes when one link changes
+  ---
+  duration_ms: 27.977
+  type: 'test'
+  ...
+# Subtest: the compact summary exposes the acceptance facts without the domain payload
+ok 37 - the compact summary exposes the acceptance facts without the domain payload
+  ---
+  duration_ms: 13.7564
+  type: 'test'
+  ...
+# Subtest: the shipped real policy and contract are drafts, so the real adapter is closed by default
+ok 38 - the shipped real policy and contract are drafts, so the real adapter is closed by default
+  ---
+  duration_ms: 19.2364
+  type: 'test'
+  ...
+# Subtest: a complete approved chain produces verified real paid facts with bound evidence
+ok 39 - a complete approved chain produces verified real paid facts with bound evidence
+  ---
+  duration_ms: 36.8069
+  type: 'test'
+  ...
+# Subtest: an empty but fully approved export is a true zero, not a gap
+ok 40 - an empty but fully approved export is a true zero, not a gap
+  ---
+  duration_ms: 12.4595
+  type: 'test'
+  ...
+# Subtest: an unverified store mapping blocks the real path
+ok 41 - an unverified store mapping blocks the real path
+  ---
+  duration_ms: 8.751
+  type: 'test'
+  ...
+# Subtest: a fixture reviewer or an unregistered reviewer cannot approve real rows
+ok 42 - a fixture reviewer or an unregistered reviewer cannot approve real rows
+  ---
+  duration_ms: 12.7472
+  type: 'test'
+  ...
+# Subtest: approval must not precede the export or come from the future
+ok 43 - approval must not precede the export or come from the future
+  ---
+  duration_ms: 11.9342
+  type: 'test'
+  ...
+# Subtest: a policy approved without an envelope, or edited after approval, is refused
+ok 44 - a policy approved without an envelope, or edited after approval, is refused
+  ---
+  duration_ms: 7.8505
+  type: 'test'
+  ...
+# Subtest: expired policy approval is refused
+ok 45 - expired policy approval is refused
+  ---
+  duration_ms: 7.2158
+  type: 'test'
+  ...
+# Subtest: synthetic order refs and foreign shop refs are rejected inside a real export
+ok 46 - synthetic order refs and foreign shop refs are rejected inside a real export
+  ---
+  duration_ms: 14.3488
+  type: 'test'
+  ...
+# Subtest: a test-only chain cannot run outside a marked isolated fixture root
+ok 47 - a test-only chain cannot run outside a marked isolated fixture root
+  ---
+  duration_ms: 3.2113
+  type: 'test'
+  ...
+# Subtest: the synthetic adapter still refuses a REAL-mode snapshot
+ok 48 - the synthetic adapter still refuses a REAL-mode snapshot
+  ---
+  duration_ms: 0.2967
+  type: 'test'
+  ...
+# Subtest: real dictionary caliber labels do not claim to be synthetic
+ok 49 - real dictionary caliber labels do not claim to be synthetic
+  ---
+  duration_ms: 0.1559
+  type: 'test'
+  ...
+# Subtest: shipped registry keeps the real store mapping UNVERIFIED and offers no reviewer that could self-approve
+ok 50 - shipped registry keeps the real store mapping UNVERIFIED and offers no reviewer that could self-approve
+  ---
+  duration_ms: 6.2455
+  type: 'test'
+  ...
+# Subtest: a declared VERIFIED status inside the registry is rejected as a claim, not evidence
+ok 51 - a declared VERIFIED status inside the registry is rejected as a claim, not evidence
+  ---
+  duration_ms: 0.7326
+  type: 'test'
+  ...
+# Subtest: re-pointing the CEO store scope is refused instead of silently migrating identity
+ok 52 - re-pointing the CEO store scope is refused instead of silently migrating identity
+  ---
+  duration_ms: 1.2113
+  type: 'test'
+  ...
+# Subtest: identity migration flag cannot be turned on through the registry
+ok 53 - identity migration flag cannot be turned on through the registry
+  ---
+  duration_ms: 0.6054
+  type: 'test'
+  ...
+# Subtest: a complete owner-approved mapping becomes VERIFIED only when the approval is bound to its exact bytes
+ok 54 - a complete owner-approved mapping becomes VERIFIED only when the approval is bound to its exact bytes
+  ---
+  duration_ms: 0.9143
+  type: 'test'
+  ...
+# Subtest: editing an approved field without re-approval invalidates the binding
+ok 55 - editing an approved field without re-approval invalidates the binding
+  ---
+  duration_ms: 0.8441
+  type: 'test'
+  ...
+# Subtest: an approver outside the registered authority list is rejected
+ok 56 - an approver outside the registered authority list is rejected
+  ---
+  duration_ms: 0.6837
+  type: 'test'
+  ...
+# Subtest: an expired mapping is EXPIRED and still refuses authority
+ok 57 - an expired mapping is EXPIRED and still refuses authority
+  ---
+  duration_ms: 0.8141
+  type: 'test'
+  ...
+# Subtest: a mapping absent from the registry cannot be injected by the caller
+ok 58 - a mapping absent from the registry cannot be injected by the caller
+  ---
+  duration_ms: 1.3819
+  type: 'test'
+  ...
+# Subtest: malformed shop or authority identifiers fail closed
+ok 59 - malformed shop or authority identifiers fail closed
+  ---
+  duration_ms: 0.9018
+  type: 'test'
+  ...
+# Subtest: future-dated approval and inverted validity windows are rejected
+ok 60 - future-dated approval and inverted validity windows are rejected
+  ---
+  duration_ms: 0.651
+  type: 'test'
+  ...
+# Subtest: evaluation is deterministic and the loaded registry is deeply frozen against later tampering
+ok 61 - evaluation is deterministic and the loaded registry is deeply frozen against later tampering
+  ---
+  duration_ms: 1.1067
+  type: 'test'
+  ...
+1..61
+# tests 61
+# suites 0
+# pass 61
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3094.687

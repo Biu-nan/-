@@ -1,0 +1,11 @@
+{
+  "label": "adapter-chain-green",
+  "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+  "command": [
+    "node",
+    "--test",
+    "dist/test/ceo-payment-loop.test.js"
+  ],
+  "exitCode": 0,
+  "seconds": 7.036
+}

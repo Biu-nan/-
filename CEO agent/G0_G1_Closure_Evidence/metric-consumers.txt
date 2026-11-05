@@ -1,0 +1,3 @@
+scripts/ingest-ixspy-raw.mjs:12://   - caliber 必须已在 config/metrics-schema.json 注册，否则 appendFacts 直接抛错（禁止临时造词）
+scripts/ingest-ixspy-raw.mjs:19:import { appendFacts } from './metrics-store.mjs';
+scripts/ingest-ixspy-raw.mjs:169:  appendFacts(facts)

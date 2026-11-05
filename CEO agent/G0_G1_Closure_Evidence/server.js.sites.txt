@@ -1,0 +1,38 @@
+44: import { DailyOperationService } from "./daily-operation-service.js";
+45: import { OperatorService } from "./operator-service.js";
+46: import { HiddenDataLoopService } from "./hidden-data-loop-service.js";
+47: import { compileSecretaryIntent, resolveEffectiveRisk, computeRiskFloor } from "./secretary-model.js";
+48: import { ProductVisualAssetsService } from "./product-visual-assets-service.js";
+49: import { P0ProtocolService } from "./p0-protocol-service.js";
+50: import { DianxiaomiAdapter } from "./dianxiaomi-adapter.js";
+51: import { ResearchService } from "./research-service.js";
+52: import { ResearchStore } from "./research-store.js";
+116: const dailyOperationService = new DailyOperationService();
+117: const operatorService = new OperatorService();
+118: const hiddenDataLoopService = new HiddenDataLoopService();
+119: const p0ProtocolService = new P0ProtocolService();
+120: const queueService = new QueueService(store, standardService, productProfiles, {
+121:     keepAwake: (task) => sleepInhibitor.run(task)
+122: });
+123: const AGENT_DIR = path.join(PROJECT_ROOT, ".agent");
+124: const agentFiles = {
+412: }
+413: app.use(express.json());
+414: app.use(express.static(PUBLIC_DIR));
+415: // 产品图静态文件服务（用于前端预览已上传的图片）
+416: app.use("/product-images", express.static(PRODUCT_IMAGES_DIR));
+417: // 把引用/采集箱批量上架的运行态快照成前端可读结构（只读，避免把内部 log 等大字段暴露出去）
+418: function snapshotUploadRunState(runState) {
+419:     if (!runState) return { running: false, jobId: null, overallProgress: 0, summary: null, items: [] };
+420:     const items = Object.values(runState.items || {}).map((it) => ({
+421:         productName: it.productName || it.name || it.packageName || "",
+422:         mode: it.mode || "",
+6621: const CODE_VERSION = { ...readCodeVersion(), codeRoot: CODE_ROOT };
+6622: const SERVER_STARTED_AT = new Date().toISOString();
+6623: app.get("/api/version", (request, response) => {
+6624:     response.json({
+6625:         ...CODE_VERSION,
+6626:         projectRoot: PROJECT_ROOT,
+6627:         userDataDir: USER_DATA_DIR,
+6628:         host: HOST,
+6629:         port: PORT,

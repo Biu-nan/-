@@ -1,0 +1,17 @@
+{
+  "verifiedAt": "2026-11-05T06:40:15.475154+00:00",
+  "report": "F:\\yikuaborder-deploy\\CEO agent\\CEO_Agent_V1.0_G2B0_Readiness_Report.md",
+  "reportSha256": "55e8c45ea0f3ac789485e2e29acf979db56aa954b218633c36d82f9b114d80d4",
+  "evidenceFilesVerified": 146,
+  "linksVerified": 18,
+  "changedPaths": 19,
+  "newTestsPass": 34,
+  "relatedRegressionPass": 68,
+  "historicalFullSuiteRerun": false,
+  "fullArchiveRevisionsVerified": 2,
+  "traceRecordsVerified": 3,
+  "syntheticTaskDbUnchanged": true,
+  "protectedSamplesUnchanged": 13,
+  "patchSha256": "7305210e2b897502add42bced2e558c2ca250a07fb058ff5e2be455462a9c886",
+  "state": "G2B0_DELIVERED; HUMAN_ACCEPTANCE_PENDING; NO_G2B1_OR_PRODUCTION"
+}

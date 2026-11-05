@@ -1,0 +1,18 @@
+{
+  "confirmedFacts": [
+    "metrics schema v1.0.0 -> v1.1.0; 10 new market calibers; old 23 definitions unchanged",
+    "only main worktree current schema hash matches observed changed bytes among enumerated worktrees",
+    "IXSPY P1 closeout explicitly lists same schema version/count and corresponding registration use",
+    "write mtime precedes market scripts and closeout timestamps; these times are filesystem metadata, not authorship proof",
+    "existing metrics-store loads and caches registry; appendFacts checks presence; no schema writer found in inspected consumers",
+    "no schema byte change observed during this closure"
+  ],
+  "attribution": "RELATED_DELIVERY_CORROBORATED; EXACT_WRITER_UNVERIFIED",
+  "notProved": [
+    "specific editor, command, actor or PID that wrote schema",
+    "Human approval of external task or provider metric semantics",
+    "absence of other tools editing the shared workspace outside observed period"
+  ],
+  "preservation": "no reset, overwrite, staging or commit of metrics file; current independent delivery preserved",
+  "risk": "dictionary byte hash changes context ID; registry inclusion is not fact verification; live process cached registry version unknown"
+}

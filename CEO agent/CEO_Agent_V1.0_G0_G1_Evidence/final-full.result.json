@@ -1,0 +1,13 @@
+{
+  "label": "final-full",
+  "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+  "command": [
+    "cmd",
+    "/d",
+    "/c",
+    "npm",
+    "test"
+  ],
+  "exitCode": 1,
+  "seconds": 84.563
+}

@@ -1,0 +1,161 @@
+diff --git "a/F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105\\dist\\src\\ceo-report-archive.js" "b/F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105\\dist\\src\\ceo-report-archive.js"
+new file mode 100644
+index 0000000..9da7f5b
+--- /dev/null
++++ "b/F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105\\dist\\src\\ceo-report-archive.js"
+@@ -0,0 +1,155 @@
++import {constants,realpathSync,lstatSync,readFileSync,openSync,fstatSync,writeSync,fsyncSync,closeSync,unlinkSync,renameSync,mkdirSync} from 'node:fs';
++import {resolve,relative,isAbsolute,sep,dirname} from 'node:path';
++import {randomUUID} from 'node:crypto';
++import {setTimeout as delay} from 'node:timers/promises';
++import {contentHash,sha,freeze,fail} from './ceo-vnext-common.js';
++
++// Host-only synthetic adapter. No HTTP request fields supply authority, versions or trace truth.
++const ID=/^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/;
++const HASH=/^[a-f0-9]{64}$/;
++const REPORT=/^report-[a-f0-9]{64}$/;
++const LIMIT=8*1024*1024;
++const SECRET=/(?:authorization\s*:|bearer\s+|(?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|password|passwd|credential|client[_ -]?secret|private[_ -]?key)\s*["']?\s*[:=]|-----BEGIN [A-Z ]*PRIVATE KEY|\bsk-[A-Za-z0-9_-]{16,})/i;
++const plain=v=>v!==null&&typeof v==='object'&&!Array.isArray(v)&&[Object.prototype,null].includes(Object.getPrototypeOf(v));
++const stat=p=>{try{return lstatSync(p);}catch(e){if(e.code==='ENOENT')return null;throw e;}};
++const confined=(r,p)=>{const rel=relative(r,p);return rel===''||!isAbsolute(rel)&&rel!=='..'&&!rel.startsWith('..'+sep);};
++const same=(a,b)=>a.dev===b.dev&&a.ino===b.ino;
++function jsonBytes(v){
++ const seen=new Set();let count=0;
++ function check(x,depth=0){
++  if(depth>50||++count>100000)fail('INVALID_ARCHIVE_INPUT');
++  if(x===null||typeof x==='boolean'||typeof x==='string')return;
++  if(typeof x==='number'){if(!Number.isFinite(x))fail('INVALID_ARCHIVE_INPUT');return;}
++  if(!Array.isArray(x)&&!plain(x)||seen.has(x))fail('INVALID_ARCHIVE_INPUT');
++  seen.add(x);for(const key of Reflect.ownKeys(x)){if(Array.isArray(x)&&key==='length')continue;const d=Object.getOwnPropertyDescriptor(x,key);if(typeof key!=='string'||!d.enumerable||!Object.hasOwn(d,'value'))fail('INVALID_ARCHIVE_INPUT');check(d.value,depth+1);}seen.delete(x);
++ }
++ check(v);const bytes=Buffer.from(JSON.stringify(v),'utf8');if(!bytes.length||bytes.length>LIMIT)fail('INVALID_ARCHIVE_INPUT');if(SECRET.test(bytes.toString('utf8')))fail('ARCHIVE_SECRET_REJECTED');return bytes;
++}
++
++export function createCeoReportArchive({fixtureRoot,directory,governance,resolveVersions,traceReader,now=()=>new Date()}={}){
++ if(typeof fixtureRoot!=='string'||typeof directory!=='string'||typeof governance?.authorize!=='function'||typeof resolveVersions!=='function'||typeof now!=='function')fail('ISOLATED_FIXTURE_REQUIRED');
++ let root;try{root=realpathSync(resolve(fixtureRoot));}catch{fail('ISOLATED_FIXTURE_REQUIRED');}
++ const target=resolve(directory),lock=resolve(root,'.ceo-report-archive-'+sha(target).slice(0,16)+'.lock');
++ function paths(){
++  try{
++   if(realpathSync(resolve(fixtureRoot))!==root||!confined(root,target)||target===root)fail('ISOLATED_FIXTURE_REQUIRED');
++   const marker=resolve(root,'.ceo-isolated-fixture.json'),m=lstatSync(marker);if(!m.isFile()||m.isSymbolicLink()||m.nlink!==1||JSON.parse(readFileSync(marker,'utf8')).synthetic!==true)fail('ISOLATED_FIXTURE_REQUIRED');
++   for(const p of [target,lock]){let cursor=p;while(cursor!==root){const s=stat(cursor);if(s&&(s.isSymbolicLink()||!confined(root,realpathSync(cursor))||s.isFile()&&s.nlink!==1))fail('ISOLATED_FIXTURE_REQUIRED');cursor=dirname(cursor);}}
++  }catch{fail('ISOLATED_FIXTURE_REQUIRED');}
++ }
++ paths();
++ function auth(principal,operation,storeId='400370'){
++  const g=governance.authorize({principal,operation,storeId});if(g?.allowed!==true||!ID.test(g.actorId??'')||g.storeId!==storeId)fail('FORBIDDEN');return g;
++ }
++ function writeAuth(principal,correction,storeId){return auth(principal,correction?'human.review':'analyze',storeId);}
++ function checkPath(p){paths();if(!confined(target,p))fail('ISOLATED_FIXTURE_REQUIRED');let cursor=p;while(cursor!==root){const s=stat(cursor);if(s&&(s.isSymbolicLink()||s.isFile()&&s.nlink!==1||!confined(root,realpathSync(cursor))))fail('ISOLATED_FIXTURE_REQUIRED');cursor=dirname(cursor);}}
++ function bytesAt(p,max=LIMIT){checkPath(p);const s=stat(p);if(!s)fail('ARCHIVE_NOT_FOUND');if(!s.isFile()||s.size===0||s.size>max)fail('ARCHIVE_CORRUPT');const fd=openSync(p,constants.O_RDONLY|(constants.O_NOFOLLOW??0));try{const opened=fstatSync(fd);if(!same(s,opened)||opened.nlink!==1||!opened.isFile())fail('ISOLATED_FIXTURE_REQUIRED');const b=readFileSync(fd);if(b.length!==s.size)fail('ARCHIVE_CORRUPT');return b;}finally{closeSync(fd);}}
++ function parsed(p,max=LIMIT){const b=bytesAt(p,max);try{const s=b.toString('utf8');if(!Buffer.from(s).equals(b)||!s.endsWith('\n'))fail('ARCHIVE_CORRUPT');return JSON.parse(s);}catch{fail('ARCHIVE_CORRUPT');}}
++ function durableExisting(p){const s=stat(p),fd=openSync(p,constants.O_WRONLY|(constants.O_NOFOLLOW??0));try{if(!same(s,fstatSync(fd)))fail('ISOLATED_FIXTURE_REQUIRED');fsyncSync(fd);}finally{closeSync(fd);}}
++ function syncDirectory(p){if(process.platform==='win32')return;const fd=openSync(p,constants.O_RDONLY);try{fsyncSync(fd);}finally{closeSync(fd);}}
++ function atomic(p,bytes){
++  checkPath(p);if(stat(p)){if(!bytesAt(p,LIMIT*3).equals(bytes))fail('ARCHIVE_CORRUPT');durableExisting(p);return;}
++  const temporary=resolve(dirname(p),'.pending-'+randomUUID());checkPath(temporary);const fd=openSync(temporary,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|(constants.O_NOFOLLOW??0),0o600);
++  try{let offset=0;while(offset<bytes.length){const n=writeSync(fd,bytes,offset,bytes.length-offset);if(n<=0)fail('ARCHIVE_WRITE_FAILED');offset+=n;}fsyncSync(fd);}finally{closeSync(fd);}
++  checkPath(p);if(stat(p))fail('ARCHIVE_CONFLICT');renameSync(temporary,p);syncDirectory(dirname(p));
++ }
++ async function acquire(principal,operation,storeId){
++  const deadline=Date.now()+3000;
++  while(true){auth(principal,operation,storeId);paths();let fd;
++   try{fd=openSync(lock,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|(constants.O_NOFOLLOW??0),0o600);}catch(e){if(e.code!=='EEXIST')throw e;if(Date.now()>=deadline)fail('ARCHIVE_LOCKED');await delay(10);continue;}
++   const owned=fstatSync(fd),owner={pid:process.pid,token:randomUUID(),createdAt:new Date().toISOString()},bytes=Buffer.from(JSON.stringify({...owner,hash:contentHash(owner)}));
++   try{let offset=0;while(offset<bytes.length){const n=writeSync(fd,bytes,offset,bytes.length-offset);if(n<=0)fail('ARCHIVE_WRITE_FAILED');offset+=n;}}catch(e){try{if(same(owned,stat(lock)))unlinkSync(lock);}finally{closeSync(fd);}throw e;}
++   return()=>{try{const current=stat(lock);if(!current||!same(current,owned)||current.isSymbolicLink())fail('ARCHIVE_LOCK_CHANGED');unlinkSync(lock);}finally{closeSync(fd);}};
++  }
++ }
++ const manifestPath=id=>resolve(target,'manifests',id+'.json');
++ const receiptPath=id=>resolve(target,'receipts',id+'.json');
++ const requestKey=(storeId,requestId)=>contentHash({storeId,requestId});
++ const requestPath=(storeId,requestId)=>resolve(target,'requests',requestKey(storeId,requestId)+'.json');
++ function directories(){for(const p of [target,...['objects','manifests','receipts','requests'].map(x=>resolve(target,x))]){checkPath(p);if(!stat(p))mkdirSync(p);if(!lstatSync(p).isDirectory())fail('ISOLATED_FIXTURE_REQUIRED');}}
++ function objectRead(d){if(!plain(d)||!HASH.test(d.sha256??'')||!Number.isSafeInteger(d.size)||d.size<1||d.size>LIMIT)fail('ARCHIVE_CORRUPT');const b=bytesAt(resolve(target,'objects',d.sha256+'.blob'));if(b.length!==d.size||sha(b)!==d.sha256)fail('ARCHIVE_CORRUPT');return b;}
++ function loadManifest(reportId){
++  if(!REPORT.test(reportId??''))fail('INVALID_ARCHIVE_INPUT');const m=parsed(manifestPath(reportId));
++  const {manifestHash,...body}=m;if(!HASH.test(manifestHash??'')||contentHash(body)!==manifestHash||m.reportId!==reportId||m.schema!=='ceo-full-report-archive/v1'||!plain(m.objects)||!Array.isArray(m.evidence)||!['context','report','versions','taskSnapshot','workflowState'].every(k=>m.objects[k]))fail('ARCHIVE_CORRUPT');return m;
++ }
++ function materialize(m){
++  const data={};try{for(const [key,d]of Object.entries(m.objects))data[key]=JSON.parse(objectRead(d).toString('utf8'));}catch(e){if(e.code==='ISOLATED_FIXTURE_REQUIRED')throw e;fail('ARCHIVE_CORRUPT');}
++  const evidence=m.evidence.map(e=>({...e,content:objectRead(e).toString('utf8')}));
++  if(data.context.storeId!==m.storeId||data.report.storeId!==m.storeId||data.context.contextId!==m.contextId||data.report.analysisId!==m.analysisId||contentHash(data.versions)!==m.versionsHash)fail('ARCHIVE_CORRUPT');
++  let receipt=null;if(stat(receiptPath(m.reportId))){receipt=parsed(receiptPath(m.reportId));const {receiptHash,...body}=receipt;if(contentHash(body)!==receiptHash||receipt.reportId!==m.reportId||receipt.manifestHash!==m.manifestHash||receipt.versionsHash!==m.versionsHash||!HASH.test(receipt.traceRecordHash??''))fail('ARCHIVE_CORRUPT');}
++  return freeze({...m,...data,evidence,status:receipt?'COMPLETE':'PREPARED',traceRecordHash:receipt?.traceRecordHash??null,traceReceipt:receipt});
++ }
++ function linked(record,m){const e=record?.event;return e?.type==='ANALYSIS'&&e.reportId===m.reportId&&!['storeId','analysisId','contextId','sourceHash','policyVersion','proposalRef'].some(k=>e[k]!==m[k])&&e.snapshotId===m.taskSnapshotId;}
++ async function verifyReceipt(principal,data){
++  if(data.status!=='COMPLETE')return data;if(typeof traceReader!=='function')fail('ARCHIVE_TRACE_READER_REQUIRED');
++  const records=await traceReader({principal,storeId:data.storeId}),record=Array.isArray(records)&&records.find(r=>r.recordHash===data.traceRecordHash);
++  if(!record||!linked(record,data)||record.sequence!==data.traceReceipt.traceSequence||record.event.eventId!==data.traceReceipt.traceEventId)fail('ARCHIVE_TRACE_MISMATCH');return data;
++ }
++ function validateVersions(versions,context,report){
++  const trusted=resolveVersions({context,report});jsonBytes(trusted);if(!plain(trusted)||!['runtimeVersion','knowledgeVersion','dictionaryVersion','sourcePolicyVersion'].every(k=>typeof trusted[k]==='string'&&trusted[k].length>0&&trusted[k].length<=160)||!['runtimeHash','knowledgeHash','dictionaryHash','sourcePolicyHash','packageHash'].every(k=>HASH.test(trusted[k]??''))||contentHash(versions)!==contentHash(trusted))fail('ARCHIVE_VERSION_MISMATCH');
++  if(['knowledgeVersion','knowledgeHash','dictionaryVersion','dictionaryHash','sourcePolicyVersion'].some(k=>context[k]!==trusted[k])||context.sourcePolicyHash!==undefined&&context.sourcePolicyHash!==trusted.sourcePolicyHash||['knowledgeVersion','knowledgeHash','dictionaryHash'].some(k=>report[k]!==trusted[k]))fail('ARCHIVE_VERSION_MISMATCH');return structuredClone(trusted);
++ }
++ function intentRead(p){const intent=parsed(p,LIMIT*3);if(!plain(intent)||!plain(intent.manifest)||!Array.isArray(intent.blobs)||contentHash(intent.manifest)!==intent.manifestDigest)fail('ARCHIVE_CORRUPT');const {manifestHash,...body}=intent.manifest;if(contentHash(body)!==manifestHash)fail('ARCHIVE_CORRUPT');for(const b of intent.blobs){if(!HASH.test(b.sha256??'')||typeof b.base64!=='string')fail('ARCHIVE_CORRUPT');const raw=Buffer.from(b.base64,'base64');if(raw.length>LIMIT||sha(raw)!==b.sha256)fail('ARCHIVE_CORRUPT');}return intent;}
++ function finish(intent){
++  const m=intent.manifest;
++  // A committed manifest never permits silent repair or reconstruction of its missing objects.
++  if(stat(manifestPath(m.reportId))){const existing=loadManifest(m.reportId);if(contentHash(existing)!==contentHash(m))fail('ARCHIVE_CORRUPT');const result=materialize(existing);for(const d of [...Object.values(m.objects),...m.evidence])durableExisting(resolve(target,'objects',d.sha256+'.blob'));durableExisting(manifestPath(m.reportId));return result;}
++  if(stat(receiptPath(m.reportId)))fail('ARCHIVE_CORRUPT');
++  for(const b of intent.blobs){const raw=Buffer.from(b.base64,'base64');atomic(resolve(target,'objects',b.sha256+'.blob'),raw);}
++  // All full objects are read and checked before publishing the immutable manifest.
++  for(const d of [...Object.values(m.objects),...m.evidence])objectRead(d);
++  atomic(manifestPath(m.reportId),Buffer.from(JSON.stringify(m)+'\n'));return materialize(loadManifest(m.reportId));
++ }
++ async function prepare({principal,requestId,context,report,evidence,versions,taskSnapshot,workflowState,correctsReportId=null}={}){
++  const storeId=context?.storeId,operation=correctsReportId?'human.review':'analyze';const grant=writeAuth(principal,correctsReportId,storeId);
++  if(!ID.test(requestId??'')||storeId!=='400370'||!plain(context)||!plain(report)||report.storeId!==storeId||report.contextId!==context.contextId||!ID.test(context.contextId??'')||!ID.test(report.analysisId??'')||taskSnapshot?.storeId!==storeId||workflowState?.storeId!==storeId||!ID.test(taskSnapshot?.snapshotId??'')||report.taskSnapshotId!==undefined&&report.taskSnapshotId!==taskSnapshot.snapshotId||report.workflowSnapshotId!==undefined&&report.workflowSnapshotId!==workflowState.snapshotId||!Array.isArray(context.sourceRefs)||context.sourceRefs.some(x=>!HASH.test(x))||!Array.isArray(evidence)||evidence.length>1000||correctsReportId!==null&&!REPORT.test(correctsReportId))fail('INVALID_ARCHIVE_INPUT');
++  const trustedVersions=validateVersions(versions,context,report),values={context,report,versions:trustedVersions,taskSnapshot,workflowState},blobs=[],objects={};let total=0;
++  const add=bytes=>{total+=bytes.length;if(total>LIMIT)fail('INVALID_ARCHIVE_INPUT');const d={sha256:sha(bytes),size:bytes.length};blobs.push({...d,base64:bytes.toString('base64')});return d;};
++  for(const [key,value]of Object.entries(values)){const bytes=jsonBytes(value);objects[key]=add(bytes);values[key]=JSON.parse(bytes.toString('utf8'));}
++  // Snapshot before yielding to the cross-process lock; later caller mutation cannot alter linkage.
++  ({context,report,taskSnapshot,workflowState}=values);
++  const pathsSeen=new Set(),evidenceRefs=evidence.map(e=>{if(!plain(e)||typeof e.path!=='string'||e.path.length>300||!e.path||e.path.split(/[\\/]/).some(p=>!p||p==='.'||p==='..')||/^(?:[A-Za-z]:|\/|\\)/.test(e.path)||pathsSeen.has(e.path)||typeof e.content!=='string'||Buffer.byteLength(e.content)>1048576)fail('INVALID_ARCHIVE_INPUT');pathsSeen.add(e.path);if(SECRET.test(e.content))fail('ARCHIVE_SECRET_REJECTED');const d=add(Buffer.from(e.content,'utf8'));if(e.sha256!==undefined&&e.sha256!==d.sha256)fail('ARCHIVE_EVIDENCE_MISMATCH');return{path:e.path,...d};});
++  if(context.sourceRefs.some(h=>!evidenceRefs.some(e=>e.sha256===h)))fail('ARCHIVE_EVIDENCE_MISMATCH');
++  const logical={storeId,requestId,actorId:grant.actorId,objects,evidence:evidenceRefs,correctsReportId},digest=contentHash(logical),reportId='report-'+digest;
++  const release=await acquire(principal,operation,storeId);
++  try{
++   writeAuth(principal,correctsReportId,storeId);directories();const rp=requestPath(storeId,requestId);
++   if(stat(rp)){const old=intentRead(rp);if(old.manifest.requestHash!==digest)fail('ARCHIVE_CONFLICT');return await verifyReceipt(principal,finish(old));}
++   let revision=1;if(correctsReportId){const old=await verifyReceipt(principal,materialize(loadManifest(correctsReportId)));if(old.storeId!==storeId||old.status!=='COMPLETE'||old.analysisId===report.analysisId)fail('ARCHIVE_CORRECTION_MISMATCH');revision=old.revision+1;}
++   const createdAt=now();if(!(createdAt instanceof Date)||!Number.isFinite(+createdAt))fail('INVALID_ARCHIVE_INPUT');
++   const body={schema:'ceo-full-report-archive/v1',reportId,storeId,requestId,requestHash:digest,actorId:grant.actorId,createdAt:createdAt.toISOString(),contextId:context.contextId,analysisId:report.analysisId,taskSnapshotId:taskSnapshot.snapshotId,sourceHash:contentHash(context.sourceRefs),policyVersion:grant.policyVersion,proposalRef:report.planCandidates?.[0]?.proposalRef??null,versionsHash:contentHash(trustedVersions),objects,evidence:evidenceRefs,correctsReportId,revision};
++   const manifest={...body,manifestHash:contentHash(body)},intent={manifest,manifestDigest:contentHash(manifest),blobs};atomic(rp,Buffer.from(JSON.stringify(intent)+'\n'));return finish(intent);
++  }finally{release();}
++ }
++ async function read({principal,reportId,storeId='400370'}={}){
++  auth(principal,'read',storeId);paths();const release=await acquire(principal,'read',storeId);try{const m=loadManifest(reportId);if(m.storeId!==storeId)fail('FORBIDDEN');return await verifyReceipt(principal,materialize(m));}finally{release();}
++ }
++ async function recover({principal,requestId,storeId='400370'}={}){
++  auth(principal,'read',storeId);if(!ID.test(requestId??''))fail('INVALID_ARCHIVE_INPUT');paths();const pending=intentRead(requestPath(storeId,requestId)),operation=pending.manifest.correctsReportId?'human.review':'analyze';auth(principal,operation,storeId);
++  const release=await acquire(principal,operation,storeId);try{const intent=intentRead(requestPath(storeId,requestId));if(intent.manifest.storeId!==storeId||intent.manifest.requestId!==requestId)fail('ARCHIVE_CORRUPT');return await verifyReceipt(principal,finish(intent));}finally{release();}
++ }
++ async function recoverLock({principal,storeId='400370'}={}){
++  let operation='analyze';try{auth(principal,operation,storeId);}catch(e){if(e.code!=='FORBIDDEN')throw e;operation='human.review';auth(principal,operation,storeId);}
++  paths();const expected=stat(lock);if(!expected)return freeze({recovered:false,preservedPath:null});if(!expected.isFile()||expected.size<1||expected.size>2048)fail('ARCHIVE_LOCK_CORRUPT');
++  let owner;try{owner=JSON.parse(readFileSync(lock,'utf8'));}catch{fail('ARCHIVE_LOCK_CORRUPT');}const {hash,...body}=owner??{};
++  if(!plain(owner)||!Number.isSafeInteger(owner.pid)||owner.pid<1||typeof owner.token!=='string'||typeof owner.createdAt!=='string'||contentHash(body)!==hash)fail('ARCHIVE_LOCK_CORRUPT');
++  try{process.kill(owner.pid,0);fail('ARCHIVE_LOCK_ACTIVE');}catch(e){if(e.code!=='ESRCH')fail('ARCHIVE_LOCK_ACTIVE');}
++  // Preserve the interrupted process's lock as evidence; never unlink another process's residue.
++  auth(principal,operation,storeId);paths();const current=stat(lock);if(!current||!same(current,expected)||!readFileSync(lock).equals(Buffer.from(JSON.stringify(owner))))fail('ARCHIVE_LOCK_CHANGED');
++  const preservedPath=lock+'.abandoned-'+randomUUID();renameSync(lock,preservedPath);syncDirectory(root);return freeze({recovered:true,preservedPath});
++ }
++ async function confirmTrace({principal,reportId,traceRecord,storeId='400370'}={}){
++  // Human may confirm a Human-prepared correction; shadow may confirm its trusted new analysis.
++  let operation='analyze';try{auth(principal,operation,storeId);}catch(e){if(e.code!=='FORBIDDEN')throw e;operation='human.review';auth(principal,operation,storeId);}
++  if(typeof traceReader!=='function')fail('ARCHIVE_TRACE_READER_REQUIRED');
++  const release=await acquire(principal,operation,storeId);try{
++   const m=loadManifest(reportId),data=materialize(m);if(m.storeId!==storeId)fail('FORBIDDEN');const records=await traceReader({principal,storeId});
++   const record=Array.isArray(records)&&records.find(r=>r.recordHash===traceRecord?.recordHash);if(!record||contentHash(record)!==contentHash(traceRecord))fail('ARCHIVE_TRACE_MISMATCH');
++   const e=record.event;if(!linked(record,m))fail('ARCHIVE_TRACE_MISMATCH');
++   if(data.status==='COMPLETE'){if(data.traceRecordHash!==record.recordHash)fail('ARCHIVE_CONFLICT');return data;}
++   auth(principal,operation,storeId);const body={schema:'ceo-report-trace-receipt/v1',reportId,manifestHash:m.manifestHash,versionsHash:m.versionsHash,traceRecordHash:record.recordHash,traceSequence:record.sequence,traceEventId:e.eventId};const receipt={...body,receiptHash:contentHash(body)};
++   atomic(receiptPath(reportId),Buffer.from(JSON.stringify(receipt)+'\n'));return materialize(m);
++  }finally{release();}
++ }
++ return Object.freeze({prepare,read,recover,recoverLock,confirmTrace});
++}

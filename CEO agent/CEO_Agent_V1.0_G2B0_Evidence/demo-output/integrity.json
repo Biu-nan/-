@@ -1,0 +1,14 @@
+{
+  "scope": "SYNTHETIC_ONLY",
+  "fixtureRoot": "F:\\tmp\\ceog2b0-20261105-isolated\\b0-reviewable-demo-vJfRFd",
+  "beforeDbSha256": "3f64641227a392c76afb8c3427131c0e321bd5aef8022793894884df6be21511",
+  "afterDbSha256": "3f64641227a392c76afb8c3427131c0e321bd5aef8022793894884df6be21511",
+  "productionBusinessWrites": 0,
+  "productionLogWrites": 0,
+  "workflowExecutions": 0,
+  "question": "分析纳物一店最近的经营情况，告诉我应该优先处理什么。",
+  "reportIds": [
+    "report-0cf812600b7c06bceb7d79e5a6dd62f9e6bb75c72c68f56238f7468ae95d3b0b",
+    "report-bf90f63254bafe15e9177387b4a8205f696110da2a89e237abadfedfdc1eaa53"
+  ]
+}

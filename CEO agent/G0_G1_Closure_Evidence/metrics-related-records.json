@@ -1,0 +1,58 @@
+[
+  {
+    "path": "docs/IXSPY_P1_CLOSEOUT_2026-11-05.md",
+    "sha256": "484461716e0b4993de8f172ae436688c0761fdd4358010f3f4903100d3ce8270",
+    "bytes": 8270,
+    "createdUtc": "2026-11-05T02:05:04.923908+00:00",
+    "modifiedUtc": "2026-11-05T02:05:04.923908+00:00"
+  },
+  {
+    "path": "docs/IXSPY_P0_VALIDATION_2026-11-05.md",
+    "sha256": "f4d5b66caf06f1df3723effbb70a4627f75532e10d0bf919e6a96cfc67b31b7c",
+    "bytes": 12249,
+    "createdUtc": "2026-11-05T01:57:16.463147+00:00",
+    "modifiedUtc": "2026-11-05T01:57:16.463918+00:00"
+  },
+  {
+    "path": "scripts/ingest-ixspy-raw.mjs",
+    "sha256": "448526f42bc4a2c7e0c46b5bc34cda011101be5ffeccfa9842a6a44793047e02",
+    "bytes": 7540,
+    "createdUtc": "2026-11-05T02:02:17.146263+00:00",
+    "modifiedUtc": "2026-11-05T02:02:17.146263+00:00"
+  },
+  {
+    "path": "scripts/metrics-store.mjs",
+    "sha256": "eeef825caaf8823a7089f242f5bc83ae21a4020a63d63f6c02dc3b6a47d06ec8",
+    "bytes": 6724,
+    "createdUtc": "2026-10-25T06:56:50.431722+00:00",
+    "modifiedUtc": "2026-10-25T06:56:50.432734+00:00"
+  },
+  {
+    "path": "scripts/market-scan-plan.mjs",
+    "sha256": "ff931832bc4dc23bac024c5160c07e3f7d8e49d4370e101a7b45ba53c3e240d3",
+    "bytes": 9707,
+    "createdUtc": "2026-11-05T02:02:00.240676+00:00",
+    "modifiedUtc": "2026-11-05T02:04:11.727318+00:00"
+  },
+  {
+    "path": "scripts/verify-market-scan.mjs",
+    "sha256": "86a4de28e2b1912f14e99170c3c2c76979cea6a2bee6161b4757e9aa624f434a",
+    "bytes": 9437,
+    "createdUtc": "2026-11-05T02:02:30.576212+00:00",
+    "modifiedUtc": "2026-11-05T02:04:18.415653+00:00"
+  },
+  {
+    "path": "config/metrics-schema.json",
+    "sha256": "933d63c4e5f1c3223aacb60708a6a2ce2302a385f425c3ca10a0ab3692b905ed",
+    "bytes": 13890,
+    "createdUtc": "2026-10-29T03:53:28.026173+00:00",
+    "modifiedUtc": "2026-11-05T02:01:33.412111+00:00"
+  },
+  {
+    "path": "config/market-scan.json",
+    "sha256": "a26626cd6402eb3bb2d552f9839ea80834011d91c8f4eaadf393f95b134c697a",
+    "bytes": 4992,
+    "createdUtc": "2026-11-05T02:01:43.508042+00:00",
+    "modifiedUtc": "2026-11-05T02:03:45.514758+00:00"
+  }
+]

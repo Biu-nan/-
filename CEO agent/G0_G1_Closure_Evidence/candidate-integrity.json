@@ -1,0 +1,1142 @@
+{
+  "at": "2026-11-05T02:31:14.178291+00:00",
+  "originalEvidenceCount": 155,
+  "originalEvidenceChecks": [
+    {
+      "file": "baseline-cli-repaired.diff",
+      "matches": true
+    },
+    {
+      "file": "baseline-cli-repaired.result.json",
+      "matches": true
+    },
+    {
+      "file": "baseline-cli-repaired.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "baseline-cli-repaired.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "baseline-corrected.diff",
+      "matches": true
+    },
+    {
+      "file": "baseline-corrected.result.json",
+      "matches": true
+    },
+    {
+      "file": "baseline-corrected.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "baseline-corrected.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "baseline-full.diff",
+      "matches": true
+    },
+    {
+      "file": "baseline-full.result.json",
+      "matches": true
+    },
+    {
+      "file": "baseline-full.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "baseline-full.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "changed-files.json",
+      "matches": true
+    },
+    {
+      "file": "cli-safety-green.diff",
+      "matches": true
+    },
+    {
+      "file": "cli-safety-green.result.json",
+      "matches": true
+    },
+    {
+      "file": "cli-safety-green.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "cli-safety-green.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "cli-safety-red.diff",
+      "matches": true
+    },
+    {
+      "file": "cli-safety-red.result.json",
+      "matches": true
+    },
+    {
+      "file": "cli-safety-red.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "cli-safety-red.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "diagnose-sqlite.diff",
+      "matches": true
+    },
+    {
+      "file": "diagnose-sqlite.result.json",
+      "matches": true
+    },
+    {
+      "file": "diagnose-sqlite.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "diagnose-sqlite.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "failure-comparison.json",
+      "matches": true
+    },
+    {
+      "file": "final-complete.diff",
+      "matches": true
+    },
+    {
+      "file": "final-failures.json",
+      "matches": true
+    },
+    {
+      "file": "final-full-confirmed.diff",
+      "matches": true
+    },
+    {
+      "file": "final-full-confirmed.result.json",
+      "matches": true
+    },
+    {
+      "file": "final-full-confirmed.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "final-full-confirmed.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "final-full.diff",
+      "matches": true
+    },
+    {
+      "file": "final-full.result.json",
+      "matches": true
+    },
+    {
+      "file": "final-full.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "final-full.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "final-g1-confirmed.diff",
+      "matches": true
+    },
+    {
+      "file": "final-g1-confirmed.result.json",
+      "matches": true
+    },
+    {
+      "file": "final-g1-confirmed.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "final-g1-confirmed.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "final-g1-new.diff",
+      "matches": true
+    },
+    {
+      "file": "final-g1-new.result.json",
+      "matches": true
+    },
+    {
+      "file": "final-g1-new.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "final-g1-new.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "final-listeners.json",
+      "matches": true
+    },
+    {
+      "file": "final-protection-syntax.json",
+      "matches": true
+    },
+    {
+      "file": "final-related.diff",
+      "matches": true
+    },
+    {
+      "file": "final-related.result.json",
+      "matches": true
+    },
+    {
+      "file": "final-related.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "final-related.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "final-reliability.diff",
+      "matches": true
+    },
+    {
+      "file": "final-reliability.result.json",
+      "matches": true
+    },
+    {
+      "file": "final-reliability.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "final-reliability.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "final-verification.json",
+      "matches": true
+    },
+    {
+      "file": "g0-before.json",
+      "matches": true
+    },
+    {
+      "file": "g0-runtime.json",
+      "matches": true
+    },
+    {
+      "file": "g1-focused.diff",
+      "matches": true
+    },
+    {
+      "file": "g1-focused.result.json",
+      "matches": true
+    },
+    {
+      "file": "g1-focused.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "g1-focused.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "integration-green.diff",
+      "matches": true
+    },
+    {
+      "file": "integration-green.result.json",
+      "matches": true
+    },
+    {
+      "file": "integration-green.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "integration-green.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "integration-red.diff",
+      "matches": true
+    },
+    {
+      "file": "integration-red.result.json",
+      "matches": true
+    },
+    {
+      "file": "integration-red.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "integration-red.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "legacy-boundary-green.diff",
+      "matches": true
+    },
+    {
+      "file": "legacy-boundary-green.result.json",
+      "matches": true
+    },
+    {
+      "file": "legacy-boundary-green.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "legacy-boundary-green.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "legacy-boundary-red.diff",
+      "matches": true
+    },
+    {
+      "file": "legacy-boundary-red.result.json",
+      "matches": true
+    },
+    {
+      "file": "legacy-boundary-red.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "legacy-boundary-red.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "legacy-import-manifest.json",
+      "matches": true
+    },
+    {
+      "file": "m01-green.diff",
+      "matches": true
+    },
+    {
+      "file": "m01-green.result.json",
+      "matches": true
+    },
+    {
+      "file": "m01-green.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "m01-green.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "m01-red.diff",
+      "matches": true
+    },
+    {
+      "file": "m01-red.result.json",
+      "matches": true
+    },
+    {
+      "file": "m01-red.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "m01-red.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "m02-green.diff",
+      "matches": true
+    },
+    {
+      "file": "m02-green.result.json",
+      "matches": true
+    },
+    {
+      "file": "m02-green.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "m02-green.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "m02-red.diff",
+      "matches": true
+    },
+    {
+      "file": "m02-red.result.json",
+      "matches": true
+    },
+    {
+      "file": "m02-red.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "m02-red.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "main-boundary-green.diff",
+      "matches": true
+    },
+    {
+      "file": "main-boundary-green.result.json",
+      "matches": true
+    },
+    {
+      "file": "main-boundary-green.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "main-boundary-green.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "main-boundary-red.diff",
+      "matches": true
+    },
+    {
+      "file": "main-boundary-red.result.json",
+      "matches": true
+    },
+    {
+      "file": "main-boundary-red.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "main-boundary-red.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "main-entry-green-2.diff",
+      "matches": true
+    },
+    {
+      "file": "main-entry-green-2.result.json",
+      "matches": true
+    },
+    {
+      "file": "main-entry-green-2.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "main-entry-green-2.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "main-entry-green.diff",
+      "matches": true
+    },
+    {
+      "file": "main-entry-green.result.json",
+      "matches": true
+    },
+    {
+      "file": "main-entry-green.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "main-entry-green.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "main-entry-red.diff",
+      "matches": true
+    },
+    {
+      "file": "main-entry-red.result.json",
+      "matches": true
+    },
+    {
+      "file": "main-entry-red.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "main-entry-red.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "main-single-instance-green.diff",
+      "matches": true
+    },
+    {
+      "file": "main-single-instance-green.result.json",
+      "matches": true
+    },
+    {
+      "file": "main-single-instance-green.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "main-single-instance-green.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "main-single-instance-red.diff",
+      "matches": true
+    },
+    {
+      "file": "main-single-instance-red.result.json",
+      "matches": true
+    },
+    {
+      "file": "main-single-instance-red.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "main-single-instance-red.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "manifest-dependency-red.diff",
+      "matches": true
+    },
+    {
+      "file": "manifest-dependency-red.result.json",
+      "matches": true
+    },
+    {
+      "file": "manifest-dependency-red.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "manifest-dependency-red.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "progress.md",
+      "matches": true
+    },
+    {
+      "file": "review-findings.md",
+      "matches": true
+    },
+    {
+      "file": "review-fixes-green.diff",
+      "matches": true
+    },
+    {
+      "file": "review-fixes-green.result.json",
+      "matches": true
+    },
+    {
+      "file": "review-fixes-green.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "review-fixes-green.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "review-fixes-red.diff",
+      "matches": true
+    },
+    {
+      "file": "review-fixes-red.result.json",
+      "matches": true
+    },
+    {
+      "file": "review-fixes-red.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "review-fixes-red.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "run.py",
+      "matches": true
+    },
+    {
+      "file": "standalone-cli-green.diff",
+      "matches": true
+    },
+    {
+      "file": "standalone-cli-green.result.json",
+      "matches": true
+    },
+    {
+      "file": "standalone-cli-green.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "standalone-cli-green.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "standalone-cli-red.diff",
+      "matches": true
+    },
+    {
+      "file": "standalone-cli-red.result.json",
+      "matches": true
+    },
+    {
+      "file": "standalone-cli-red.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "standalone-cli-red.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "test-result-index.json",
+      "matches": true
+    },
+    {
+      "file": "test-safety.mjs",
+      "matches": true
+    },
+    {
+      "file": "watchdog-green.diff",
+      "matches": true
+    },
+    {
+      "file": "watchdog-green.result.json",
+      "matches": true
+    },
+    {
+      "file": "watchdog-green.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "watchdog-green.stdout.log",
+      "matches": true
+    },
+    {
+      "file": "watchdog-red.diff",
+      "matches": true
+    },
+    {
+      "file": "watchdog-red.result.json",
+      "matches": true
+    },
+    {
+      "file": "watchdog-red.stderr.log",
+      "matches": true
+    },
+    {
+      "file": "watchdog-red.stdout.log",
+      "matches": true
+    }
+  ],
+  "candidateFiles": [
+    {
+      "path": ".gitignore",
+      "sha256": "04e97d63612e0f88baf16720ea515ddedc9bc92dec63020774194b578ca7f1e2",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 3530,
+      "currentSha256": "04e97d63612e0f88baf16720ea515ddedc9bc92dec63020774194b578ca7f1e2",
+      "matches": true
+    },
+    {
+      "path": "config/ceo-capabilities.v1.json",
+      "sha256": "fc2ec08f0258f75700ec23d20062206c70c6f5dfb9aa8d69f35075258e2e3bc6",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 219,
+      "currentSha256": "fc2ec08f0258f75700ec23d20062206c70c6f5dfb9aa8d69f35075258e2e3bc6",
+      "matches": true
+    },
+    {
+      "path": "dist/src/ceo-daily-plan.js",
+      "sha256": "48c8015567513b9f09a109dd7db4b9ef3c9f8b41e4991ec90027e3d06463b586",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 10809,
+      "currentSha256": "48c8015567513b9f09a109dd7db4b9ef3c9f8b41e4991ec90027e3d06463b586",
+      "matches": true
+    },
+    {
+      "path": "dist/src/ceo-daily-review.js",
+      "sha256": "e1e54347768837bd83241591a2910ae9f88f5dc896a9a87ff44b5cd09a6226f7",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 3615,
+      "currentSha256": "e1e54347768837bd83241591a2910ae9f88f5dc896a9a87ff44b5cd09a6226f7",
+      "matches": true
+    },
+    {
+      "path": "dist/src/ceo-decision-contract.js",
+      "sha256": "c5a68aa9208f86e24d3c5531ab4061baae95ea136c267b890ebeef9f18759a68",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 12421,
+      "currentSha256": "c5a68aa9208f86e24d3c5531ab4061baae95ea136c267b890ebeef9f18759a68",
+      "matches": true
+    },
+    {
+      "path": "dist/src/ceo-draft-workspace.js",
+      "sha256": "7cc56022dbde24c3bd46d76c8782a0170a5f37bdf5aad65f8f9f6fffda260f86",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 8106,
+      "currentSha256": "7cc56022dbde24c3bd46d76c8782a0170a5f37bdf5aad65f8f9f6fffda260f86",
+      "matches": true
+    },
+    {
+      "path": "dist/src/ceo-governance.js",
+      "sha256": "a04691657c6b9cad1c5ac0814eec5602777578825f730d4dc25795a281b59c21",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 5866,
+      "currentSha256": "a04691657c6b9cad1c5ac0814eec5602777578825f730d4dc25795a281b59c21",
+      "matches": true
+    },
+    {
+      "path": "dist/src/ceo-isolated-runtime.js",
+      "sha256": "694ad7a7b82fc28281318300f22d287b9f40d642e7a03d9cb3b877dc30da8f16",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 3837,
+      "currentSha256": "694ad7a7b82fc28281318300f22d287b9f40d642e7a03d9cb3b877dc30da8f16",
+      "matches": true
+    },
+    {
+      "path": "dist/src/ceo-legacy-view.js",
+      "sha256": "b217f8c79c5b28b0180d9ca436fe115eadc5e0e49c819dc975de7fe300674a6b",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 544,
+      "currentSha256": "b217f8c79c5b28b0180d9ca436fe115eadc5e0e49c819dc975de7fe300674a6b",
+      "matches": true
+    },
+    {
+      "path": "dist/src/ceo-main-boundary.js",
+      "sha256": "b658c04fcdfd332e9e36541daf178b84d3efc79971f765e325ec56c0711c2ded",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 4787,
+      "currentSha256": "b658c04fcdfd332e9e36541daf178b84d3efc79971f765e325ec56c0711c2ded",
+      "matches": true
+    },
+    {
+      "path": "dist/src/ceo-operating-brief.js",
+      "sha256": "062c893ad797ef9973e1347e8346a94b2324dd6009ddff305d291241ec985f94",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 9408,
+      "currentSha256": "062c893ad797ef9973e1347e8346a94b2324dd6009ddff305d291241ec985f94",
+      "matches": true
+    },
+    {
+      "path": "dist/src/ceo-operating-context.js",
+      "sha256": "27cbd66b467adfe4f4006df31299c256a364818408e26c41534c5b1c004b96af",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 7980,
+      "currentSha256": "27cbd66b467adfe4f4006df31299c256a364818408e26c41534c5b1c004b96af",
+      "matches": true
+    },
+    {
+      "path": "dist/src/ceo-read-brief.js",
+      "sha256": "0ef3f919a094485729c85142438e33d3df6c4c297cc5b8631f9b38217f1fc928",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 3684,
+      "currentSha256": "0ef3f919a094485729c85142438e33d3df6c4c297cc5b8631f9b38217f1fc928",
+      "matches": true
+    },
+    {
+      "path": "dist/src/ceo-review-input-guard.js",
+      "sha256": "5d6ad103c9b5b1d3007ef5a90e930da7f363485e6c5d67ce8b0045f0ab3e8c48",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 3061,
+      "currentSha256": "5d6ad103c9b5b1d3007ef5a90e930da7f363485e6c5d67ce8b0045f0ab3e8c48",
+      "matches": true
+    },
+    {
+      "path": "dist/src/ceo-review-replanning.js",
+      "sha256": "3aacabe13b52bde293a9fb2033d0b5184b57c206f7118b51c853bc908c5f93de",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 4827,
+      "currentSha256": "3aacabe13b52bde293a9fb2033d0b5184b57c206f7118b51c853bc908c5f93de",
+      "matches": true
+    },
+    {
+      "path": "dist/src/ceo-runtime-host.js",
+      "sha256": "82d15de45c7b508cd45e5966050a23ca26c6e63adad9653385f65fe0175bd8aa",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 4973,
+      "currentSha256": "82d15de45c7b508cd45e5966050a23ca26c6e63adad9653385f65fe0175bd8aa",
+      "matches": true
+    },
+    {
+      "path": "dist/src/ceo-runtime-manifest.js",
+      "sha256": "3facdf69edac315737c2f90b358c1d9dc537777d157886d5e8da3dbd5700f30e",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 3047,
+      "currentSha256": "3facdf69edac315737c2f90b358c1d9dc537777d157886d5e8da3dbd5700f30e",
+      "matches": true
+    },
+    {
+      "path": "dist/src/ceo-task-evidence.js",
+      "sha256": "8afda41c987092edd9902dec6cb1faf9ef60272d77950d101aacc732e482e85d",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 5170,
+      "currentSha256": "8afda41c987092edd9902dec6cb1faf9ef60272d77950d101aacc732e482e85d",
+      "matches": true
+    },
+    {
+      "path": "dist/src/ceo-task-http.js",
+      "sha256": "43ea6a0768eabfc0bcbcd2941fbd457b3ff34c233b527b5605429bd13ca0a06a",
+      "category": "REUSED_CEO_SOURCE_MODIFIED",
+      "bytes": 13931,
+      "currentSha256": "43ea6a0768eabfc0bcbcd2941fbd457b3ff34c233b527b5605429bd13ca0a06a",
+      "matches": true
+    },
+    {
+      "path": "dist/src/ceo-task-workspace.js",
+      "sha256": "99ae5d986ce5db7253c7a9b3ee4f3dec9eb899dc411782b81e93380c618d7e30",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 16646,
+      "currentSha256": "99ae5d986ce5db7253c7a9b3ee4f3dec9eb899dc411782b81e93380c618d7e30",
+      "matches": true
+    },
+    {
+      "path": "dist/src/config.js",
+      "sha256": "06f512d00caeee580b2d13dc4383e0c6fef11f43422b38e982c7396faa735558",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 61576,
+      "currentSha256": "06f512d00caeee580b2d13dc4383e0c6fef11f43422b38e982c7396faa735558",
+      "matches": true
+    },
+    {
+      "path": "dist/src/server.js",
+      "sha256": "fe10cc6b213179eb3ed668fdd2176f3d1a243a1fe68c0ae2c89bbdb98a75c744",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 313386,
+      "currentSha256": "fe10cc6b213179eb3ed668fdd2176f3d1a243a1fe68c0ae2c89bbdb98a75c744",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-cli-safety.test.js",
+      "sha256": "663ae2c5e950d14b102a4e47764b4e17f25b643603fefabd6b1b85ffcbe2a07e",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 1793,
+      "currentSha256": "663ae2c5e950d14b102a4e47764b4e17f25b643603fefabd6b1b85ffcbe2a07e",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-conversation-entry.test.js",
+      "sha256": "67dab7507116d9c13d1718eb57c3a87d0ff2ededd48798bca00d8cfa199058e5",
+      "category": "REUSED_CEO_SOURCE_MODIFIED",
+      "bytes": 7178,
+      "currentSha256": "67dab7507116d9c13d1718eb57c3a87d0ff2ededd48798bca00d8cfa199058e5",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-daily-plan.test.js",
+      "sha256": "6fe7ca329e23147724a6e8eb0386375607775b84eee8fd8119cce09f869ab644",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 12082,
+      "currentSha256": "6fe7ca329e23147724a6e8eb0386375607775b84eee8fd8119cce09f869ab644",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-daily-review-ui.test.js",
+      "sha256": "1f2a60df11e79d551b50271aa7ad4275e5a20fffd8c9498fbc5bb8e42dd93867",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 6712,
+      "currentSha256": "1f2a60df11e79d551b50271aa7ad4275e5a20fffd8c9498fbc5bb8e42dd93867",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-daily-review.test.js",
+      "sha256": "d212f117ca3bdbd9e155ed36393e1562dd42889a38fedd08dad7ec45dc02428b",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 7518,
+      "currentSha256": "d212f117ca3bdbd9e155ed36393e1562dd42889a38fedd08dad7ec45dc02428b",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-decision-contract.test.js",
+      "sha256": "c5bce449fd69f0d6dc6048823e23c0807d92235eaa529ddad6a1c17d78fcc28b",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 8286,
+      "currentSha256": "c5bce449fd69f0d6dc6048823e23c0807d92235eaa529ddad6a1c17d78fcc28b",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-draft-cli.test.js",
+      "sha256": "22f0b67e6b871ed6694dd03aff30ad63a245f6e86ce33c2f7aff06943c6deb9b",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 3977,
+      "currentSha256": "22f0b67e6b871ed6694dd03aff30ad63a245f6e86ce33c2f7aff06943c6deb9b",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-draft-workspace.test.js",
+      "sha256": "c11e2c7ea7e137a2c0b6441eaebbee6c6fe655098b00b144cd891cacfea26008",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 6348,
+      "currentSha256": "c11e2c7ea7e137a2c0b6441eaebbee6c6fe655098b00b144cd891cacfea26008",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-evidence-check-ui.test.js",
+      "sha256": "09cac83c2db811eb98dd9410a1aa8c18c33b8f31f3234554c33a895d15b1bd5f",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 3236,
+      "currentSha256": "09cac83c2db811eb98dd9410a1aa8c18c33b8f31f3234554c33a895d15b1bd5f",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-governance-bypass.test.js",
+      "sha256": "611ab38eb353fabe5f0521f7377302f85327842ad281b06a2347af70dbb2f700",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 3558,
+      "currentSha256": "611ab38eb353fabe5f0521f7377302f85327842ad281b06a2347af70dbb2f700",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-governance.test.js",
+      "sha256": "3faed15aa6c75e56f7069f9d350c123b234626970f0f964f36ca20c4c77b259a",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 4453,
+      "currentSha256": "3faed15aa6c75e56f7069f9d350c123b234626970f0f964f36ca20c4c77b259a",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-isolation-review.test.js",
+      "sha256": "ba249ce591a1c86b16d3743ca59444ce1f32af8a494341b92d898f4d9047c61a",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 1785,
+      "currentSha256": "ba249ce591a1c86b16d3743ca59444ce1f32af8a494341b92d898f4d9047c61a",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-legacy-boundary.test.js",
+      "sha256": "45d99dacf6aa9cdd91447442728a8b37883272e75464834b5922bb0faa82c0df",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 1316,
+      "currentSha256": "45d99dacf6aa9cdd91447442728a8b37883272e75464834b5922bb0faa82c0df",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-legacy-compat.test.js",
+      "sha256": "724aec439042aff7191b3b5416109c3f863b97c0f3a57b6f5f0f408093cb0b9d",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 1307,
+      "currentSha256": "724aec439042aff7191b3b5416109c3f863b97c0f3a57b6f5f0f408093cb0b9d",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-main-boundary.test.js",
+      "sha256": "fe9b8fa0924d08723c81d31fc2d24440c12d71b6eb06fceff39bf7d7de931d34",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 4437,
+      "currentSha256": "fe9b8fa0924d08723c81d31fc2d24440c12d71b6eb06fceff39bf7d7de931d34",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-main-entry.test.js",
+      "sha256": "a41c83f9274be7beea30ec83c1111895301a001bd9ab94721646c4fb8770a55f",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 4012,
+      "currentSha256": "a41c83f9274be7beea30ec83c1111895301a001bd9ab94721646c4fb8770a55f",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-operating-brief-ui.test.js",
+      "sha256": "1f6cd47ae9763a5767fa7b35d1314e22e38e3f703c71e8896080c69d11500274",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 7767,
+      "currentSha256": "1f6cd47ae9763a5767fa7b35d1314e22e38e3f703c71e8896080c69d11500274",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-operating-brief.test.js",
+      "sha256": "057e8965484c03e51a39eb7f65ad43ba522c7d475a5ab5ac86def7ffb05ef750",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 5829,
+      "currentSha256": "057e8965484c03e51a39eb7f65ad43ba522c7d475a5ab5ac86def7ffb05ef750",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-operating-context.test.js",
+      "sha256": "234bd25f731cde1ebb862d30eda4dc11851bbc029e4b27ee26d94caa8da27f31",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 7093,
+      "currentSha256": "234bd25f731cde1ebb862d30eda4dc11851bbc029e4b27ee26d94caa8da27f31",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-read-brief.test.js",
+      "sha256": "d01f7d4d03dfcef320e0a50a8f231b20beffc7d8196a8b89f43cadbcdf268843",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 9966,
+      "currentSha256": "d01f7d4d03dfcef320e0a50a8f231b20beffc7d8196a8b89f43cadbcdf268843",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-replanning-ui.test.js",
+      "sha256": "e6d37047728d284a5d7f94b37b99076c038245a04c825eb8bce088ff82fc049a",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 2622,
+      "currentSha256": "e6d37047728d284a5d7f94b37b99076c038245a04c825eb8bce088ff82fc049a",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-review-replanning.test.js",
+      "sha256": "fd61acc94388201e595285fcfac1c789be0a3de5ebd8d0a7b7c07c5cc46baf59",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 9603,
+      "currentSha256": "fd61acc94388201e595285fcfac1c789be0a3de5ebd8d0a7b7c07c5cc46baf59",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-runtime-health.test.js",
+      "sha256": "f5721f8083815d0b2af285684bfe69e8b9fb5ba6d6109468f8272e5df5a8761f",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 5453,
+      "currentSha256": "f5721f8083815d0b2af285684bfe69e8b9fb5ba6d6109468f8272e5df5a8761f",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-runtime-integration.test.js",
+      "sha256": "e13158d8ea5a34ea14389d9f6fb3dafed4e562c27b20601126a3ab932bd25257",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 4771,
+      "currentSha256": "e13158d8ea5a34ea14389d9f6fb3dafed4e562c27b20601126a3ab932bd25257",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-runtime-manifest.test.js",
+      "sha256": "fa00416e8209676213d4b0aa6e98c7d1cfc7c6bbefb7de06f6705ebad5f3b8be",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 3220,
+      "currentSha256": "fa00416e8209676213d4b0aa6e98c7d1cfc7c6bbefb7de06f6705ebad5f3b8be",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-task-cli.test.js",
+      "sha256": "c354e2fb2c362dc7784d1f60b3c2cb1d32a5ce50bb45c67921b32e89f45ca9d3",
+      "category": "REUSED_CEO_SOURCE_MODIFIED",
+      "bytes": 7864,
+      "currentSha256": "c354e2fb2c362dc7784d1f60b3c2cb1d32a5ce50bb45c67921b32e89f45ca9d3",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-task-evidence.test.js",
+      "sha256": "17a8c6da436e95e7a8d16864382739a5c7eb7fef27f6ba9f98daa76ac5ff24f4",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 5600,
+      "currentSha256": "17a8c6da436e95e7a8d16864382739a5c7eb7fef27f6ba9f98daa76ac5ff24f4",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-task-http.test.js",
+      "sha256": "5181552444498f8cd227120890924da678b72d35f4ba222e14dd792440f36bea",
+      "category": "REUSED_CEO_SOURCE_MODIFIED",
+      "bytes": 19360,
+      "currentSha256": "5181552444498f8cd227120890924da678b72d35f4ba222e14dd792440f36bea",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-task-workspace.test.js",
+      "sha256": "cf36766f2586a76c23ddab774d0478b0c685092166a2eccebd34dd1438dc1a26",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 10976,
+      "currentSha256": "cf36766f2586a76c23ddab774d0478b0c685092166a2eccebd34dd1438dc1a26",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-watchdog-safety.test.js",
+      "sha256": "985f9949cd767ce330973c53793acbadcc02d66a30d03fae5fad486a78193052",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 765,
+      "currentSha256": "985f9949cd767ce330973c53793acbadcc02d66a30d03fae5fad486a78193052",
+      "matches": true
+    },
+    {
+      "path": "dist/test/ceo-workspace-cli.test.js",
+      "sha256": "a736f41d52a710713fa0f0765695da2404a960c9f9764f88af23ac3533023155",
+      "category": "REUSED_CEO_SOURCE_MODIFIED",
+      "bytes": 3776,
+      "currentSha256": "a736f41d52a710713fa0f0765695da2404a960c9f9764f88af23ac3533023155",
+      "matches": true
+    },
+    {
+      "path": "dist/test/fixtures/ceo-decision-cases.json",
+      "sha256": "096a17892db19f109158b4aae46db8b2bbc00aefd7eb79e07da0d85f728ab36e",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 5119,
+      "currentSha256": "096a17892db19f109158b4aae46db8b2bbc00aefd7eb79e07da0d85f728ab36e",
+      "matches": true
+    },
+    {
+      "path": "dist/test/fixtures/ceo-operating-brief-fixture.js",
+      "sha256": "df5cf78efd80a71118b6f8e0d1b44eb34547f8610bdd0112694ae84d846a5053",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 3796,
+      "currentSha256": "df5cf78efd80a71118b6f8e0d1b44eb34547f8610bdd0112694ae84d846a5053",
+      "matches": true
+    },
+    {
+      "path": "dist/test/fixtures/ceo-task-fixture.js",
+      "sha256": "29ec8110988d22a36a81517b3a8d719178819d2b98a6642b6710cdca523f48de",
+      "category": "REUSED_CEO_SOURCE_MODIFIED",
+      "bytes": 2510,
+      "currentSha256": "29ec8110988d22a36a81517b3a8d719178819d2b98a6642b6710cdca523f48de",
+      "matches": true
+    },
+    {
+      "path": "public/ceo-tasks.html",
+      "sha256": "a730c192628c2f9c61599c3afd40b0f19ec7f0e066ce50718577753488f199b0",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 699,
+      "currentSha256": "a730c192628c2f9c61599c3afd40b0f19ec7f0e066ce50718577753488f199b0",
+      "matches": true
+    },
+    {
+      "path": "schemas/ceo-decision.schema.json",
+      "sha256": "f7cfbff87cb9454f191f2d8dc9b8a131999a8bfb6c0ce641ab3921eecaefa6cf",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 3982,
+      "currentSha256": "f7cfbff87cb9454f191f2d8dc9b8a131999a8bfb6c0ce641ab3921eecaefa6cf",
+      "matches": true
+    },
+    {
+      "path": "schemas/ceo-principal.schema.json",
+      "sha256": "112f7871391b574e01e09aea3107f05d19b040d8fb48c3bd30569b07a02cdd5d",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 449,
+      "currentSha256": "112f7871391b574e01e09aea3107f05d19b040d8fb48c3bd30569b07a02cdd5d",
+      "matches": true
+    },
+    {
+      "path": "scripts/ceo-draft-plan.mjs",
+      "sha256": "96a7718dec8b0b096cc6be5eeca7de8bf1431989a47a272de894db8d67465ad6",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 1036,
+      "currentSha256": "96a7718dec8b0b096cc6be5eeca7de8bf1431989a47a272de894db8d67465ad6",
+      "matches": true
+    },
+    {
+      "path": "scripts/ceo-read-brief.mjs",
+      "sha256": "91db8b83907cb8557dad866291fc9209e7421862bd60880592cde7e9db6ab7d0",
+      "category": "REUSED_CEO_SOURCE_UNCHANGED",
+      "bytes": 935,
+      "currentSha256": "91db8b83907cb8557dad866291fc9209e7421862bd60880592cde7e9db6ab7d0",
+      "matches": true
+    },
+    {
+      "path": "scripts/ceo-task-loop.mjs",
+      "sha256": "54b40fa0a7f37cb23dd6beadb18b4c5cc0f20ba55a37fe7f24988f2385903738",
+      "category": "REUSED_CEO_SOURCE_MODIFIED",
+      "bytes": 8573,
+      "currentSha256": "54b40fa0a7f37cb23dd6beadb18b4c5cc0f20ba55a37fe7f24988f2385903738",
+      "matches": true
+    },
+    {
+      "path": "scripts/ceo-workspace.mjs",
+      "sha256": "8c45316810cb81672dc02f8737c68ba6040ea06db3401dd3728d3c889261f50b",
+      "category": "REUSED_CEO_SOURCE_MODIFIED",
+      "bytes": 2685,
+      "currentSha256": "8c45316810cb81672dc02f8737c68ba6040ea06db3401dd3728d3c889261f50b",
+      "matches": true
+    },
+    {
+      "path": "watchdog.js",
+      "sha256": "0f34c0e71bf32716dc6d766853ea7b17e2b028f585f0c178a3928c8c4746e834",
+      "category": "G1_NEW_OR_MAIN_MODIFIED",
+      "bytes": 7524,
+      "currentSha256": "0f34c0e71bf32716dc6d766853ea7b17e2b028f585f0c178a3928c8c4746e834",
+      "matches": true
+    }
+  ],
+  "currentPatchMatchesDelivered": true,
+  "currentPatchSha256": "5c6b18b37439d087970928fe95f26a08288e54ec822dafe6dabb174ca045ef18"
+}

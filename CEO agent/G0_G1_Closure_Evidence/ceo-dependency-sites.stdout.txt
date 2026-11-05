@@ -1,0 +1,51 @@
+scripts/ceo-workspace.mjs:1:import { readFile, stat } from 'node:fs/promises';
+scripts/ceo-workspace.mjs:2:import path from 'node:path';
+scripts/ceo-workspace.mjs:3:import { pathToFileURL } from 'node:url';
+scripts/ceo-workspace.mjs:4:import { loadCeoOperatingContext } from '../dist/src/ceo-operating-context.js';
+scripts/ceo-workspace.mjs:5:import { CeoDraftWorkspace } from '../dist/src/ceo-draft-workspace.js';
+scripts/ceo-workspace.mjs:6:import {requireG1FixtureRoot,requireG1FixturePath} from '../dist/src/ceo-main-boundary.js';
+scripts/ceo-workspace.mjs:27:   const bytes=await readFile(opts['--input']);if(bytes.length>1048576)fail('INVALID_INPUT');
+scripts/ceo-workspace.mjs:31:  workspace=new CeoDraftWorkspace({dbPath:opts['--db']});
+scripts/ceo-task-loop.mjs:1:import {readFile,writeFile,mkdir,stat,access} from 'node:fs/promises';
+scripts/ceo-task-loop.mjs:2:import {randomBytes} from 'node:crypto';
+scripts/ceo-task-loop.mjs:3:import path from 'node:path';
+scripts/ceo-task-loop.mjs:4:import {pathToFileURL} from 'node:url';
+scripts/ceo-task-loop.mjs:5:import {loadCeoOperatingContext} from '../dist/src/ceo-operating-context.js';
+scripts/ceo-task-loop.mjs:6:import {CeoTaskWorkspace} from '../dist/src/ceo-task-workspace.js';
+scripts/ceo-task-loop.mjs:7:import {createCeoTaskServer} from '../dist/src/ceo-task-http.js';
+scripts/ceo-task-loop.mjs:8:import {loadCeoOperatingBrief} from '../dist/src/ceo-operating-brief.js';
+scripts/ceo-task-loop.mjs:9:import {captureCeoReviewInputs} from '../dist/src/ceo-review-input-guard.js';
+scripts/ceo-task-loop.mjs:10:import {replanErrorCodes} from '../dist/src/ceo-review-replanning.js';
+scripts/ceo-task-loop.mjs:11:import {checkCeoTaskEvidence} from '../dist/src/ceo-task-evidence.js';
+scripts/ceo-task-loop.mjs:12:import {requireG1FixtureRoot,requireG1FixturePath} from '../dist/src/ceo-main-boundary.js';
+scripts/ceo-task-loop.mjs:15:const specs={'init-credentials':['--out'],serve:['--root','--db','--credentials','--port'],read:['--base-url','--token-file'],plans:['--base-url','--token-file'],context:['--base-url','--token-file'],brief:['--base-url','--token-file'],reviews:['--base-url','--token-file'],draft:['--base-url','--token-file','--input'],receipt:['--base-url','--token-file','--request-id'],import:['--base-url','--token-file','--input'],command:['--base-url','--token-file','--input']};
+scripts/ceo-task-loop.mjs:21:async function json(file,max=65536){if((await stat(file)).size>max)fail('INVALID_INPUT');const bytes=await readFile(file);if(bytes.length>max)fail('INVALID_INPUT');return JSON.parse(bytes.toString('utf8'));}
+scripts/ceo-task-loop.mjs:30:  if(['init-credentials','serve','draft','import','command','replan'].includes(command)){
+scripts/ceo-task-loop.mjs:33:   for(const key of ['--out','--db','--credentials','--token-file','--input'])if(opts[key])requireG1FixturePath(opts[key],fixtureRoot);
+scripts/ceo-task-loop.mjs:35:  if(command==='init-credentials'){
+scripts/ceo-task-loop.mjs:37:   const files=['server-credentials.json','owner-token.json','agent-token.json'];
+scripts/ceo-task-loop.mjs:40:   const credentials={owner:{id:'owner-local',storeId:'400370',token:randomBytes(32).toString('hex')},agent:{id:'agent-local',storeId:'400370',token:randomBytes(32).toString('hex')}};
+scripts/ceo-task-loop.mjs:41:   const values=[credentials,{token:credentials.owner.token},{token:credentials.agent.token}];
+scripts/ceo-task-loop.mjs:43:   console.log(JSON.stringify({created:true,credentialsDirectory:out,agentTokenFile:path.join(out,files[2]),ownerTokenFile:path.join(out,files[1])}));return;
+scripts/ceo-task-loop.mjs:48:   const credentials=await json(opts['--credentials'],8192);
+scripts/ceo-task-loop.mjs:49:   workspace=new CeoTaskWorkspace({dbPath:opts['--db']});
+scripts/ceo-task-loop.mjs:50:   const server=createCeoTaskServer({workspace,manualFixtureRoot:root,loadContext:()=>loadCeoOperatingContext({projectRoot:root}),loadBrief:args=>loadCeoOperatingBrief({projectRoot:root,...args}),captureReviewInputs:()=>captureCeoReviewInputs({projectRoot:root}),checkEvidence:task=>checkCeoTaskEvidence({projectRoot:root,task}),credentials,commandCenterOrigins:['http://localhost:3000','http://127.0.0.1:3000']});
+dist/src/ceo-task-http.js:1:import http from 'node:http';
+dist/src/ceo-task-http.js:2:import {randomBytes,timingSafeEqual} from 'node:crypto';
+dist/src/ceo-task-http.js:3:import {readFile} from 'node:fs/promises';
+dist/src/ceo-task-http.js:4:import path from 'node:path';
+dist/src/ceo-task-http.js:5:import {fileURLToPath} from 'node:url';
+dist/src/ceo-task-http.js:6:import {replanErrorCodes} from './ceo-review-replanning.js';
+dist/src/ceo-task-http.js:7:import {requireCeoEvidenceCheck} from './ceo-task-evidence.js';
+dist/src/ceo-task-http.js:8:import {requireG1FixtureRoot} from './ceo-main-boundary.js';
+dist/src/ceo-task-http.js:27:export function createCeoTaskServer({workspace,loadContext,loadBrief=async()=>({schema:'ceo-operating-brief/v1',status:'NOT_CONFIGURED',readOnly:true}),captureReviewInputs=null,checkEvidence=null,credentials,publicDir=fileURLToPath(new URL('../../public/',import.meta.url)),now=()=>new Date(),commandCenterOrigins=[],manualFixtureRoot=null}){
+dist/src/ceo-task-http.js:29: for(const role of ['owner','agent']){const c=credentials?.[role];if(!c||typeof c.id!=='string'||!c.id||c.storeId!=='400370'||!tokenOK(c.token))fail('INVALID_CREDENTIALS');}
+dist/src/ceo-task-http.js:30: if(credentials.owner.id===credentials.agent.id||credentials.owner.token===credentials.agent.token)fail('INVALID_CREDENTIALS');
+dist/src/ceo-task-http.js:32: if(manualFixture)requireG1FixtureRoot({fixtureRoot:manualFixtureRoot,dataRoot:path.dirname(workspace.dbPath)});
+dist/src/ceo-task-http.js:34: const sessions=new Map(),principals=Object.entries(credentials).map(([role,c])=>({token:c.token,actor:{id:c.id,role,storeId:c.storeId}}));
+dist/src/ceo-task-http.js:36: const server=http.createServer(async(req,res)=>{
+dist/src/ceo-task-http.js:57:    const file=staticFiles[route],data=await readFile(path.join(publicDir,file));
+dist/src/ceo-task-workspace.js:1:import {CeoDraftWorkspace,ceoDraftEntryHash} from './ceo-draft-workspace.js';
+dist/src/ceo-task-workspace.js:2:import {ceoContentHash,ceoContextId} from './ceo-operating-context.js';
+dist/src/ceo-task-workspace.js:3:import {buildCeoDailyReview} from './ceo-daily-review.js';
+dist/src/ceo-task-workspace.js:4:import {buildCeoReplanningBrief,validateReviewReplanBinding,operatingTasks} from './ceo-review-replanning.js';

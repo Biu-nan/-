@@ -1,0 +1,47 @@
+diff --git a/dist/src/ceo-vnext-context.js b/dist/src/ceo-vnext-context.js
+index 03e4c3c..a68c6b7 100644
+--- a/dist/src/ceo-vnext-context.js
++++ b/dist/src/ceo-vnext-context.js
+@@ -1,6 +1,6 @@
+ import {readFileSync} from 'node:fs';
+ import {sha,contentHash,freeze,fail,timestamp,safeText} from './ceo-vnext-common.js';
+-const policy=JSON.parse(readFileSync(new URL('../../config/ceo-data-sources.v1.json',import.meta.url),'utf8'));
++const defaultPolicy=JSON.parse(readFileSync(new URL('../../config/ceo-data-sources.v1.json',import.meta.url),'utf8'));
+ const knowledge=JSON.parse(readFileSync(new URL('../../config/ceo-knowledge.v1.json',import.meta.url),'utf8'));
+ const prompt=readFileSync(new URL('../../prompts/ceo-vnext-core.md',import.meta.url),'utf8');
+ const issued=new WeakSet();
+@@ -8,7 +8,9 @@ const date=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&Number.isFinit
+ const periodOK=p=>p&&date(p.start)&&date(p.end)&&p.start<=p.end&&safeText(p.timeZone)&&(()=>{try{new Intl.DateTimeFormat('en',{timeZone:p.timeZone});return true;}catch{return false;}})();
+ export const isCeoVnextContext=c=>issued.has(c);
+ /** Trusted host API; approvals/evidence are never accepted from the analysis request body. */
+-export function buildCeoVnextContext({storeId,dictionaryBytes,knowledgePack=knowledge,facts=[],evidence=[],approvals=[],period,now=new Date()}={}){
++export function buildCeoVnextContext({storeId,dictionaryBytes,knowledgePack=knowledge,facts=[],evidence=[],approvals=[],period,sourcePolicy=defaultPolicy,now=new Date()}={}){
++ const policy=structuredClone(sourcePolicy);
++ if(policy?.schema!=='ceo-data-source-policy/v1'||policy.mode!=='SYNTHETIC_ONLY'||policy.storeId!=='400370'||typeof policy.version!=='string'||!Array.isArray(policy.approvedReviewers)||!policy.approvedReviewers.length||!policy.approvedReviewers.every(x=>typeof x==='string'&&x.startsWith('fixture-'))||!Array.isArray(policy.sourceIds)||!policy.sourceIds.length||!policy.sourceIds.every(x=>typeof x==='string'&&x.startsWith('fixture-'))||!Number.isSafeInteger(policy.maxCaptureAgeMs)||policy.maxCaptureAgeMs<1||policy.maxCaptureAgeMs>86400000||!policy.eventBasisByCaliber||typeof policy.eventBasisByCaliber!=='object')fail('INVALID_SOURCE_POLICY');
+  if(storeId!==policy.storeId||!periodOK(period)||!(now instanceof Date)||!Number.isFinite(+now)||!Array.isArray(facts)||facts.length>1000||!Array.isArray(evidence)||evidence.length>1000||!Array.isArray(approvals)||approvals.length>1000)fail('INVALID_CONTEXT_INPUT');
+  const bytes=Buffer.from(dictionaryBytes??'');if(!bytes.length||bytes.length>1048576)fail('INVALID_DICTIONARY');let dictionary;try{dictionary=JSON.parse(bytes);}catch{fail('INVALID_DICTIONARY');}if(!dictionary.calibers||typeof dictionary.calibers!=='object')fail('INVALID_DICTIONARY');
+  const pack=structuredClone(knowledgePack);if(pack.schema!=='ceo-core-knowledge/v1'||!safeText(pack.version)||!Array.isArray(pack.entries)||pack.entries.length>100||pack.entries.some(x=>!['FACT','RULE','HYPOTHESIS','PROPOSAL','EXPERIENCE'].includes(x.kind)||!safeText(x.id)||!safeText(x.text)))fail('INVALID_KNOWLEDGE');
+@@ -30,7 +32,7 @@ export function buildCeoVnextContext({storeId,dictionaryBytes,knowledgePack=know
+   if(quality!=='VERIFIED')dataGaps.push({factId:f.factId,quality,reasons});
+   return{factId:f.factId,version:f.version,storeId,caliber:typeof f.caliber==='string'?f.caliber:null,value:quality==='VERIFIED'?f.value:null,unit:caliber?.unit??null,currency:f.currency??null,period:structuredClone(period),quality,reasons,validUntil:timestamp(f.validUntil)?f.validUntil:null,source:sourceOK?{path:source.path,sha256:source.sha256,sourceId:source.sourceId}:null};
+  });
+- const context={schema:'ceo-vnext-context/v1',storeId,mode:'SHADOW',sourcePolicyVersion:policy.version,dictionaryVersion:dictionary.version??'UNKNOWN',dictionaryHash:sha(bytes),knowledgeVersion:pack.version,knowledgeHash:contentHash({pack,promptHash:sha(prompt)}),period:structuredClone(period),facts:rows,dataGaps,sourceRefs:[...new Set(rows.filter(r=>r.source).map(r=>r.source.sha256))],capturedAt:now.toISOString(),validUntil:new Date(Math.min(+now+300000,...rows.filter(r=>r.quality==='VERIFIED').map(r=>Date.parse(r.validUntil)))).toISOString(),readOnlyBusiness:true};
++ const context={schema:'ceo-vnext-context/v1',storeId,mode:'SHADOW',sourcePolicyVersion:policy.version,sourcePolicyHash:contentHash(policy),dictionaryVersion:dictionary.version??'UNKNOWN',dictionaryHash:sha(bytes),knowledgeVersion:pack.version,knowledgeHash:contentHash({pack,promptHash:sha(prompt)}),period:structuredClone(period),facts:rows,dataGaps,sourceRefs:[...new Set(rows.filter(r=>r.source).map(r=>r.source.sha256))],capturedAt:now.toISOString(),validUntil:new Date(Math.min(+now+300000,...rows.filter(r=>r.quality==='VERIFIED').map(r=>Date.parse(r.validUntil)))).toISOString(),readOnlyBusiness:true};
+  const {capturedAt:loadTime,validUntil:expiry,...identity}=context;
+  const result=freeze({...context,contextId:'ctx-'+contentHash(identity)});issued.add(result);return result;
+ }
+diff --git a/schemas/ceo-vnext-context.schema.json b/schemas/ceo-vnext-context.schema.json
+index 71e1acb..e60c82b 100644
+--- a/schemas/ceo-vnext-context.schema.json
++++ b/schemas/ceo-vnext-context.schema.json
+@@ -88,6 +88,10 @@
+     },
+     "contextId": {
+       "type": "string"
++    },
++    "sourcePolicyHash": {
++      "type": "string",
++      "pattern": "^[a-f0-9]{64}$"
+     }
+   },
+   "required": [

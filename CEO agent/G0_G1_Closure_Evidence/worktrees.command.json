@@ -1,0 +1,11 @@
+{
+  "at": "2026-11-05T02:30:04.060706+00:00",
+  "cwd": "F:\\yikuaborder-deploy",
+  "command": [
+    "git",
+    "worktree",
+    "list",
+    "--porcelain"
+  ],
+  "exitCode": 0
+}

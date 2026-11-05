@@ -1,0 +1,417 @@
+{
+  "checkedAt": "2026-11-05T02:15:22.478887+00:00",
+  "worktree": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+  "branch": "feature/ceo-g0-g1-20261105",
+  "baseCommit": "052abd71301f0409ad6295fea78f24bb83bc35f3",
+  "nodeVersion": "v24.14.1",
+  "patchSha256": "5c6b18b37439d087970928fe95f26a08288e54ec822dafe6dabb174ca045ef18",
+  "patchBytes": 363085,
+  "changedPathCount": 64,
+  "categories": {
+    "G1_NEW_OR_MAIN_MODIFIED": 24,
+    "REUSED_CEO_SOURCE_UNCHANGED": 32,
+    "REUSED_CEO_SOURCE_MODIFIED": 8
+  },
+  "protected": [
+    {
+      "path": "F:\\yikuaborder-deploy\\nawu-fetch\\lib\\dxm-c6r.cjs",
+      "beforeSha256": "745380ecbe24c5e6519d99c0c09cd9fe8f4a7c865a0a30589d7d2ec8099de6a0",
+      "afterSha256": "745380ecbe24c5e6519d99c0c09cd9fe8f4a7c865a0a30589d7d2ec8099de6a0",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\nawu-fetch\\lib\\nawu-inventory.cjs",
+      "beforeSha256": "1e29ff7b95d48f03efd81a2779956d6183264c6d45bbf5165606080dbc9f7d80",
+      "afterSha256": "1e29ff7b95d48f03efd81a2779956d6183264c6d45bbf5165606080dbc9f7d80",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\public\\draft-executor-panel.js",
+      "beforeSha256": "98bf76037efa2b76d3c77a2595624a317931e63afff00b802f1c9aa09b19d91b",
+      "afterSha256": "98bf76037efa2b76d3c77a2595624a317931e63afff00b802f1c9aa09b19d91b",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\CEO agent\\CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md",
+      "beforeSha256": "294570a0e5cd27d937facbf7c7e2ecdd3202face159d420c555de5f228128a1e",
+      "afterSha256": "294570a0e5cd27d937facbf7c7e2ecdd3202face159d420c555de5f228128a1e",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\server.js",
+      "beforeSha256": "7847a1587b35e985d1a44d5a39099443d2eabeed3f7f48ad7f2a969529437a02",
+      "afterSha256": "7847a1587b35e985d1a44d5a39099443d2eabeed3f7f48ad7f2a969529437a02",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\watchdog.js",
+      "beforeSha256": "6dc83743c13751cf204c8a7cbe08929b1bc9d86c264ef298a5cec11a2829a609",
+      "afterSha256": "6dc83743c13751cf204c8a7cbe08929b1bc9d86c264ef298a5cec11a2829a609",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\run-state.json",
+      "beforeSha256": "378f5aa2f3ae0ca84f9df8144230c8b7fb89fc520a02cca292daabace19f0cc1",
+      "afterSha256": "378f5aa2f3ae0ca84f9df8144230c8b7fb89fc520a02cca292daabace19f0cc1",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\config\\ceo-store-400370.json",
+      "beforeSha256": "0f7928c672bf04dea3e17cbf8dff929a5407b0c204d391308e1fabf857bef4f2",
+      "afterSha256": "0f7928c672bf04dea3e17cbf8dff929a5407b0c204d391308e1fabf857bef4f2",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\config\\metrics-schema.json",
+      "beforeSha256": "f3fbfb1454a934cbfc8b155b3513f5c64d5ec62470bd9391b018846986f68efc",
+      "afterSha256": "933d63c4e5f1c3223aacb60708a6a2ce2302a385f425c3ca10a0ab3692b905ed",
+      "unchanged": false
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\data\\event_log.jsonl",
+      "beforeSha256": "5491d8971adf28a9a681119988a5f4b4da7a11891af2591314320a578b65fe7b",
+      "afterSha256": "5491d8971adf28a9a681119988a5f4b4da7a11891af2591314320a578b65fe7b",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\data\\action_log.jsonl",
+      "beforeSha256": "527199e9c07292ba21ea6169d5ec943fcb385c559e626dcef4d182b47e0e3ddd",
+      "afterSha256": "527199e9c07292ba21ea6169d5ec943fcb385c559e626dcef4d182b47e0e3ddd",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\data\\snapshots.jsonl",
+      "beforeSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "afterSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\data\\reviews.jsonl",
+      "beforeSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "afterSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "unchanged": true
+    }
+  ],
+  "originalRepositories": [
+    {
+      "name": "main",
+      "root": "F:\\yikuaborder-deploy",
+      "head": "052abd71301f0409ad6295fea78f24bb83bc35f3",
+      "diffSha256": "bf22fc2d74ab183d370b4ee671e9bc5952756b548f8e358be4749b2820af2262",
+      "sameTrackedDiff": false,
+      "status": " M config/metrics-schema.json\n M nawu-fetch/lib/dxm-c6r.cjs\n M nawu-fetch/lib/nawu-inventory.cjs\n M public/draft-executor-panel.js\n?? .chrome-cdp-9223/\n?? \"CEO agent/\"\n?? _shortlist_result.json\n?? _verify/\n?? config/market-scan.json\n?? docs/IXSPY_MCP_INTEGRATION_ASSESSMENT_2026-11-05.md\n?? docs/IXSPY_P0_VALIDATION_2026-11-05.md\n?? docs/IXSPY_P1_CLOSEOUT_2026-11-05.md\n?? docs/OPC_OS_ARCHITECTURE_v0.3.html\n?? docs/OPC_OS_BUILD_STANDARD_v1.0.md\n?? docs/OPC_OS_OPERATING_CHARTER_v1.0.md\n?? docs/OPC_OS_RUNTIME_FRAMEWORK_v1.0.html\n?? docs/phase1/POST_COMMIT_AUDIT.md\n?? docs/phase2b-real-preflight/\n?? docs/phase2d/\n?? docs/superpowers/specs/2026-11-03-ceo-agent-authority-design.md\n?? nawu-fetch/lib/nawu-inventory.cjs.bak-20261101\n"
+    },
+    {
+      "name": "ceo",
+      "root": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief",
+      "head": "fed03d366b14a7dfa75686086a0554002a148e61",
+      "diffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sameTrackedDiff": true,
+      "status": "?? .test-baseline/\n?? .test-draft-full/\n?? .test-draft-reliability/\n?? .test-draft-reviewed-rel/\n?? .test-draft-reviewed/\n?? .test-final/\n?? .test-reliability/\n"
+    },
+    {
+      "name": "run",
+      "root": "F:\\yikuaborder-run",
+      "head": "8970876e55d1e371d51c37b0249d6c37d8d4d132",
+      "diffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sameTrackedDiff": true,
+      "status": "?? 启动一跨.bat\n"
+    }
+  ],
+  "syntax": [
+    {
+      "path": "dist/src/ceo-daily-plan.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-daily-review.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-decision-contract.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-draft-workspace.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-governance.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-isolated-runtime.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-legacy-view.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-main-boundary.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-operating-brief.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-operating-context.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-read-brief.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-review-input-guard.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-review-replanning.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-runtime-host.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-runtime-manifest.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-task-evidence.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-task-http.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-task-workspace.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/config.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/server.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-cli-safety.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-conversation-entry.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-daily-plan.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-daily-review-ui.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-daily-review.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-decision-contract.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-draft-cli.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-draft-workspace.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-evidence-check-ui.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-governance-bypass.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-governance.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-isolation-review.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-legacy-boundary.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-legacy-compat.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-main-boundary.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-main-entry.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-operating-brief-ui.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-operating-brief.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-operating-context.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-read-brief.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-replanning-ui.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-review-replanning.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-runtime-health.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-runtime-integration.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-runtime-manifest.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-task-cli.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-task-evidence.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-task-http.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-task-workspace.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-watchdog-safety.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-workspace-cli.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/fixtures/ceo-operating-brief-fixture.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/fixtures/ceo-task-fixture.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "scripts/ceo-draft-plan.mjs",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "scripts/ceo-read-brief.mjs",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "scripts/ceo-task-loop.mjs",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "scripts/ceo-workspace.mjs",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "watchdog.js",
+      "exitCode": 0,
+      "stderr": ""
+    }
+  ],
+  "syntaxTotal": 58,
+  "syntaxPassed": 58,
+  "diffCheckExitCode": 0,
+  "diffCheckOutput": "warning: in the working copy of 'config/ceo-capabilities.v1.json', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/src/ceo-daily-plan.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/src/ceo-daily-review.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/src/ceo-decision-contract.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/src/ceo-draft-workspace.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/src/ceo-governance.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/src/ceo-isolated-runtime.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/src/ceo-legacy-view.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/src/ceo-main-boundary.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/src/ceo-operating-brief.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/src/ceo-operating-context.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/src/ceo-read-brief.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/src/ceo-review-input-guard.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/src/ceo-review-replanning.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/src/ceo-runtime-host.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/src/ceo-runtime-manifest.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/src/ceo-task-evidence.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/src/ceo-task-http.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/src/ceo-task-workspace.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-cli-safety.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-conversation-entry.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-daily-plan.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-daily-review-ui.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-daily-review.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-decision-contract.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-draft-cli.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-draft-workspace.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-evidence-check-ui.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-governance-bypass.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-governance.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-isolation-review.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-legacy-boundary.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-legacy-compat.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-main-boundary.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-main-entry.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-operating-brief-ui.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-operating-brief.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-operating-context.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-read-brief.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-replanning-ui.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-review-replanning.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-runtime-health.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-runtime-integration.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-runtime-manifest.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-task-cli.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-task-evidence.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-task-http.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-task-workspace.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-watchdog-safety.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-workspace-cli.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/fixtures/ceo-decision-cases.json', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/fixtures/ceo-operating-brief-fixture.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/fixtures/ceo-task-fixture.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'public/ceo-tasks.html', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'schemas/ceo-decision.schema.json', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'schemas/ceo-principal.schema.json', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'scripts/ceo-draft-plan.mjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'scripts/ceo-read-brief.mjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'scripts/ceo-task-loop.mjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'scripts/ceo-workspace.mjs', LF will be replaced by CRLF the next time Git touches it\n"
+}

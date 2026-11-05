@@ -1,0 +1,241 @@
+{
+  "version": "1.0.0",
+  "updatedAt": "2026-10-25",
+  "note": "口径字典（Single Source of Caliber）。任何指标计算必须显式声明 caliber，禁止跨口径聚合。此文件是唯一权威定义，代码里不得硬编码口径含义。",
+
+  "calibers": {
+    "sales.qty.total": {
+      "label": "含货通销量",
+      "definition": "平台支付件数，包含货通（平台代发）订单",
+      "source": "aliexpress.sales-manage",
+      "unit": "件",
+      "comparableWith": [],
+      "warning": "与 sales.qty.direct 不可比。实测同店同期 2302 vs 64，差约 36 倍。平台页面明确声明两者口径不同。"
+    },
+    "sales.qty.direct": {
+      "label": "不含货通销量",
+      "definition": "仅店铺直发的支付件数，不含货通数据",
+      "source": "aliexpress.product-analysis",
+      "unit": "件",
+      "comparableWith": [],
+      "warning": "小于 sales.qty.total，不可当作全店销量使用。"
+    },
+    "sales.amount.gmv": {
+      "label": "成交金额",
+      "definition": "成交金额 = 待结算金额 + 放款前退款金额 + 已放款金额",
+      "source": "aliexpress.funds",
+      "unit": "CNY",
+      "comparableWith": ["sales.qty.total"],
+      "warning": "发货时间口径，非下单时间。"
+    },
+    "sales.amount.pending": {
+      "label": "待结算金额",
+      "definition": "已成交但平台尚未放款的金额",
+      "source": "aliexpress.funds",
+      "unit": "CNY",
+      "comparableWith": ["sales.amount.gmv"]
+    },
+    "sales.amount.net": {
+      "label": "净收入",
+      "definition": "总收入 - 总支出，平台扣费后口径",
+      "source": "aliexpress.funds",
+      "unit": "CNY",
+      "comparableWith": ["sales.amount.gmv"],
+      "warning": "不含采购成本、头程、包装。绝不可等同于利润。"
+    },
+    "traffic.pv": {
+      "label": "浏览量",
+      "definition": "店铺商品页被浏览的页面次数",
+      "source": "aliexpress.store-overview",
+      "unit": "次",
+      "comparableWith": ["traffic.uv"]
+    },
+    "traffic.uv": {
+      "label": "访客数",
+      "definition": "去重后的访问人数",
+      "source": "aliexpress.store-overview",
+      "unit": "人",
+      "comparableWith": ["traffic.pv"]
+    },
+    "traffic.impression": {
+      "label": "搜索曝光量",
+      "definition": "商品在搜索结果中展示的次数",
+      "source": "aliexpress.store-overview",
+      "unit": "次",
+      "comparableWith": []
+    },
+    "conv.buyers": {
+      "label": "支付买家数",
+      "definition": "完成支付的去重买家数",
+      "source": "aliexpress.store-overview",
+      "unit": "人",
+      "comparableWith": ["traffic.uv"]
+    },
+    "conv.rate": {
+      "label": "支付转化率",
+      "definition": "支付买家数 / 访客数，平台直接给出",
+      "source": "aliexpress.store-overview",
+      "unit": "%",
+      "comparableWith": []
+    },
+    "inventory.sellable": {
+      "label": "可售库存",
+      "definition": "实仓库存减去占用与在途影响后的可销售量",
+      "source": "aliexpress.sales-manage",
+      "unit": "件"
+    },
+    "inventory.actual": {
+      "label": "实仓库存",
+      "definition": "平台仓内实际在库数量",
+      "source": "aliexpress.sales-manage",
+      "unit": "件"
+    },
+    "inventory.occupied": {
+      "label": "占用库存",
+      "definition": "已被订单占用、尚未出库的数量",
+      "source": "aliexpress.sales-manage",
+      "unit": "件"
+    },
+    "inventory.transit": {
+      "label": "在途库存",
+      "definition": "已发货至平台仓、尚未入库的数量",
+      "source": "aliexpress.sales-manage",
+      "unit": "件"
+    },
+    "lifecycle.activeSkus": {
+      "label": "动销商品数",
+      "definition": "统计窗口内有支付订单的商品数",
+      "source": "aliexpress.store-overview",
+      "unit": "个"
+    },
+    "catalog.total": {
+      "label": "商品库总数",
+      "definition": "店小秘商品库中的商品（SPU）总数",
+      "source": "dianxiaomi.commodity",
+      "unit": "个"
+    },
+    "catalog.platformItems": {
+      "label": "平台商品数",
+      "definition": "速卖通后台统计的全部商品数（含在线/草稿/下架，平台口径）",
+      "source": "aliexpress.sales-manage",
+      "unit": "个",
+      "comparableWith": [],
+      "warning": "与 catalog.total（店小秘商品库）不可互换，两者统计对象不同。动销率分母必须显式声明用哪个。"
+    },
+    "catalog.online": {
+      "label": "在线商品数",
+      "definition": "发布到平台且状态为 online 的商品数",
+      "source": "dianxiaomi.choice-product",
+      "unit": "个"
+    },
+    "catalog.draft": {
+      "label": "草稿数",
+      "definition": "已建但未提交发布的商品数",
+      "source": "dianxiaomi.choice-product",
+      "unit": "个"
+    },
+    "catalog.waitPublish": {
+      "label": "待发布数",
+      "definition": "已提交、等待平台处理发布的商品数",
+      "source": "dianxiaomi.choice-product",
+      "unit": "个"
+    },
+    "catalog.publishFail": {
+      "label": "发布失败数",
+      "definition": "提交发布后平台返回失败的商品数，需人工介入",
+      "source": "dianxiaomi.choice-product",
+      "unit": "个",
+      "warning": "这是执行侧告警，不是经营指标，应在日扫中优先处理。"
+    },
+    "catalog.brokenSize": {
+      "label": "已断码数",
+      "definition": "部分规格无库存、但商品仍在售的数量（平台口径，延迟 1 小时）",
+      "source": "aliexpress.sales-manage",
+      "unit": "个"
+    },
+    "catalog.outOfStock": {
+      "label": "已断货数",
+      "definition": "全部规格无库存的商品数（平台口径，延迟 1 小时）",
+      "source": "aliexpress.sales-manage",
+      "unit": "个"
+    }
+  },
+
+  "windows": {
+    "today": { "label": "今日", "days": 0 },
+    "7d": { "label": "近7日", "days": 7 },
+    "30d": { "label": "近30日", "days": 30 },
+    "1y": { "label": "近1年", "days": 365 },
+    "custom": { "label": "自定义区间", "days": null }
+  },
+
+  "timezone": {
+    "note": "速卖通后台销售额/流量一律 PDT（UTC-8），店铺数据页与销售管理页时间口径可能差 1 天，抓取时必须记录页面声明的时间范围，不得自行换算成北京时间后聚合。",
+    "platformTimezone": "PDT",
+    "localTimezone": "Asia/Shanghai"
+  },
+
+  "freshness": {
+    "note": "平台官方声明：已断货/已断码延迟 1 小时；售罄预警/备货建议延迟 1 天。抓取时若拿不到平台自身的更新时间声明，一律标记 dataFreshness=UNKNOWN，不得当作实时数据使用。",
+    "rules": [
+      { "metric": "catalog.brokenSize", "maxDelayMinutes": 60 },
+      { "metric": "catalog.outOfStock", "maxDelayMinutes": 60 },
+      { "metric": "inventory.sellable", "maxDelayMinutes": 1440 },
+      { "metric": "sales.qty.total", "maxDelayMinutes": 1440 }
+    ],
+    "stalePolicy": "超过 maxDelayMinutes 未更新时，指标值必须为 null 且 reason=STALE，禁止沿用上一周期数值。"
+  },
+
+  "metrics": {
+    "sellThroughRate": {
+      "label": "动销率",
+      "formula": "lifecycle.activeSkus / denominator",
+      "denominatorOptions": ["catalog.platformItems", "catalog.online", "catalog.total"],
+      "denominatorNote": "三个分母都合法但结论不同，报告必须显式标注用了哪个。默认用 catalog.platformItems（与平台动销商品数同源）。",
+      "unit": "%",
+      "threshold": { "warn": 40, "critical": 20, "direction": "below" },
+      "requiresSameSource": true
+    },
+    "brokenSizeRate": {
+      "label": "断码率",
+      "formula": "catalog.brokenSize / catalog.platformItems",
+      "unit": "%",
+      "threshold": { "warn": 5, "critical": 10, "direction": "above" },
+      "note": "分子分母必须同源（都是 aliexpress.sales-manage）。用店小秘 online 数当分母是错的，两者统计对象不同。"
+    },
+    "publishFailureRate": {
+      "label": "发布失败率",
+      "formula": "catalog.publishFail / (catalog.online + catalog.waitPublish + catalog.publishFail)",
+      "unit": "%",
+      "threshold": { "warn": 2, "critical": 5, "direction": "above" },
+      "note": "纯店小秘同源口径，不与平台数据混用。"
+    },
+    "settlementCycleDays": {
+      "label": "结算周期",
+      "formula": "sales.amount.pending / (sales.amount.gmv / windowDays)",
+      "unit": "天",
+      "note": "待结算金额相当于多少天的成交额，反映回款速度。两个金额必须同窗口才准确。"
+    },
+    "avgUnitPrice": {
+      "label": "件均供货价",
+      "formula": "sales.amount.gmv / sales.qty.total",
+      "unit": "CNY/件",
+      "note": "必须用 sales.qty.total（含货通）匹配 gmv，否则会算出虚高的单件价格。",
+      "windowCaveat": "gmv 与 qty.total 的统计窗口常常不同（财务按发货时间、销量按自然日）。窗口不一致时结果只能标 APPROXIMATE，不可当精确值。"
+    },
+    "offlineBacklog": {
+      "label": "未上线积压",
+      "formula": "catalog.draft + catalog.waitPublish",
+      "unit": "个",
+      "note": "供给端积压，配合 publishFail 一起看。"
+    }
+  },
+
+  "forbidden": [
+    "把 sales.qty.direct 当作全店销量",
+    "把 sales.amount.net 当作利润",
+    "跨 caliber 求和或做比值（除 schema 显式声明 comparableWith 的组合）",
+    "把抓不到的值用上一周期数值填充",
+    "把 PDT 日期直接当北京日期入库而不记录时区"
+  ]
+}

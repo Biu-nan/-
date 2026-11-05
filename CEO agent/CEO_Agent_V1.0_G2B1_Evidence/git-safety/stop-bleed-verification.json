@@ -1,0 +1,64 @@
+{
+  "schema": "ceo-git-stop-bleed-verification/v1",
+  "verifiedAt": "2026-11-05T08:50:00Z",
+  "verifiedIn": {
+    "isolatedCopy": "F:/tmp/git-bleed-verify-20261105/repo",
+    "method": "git clone --shared --no-checkout (objects via alternates, no 682 MB copy)",
+    "baseCommit": "e19e704034c8ab01c36fcaa46f9701b49dc27ab2",
+    "mainWorkspaceTouched": false
+  },
+  "mechanismFindings": {
+    "source": "宿主应用 app.asar 内的 worktreeTask.checkoutBranch → handleDirtyBeforeCheckout",
+    "trigger": "切换分支时工作树不干净",
+    "dirtyPolicyAllowed": ["abort", "commit", "stash", "discard"],
+    "dirtyPolicyDefault": "abort",
+    "observedPolicy": "commit",
+    "commitBranchImplementation": "git add -A ; git commit -m '[Checkout-checkpoint] from <from> to <to> (HH:MM:SS)'",
+    "stashBranchImplementation": "git stash push -u -m '[Checkout-autostash] before branch switch'",
+    "discardBranchImplementation": "git reset --hard HEAD ; git clean -fd",
+    "repoHooksPresent": false,
+    "inRepoScriptsEmitting": 0,
+    "conclusion": "git add -A 与 git clean -fd 均尊重 .gitignore，因此忽略规则是有效且必要的唯一防线；无需修改宿主程序。"
+  },
+  "proposedChange": {
+    "gitignoreAppend": [
+      "",
+      "# ── 浏览器用户档案（登录态/会话/缓存，绝不入库）──",
+      ".chrome-cdp-9223/",
+      "",
+      "# ── 临时验证与产物 ──",
+      "_verify/",
+      "_shortlist_result.json",
+      "*.bak-*"
+    ],
+    "indexRemoval": {
+      "command": "git rm -r --cached .chrome-cdp-9223 _verify _shortlist_result.json nawu-fetch/lib/nawu-inventory.cjs.bak-20261101",
+      "pathsRemoved": 7157,
+      "breakdown": {
+        ".chrome-cdp-9223": 7137,
+        "_verify": 18,
+        "_shortlist_result.json": 1,
+        "nawu-fetch/lib/nawu-inventory.cjs.bak-20261101": 1
+      }
+    },
+    "trackedBefore": 8237,
+    "trackedAfter": 1080,
+    "preservedCounts": { "CEO agent": 398, "docs": 220, "dist": 127, "nawu-fetch": 116, "root": 80, "agents": 41, "scripts": 25, "public": 22, "listing-agent": 19, "prompts": 14, "tools": 10, "config": 6, "schemas": 2 }
+  },
+  "verificationResults": [
+    { "check": "敏感样本文件在索引移除后仍存在", "result": "PASS", "detail": "7 个凭证类文件全部 STILL_EXISTS，Cookies 73728 B / Login Data 40960 B / Web Data 151552 B / Local State 16249 B / History 360448 B / Preferences 36281 B / Secure Preferences 216476 B" },
+    { "check": "内容未被改动", "result": "PASS", "detail": "Cookies sha256 校验 OK，移除前后一致" },
+    { "check": "止血提交后的树不再包含浏览器目录", "result": "PASS", "detail": "HEAD 树 1080 个文件，.chrome-cdp-9223/ 命中 0" },
+    { "check": "交接资料不丢失", "result": "PASS", "detail": "树内 CEO agent/ = 398，与移除前一致" },
+    { "check": "源码不丢失", "result": "PASS", "detail": "树内 dist/src/ = 83，其余目录计数见 preservedCounts" },
+    { "check": "模拟宿主检查点 git add -A 不再吸入敏感路径", "result": "PASS", "detail": "添加新写入的 Cookies-journal、_verify/new-artifact.json 并修改 README.md 后执行 git add -A，暂存区仅 README.md，敏感路径命中 0" },
+    { "check": "忽略规则同时防住 discard 策略的 git clean -fd", "result": "PASS", "detail": "git clean -fdn 输出为空，浏览器目录与 _verify 均不在清理列表" },
+    { "check": "check-ignore 判定准确", "result": "PASS", "detail": ".gitignore:115:.chrome-cdp-9223/ 命中 Network/Cookies" }
+  ],
+  "knownCaveats": [
+    "本轮只在共享对象副本中验证命令语义，未对主工作区索引执行任何写操作。",
+    "副本中 CEO_Git_Safety_And_Store_Mapping_Approval.md 与 G2B1 证据目录不存在，因为它们是在 e19e704 之后创建的未提交文件；这正说明新交付物需要单独提交，否则会被检查点一并卷入。",
+    "止血只影响此后提交；e19e704 中的 blob 仍在对象库，需要单独授权才可净化。"
+  ],
+  "notExecuted": ["reset", "clean（实际执行）", "revert", "push", "fetch", "历史重写", "gc", "删除浏览器数据", "修改主工作区索引"]
+}

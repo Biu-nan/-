@@ -1,0 +1,37 @@
+{
+  "baselineFailureCount": 27,
+  "finalFailureCount": 26,
+  "newFailures": [],
+  "removedFailures": [
+    "CLI and page API complete one isolated manual task and read it after restart"
+  ],
+  "allCurrentFailures": [
+    "accepts all ten prompt start and end markers",
+    "assembles the smt_choice_listing sample chain",
+    "does not hard-stop image generation on storyboard or prompt-pack QC failures",
+    "does not hard-stop listing generation when ChatGPT web search cannot be toggled",
+    "does not upload the same image twice when ChatGPT resets its file input",
+    "exposes Listing visual workflow v2 prompt templates through the prompt registry",
+    "exposes a manual reset for insert market radar selection",
+    "exposes all backend prompts in the knowledge prompt library",
+    "inspect is read only and produces the host goal with quarantined facts",
+    "keeps ChatGPT tool selection resilient to composer menu role changes",
+    "keeps legacy planning completion available for standard Listing",
+    "keeps the strict luxury insert layouts and fixed copy in the template",
+    "reads the agent job",
+    "reads the artifact sample",
+    "reads the context pack",
+    "reads the sample task",
+    "reads the smt_choice_listing workflow spec",
+    "recognizes stopped thinking with no assistant output instead of waiting for the global timeout",
+    "recovers listing content from previously sent Chinese listing prompts",
+    "reports ready health when all P0 fixtures and the sample chain are available",
+    "save-draft persists once using the inspected host context",
+    "sends listing content with a stable backend fingerprint",
+    "shows the Listing visual workflow v2 stages without replacing legacy controls",
+    "supports the seven-image luxury insert prompt pack",
+    "surfaces write failures instead of swallowing them",
+    "uses the native editor insertion path for a long prompt"
+  ],
+  "finalRun": "final-full-confirmed"
+}

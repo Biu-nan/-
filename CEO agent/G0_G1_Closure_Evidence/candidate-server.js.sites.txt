@@ -1,0 +1,59 @@
+6: import express from "express";
+7: import multer from "multer";
+8: import { HOST, OUTPUT_DIR, INSERT_BAG_IMAGES_DIR, INSERT_LINER_IMAGES_DIR, INSERT_OUTPUT_DIR, PORT, PRODUCT_IMAGES_DIR, PRODUCT_ROOT, PRODUCT_PROFILE_FILE, PROMPTS_DIR, PROJECT_ROOT, COMPLETED_PRODUCTS_DIR, HIDDEN_DATA_DIR, PUBLIC_DIR, USER_DATA_DIR, CHARM_REF_IMAGES_DIR, CHARM_CONTEXT_IMAGES_DIR, CHARM_OUTPUT_DIR, PRODUCT_STYLE_REF_DIR, MAX_STYLE_REFERENCE_IMAGES } from "./config.js";
+9: import { DIANXIAOMI_TEMPLATE_PRODUCT_ID, PRODUCT_FACT_FILE, DIANXIAOMI_CATEGORY_PROFILES, getDianxiaomiProfile, isXiangBaoProfile } from "./config.js";
+10: import { normalizeDianxiaomiFacts, buildProductFactsFallback } from "./dianxiaomi-facts.js";
+11: // 2026-10-28：草稿执行走 ecom 的成熟 executor（子进程桥），不在这里重写上架流程。
+61: // 系统状态总账（F1）：把 6 套并行状态机归一化成一份只读视图。详见 docs/SYSTEM_FRAMEWORK_v1.0.md
+62: import { buildSystemState } from "./system-state.js";
+63: import { installCeoMainBoundary, createMainRuntimeInfo, requireG1FixtureRoot } from "./ceo-main-boundary.js";
+64: import { acquireRuntimeLease } from "./ceo-runtime-host.js";
+65: import { randomUUID } from "node:crypto";
+66: 
+67: // The WorkBuddy runtime injects a "safe-delete" shim (genie-safe-delete.cjs) that
+82: const app = express();
+83: // The G1 candidate cannot initialize or listen against a production data root.
+84: const ceoFixtureRoot = requireG1FixtureRoot({ fixtureRoot: process.env.CEO_G1_FIXTURE_ROOT, dataRoot: USER_DATA_DIR, projectRoot: PROJECT_ROOT });
+85: const ceoMainIdentity = Object.freeze({ pid: process.pid, entryPath: fileURLToPath(import.meta.url), instanceId: randomUUID(), releaseId: process.env.CEO_RELEASE_ID ?? "g1-unreleased", startedAt: new Date().toISOString() });
+86: const ceoMainLease = await acquireRuntimeLease({ leasePath: path.join(ceoFixtureRoot, "ceo-main-runtime.lease.json"), identity: ceoMainIdentity });
+87: 
+88: // Listing Agent 客户端单例（双形态：默认 HTTP 调独立服务 http://localhost:${AGENT_PORT}，不可达回退进程内）。
+89: const agentClient = new ListingAgentClient();
+420: app.use(express.json());
+421: // G1 candidate only. Unconfigured identities fail closed; no real credential discovery/migration.
+422: const ceoBoundary = installCeoMainBoundary(app, { fixtureRoot: process.env.CEO_G1_FIXTURE_ROOT ?? null });
+423: app.use(express.static(PUBLIC_DIR));
+424: // 产品图静态文件服务（用于前端预览已上传的图片）
+425: app.use("/product-images", express.static(PRODUCT_IMAGES_DIR));
+426: // 把引用/采集箱批量上架的运行态快照成前端可读结构（只读，避免把内部 log 等大字段暴露出去）
+541: });
+542: app.get("/agent-dispatch", (_request, response) => {
+543:     response.sendFile(path.join(PUBLIC_DIR, "index.html"));
+544: });
+545: app.get("/api/agent/active-task", async (_request, response) => {
+546:     try {
+6618: // ── 版本自检（2026-10-29）：任何时候都能回答「我现在跑的是哪个版本」──────
+6619: // 代码根 = server.js 所在仓库根（dist/src 向上两级），与 PROJECT_ROOT（cwd，数据/配置根）区分。
+6620: const CODE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+6621: function readCodeVersion() {
+6622:     try {
+6623:         const branch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: CODE_ROOT, encoding: "utf8" }).trim();
+6624:         const commit = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: CODE_ROOT, encoding: "utf8" }).trim();
+6625:         return { branch, commit };
+6626:     } catch (error) {
+6627:         return { branch: "unknown", commit: "unknown" };
+6628:     }
+6629: }
+6630: const CODE_VERSION = { ...readCodeVersion(), codeRoot: CODE_ROOT };
+6631: const SERVER_STARTED_AT = ceoMainIdentity.startedAt;
+6632: const ceoRuntimeInfo = await createMainRuntimeInfo({ codeRoot: CODE_ROOT, dataRoot: USER_DATA_DIR, releaseId: ceoMainIdentity.releaseId, instanceId: ceoMainIdentity.instanceId, startedAt: SERVER_STARTED_AT });
+6633: app.get("/healthz", async (_request, response) => {
+6634:     const health = await ceoRuntimeInfo.health();
+6635:     response.status(health.ready ? 200 : 503).json(health);
+6636: });
+6664:     console.error("Unhandled rejection:", error);
+6665: });
+6666: for (const signal of ["SIGTERM", "SIGINT"]) {
+6667:     process.on(signal, () => {
+6668:         if (store.get().running || store.get().autoRun || isListingCreateRunning()) {
+6669:             console.error("[runtime] in-flight state requires Human reconciliation; refusing automatic stop");

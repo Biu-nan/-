@@ -1,0 +1,30 @@
+{
+  "schema": "ceo-workbuddy-entry/v1",
+  "cockpitId": "cockpit-d6b7f4ede2af670757f1919d924d8dfa6ca0061b48e3ff9357b9ef32120cb637",
+  "reportId": null,
+  "analysisId": "analysis-5c65e424f7d11f763156d94f26f89619db29b39e2b5dca921ece8e9dc4865da8",
+  "status": "READY",
+  "allowedIntents": [
+    "ASK_OPERATING_QUESTION",
+    "VIEW_COCKPIT"
+  ],
+  "questionTemplate": "分析纳物一店最近的经营情况，告诉我应该优先处理什么。",
+  "cannotSupply": [
+    "principal",
+    "dataApproval",
+    "context",
+    "versions",
+    "databasePath",
+    "executor",
+    "reportId"
+  ],
+  "authority": "NONE",
+  "productionWiringEnabled": false,
+  "writePath": null,
+  "readPath": {
+    "cockpit": "ceo-cockpit-projection/v1",
+    "report": "ceo-full-report-archive/v1"
+  },
+  "generatedAt": "2026-11-05T01:00:00.000Z",
+  "entryId": "wb-entry-8d33182437043b438983d243919445e957a29512240e227a098d1af0be2cf7bb"
+}

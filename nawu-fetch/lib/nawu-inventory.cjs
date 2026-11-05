@@ -44,7 +44,8 @@ async function pageState(page) {
       inputCount: document.querySelectorAll('input').length,
       hasPassword: !!pw,
       captcha: !!document.querySelector(
-        '#nc_1_wrapper, .nc-container, .baxia-dialog, iframe[src*="punish"], iframe[src*="captcha"], [class*=slider]'
+        // 注意：不可加 [class*=slider] —— 登录页右侧营销轮播图会误命中，导致永久的假验证码中止
+        '#nc_1_wrapper, .nc-container, .baxia-dialog, iframe[src*="punish"], iframe[src*="captcha"]'
       ),
     };
   });
@@ -85,7 +86,22 @@ async function ensureLoggedIn(page, cfg, log) {
   await page.goto(lg.url, { waitUntil: 'domcontentloaded', timeout: 90000 });
 
   s = await waitFor(page, (x) => x.hasPassword || x.captcha || x.inputCount > 0, 30000);
-  if (s.captcha) return { ok: false, reason: '登录页直接出现验证码，已中止', captcha: true };
+  // 仅在验证码「真正可见」时才中止；DOM 中预加载但未弹出的滑块控件属误判，
+  // 允许继续走到「稳卖预填凭据 -> 点击登录」路径（点击后仍由下方守卫兜底，不做绕过）。
+  if (s.captcha) {
+    const captchaVisible = await page.evaluate(() => {
+      const els = document.querySelectorAll(
+        '#nc_1_wrapper, .nc-container, .baxia-dialog, iframe[src*="punish"], iframe[src*="captcha"]'
+      );
+      return Array.from(els).some((e) => {
+        const r = e.getBoundingClientRect();
+        const st = getComputedStyle(e);
+        return r.width > 0 && r.height > 0 && st.visibility !== 'hidden' && st.display !== 'none' && Number(st.opacity || 1) > 0.05;
+      });
+    });
+    if (captchaVisible) return { ok: false, reason: '登录页出现可见验证码，已中止', captcha: true };
+    log.info('登录页检测到验证码控件但不可见（疑似预加载），继续尝试点击登录');
+  }
 
   // 等稳卖把凭据填进去
   let prefill = [];

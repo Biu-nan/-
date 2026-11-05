@@ -1,0 +1,108 @@
+diff --git "a/F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105\\dist\\test\\ceo-report-archive.test.js" "b/F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105\\dist\\test\\ceo-report-archive.test.js"
+new file mode 100644
+index 0000000..0005812
+--- /dev/null
++++ "b/F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105\\dist\\test\\ceo-report-archive.test.js"
+@@ -0,0 +1,102 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import {mkdtempSync,writeFileSync,readFileSync,readdirSync,mkdirSync,linkSync,existsSync,renameSync,unlinkSync} from 'node:fs';
++import fs from 'node:fs';
++import {syncBuiltinESMExports} from 'node:module';
++import {join} from 'node:path';
++import {tmpdir} from 'node:os';
++import {spawn} from 'node:child_process';
++import {pathToFileURL} from 'node:url';
++import {createCeoGovernance} from '../src/ceo-governance.js';
++import {createCeoShadowTrace} from '../src/ceo-shadow-trace.js';
++import {contentHash,sha} from '../src/ceo-vnext-common.js';
++const api=await import('../src/ceo-report-archive.js').catch(e=>{if(e.code==='ERR_MODULE_NOT_FOUND')return {};throw e;});
++function fixture(t,options={}){
++ assert.equal(typeof api.createCeoReportArchive,'function','full archive feature missing');
++ const fixtureRoot=mkdtempSync(join(tmpdir(),'ceo-archive-'));writeFileSync(join(fixtureRoot,'.ceo-isolated-fixture.json'),'{"synthetic":true}');
++ const credentials={shadow:{id:'shadow',profile:'shadow',storeId:'400370',token:'s'.repeat(48)},human:{id:'human',role:'owner',profile:'human',storeId:'400370',token:'h'.repeat(48)},legacy:{id:'legacy',profile:'legacy',storeId:'400370',token:'l'.repeat(48)}};
++ const governance=createCeoGovernance({credentials}),principals=Object.fromEntries(Object.entries(credentials).map(([k,c])=>[k,governance.authenticateToken(c.token)]));
++ const versions={runtimeVersion:'g2b0-synthetic',runtimeHash:'d'.repeat(64),sourcePolicyHash:'e'.repeat(64),knowledgeVersion:'k1',knowledgeHash:'a'.repeat(64),dictionaryVersion:'d1',dictionaryHash:'b'.repeat(64),sourcePolicyVersion:'s1',packageHash:'c'.repeat(64)};
++ const context={schema:'ceo-vnext-context/v1',storeId:'400370',contextId:'ctx-synthetic',sourceRefs:[sha('synthetic evidence\n')],...versions};delete context.runtimeVersion;delete context.packageHash;
++ const report={schema:'ceo-shadow-report/v1',storeId:'400370',contextId:context.contextId,analysisId:'analysis-synthetic',snapshotId:context.contextId,knowledgeVersion:versions.knowledgeVersion,knowledgeHash:versions.knowledgeHash,dictionaryHash:versions.dictionaryHash,planCandidates:[],claims:[{text:'合成测试报告'}]};
++ const taskSnapshot={storeId:'400370',snapshotId:'tasks-1'},workflowState={storeId:'400370',snapshotId:'flows-1'};
++ const trace=createCeoShadowTrace({fixtureRoot,filePath:join(fixtureRoot,'trace.jsonl'),governance});
++ const directory=join(fixtureRoot,'archive');
++ const open=(extra={})=>api.createCeoReportArchive({fixtureRoot,directory,governance,resolveVersions:()=>versions,traceReader:args=>trace.read(args),now:()=>new Date('2026-11-05T00:00:00Z'),...options,...extra});
++ const args={principal:principals.shadow,requestId:'request-1',context,report,evidence:[{path:'synthetic/evidence.txt',content:'synthetic evidence\n',sha256:sha('synthetic evidence\n')}],versions,taskSnapshot,workflowState};
++ const event={type:'ANALYSIS',storeId:'400370',eventId:'event-1',analysisId:report.analysisId,contextId:context.contextId,snapshotId:taskSnapshot.snapshotId,sourceHash:contentHash(context.sourceRefs),policyVersion:governance.policyVersion,proposalRef:null};
++ return{fixtureRoot,directory,governance,...principals,versions,context,report,trace,open,archive:open(),args,event};
++}
++test('full immutable objects and raw evidence survive restart; trace receipt alone completes',async t=>{
++ const f=fixture(t),prepared=await f.archive.prepare(f.args);assert.equal(prepared.status,'PREPARED');assert.match(prepared.reportId,/^report-[a-f0-9]{64}$/);
++ const before=await f.open().read({principal:f.legacy,reportId:prepared.reportId});assert.deepEqual(before.context,f.context);assert.deepEqual(before.report,f.report);assert.equal(before.evidence[0].content,'synthetic evidence\n');assert.equal(before.status,'PREPARED');
++ const traceRecord=await f.trace.append({principal:f.shadow,event:{...f.event,reportId:prepared.reportId}});const complete=await f.archive.confirmTrace({principal:f.shadow,reportId:prepared.reportId,traceRecord});assert.equal(complete.status,'COMPLETE');assert.equal(complete.traceRecordHash,traceRecord.recordHash);
++ assert.deepEqual(await f.open().read({principal:f.human,reportId:prepared.reportId}),complete);
++});
++test('issued principals, capabilities, store and runtime version binding precede mutation',async t=>{
++ const f=fixture(t),before=readdirSync(f.fixtureRoot);for(const principal of [{...f.shadow},f.legacy,f.human])await assert.rejects(()=>f.archive.prepare({...f.args,principal}),e=>['UNAUTHORIZED','FORBIDDEN'].includes(e.code));
++ await assert.rejects(()=>f.archive.prepare({...f.args,versions:{...f.versions,runtimeVersion:'forged'}}),{code:'ARCHIVE_VERSION_MISMATCH'});assert.deepEqual(readdirSync(f.fixtureRoot),before);
++ await assert.rejects(()=>f.archive.read({principal:{...f.human},reportId:'report-'+ 'a'.repeat(64)}),{code:'UNAUTHORIZED'});
++});
++test('request id is stable across restart/concurrent calls and conflicts never overwrite',async t=>{
++ const f=fixture(t);const rows=await Promise.all(Array.from({length:8},()=>f.open().prepare(f.args)));assert.equal(new Set(rows.map(r=>r.reportId)).size,1);
++ const old=await f.open().prepare(f.args);await assert.rejects(()=>f.open().prepare({...f.args,report:{...f.report,claims:[]}}),{code:'ARCHIVE_CONFLICT'});assert.equal((await f.archive.read({principal:f.shadow,reportId:old.reportId})).report.claims.length,1);
++});
++test('forged/mismatched trace and missing trusted reader never report complete',async t=>{
++ const f=fixture(t),p=await f.archive.prepare(f.args),record=await f.trace.append({principal:f.shadow,event:{...f.event,reportId:p.reportId}});
++ await assert.rejects(()=>f.archive.confirmTrace({principal:f.shadow,reportId:p.reportId,traceRecord:{...record,recordHash:'a'.repeat(64)}}),{code:'ARCHIVE_TRACE_MISMATCH'});
++ await assert.rejects(()=>f.open({traceReader:undefined}).confirmTrace({principal:f.shadow,reportId:p.reportId,traceRecord:record}),{code:'ARCHIVE_TRACE_READER_REQUIRED'});
++ assert.equal((await f.archive.read({principal:f.shadow,reportId:p.reportId})).status,'PREPARED');
++});
++test('correction is a Human immutable new version linked to completed original',async t=>{
++ const f=fixture(t),p=await f.archive.prepare(f.args),r=await f.trace.append({principal:f.shadow,event:{...f.event,reportId:p.reportId}});await f.archive.confirmTrace({principal:f.shadow,reportId:p.reportId,traceRecord:r});
++ const correction={...f.args,requestId:'correction-1',correctsReportId:p.reportId,report:{...f.report,analysisId:'analysis-correction',claims:[{text:'Human correction'}]}};
++ await assert.rejects(()=>f.archive.prepare(correction),{code:'FORBIDDEN'});const next=await f.archive.prepare({...correction,principal:f.human});assert.notEqual(next.reportId,p.reportId);assert.equal(next.correctsReportId,p.reportId);assert.equal(next.revision,2);
++ assert.equal((await f.archive.read({principal:f.shadow,reportId:p.reportId})).report.claims[0].text,'合成测试报告');
++});
++test('corrupt/missing objects fail closed and retries preserve corrupt bytes',async t=>{
++ const f=fixture(t),p=await f.archive.prepare(f.args),object=join(f.directory,'objects',p.objects.report.sha256+'.blob');writeFileSync(object,'corrupt tail');
++ await assert.rejects(()=>f.archive.read({principal:f.shadow,reportId:p.reportId}),{code:'ARCHIVE_CORRUPT'});await assert.rejects(()=>f.archive.prepare(f.args),{code:'ARCHIVE_CORRUPT'});assert.equal(readFileSync(object,'utf8'),'corrupt tail');
++});
++test('failure after object creation safely retries without premature manifest success',async t=>{
++ const f=fixture(t),original=fs.fsyncSync;let calls=0;fs.fsyncSync=(fd)=>{if(++calls===4)throw Object.assign(new Error('synthetic write failure'),{code:'EIO'});return original(fd);};syncBuiltinESMExports();
++ try{await assert.rejects(()=>f.archive.prepare(f.args),{code:'EIO'});}finally{fs.fsyncSync=original;syncBuiltinESMExports();}
++ const prepared=await f.open().prepare(f.args);assert.equal(prepared.status,'PREPARED');assert.equal((await f.open().read({principal:f.shadow,reportId:prepared.reportId})).evidence[0].content,f.args.evidence[0].content);
++});
++test('reject secrets, evidence hash mismatch/traversal, oversized bytes without archive writes',async t=>{
++ const f=fixture(t),before=readdirSync(f.fixtureRoot);for(const evidence of [[{path:'../escape',content:'x'}],[{path:'synthetic/a',content:'password=synthetic-only'}],[{path:'synthetic/a',content:'x',sha256:'a'.repeat(64)}],[{path:'synthetic/a',content:'x'.repeat(1048577)}]])await assert.rejects(()=>f.archive.prepare({...f.args,evidence}),e=>['INVALID_ARCHIVE_INPUT','ARCHIVE_SECRET_REJECTED','ARCHIVE_EVIDENCE_MISMATCH'].includes(e.code));assert.deepEqual(readdirSync(f.fixtureRoot),before);
++});
++test('hardlinked objects and escaped directory roots are rejected',async t=>{
++ const f=fixture(t);assert.throws(()=>f.open({directory:join(f.fixtureRoot,'..','escaped')}),{code:'ISOLATED_FIXTURE_REQUIRED'});const p=await f.archive.prepare(f.args),object=join(f.directory,'objects',p.objects.report.sha256+'.blob');linkSync(object,join(f.fixtureRoot,'preserved-hardlink'));
++ await assert.rejects(()=>f.archive.read({principal:f.shadow,reportId:p.reportId}),{code:'ISOLATED_FIXTURE_REQUIRED'});
++});
++test('explicit recovery finishes pending intent without replacing old committed objects',async t=>{
++ const f=fixture(t),original=fs.fsyncSync;let calls=0;fs.fsyncSync=fd=>{if(++calls===3)throw Object.assign(new Error('synthetic interruption'),{code:'EIO'});return original(fd);};syncBuiltinESMExports();
++ try{await assert.rejects(()=>f.archive.prepare(f.args),{code:'EIO'});}finally{fs.fsyncSync=original;syncBuiltinESMExports();}
++ const p=await f.open().recover({principal:f.shadow,requestId:f.args.requestId});assert.equal(p.status,'PREPARED');
++ const object=join(f.directory,'objects',p.objects.report.sha256+'.blob');renameSync(object,object+'.preserved-missing');
++ await assert.rejects(()=>f.open().recover({principal:f.shadow,requestId:f.args.requestId}),{code:'ARCHIVE_CORRUPT'});assert.equal(existsSync(object),false);
++});
++test('lost/corrupt durable trace after completion fails closed on read and retry',async t=>{
++ const f=fixture(t),p=await f.archive.prepare(f.args),record=await f.trace.append({principal:f.shadow,event:{...f.event,reportId:p.reportId}});await f.archive.confirmTrace({principal:f.shadow,reportId:p.reportId,traceRecord:record});
++ writeFileSync(join(f.fixtureRoot,'trace.jsonl'),'{incomplete');
++ await assert.rejects(()=>f.open().read({principal:f.shadow,reportId:p.reportId}),{code:'TRACE_CORRUPT'});
++ await assert.rejects(()=>f.open().prepare(f.args),{code:'TRACE_CORRUPT'});
++});
++test('multiple processes serialize the same request with one stable manifest',async t=>{
++ const f=fixture(t);const script=`import {createCeoReportArchive} from ${JSON.stringify(new URL('../src/ceo-report-archive.js',import.meta.url).href)};import {createCeoGovernance} from ${JSON.stringify(new URL('../src/ceo-governance.js',import.meta.url).href)};const i=JSON.parse(process.argv[1]),g=createCeoGovernance({credentials:{s:{id:'shadow',profile:'shadow',storeId:'400370',token:'s'.repeat(48)}}}),principal=g.authenticateToken('s'.repeat(48));const a=createCeoReportArchive({fixtureRoot:i.fixtureRoot,directory:i.directory,governance:g,resolveVersions:()=>i.args.versions});process.stdout.write((await a.prepare({...i.args,principal})).reportId);`;
++ const child=()=>new Promise((yes,no)=>{const p=spawn(process.execPath,['--input-type=module','-e',script,JSON.stringify({fixtureRoot:f.fixtureRoot,directory:f.directory,args:{...f.args,principal:undefined}})],{windowsHide:true});let out='',err='';p.stdout.on('data',x=>out+=x);p.stderr.on('data',x=>err+=x);p.on('error',no);p.on('close',code=>code===0?yes(out):no(new Error(err)));});
++ const ids=await Promise.all([child(),child(),child()]);assert.equal(new Set(ids).size,1);assert.equal(readdirSync(join(f.directory,'manifests')).length,1);
++});
++test('dead-process lock recovery preserves abandoned lock and pending artifacts',async t=>{
++ const f=fixture(t);assert.equal(typeof f.archive.recoverLock,'function');const file=join(f.fixtureRoot,'.ceo-report-archive-'+sha(f.directory).slice(0,16)+'.lock');
++ const body={pid:2147483647,token:'synthetic-abandoned',createdAt:'2026-11-05T00:00:00.000Z'};writeFileSync(file,JSON.stringify({...body,hash:contentHash(body)}));
++ await assert.rejects(()=>f.archive.recoverLock({principal:f.legacy}),{code:'FORBIDDEN'});const result=await f.archive.recoverLock({principal:f.shadow});assert.equal(result.recovered,true);assert.equal(existsSync(file),false);assert.equal(existsSync(result.preservedPath),true);
++ assert.equal((await f.archive.prepare(f.args)).status,'PREPARED');
++});
++test('live-process locks and snapshot/policy contradictions fail closed',async t=>{
++ const f=fixture(t);const file=join(f.fixtureRoot,'.ceo-report-archive-'+sha(f.directory).slice(0,16)+'.lock'),body={pid:process.pid,token:'synthetic-live',createdAt:'2026-11-05T00:00:00.000Z'};writeFileSync(file,JSON.stringify({...body,hash:contentHash(body)}));
++ await assert.rejects(()=>f.archive.recoverLock({principal:f.shadow}),{code:'ARCHIVE_LOCK_ACTIVE'});unlinkSync(file);
++ await assert.rejects(()=>f.archive.prepare({...f.args,context:{...f.context,sourcePolicyHash:'f'.repeat(64)}}),{code:'ARCHIVE_VERSION_MISMATCH'});
++ await assert.rejects(()=>f.archive.prepare({...f.args,report:{...f.report,taskSnapshotId:'different'}}),{code:'INVALID_ARCHIVE_INPUT'});
++});

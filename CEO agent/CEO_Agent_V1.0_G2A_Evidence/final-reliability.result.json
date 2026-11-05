@@ -1,0 +1,14 @@
+{
+  "label": "final-reliability",
+  "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+  "command": [
+    "cmd",
+    "/d",
+    "/c",
+    "npm",
+    "run",
+    "test:reliability"
+  ],
+  "exitCode": 0,
+  "seconds": 37.113
+}

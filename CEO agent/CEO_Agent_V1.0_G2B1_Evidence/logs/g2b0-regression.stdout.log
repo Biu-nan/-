@@ -1,0 +1,216 @@
+TAP version 13
+# Subtest: gross paid orders, units and CNY amount are separate approved synthetic metrics
+ok 1 - gross paid orders, units and CNY amount are separate approved synthetic metrics
+  ---
+  duration_ms: 28.6859
+  type: 'test'
+  ...
+# Subtest: no approval, partial coverage and stale export never become verified
+ok 2 - no approval, partial coverage and stale export never become verified
+  ---
+  duration_ms: 7.1117
+  type: 'test'
+  ...
+# Subtest: empty complete approved export is true zero; empty unknown export remains missing
+ok 3 - empty complete approved export is true zero; empty unknown export remains missing
+  ---
+  duration_ms: 3.8549
+  type: 'test'
+  ...
+# Subtest: market data, unsupported source or PII-shaped rows are rejected
+ok 4 - market data, unsupported source or PII-shaped rows are rejected
+  ---
+  duration_ms: 0.9159
+  type: 'test'
+  ...
+# Subtest: cross-store and conflicting duplicate rows produce conflict, never partial totals
+ok 5 - cross-store and conflicting duplicate rows produce conflict, never partial totals
+  ---
+  duration_ms: 2.7016
+  type: 'test'
+  ...
+# Subtest: unknown paid status, missing units and mixed currency degrade affected metrics
+ok 6 - unknown paid status, missing units and mixed currency degrade affected metrics
+  ---
+  duration_ms: 3.5718
+  type: 'test'
+  ...
+# Subtest: refund and fulfillment states do not turn gross paid events into net income
+ok 7 - refund and fulfillment states do not turn gross paid events into net income
+  ---
+  duration_ms: 3.2082
+  type: 'test'
+  ...
+# Subtest: payment event uses explicit timezone and exact period; no implicit recent period
+ok 8 - payment event uses explicit timezone and exact period; no implicit recent period
+  ---
+  duration_ms: 4.4145
+  type: 'test'
+  ...
+# Subtest: invalid calendar timestamps never normalize into verified paid events
+ok 9 - invalid calendar timestamps never normalize into verified paid events
+  ---
+  duration_ms: 5.1173
+  type: 'test'
+  ...
+# (node:15460) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: exact business question produces grounded priorities with acceptance, full immutable report and durable trace
+ok 10 - exact business question produces grounded priorities with acceptance, full immutable report and durable trace
+  ---
+  duration_ms: 303.8417
+  type: 'test'
+  ...
+# Subtest: retry after restart is idempotent; client supplied facts or versions cannot grant authority
+ok 11 - retry after restart is idempotent; client supplied facts or versions cannot grant authority
+  ---
+  duration_ms: 216.7645
+  type: 'test'
+  ...
+# Subtest: unapproved or missing snapshot data outputs gaps and investigation-only suggestions
+ok 12 - unapproved or missing snapshot data outputs gaps and investigation-only suggestions
+  ---
+  duration_ms: 183.7455
+  type: 'test'
+  ...
+# Subtest: Human correction appends new report version and feedback without overwriting history
+ok 13 - Human correction appends new report version and feedback without overwriting history
+  ---
+  duration_ms: 432.5024
+  type: 'test'
+  ...
+# Subtest: actual HTTP roundtrip returns readable archived report, rejects body authority and formal execution routes
+ok 14 - actual HTTP roundtrip returns readable archived report, rejects body authority and formal execution routes
+  ---
+  duration_ms: 288.5152
+  type: 'test'
+  ...
+# Subtest: trace write failure leaves PREPARED; retry completes original bytes without creating a newer report
+ok 15 - trace write failure leaves PREPARED; retry completes original bytes without creating a newer report
+  ---
+  duration_ms: 245.576
+  type: 'test'
+  ...
+# Subtest: runtime, knowledge, dictionary and source-policy bindings are actual host hashes
+ok 16 - runtime, knowledge, dictionary and source-policy bindings are actual host hashes
+  ---
+  duration_ms: 78.8318
+  type: 'test'
+  ...
+# Subtest: archived approval envelope preserves reviewer and exact source/fact approval hashes
+ok 17 - archived approval envelope preserves reviewer and exact source/fact approval hashes
+  ---
+  duration_ms: 205.3821
+  type: 'test'
+  ...
+# Subtest: distinct requests at the same clock produce distinct linked analysis identities
+ok 18 - distinct requests at the same clock produce distinct linked analysis identities
+  ---
+  duration_ms: 307.1124
+  type: 'test'
+  ...
+# Subtest: correction replay cannot silently switch its parent report or feedback note
+ok 19 - correction replay cannot silently switch its parent report or feedback note
+  ---
+  duration_ms: 479.1308
+  type: 'test'
+  ...
+# Subtest: full immutable objects and raw evidence survive restart; trace receipt alone completes
+ok 20 - full immutable objects and raw evidence survive restart; trace receipt alone completes
+  ---
+  duration_ms: 165.2785
+  type: 'test'
+  ...
+# Subtest: issued principals, capabilities, store and runtime version binding precede mutation
+ok 21 - issued principals, capabilities, store and runtime version binding precede mutation
+  ---
+  duration_ms: 4.7311
+  type: 'test'
+  ...
+# Subtest: request id is stable across restart/concurrent calls and conflicts never overwrite
+ok 22 - request id is stable across restart/concurrent calls and conflicts never overwrite
+  ---
+  duration_ms: 269.4565
+  type: 'test'
+  ...
+# Subtest: forged/mismatched trace and missing trusted reader never report complete
+ok 23 - forged/mismatched trace and missing trusted reader never report complete
+  ---
+  duration_ms: 106.1289
+  type: 'test'
+  ...
+# Subtest: correction is a Human immutable new version linked to completed original
+ok 24 - correction is a Human immutable new version linked to completed original
+  ---
+  duration_ms: 194.382
+  type: 'test'
+  ...
+# Subtest: corrupt/missing objects fail closed and retries preserve corrupt bytes
+ok 25 - corrupt/missing objects fail closed and retries preserve corrupt bytes
+  ---
+  duration_ms: 89.7025
+  type: 'test'
+  ...
+# Subtest: failure after object creation safely retries without premature manifest success
+ok 26 - failure after object creation safely retries without premature manifest success
+  ---
+  duration_ms: 103.5799
+  type: 'test'
+  ...
+# Subtest: reject secrets, evidence hash mismatch/traversal, oversized bytes without archive writes
+ok 27 - reject secrets, evidence hash mismatch/traversal, oversized bytes without archive writes
+  ---
+  duration_ms: 5.0145
+  type: 'test'
+  ...
+# Subtest: hardlinked objects and escaped directory roots are rejected
+ok 28 - hardlinked objects and escaped directory roots are rejected
+  ---
+  duration_ms: 92.7116
+  type: 'test'
+  ...
+# Subtest: explicit recovery finishes pending intent without replacing old committed objects
+ok 29 - explicit recovery finishes pending intent without replacing old committed objects
+  ---
+  duration_ms: 106.2459
+  type: 'test'
+  ...
+# Subtest: lost/corrupt durable trace after completion fails closed on read and retry
+ok 30 - lost/corrupt durable trace after completion fails closed on read and retry
+  ---
+  duration_ms: 163.1901
+  type: 'test'
+  ...
+# Subtest: multiple processes serialize the same request with one stable manifest
+ok 31 - multiple processes serialize the same request with one stable manifest
+  ---
+  duration_ms: 285.1513
+  type: 'test'
+  ...
+# Subtest: dead-process lock recovery preserves abandoned lock and pending artifacts
+ok 32 - dead-process lock recovery preserves abandoned lock and pending artifacts
+  ---
+  duration_ms: 78.341
+  type: 'test'
+  ...
+# Subtest: live-process locks and snapshot/policy contradictions fail closed
+ok 33 - live-process locks and snapshot/policy contradictions fail closed
+  ---
+  duration_ms: 12.9488
+  type: 'test'
+  ...
+# Subtest: trace carries immutable reportId and Human feedback cannot switch it
+ok 34 - trace carries immutable reportId and Human feedback cannot switch it
+  ---
+  duration_ms: 37.7022
+  type: 'test'
+  ...
+1..34
+# tests 34
+# suites 0
+# pass 34
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 5188.243

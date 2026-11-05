@@ -1,0 +1,13 @@
+dist/src\config.js:37:export const EVENT_LOG_FILE = path.join(HIDDEN_DATA_DIR, "event_log.jsonl");
+dist/src\config.js:40:export const ACTION_LOG_FILE = path.join(HIDDEN_DATA_DIR, "action_log.jsonl");
+dist/src\hidden-data-loop-service.js:4:import { ACTION_LOG_FILE, COMMAND_INBOX_FILE, EVENT_LOG_FILE, HIDDEN_DATA_DIR, KNOWLEDGE_ITEMS_FILE, QCLAW_RESULTS_FILE, QCLAW_STATE_FILE, QCLAW_TASKS_FILE, REVIEWS_FILE, SNAPSHOTS_FILE, TASK_STATE_FILE, TODAY_DASHBOARD_FILE } from "./config.js";
+dist/src\hidden-data-loop-service.js:85:            event_log: this.resolve(EVENT_LOG_FILE),
+dist/src\hidden-data-loop-service.js:88:            action_log: this.resolve(ACTION_LOG_FILE),
+dist/src\hidden-data-loop-service.js:162:    async appendEvent(event) {
+dist/src\hidden-data-loop-service.js:167:        await this.appendEvent({
+dist/src\hidden-data-loop-service.js:192:        await this.appendEvent({
+dist/src\hidden-data-loop-service.js:206:        await this.appendEvent({
+dist/src\hidden-data-loop-service.js:216:    async appendActionLog(action) {
+dist/src\hidden-data-loop-service.js:218:        await this.appendEvent({
+dist/src\hidden-data-loop-service.js:235:        await this.appendEvent({
+dist/src\server.js:915:            action: await hiddenDataLoopService.appendActionLog({

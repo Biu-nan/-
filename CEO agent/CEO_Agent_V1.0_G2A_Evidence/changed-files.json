@@ -1,0 +1,137 @@
+[
+  {
+    "path": "config/ceo-data-sources.v1.json",
+    "sha256": "37a5a7b746e06e1248e633322eec52448f4077c28dad0ca52f6e24344889527f",
+    "bytes": 389
+  },
+  {
+    "path": "config/ceo-knowledge.v1.json",
+    "sha256": "c28ce72c9792137840ad4aa64d819d374bbde97175a34538325eb2bf9db8e17b",
+    "bytes": 400
+  },
+  {
+    "path": "config/ceo-workflow-capabilities.v1.json",
+    "sha256": "543289f47fb44b27d5cb5e58e739f8363024fd584e4668bb42a903467041315f",
+    "bytes": 544
+  },
+  {
+    "path": "dist/src/ceo-g2a-service.js",
+    "sha256": "03ba19a4d38f8645207a8e830cc9c5a3307629cd14b604158fd8464201e3ca63",
+    "bytes": 4841
+  },
+  {
+    "path": "dist/src/ceo-shadow-trace.js",
+    "sha256": "783785814f34693a3fe7385d08301b85b27b375abe2649d5a8ed813e5f1b538c",
+    "bytes": 11529
+  },
+  {
+    "path": "dist/src/ceo-task-read-model.js",
+    "sha256": "8f8448d45681e8f8dd01ff27cfd7faaadb343d69100d6411b9e58907d2c53d70",
+    "bytes": 11358
+  },
+  {
+    "path": "dist/src/ceo-vnext-analysis.js",
+    "sha256": "9d8b28d751967801ecd8cf277f3c57ffd26739a426f979b781ee990fc75619e7",
+    "bytes": 4027
+  },
+  {
+    "path": "dist/src/ceo-vnext-common.js",
+    "sha256": "3e32d52bae59c62122adf23232e53e163295dc2b5c6495c48e87bde240ed8e0a",
+    "bytes": 925
+  },
+  {
+    "path": "dist/src/ceo-vnext-context.js",
+    "sha256": "a791aa558e25766fe80f79fd4676f011ebb8bf815433afe227efcdd3a95d45c9",
+    "bytes": 5791
+  },
+  {
+    "path": "dist/src/ceo-workflow-catalog.js",
+    "sha256": "1509918b48635000cfb13e61509dd4fd6173c3520a4197854b0eb311782183f6",
+    "bytes": 2872
+  },
+  {
+    "path": "dist/test/ceo-g2a-contracts.test.js",
+    "sha256": "4355f24ee1eb924c3d62a8630d5eecc8c6aca0d9ec24a36ef28a3e82ef5834de",
+    "bytes": 2929
+  },
+  {
+    "path": "dist/test/ceo-g2a-service.test.js",
+    "sha256": "3b18446c0171cfbd7eb531bad68e84023f07aa237b925d8c1aed8991364e6834",
+    "bytes": 6145
+  },
+  {
+    "path": "dist/test/ceo-shadow-analysis.test.js",
+    "sha256": "46652291ee90638456d69e30ed55c631802aa10a18412cccd380496169ad4177",
+    "bytes": 3214
+  },
+  {
+    "path": "dist/test/ceo-shadow-trace.test.js",
+    "sha256": "3fca918750780e56c163aa46f33282274ca639b0fda4165c95192a6034409fe8",
+    "bytes": 16176
+  },
+  {
+    "path": "dist/test/ceo-task-read-model.test.js",
+    "sha256": "e3d46a85fe364e4991b0aa6d977fab9c554bb0526e6a306ab2e9e4f43c51990e",
+    "bytes": 12492
+  },
+  {
+    "path": "dist/test/ceo-vnext-context.test.js",
+    "sha256": "91e40717a205dd102779b57beb3ff3db413052f69b076a6e99e570f56c6b7444",
+    "bytes": 3543
+  },
+  {
+    "path": "dist/test/ceo-workflow-catalog.test.js",
+    "sha256": "ed3c9dd98f06e8be266a24abad512627ae3e15413d480d23149a8cd72d375d79",
+    "bytes": 2431
+  },
+  {
+    "path": "dist/test/fixtures/ceo-g2a-fixture.js",
+    "sha256": "d3a92bca4023bbcd4c8d5dc491a1fdb6bd044b04cfa4551dd80c8510462e66b9",
+    "bytes": 1051
+  },
+  {
+    "path": "dist/test/fixtures/ceo-g2a/metrics-schema.1.0.0.json",
+    "sha256": "f3fbfb1454a934cbfc8b155b3513f5c64d5ec62470bd9391b018846986f68efc",
+    "bytes": 9917
+  },
+  {
+    "path": "dist/test/fixtures/ceo-g2a/metrics-schema.1.1.0.json",
+    "sha256": "933d63c4e5f1c3223aacb60708a6a2ce2302a385f425c3ca10a0ab3692b905ed",
+    "bytes": 13890
+  },
+  {
+    "path": "docs/superpowers/plans/2026-11-05-ceo-g2a.md",
+    "sha256": "5bd344ea4cd0b019d2433d51c8344c3a8dc69aec7fbc4fdff41dae7e99cf5ad2",
+    "bytes": 2545
+  },
+  {
+    "path": "prompts/ceo-vnext-core.md",
+    "sha256": "cf17b3409c1df3b6428617ee753aa1ac9be62dbb5aaa4928ea69e05447e5693c",
+    "bytes": 512
+  },
+  {
+    "path": "schemas/ceo-shadow-event.schema.json",
+    "sha256": "d3ec2b1d9b6b53013fa3d64b284e750ad9206dcef5df189d7ee4885044707603",
+    "bytes": 2059
+  },
+  {
+    "path": "schemas/ceo-shadow-report.schema.json",
+    "sha256": "e1a94263c52f5e010589398d1e0450de5a89e55476b7a688cf4e736179d5db60",
+    "bytes": 3264
+  },
+  {
+    "path": "schemas/ceo-task-snapshot.schema.json",
+    "sha256": "35b2ded2e34843843832f0ba36802e3bbefdcca5fe71e9f05a03e6744b89bb15",
+    "bytes": 840
+  },
+  {
+    "path": "schemas/ceo-vnext-context.schema.json",
+    "sha256": "511197be2c91047786c6e484fdbe9bcd1b64ce026e57a5beed3be3c16f768a3d",
+    "bytes": 2146
+  },
+  {
+    "path": "schemas/ceo-workflow-state.schema.json",
+    "sha256": "efcb7be3d63098b388ff46d32babd5b2dc0b6d8e9804db2f38b25c7c1fc32f47",
+    "bytes": 979
+  }
+]

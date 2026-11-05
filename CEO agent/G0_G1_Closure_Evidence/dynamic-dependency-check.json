@@ -1,0 +1,66 @@
+{
+  "readOnlyChecks": [
+    {
+      "path": "public/ceo-daily-review.js",
+      "exists": true,
+      "gitListed": true
+    },
+    {
+      "path": "public/ceo-evidence-check.js",
+      "exists": true,
+      "gitListed": true
+    },
+    {
+      "path": "public/ceo-operating-brief.js",
+      "exists": true,
+      "gitListed": true
+    },
+    {
+      "path": "public/ceo-replanning.js",
+      "exists": true,
+      "gitListed": true
+    },
+    {
+      "path": "public/ceo-task-layout.js",
+      "exists": true,
+      "gitListed": true
+    },
+    {
+      "path": "public/ceo-tasks.css",
+      "exists": true,
+      "gitListed": true
+    },
+    {
+      "path": "public/ceo-tasks.html",
+      "exists": true,
+      "gitListed": true
+    },
+    {
+      "path": "public/ceo-tasks.js",
+      "exists": true,
+      "gitListed": true
+    },
+    {
+      "path": "config/ceo-store-400370.json",
+      "exists": true,
+      "gitListed": true
+    },
+    {
+      "path": "config/metrics-schema.json",
+      "exists": true,
+      "gitListed": true
+    },
+    {
+      "path": "docs/superpowers/examples/ceo-first-loop-draft-input.json",
+      "exists": true,
+      "gitListed": true
+    },
+    {
+      "path": "schemas/ceo-decision.schema.json",
+      "exists": true,
+      "gitListed": true
+    }
+  ],
+  "businessInputs": "synthetic root only in G1; live binding UNVERIFIED, no production DB or data read",
+  "scopeLimits": "not an exhaustive scan of all product runtime data paths or optional external executors"
+}

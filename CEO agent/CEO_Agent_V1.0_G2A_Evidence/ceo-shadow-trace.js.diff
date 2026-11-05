@@ -1,0 +1,166 @@
+--- /dev/null
++++ b/dist/src/ceo-shadow-trace.js
+@@ -0,0 +1,163 @@
++import {constants, realpathSync, lstatSync, readFileSync, openSync, fstatSync, writeSync, fsyncSync, closeSync, unlinkSync} from 'node:fs';
++import {resolve, dirname, relative, isAbsolute, sep} from 'node:path';
++import {createHash} from 'node:crypto';
++import {setTimeout as delay} from 'node:timers/promises';
++
++// Synthetic adapter only. The host owns snapshots, analysis and any future production trace integration.
++const TYPES = new Set(['ANALYSIS','HUMAN_FEEDBACK','HUMAN_CORRECTION','HUMAN_PAUSE','HUMAN_RESUME']);
++const EVENT_KEYS = new Set(['type','storeId','eventId','analysisId','contextId','snapshotId','sourceHash','policyVersion','proposalRef','feedbackId','correctsEventId','note','decisionSummary']);
++const RECORD_KEYS = ['sequence','recordedAt','actorId','contentHash','previousHash','event','recordHash'].sort();
++const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/;
++const HASH = /^[a-f0-9]{64}$/;
++const SECRET = /(?:authorization\s*:|bearer\s+|(?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|password|passwd|credential|client[_ -]?secret|private[_ -]?key)\s*[:=]|-----BEGIN [A-Z ]*PRIVATE KEY|\bsk-[A-Za-z0-9_-]{16,})/i;
++const fail = code => {throw Object.assign(new Error(code),{code});};
++const plain = v => v !== null && typeof v === 'object' && !Array.isArray(v) && [Object.prototype,null].includes(Object.getPrototypeOf(v));
++const canonical = v => Array.isArray(v) ? v.map(canonical) : plain(v) ? Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])) : v;
++const hash = v => createHash('sha256').update(JSON.stringify(canonical(v))).digest('hex');
++const confined = (root,p) => {const rel=relative(root,p);return rel === '' || (!isAbsolute(rel) && rel !== '..' && !rel.startsWith(`..${sep}`));};
++const statIfPresent = p => {try{return lstatSync(p);}catch(e){if(e.code==='ENOENT')return null;throw e;}};
++const sameFile = (a,b) => a.dev===b.dev && a.ino===b.ino;
++const freeze = value => {for(const child of Object.values(value))if(plain(child))freeze(child);return Object.freeze(value);};
++
++function validateEvent(value) {
++ if(!plain(value) || Reflect.ownKeys(value).some(k=>typeof k!=='string'||!EVENT_KEYS.has(k)) || Object.values(Object.getOwnPropertyDescriptors(value)).some(d=>!Object.hasOwn(d,'value')))fail('INVALID_TRACE_EVENT');
++ const e={...value};
++ if(!TYPES.has(e.type) || !['storeId','eventId','analysisId','contextId','snapshotId'].every(k=>typeof e[k]==='string'&&ID.test(e[k])) || typeof e.sourceHash!=='string'||!HASH.test(e.sourceHash) || typeof e.policyVersion!=='string'||!/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,119}$/.test(e.policyVersion))fail('INVALID_TRACE_EVENT');
++ if(!Object.hasOwn(e,'proposalRef') || !(e.proposalRef===null || typeof e.proposalRef==='string'&&ID.test(e.proposalRef)))fail('INVALID_TRACE_EVENT');
++ if(Object.hasOwn(e,'feedbackId') && (typeof e.feedbackId!=='string'||!ID.test(e.feedbackId)))fail('INVALID_TRACE_EVENT');
++ if(e.type==='HUMAN_CORRECTION' ? typeof e.correctsEventId!=='string'||!ID.test(e.correctsEventId) : Object.hasOwn(e,'correctsEventId'))fail('INVALID_TRACE_EVENT');
++ if(e.type==='ANALYSIS' && (Object.hasOwn(e,'feedbackId')||Object.hasOwn(e,'note')))fail('INVALID_TRACE_EVENT');
++ if(Object.hasOwn(e,'note') && (typeof e.note!=='string'||e.note.length>2000||/[\u0000-\u0008\u000b-\u001f\u007f]/.test(e.note)))fail('INVALID_TRACE_EVENT');
++ if(Object.hasOwn(e,'decisionSummary') && (e.type!=='ANALYSIS'||typeof e.decisionSummary!=='string'||!e.decisionSummary.trim()||e.decisionSummary.length>2000||/[\u0000-\u0008\u000b-\u001f\u007f]/.test(e.decisionSummary)))fail('INVALID_TRACE_EVENT');
++ if(Object.values(e).some(v=>typeof v==='string'&&SECRET.test(v)))fail('INVALID_TRACE_EVENT');
++ return e;
++}
++
++function contentHash(event, actorId) {
++ const logical={...event};
++ // The analysis identity is stable even when a caller retries with a new delivery event ID.
++ if(event.type==='ANALYSIS')delete logical.eventId;
++ return hash({actorId,event:logical});
++}
++
++function buildState() {return {records:[],events:new Map(),analyses:new Map(),feedback:new Map(),paused:false};}
++function duplicate(state,event,digest) {
++ const matches=[state.events.get(event.eventId),event.type==='ANALYSIS'?state.analyses.get(event.analysisId):null,event.feedbackId?state.feedback.get(event.feedbackId):null].filter(Boolean);
++ if(matches.some(r=>r.contentHash!==digest) || new Set(matches.map(r=>r.sequence)).size>1)fail('TRACE_CONFLICT');
++ return matches[0]??null;
++}
++function checkTransition(state,event) {
++ if(event.type==='ANALYSIS') {if(state.paused)fail('TRACE_PAUSED');return;}
++ const analysis=state.analyses.get(event.analysisId)?.event;
++ if(!analysis || ['storeId','contextId','snapshotId','sourceHash','policyVersion','proposalRef'].some(k=>analysis[k]!==event[k]))fail('TRACE_REFERENCE_MISMATCH');
++ if(event.type==='HUMAN_CORRECTION') {
++  const target=state.events.get(event.correctsEventId)?.event;
++  if(!target || target.analysisId!==event.analysisId || target.storeId!==event.storeId)fail('TRACE_REFERENCE_MISMATCH');
++ }
++}
++function accept(state,record) {
++ state.records.push(record);state.events.set(record.event.eventId,record);
++ if(record.event.type==='ANALYSIS')state.analyses.set(record.event.analysisId,record);
++ if(record.event.feedbackId)state.feedback.set(record.event.feedbackId,record);
++ if(record.event.type==='HUMAN_PAUSE')state.paused=true;
++ if(record.event.type==='HUMAN_RESUME')state.paused=false;
++}
++
++export function createCeoShadowTrace({filePath,fixtureRoot,governance,now=()=>new Date()}={}) {
++ if(typeof filePath!=='string'||typeof fixtureRoot!=='string'||!governance||typeof governance.authorize!=='function'||typeof now!=='function')fail('ISOLATED_FIXTURE_REQUIRED');
++ let root;
++ try{root=realpathSync(resolve(fixtureRoot));}catch{fail('ISOLATED_FIXTURE_REQUIRED');}
++ const target=resolve(filePath),lockPath=`${target}.lock`;
++ function validatePaths() {
++  try {
++   if(realpathSync(resolve(fixtureRoot))!==root || !confined(root,target) || target===root || !confined(root,realpathSync(dirname(target))))fail('ISOLATED_FIXTURE_REQUIRED');
++   const marker=resolve(root,'.ceo-isolated-fixture.json');
++   if(!confined(root,realpathSync(marker)) || !lstatSync(marker).isFile() || JSON.parse(readFileSync(marker,'utf8')).synthetic!==true)fail('ISOLATED_FIXTURE_REQUIRED');
++   for(const p of [target,lockPath]) {
++    const stat=statIfPresent(p);
++    if(stat && (stat.isSymbolicLink()||!confined(root,realpathSync(p))||stat.isFile()&&stat.nlink!==1))fail('ISOLATED_FIXTURE_REQUIRED');
++   }
++  }catch{fail('ISOLATED_FIXTURE_REQUIRED');}
++ }
++ validatePaths();
++ function authorize(principal,operation,storeId) {
++  const grant=governance.authorize({principal,operation,storeId});
++  if(grant?.allowed!==true || typeof grant.actorId!=='string'||!ID.test(grant.actorId)||grant.storeId!==storeId)fail('FORBIDDEN');
++  return grant;
++ }
++ async function acquire(principal,operation,storeId) {
++  const deadline=Date.now()+2000;
++  while(true) {
++   authorize(principal,operation,storeId);validatePaths();
++   let fd;
++   try {fd=openSync(lockPath,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|(constants.O_NOFOLLOW??0),0o600);}
++   catch(e) {if(e.code!=='EEXIST')throw e;if(Date.now()>=deadline)fail('TRACE_LOCKED');await delay(10);continue;}
++   const owned=fstatSync(fd);
++   return () => {
++    try {const current=statIfPresent(lockPath);if(!current||!sameFile(owned,current)||current.isSymbolicLink())fail('TRACE_LOCK_CHANGED');unlinkSync(lockPath);}
++    finally {closeSync(fd);}
++   };
++  }
++ }
++ function load(storeId) {
++  validatePaths();const state=buildState(),stat=statIfPresent(target);if(!stat)return state;
++  if(!stat.isFile()||stat.size===0||stat.size>16*1024*1024)fail('TRACE_CORRUPT');
++  const bytes=readFileSync(target),text=bytes.toString('utf8');
++  if(!Buffer.from(text,'utf8').equals(bytes)||!text.endsWith('\n'))fail('TRACE_CORRUPT');
++  try {
++   for(const line of text.slice(0,-1).split('\n')) {
++    const r=JSON.parse(line);
++    if(!plain(r)||JSON.stringify(Object.keys(r).sort())!==JSON.stringify(RECORD_KEYS)||r.sequence!==state.records.length+1||typeof r.actorId!=='string'||!ID.test(r.actorId)||typeof r.recordedAt!=='string'||new Date(r.recordedAt).toISOString()!==r.recordedAt||!HASH.test(r.contentHash)||!HASH.test(r.recordHash))fail('TRACE_CORRUPT');
++    const e=validateEvent(r.event),{recordHash,...body}=r,previous=state.records.at(-1)?.recordHash??null;
++    if(e.storeId!==storeId||r.previousHash!==previous||recordHash!==hash(body)||r.contentHash!==contentHash(e,r.actorId)||duplicate(state,e,r.contentHash))fail('TRACE_CORRUPT');
++    checkTransition(state,e);accept(state,freeze(r));
++   }
++  }catch{fail('TRACE_CORRUPT');}
++  return state;
++ }
++ async function read({principal,storeId}={}) {
++  authorize(principal,'read',storeId);validatePaths();
++  if(!statIfPresent(target))return [];
++  const release=await acquire(principal,'read',storeId);
++  try {authorize(principal,'read',storeId);return load(storeId).records;}finally{release();}
++ }
++ async function append({principal,event}={}) {
++  // Authorization precedes all mutations, including creation of the serialization lock.
++  const operation=event?.type==='ANALYSIS'?'analyze':'human.review';
++  let grant=authorize(principal,operation,event?.storeId);
++  const input=validateEvent(event),release=await acquire(principal,operation,input.storeId);
++  try {
++   grant=authorize(principal,operation,input.storeId);
++   const state=load(input.storeId),digest=contentHash(input,grant.actorId),old=duplicate(state,input,digest);
++   if(old) {
++    // A prior fsync may have failed after writing a complete line. A retry must confirm durability too.
++    validatePaths();authorize(principal,operation,input.storeId);
++    const expected=lstatSync(target),fd=openSync(target,constants.O_WRONLY|constants.O_APPEND|(constants.O_NOFOLLOW??0));
++    try {
++     const opened=fstatSync(fd);
++     if(!opened.isFile()||opened.nlink!==1||!sameFile(expected,opened))fail('ISOLATED_FIXTURE_REQUIRED');
++     validatePaths();fsyncSync(fd);
++    }finally{closeSync(fd);}
++    return old;
++   }
++   checkTransition(state,input);
++   const timestamp=now();if(!(timestamp instanceof Date)||!Number.isFinite(timestamp.getTime()))fail('INVALID_TRACE_TIME');
++   const body={sequence:state.records.length+1,recordedAt:timestamp.toISOString(),actorId:grant.actorId,contentHash:digest,previousHash:state.records.at(-1)?.recordHash??null,event:input};
++   const record=freeze({...body,recordHash:hash(body)}),bytes=Buffer.from(JSON.stringify(record)+'\n','utf8');
++   validatePaths();authorize(principal,operation,input.storeId);
++   const existing=statIfPresent(target);
++   if((existing?.size??0)+bytes.length>16*1024*1024)fail('TRACE_LIMIT');
++   const flags=constants.O_WRONLY|constants.O_APPEND|(constants.O_NOFOLLOW??0)|(existing?0:constants.O_CREAT|constants.O_EXCL);
++   const fd=openSync(target,flags,0o600);
++   try {
++    const opened=fstatSync(fd);
++    if(!opened.isFile()||opened.nlink!==1||existing&&!sameFile(existing,opened))fail('ISOLATED_FIXTURE_REQUIRED');
++    validatePaths();
++    let offset=0;while(offset<bytes.length){const written=writeSync(fd,bytes,offset,bytes.length-offset);if(written<=0)fail('TRACE_WRITE_FAILED');offset+=written;}
++    fsyncSync(fd);
++   }finally{closeSync(fd);}
++   return record;
++  }finally{release();}
++ }
++ return Object.freeze({append,read});
++}

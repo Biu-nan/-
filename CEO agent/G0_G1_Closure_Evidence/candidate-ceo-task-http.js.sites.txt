@@ -1,0 +1,29 @@
+6: import {replanErrorCodes} from './ceo-review-replanning.js';
+7: import {requireCeoEvidenceCheck} from './ceo-task-evidence.js';
+8: import {requireG1FixtureRoot} from './ceo-main-boundary.js';
+9: 
+10: const fail=code=>{const e=new Error(code);e.code=code;throw e;};
+11: const codes=new Set(['FORBIDDEN','INVALID_OPERATION','OPERATION_CONFLICT','PLAN_NOT_FOUND','PLAN_NOT_COMMITTED','NO_ALLOCATED_TASKS','CONTEXT_CHANGED','INVALID_CONTEXT','UNSUPPORTED_CAPABILITY','TASK_VERSION_CONFLICT','TASK_IN_FLIGHT','DECISION_EXPIRED','DEADLINE_PASSED','STORAGE_FAILED','INVALID_COMMAND','TASK_NOT_FOUND','VERSION_CONFLICT','RESULT_UNKNOWN','INVALID_TRANSITION','DEPENDENCY_BLOCKED','INVALID_APPROVAL','APPROVAL_EXPIRED','INVALID_RECEIPT','INVALID_EVIDENCE','SELF_VERIFICATION','INVALID_VERIFICATION','INVALID_BLOCKER','INVALID_RESOLUTION','INVALID_TIME','INVALID_INPUT','BODY_TOO_LARGE','UNAUTHORIZED']);
+25:  req.on('end',()=>{if(oversized){reject(Object.assign(new Error(),{code:'BODY_TOO_LARGE'}));return;}try{const v=JSON.parse(Buffer.concat(chunks).toString('utf8'));if(!v||typeof v!=='object'||Array.isArray(v))fail('INVALID_INPUT');resolve(v);}catch{reject(Object.assign(new Error(),{code:'INVALID_INPUT'}));}});
+26: });}
+27: export function createCeoTaskServer({workspace,loadContext,loadBrief=async()=>({schema:'ceo-operating-brief/v1',status:'NOT_CONFIGURED',readOnly:true}),captureReviewInputs=null,checkEvidence=null,credentials,publicDir=fileURLToPath(new URL('../../public/',import.meta.url)),now=()=>new Date(),commandCenterOrigins=[],manualFixtureRoot=null}){
+28:  if(!workspace||typeof loadContext!=='function')fail('INVALID_CREDENTIALS');
+29:  for(const role of ['owner','agent']){const c=credentials?.[role];if(!c||typeof c.id!=='string'||!c.id||c.storeId!=='400370'||!tokenOK(c.token))fail('INVALID_CREDENTIALS');}
+30:  if(credentials.owner.id===credentials.agent.id||credentials.owner.token===credentials.agent.token)fail('INVALID_CREDENTIALS');
+31:  const manualFixture=manualFixtureRoot!==null;
+32:  if(manualFixture)requireG1FixtureRoot({fixtureRoot:manualFixtureRoot,dataRoot:path.dirname(workspace.dbPath)});
+33:  if(!Array.isArray(commandCenterOrigins)||commandCenterOrigins.some(o=>!['http://localhost:3000','http://127.0.0.1:3000'].includes(o)))fail('INVALID_CREDENTIALS');
+34:  const sessions=new Map(),principals=Object.entries(credentials).map(([role,c])=>({token:c.token,actor:{id:c.id,role,storeId:c.storeId}}));
+35:  function findToken(token){return principals.find(c=>equals(token,c.token))?.actor??null;}
+73:     // Existing investigative writes are available only to explicitly marked synthetic regression fixtures.
+74:     // Production binding is unconfirmed in G1; default GETs must not lazily create a task database.
+75:     if(!manualFixture){
+76:      if(req.method!=='GET'&&!(route==='/api/ceo/session'&&req.method==='DELETE'))fail('FORBIDDEN');
+77:      if(!['/api/ceo/me','/api/ceo/context','/api/ceo/session'].includes(route)){send(503,{error:'READ_MODEL_UNCONFIGURED'});return;}
+78:     }
+79:    if(req.method!=='GET'&&!bearer&&!allowedOrigin)fail('FORBIDDEN');
+80:    if(route==='/api/ceo/session'&&req.method==='DELETE'){sessions.delete(sid);res.setHeader('Set-Cookie','ceo_session=; HttpOnly; SameSite=Strict; Path=/api/ceo; Max-Age=0');send(200,{loggedOut:true});return;}
+81:     if(route==='/api/ceo/me'&&req.method==='GET'){send(200,{actor,capabilities:manualFixture?['manual.investigation']:['read'],externalExecution:false});return;}
+82:    if(route==='/api/ceo/context'&&req.method==='GET'){const c=await loadContext();send(200,{contextId:c.contextId,loadedAt:c.loadedAt,goal:c.goal,gaps:c.gaps});return;}
+83:    if(route==='/api/ceo/operating-brief'&&req.method==='GET'){send(200,await loadBrief({context:await loadContext(),tasks:workspace.listTasks(),now:now()}));return;}
+84:    if(route==='/api/ceo/replanning-brief'&&req.method==='GET'){

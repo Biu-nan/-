@@ -1,0 +1,72 @@
+worktree F:/yikuaborder-deploy
+HEAD 052abd71301f0409ad6295fea78f24bb83bc35f3
+branch refs/heads/feature/ykb-v1-phase1-identity-state
+
+worktree C:/Users/User/WorkBuddy/Worktrees/yikuaborder-deploy/master-9d64c319
+HEAD 47bfc931fd1bc171ac1c2e547b89f6373772baa9
+branch refs/heads/workbuddy/master-9d64c319
+
+worktree F:/yikuaborder-deploy/.worktrees/ceo-g0-g1-20261105
+HEAD 052abd71301f0409ad6295fea78f24bb83bc35f3
+branch refs/heads/feature/ceo-g0-g1-20261105
+
+worktree F:/yikuaborder-deploy/.worktrees/ceo-read-brief
+HEAD fed03d366b14a7dfa75686086a0554002a148e61
+branch refs/heads/upgrade/ceo-read-brief-20261026
+
+worktree F:/yikuaborder-deploy/.worktrees/phase1-baseline
+HEAD 8970876e55d1e371d51c37b0249d6c37d8d4d132
+detached
+
+worktree F:/yikuaborder-deploy/.worktrees/phase2-product-workbench
+HEAD f16d9fd8b0dbd12dd4661454aca0b6569594bbcc
+branch refs/heads/feature/ykb-v1-phase2b-listing-executor
+
+worktree F:/yikuaborder-deploy/.worktrees/reliability-phase2
+HEAD 35291d8aa50d183e146612e2472021820793377e
+branch refs/heads/upgrade/reliability-phase2-20261025
+
+worktree F:/yikuaborder-deploy/.worktrees/workflow-alert-format
+HEAD 43a52d4d4e6e856258c4c0974931869141c4c828
+detached
+
+worktree F:/yikuaborder-phase2b-wt
+HEAD f16d9fd8b0dbd12dd4661454aca0b6569594bbcc
+branch refs/heads/feature/ykb-v1-phase2b-listing-executor
+
+worktree F:/yikuaborder-phase2c-wt
+HEAD 12b7d6226b2408077302026752d8ff600f47c712
+branch refs/heads/feature/ykb-v1-phase2c-unified-executor
+
+worktree F:/yikuaborder-phase2d-a-wt
+HEAD 9e5a4ac9f3d64c9cc45587b55e9f903ca84a49d5
+branch refs/heads/feature/ykb-v1-phase2d-a-node-lease
+
+worktree F:/yikuaborder-phase2d-b1-wt
+HEAD 8ee8f8f6d421af62aa4b5e8b0b79bc4dfd48765f
+branch refs/heads/feature/ykb-v1-phase2d-b1-production-host-lock-wiring
+
+worktree F:/yikuaborder-phase2d-b2-b1-e14-wt
+HEAD 3b292aa288a83b55044693a37c3129d2205b6f0b
+branch refs/heads/feature/ykb-v1-phase2d-b2-b1-e14
+
+worktree F:/yikuaborder-phase2d-b2-b2-e4-wt
+HEAD 6ed0fad8a4f639eac3c0a39cb020b88948bf4311
+branch refs/heads/feature/ykb-v1-phase2d-b2-b2-e4
+
+worktree F:/yikuaborder-phase2d-b2-b3-e5-wt
+HEAD b3c0fec1ac10fd1fa0ac37d5b01fd328b59ec31c
+branch refs/heads/feature/ykb-v1-phase2d-b2-b3-e5
+
+worktree F:/yikuaborder-phase2d-b2-b3-e6-wt
+HEAD b3c0fec1ac10fd1fa0ac37d5b01fd328b59ec31c
+branch refs/heads/feature/ykb-v1-phase2d-b2-b3-e6
+
+worktree F:/yikuaborder-phase2d-b2-wt
+HEAD 0ae21ce7883005581dc2957ee65ae6a0a7b802b1
+branch refs/heads/feature/ykb-v1-phase2d-b2-safety
+
+worktree F:/yikuaborder-run
+HEAD 8970876e55d1e371d51c37b0249d6c37d8d4d132
+branch refs/heads/master
+

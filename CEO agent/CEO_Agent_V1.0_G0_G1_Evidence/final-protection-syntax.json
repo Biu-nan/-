@@ -1,0 +1,328 @@
+{
+  "checkedAt": "2026-11-05T02:07:43.716523+00:00",
+  "protectedFilesCompared": 13,
+  "changedProtectedFiles": [
+    {
+      "path": "F:\\yikuaborder-deploy\\config\\metrics-schema.json",
+      "beforeSha256": "f3fbfb1454a934cbfc8b155b3513f5c64d5ec62470bd9391b018846986f68efc",
+      "afterSha256": "933d63c4e5f1c3223aacb60708a6a2ce2302a385f425c3ca10a0ab3692b905ed"
+    }
+  ],
+  "originalTrackedDiffs": [
+    {
+      "name": "main",
+      "sameTrackedDiff": false
+    },
+    {
+      "name": "ceo",
+      "sameTrackedDiff": true
+    },
+    {
+      "name": "run",
+      "sameTrackedDiff": true
+    }
+  ],
+  "syntaxTotal": 58,
+  "syntaxPassed": 58,
+  "syntax": [
+    {
+      "path": "dist/src/ceo-daily-plan.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-daily-review.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-decision-contract.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-draft-workspace.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-governance.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-isolated-runtime.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-legacy-view.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-main-boundary.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-operating-brief.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-operating-context.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-read-brief.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-review-input-guard.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-review-replanning.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-runtime-host.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-runtime-manifest.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-task-evidence.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-task-http.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/ceo-task-workspace.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/config.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/src/server.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-cli-safety.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-conversation-entry.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-daily-plan.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-daily-review-ui.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-daily-review.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-decision-contract.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-draft-cli.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-draft-workspace.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-evidence-check-ui.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-governance-bypass.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-governance.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-isolation-review.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-legacy-boundary.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-legacy-compat.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-main-boundary.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-main-entry.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-operating-brief-ui.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-operating-brief.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-operating-context.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-read-brief.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-replanning-ui.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-review-replanning.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-runtime-health.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-runtime-integration.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-runtime-manifest.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-task-cli.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-task-evidence.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-task-http.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-task-workspace.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-watchdog-safety.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/ceo-workspace-cli.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/fixtures/ceo-operating-brief-fixture.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "dist/test/fixtures/ceo-task-fixture.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "scripts/ceo-draft-plan.mjs",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "scripts/ceo-read-brief.mjs",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "scripts/ceo-task-loop.mjs",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "scripts/ceo-workspace.mjs",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "watchdog.js",
+      "exitCode": 0,
+      "stderr": ""
+    }
+  ],
+  "diffCheckExitCode": 0,
+  "diffCheckStdout": "",
+  "driftAssessment": {
+    "path": "F:/yikuaborder-deploy/config/metrics-schema.json",
+    "status": "UNATTRIBUTED_CONCURRENT_DRIFT",
+    "assistantWritePerformed": false,
+    "source": "No command/patch in this work targets that path; test write guard rejects paths outside worktree and synthetic temp root",
+    "decision": "Preserve current source; do not reset or copy over it; G2 needs renewed baseline approval"
+  }
+}

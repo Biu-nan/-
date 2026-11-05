@@ -1,0 +1,202 @@
+[
+  {
+    "path": "dist/src/ceo-daily-plan.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "48c8015567513b9f09a109dd7db4b9ef3c9f8b41e4991ec90027e3d06463b586"
+  },
+  {
+    "path": "dist/src/ceo-daily-review.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "e1e54347768837bd83241591a2910ae9f88f5dc896a9a87ff44b5cd09a6226f7"
+  },
+  {
+    "path": "dist/src/ceo-decision-contract.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "c5a68aa9208f86e24d3c5531ab4061baae95ea136c267b890ebeef9f18759a68"
+  },
+  {
+    "path": "dist/src/ceo-draft-workspace.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "7cc56022dbde24c3bd46d76c8782a0170a5f37bdf5aad65f8f9f6fffda260f86"
+  },
+  {
+    "path": "dist/src/ceo-operating-brief.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "062c893ad797ef9973e1347e8346a94b2324dd6009ddff305d291241ec985f94"
+  },
+  {
+    "path": "dist/src/ceo-operating-context.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "27cbd66b467adfe4f4006df31299c256a364818408e26c41534c5b1c004b96af"
+  },
+  {
+    "path": "dist/src/ceo-read-brief.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "0ef3f919a094485729c85142438e33d3df6c4c297cc5b8631f9b38217f1fc928"
+  },
+  {
+    "path": "dist/src/ceo-review-input-guard.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "5d6ad103c9b5b1d3007ef5a90e930da7f363485e6c5d67ce8b0045f0ab3e8c48"
+  },
+  {
+    "path": "dist/src/ceo-review-replanning.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "3aacabe13b52bde293a9fb2033d0b5184b57c206f7118b51c853bc908c5f93de"
+  },
+  {
+    "path": "dist/src/ceo-task-evidence.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "8afda41c987092edd9902dec6cb1faf9ef60272d77950d101aacc732e482e85d"
+  },
+  {
+    "path": "dist/src/ceo-task-http.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "ea5b537b661353c90e2e5c1d66f68382b68cb2a984a5709bc549b69840312382"
+  },
+  {
+    "path": "dist/src/ceo-task-workspace.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "99ae5d986ce5db7253c7a9b3ee4f3dec9eb899dc411782b81e93380c618d7e30"
+  },
+  {
+    "path": "dist/test/ceo-conversation-entry.test.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "92feeb3dac6c447b68f2601c76cd98bf3bfba4f41c5c473110c3586db961f923"
+  },
+  {
+    "path": "dist/test/ceo-daily-plan.test.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "6fe7ca329e23147724a6e8eb0386375607775b84eee8fd8119cce09f869ab644"
+  },
+  {
+    "path": "dist/test/ceo-daily-review-ui.test.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "1f2a60df11e79d551b50271aa7ad4275e5a20fffd8c9498fbc5bb8e42dd93867"
+  },
+  {
+    "path": "dist/test/ceo-daily-review.test.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "d212f117ca3bdbd9e155ed36393e1562dd42889a38fedd08dad7ec45dc02428b"
+  },
+  {
+    "path": "dist/test/ceo-decision-contract.test.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "c5bce449fd69f0d6dc6048823e23c0807d92235eaa529ddad6a1c17d78fcc28b"
+  },
+  {
+    "path": "dist/test/ceo-draft-cli.test.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "22f0b67e6b871ed6694dd03aff30ad63a245f6e86ce33c2f7aff06943c6deb9b"
+  },
+  {
+    "path": "dist/test/ceo-draft-workspace.test.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "c11e2c7ea7e137a2c0b6441eaebbee6c6fe655098b00b144cd891cacfea26008"
+  },
+  {
+    "path": "dist/test/ceo-evidence-check-ui.test.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "09cac83c2db811eb98dd9410a1aa8c18c33b8f31f3234554c33a895d15b1bd5f"
+  },
+  {
+    "path": "dist/test/ceo-operating-brief-ui.test.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "1f6cd47ae9763a5767fa7b35d1314e22e38e3f703c71e8896080c69d11500274"
+  },
+  {
+    "path": "dist/test/ceo-operating-brief.test.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "057e8965484c03e51a39eb7f65ad43ba522c7d475a5ab5ac86def7ffb05ef750"
+  },
+  {
+    "path": "dist/test/ceo-operating-context.test.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "234bd25f731cde1ebb862d30eda4dc11851bbc029e4b27ee26d94caa8da27f31"
+  },
+  {
+    "path": "dist/test/ceo-read-brief.test.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "d01f7d4d03dfcef320e0a50a8f231b20beffc7d8196a8b89f43cadbcdf268843"
+  },
+  {
+    "path": "dist/test/ceo-replanning-ui.test.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "e6d37047728d284a5d7f94b37b99076c038245a04c825eb8bce088ff82fc049a"
+  },
+  {
+    "path": "dist/test/ceo-review-replanning.test.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "fd61acc94388201e595285fcfac1c789be0a3de5ebd8d0a7b7c07c5cc46baf59"
+  },
+  {
+    "path": "dist/test/ceo-task-cli.test.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "53832aa37e752d40bae18ca6285a65c5acf826bc3e8d50acd35970ab4004bdc8"
+  },
+  {
+    "path": "dist/test/ceo-task-evidence.test.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "17a8c6da436e95e7a8d16864382739a5c7eb7fef27f6ba9f98daa76ac5ff24f4"
+  },
+  {
+    "path": "dist/test/ceo-task-http.test.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "47339121d373b628d2e9684a5a2912dfa96e273aa06a72b41b554b791fc4b0a3"
+  },
+  {
+    "path": "dist/test/ceo-task-workspace.test.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "cf36766f2586a76c23ddab774d0478b0c685092166a2eccebd34dd1438dc1a26"
+  },
+  {
+    "path": "dist/test/ceo-workspace-cli.test.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "cbd1bd4a1cc5ba17810ece4fb3584f76b295f1e184080831c2cec2c1457b45f9"
+  },
+  {
+    "path": "dist/test/fixtures/ceo-decision-cases.json",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "096a17892db19f109158b4aae46db8b2bbc00aefd7eb79e07da0d85f728ab36e"
+  },
+  {
+    "path": "dist/test/fixtures/ceo-operating-brief-fixture.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "df5cf78efd80a71118b6f8e0d1b44eb34547f8610bdd0112694ae84d846a5053"
+  },
+  {
+    "path": "dist/test/fixtures/ceo-task-fixture.js",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "f982e042c300fa5dff615f73c3baec8998dd71783e96de654385012ff756cf13"
+  },
+  {
+    "path": "schemas/ceo-decision.schema.json",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "f7cfbff87cb9454f191f2d8dc9b8a131999a8bfb6c0ce641ab3921eecaefa6cf"
+  },
+  {
+    "path": "scripts/ceo-draft-plan.mjs",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "96a7718dec8b0b096cc6be5eeca7de8bf1431989a47a272de894db8d67465ad6"
+  },
+  {
+    "path": "scripts/ceo-read-brief.mjs",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "91db8b83907cb8557dad866291fc9209e7421862bd60880592cde7e9db6ab7d0"
+  },
+  {
+    "path": "scripts/ceo-task-loop.mjs",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "e3ce1ebd2d026e9d6bd4c9d7d6541eaec6ef1df0aa027ebb3bb9065feb07a58c"
+  },
+  {
+    "path": "scripts/ceo-workspace.mjs",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "33504c73d1457ce04f509af8ff9e9bd1b35ee951b7cc66c35aaa0a0bcdb73b75"
+  },
+  {
+    "path": "public/ceo-tasks.html",
+    "sourceHead": "fed03d366b14a7dfa75686086a0554002a148e61",
+    "sha256": "a730c192628c2f9c61599c3afd40b0f19ec7f0e066ce50718577753488f199b0"
+  }
+]

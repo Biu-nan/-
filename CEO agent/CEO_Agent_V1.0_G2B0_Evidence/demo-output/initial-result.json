@@ -1,0 +1,291 @@
+{
+  "schema": "ceo-payment-readiness-result/v1",
+  "status": "COMPLETE",
+  "verificationScope": "SYNTHETIC",
+  "question": "分析纳物一店最近的经营情况，告诉我应该优先处理什么。",
+  "reportId": "report-0cf812600b7c06bceb7d79e5a6dd62f9e6bb75c72c68f56238f7468ae95d3b0b",
+  "context": {
+    "schema": "ceo-vnext-context/v1",
+    "storeId": "400370",
+    "mode": "SHADOW",
+    "sourcePolicyVersion": "paid-orders.synthetic.v1",
+    "sourcePolicyHash": "b5d1f576e3ddb7bbb01ced762ee7821ecfd7a38e987a446638498e6525127c78",
+    "reviewHash": "99446bc22632a840991a65b7167356765713d13319ad1eef3f36eb15dd8ece0c",
+    "dictionaryVersion": "1.0.0 + paid-orders.synthetic.v1",
+    "dictionaryHash": "b2fa3cdd6088fede1819b5e8cbac8b25bacf8fc5f478cfc928ecce7b2b11fdae",
+    "knowledgeVersion": "1.0.0",
+    "knowledgeHash": "be32c347cb54b92ae69346bd2f670581aa5ee3347750f95eaaeb13ebf3cf0b9d",
+    "period": {
+      "start": "2026-11-01",
+      "end": "2026-11-04",
+      "timeZone": "Asia/Shanghai"
+    },
+    "facts": [
+      {
+        "factId": "payment-0",
+        "version": 1,
+        "storeId": "400370",
+        "caliber": "orders.payment.count",
+        "value": 1,
+        "unit": "单",
+        "currency": null,
+        "period": {
+          "start": "2026-11-01",
+          "end": "2026-11-04",
+          "timeZone": "Asia/Shanghai"
+        },
+        "quality": "VERIFIED",
+        "reasons": [],
+        "validUntil": "2026-11-05T23:00:00.000Z",
+        "source": {
+          "path": "paid-orders.synthetic.json",
+          "sha256": "de08f23f6dd93bc60913beb3fd7b536e9290218425dd2b44e838267d17ff78f3",
+          "sourceId": "fixture-paid-export"
+        }
+      },
+      {
+        "factId": "payment-1",
+        "version": 1,
+        "storeId": "400370",
+        "caliber": "orders.payment.units",
+        "value": 2,
+        "unit": "件",
+        "currency": null,
+        "period": {
+          "start": "2026-11-01",
+          "end": "2026-11-04",
+          "timeZone": "Asia/Shanghai"
+        },
+        "quality": "VERIFIED",
+        "reasons": [],
+        "validUntil": "2026-11-05T23:00:00.000Z",
+        "source": {
+          "path": "paid-orders.synthetic.json",
+          "sha256": "de08f23f6dd93bc60913beb3fd7b536e9290218425dd2b44e838267d17ff78f3",
+          "sourceId": "fixture-paid-export"
+        }
+      },
+      {
+        "factId": "payment-2",
+        "version": 1,
+        "storeId": "400370",
+        "caliber": "orders.payment.gross",
+        "value": 12.34,
+        "unit": "CNY",
+        "currency": "CNY",
+        "period": {
+          "start": "2026-11-01",
+          "end": "2026-11-04",
+          "timeZone": "Asia/Shanghai"
+        },
+        "quality": "VERIFIED",
+        "reasons": [],
+        "validUntil": "2026-11-05T23:00:00.000Z",
+        "source": {
+          "path": "paid-orders.synthetic.json",
+          "sha256": "de08f23f6dd93bc60913beb3fd7b536e9290218425dd2b44e838267d17ff78f3",
+          "sourceId": "fixture-paid-export"
+        }
+      }
+    ],
+    "dataGaps": [
+      {
+        "gapId": "REAL_STORE_BINDING_UNVERIFIED",
+        "quality": "UNVERIFIED"
+      },
+      {
+        "gapId": "REAL_SOURCE_AND_REVIEWER_UNVERIFIED",
+        "quality": "UNVERIFIED"
+      },
+      {
+        "gapId": "COMPARISON_PERIOD_MISSING",
+        "quality": "UNVERIFIED"
+      },
+      {
+        "gapId": "REFUNDS_AND_NET_INCOME_UNVERIFIED",
+        "quality": "UNVERIFIED"
+      }
+    ],
+    "sourceRefs": [
+      "de08f23f6dd93bc60913beb3fd7b536e9290218425dd2b44e838267d17ff78f3"
+    ],
+    "capturedAt": "2026-11-05T00:00:00.000Z",
+    "validUntil": "2026-11-05T00:05:00.000Z",
+    "readOnlyBusiness": true,
+    "contextId": "ctx-5ea5b4ad93101bb9886395fb2a7cf3ff49cc485705cf321f5f4e66552eb76981"
+  },
+  "report": {
+    "schema": "ceo-shadow-report/v1",
+    "requestRef": "demo-question",
+    "storeId": "400370",
+    "contextId": "ctx-5ea5b4ad93101bb9886395fb2a7cf3ff49cc485705cf321f5f4e66552eb76981",
+    "snapshotId": "ctx-5ea5b4ad93101bb9886395fb2a7cf3ff49cc485705cf321f5f4e66552eb76981",
+    "taskSnapshotId": "task-snapshot-a262b3f1ad4fc024d8808d63f0cfc5d50bec641b6db150e7a2ed2ec7295a81d8",
+    "workflowSnapshotId": "wf-9579e300edc9ba406ad5bc8f3c2a61e24c22318eb2ddde219596283f07fb960a",
+    "knowledgeVersion": "1.0.0",
+    "knowledgeHash": "be32c347cb54b92ae69346bd2f670581aa5ee3347750f95eaaeb13ebf3cf0b9d",
+    "dictionaryHash": "b2fa3cdd6088fede1819b5e8cbac8b25bacf8fc5f478cfc928ecce7b2b11fdae",
+    "sourceRefs": [
+      "de08f23f6dd93bc60913beb3fd7b536e9290218425dd2b44e838267d17ff78f3"
+    ],
+    "claims": [
+      {
+        "claimId": "payment-fact-0",
+        "kind": "FACT",
+        "text": "orders.payment.count = 1 单",
+        "factIds": [
+          "payment-0"
+        ],
+        "metric": "sales",
+        "assertions": [
+          {
+            "factId": "payment-0",
+            "version": 1,
+            "caliber": "orders.payment.count",
+            "value": 1,
+            "unit": "单",
+            "period": {
+              "start": "2026-11-01",
+              "end": "2026-11-04",
+              "timeZone": "Asia/Shanghai"
+            }
+          }
+        ],
+        "status": "SUPPORTED",
+        "value": null
+      },
+      {
+        "claimId": "payment-fact-1",
+        "kind": "FACT",
+        "text": "orders.payment.units = 2 件",
+        "factIds": [
+          "payment-1"
+        ],
+        "metric": "sales",
+        "assertions": [
+          {
+            "factId": "payment-1",
+            "version": 1,
+            "caliber": "orders.payment.units",
+            "value": 2,
+            "unit": "件",
+            "period": {
+              "start": "2026-11-01",
+              "end": "2026-11-04",
+              "timeZone": "Asia/Shanghai"
+            }
+          }
+        ],
+        "status": "SUPPORTED",
+        "value": null
+      },
+      {
+        "claimId": "payment-fact-2",
+        "kind": "FACT",
+        "text": "orders.payment.gross = 12.34 CNY",
+        "factIds": [
+          "payment-2"
+        ],
+        "metric": "sales",
+        "assertions": [
+          {
+            "factId": "payment-2",
+            "version": 1,
+            "caliber": "orders.payment.gross",
+            "value": 12.34,
+            "unit": "CNY",
+            "period": {
+              "start": "2026-11-01",
+              "end": "2026-11-04",
+              "timeZone": "Asia/Shanghai"
+            }
+          }
+        ],
+        "status": "SUPPORTED",
+        "value": null
+      },
+      {
+        "claimId": "diagnosis-scope",
+        "kind": "HYPOTHESIS",
+        "text": "支付后履约、退款或转化可能影响表现；当前证据不能确认具体原因。",
+        "factIds": [],
+        "metric": "general",
+        "assertions": [],
+        "status": "NOT_A_FACT",
+        "value": null
+      }
+    ],
+    "priorities": [
+      {
+        "title": "核对支付后履约与退款",
+        "kind": "INVESTIGATE",
+        "factIds": [
+          "payment-0",
+          "payment-1",
+          "payment-2"
+        ],
+        "rationale": "已有同期间原始支付事实，尚缺履约和退款结果，不能等同净收入。",
+        "acceptance": "补充同店同期间的履约及退款对账，列出异常订单数量和原因；不触发任何订单操作。"
+      },
+      {
+        "title": "补齐同口径对比期再判断趋势",
+        "kind": "INVESTIGATE",
+        "factIds": [
+          "payment-0",
+          "payment-1",
+          "payment-2"
+        ],
+        "rationale": "只有一个期间，不能把规模变化归因于流量、价格或转化。",
+        "acceptance": "提供相邻等长闭期且口径、时区、币种一致的核准快照，输出可复核差异。"
+      }
+    ],
+    "planCandidates": [],
+    "dataGaps": [
+      {
+        "gapId": "REAL_STORE_BINDING_UNVERIFIED",
+        "quality": "UNVERIFIED"
+      },
+      {
+        "gapId": "REAL_SOURCE_AND_REVIEWER_UNVERIFIED",
+        "quality": "UNVERIFIED"
+      },
+      {
+        "gapId": "COMPARISON_PERIOD_MISSING",
+        "quality": "UNVERIFIED"
+      },
+      {
+        "gapId": "REFUNDS_AND_NET_INCOME_UNVERIFIED",
+        "quality": "UNVERIFIED"
+      }
+    ],
+    "stopReasons": [],
+    "createdAt": "2026-11-05T00:00:00.000Z",
+    "readOnlyBusiness": true,
+    "workflowExecutions": 0,
+    "formalTaskWrites": 0,
+    "analysisId": "analysis-3efde9d257f2894ae3d69faf836947455b582e12b5dbe613326d6bf0af0a7987"
+  },
+  "versions": {
+    "runtimeVersion": "ceo-g2b0-fixture/v1",
+    "runtimeHash": "89784e8243e3e5b1895cf7958dbd94ba823ab9721cef86f34bc9ea6f2dcd28c2",
+    "nodeVersion": "v24.14.1",
+    "knowledgeVersion": "1.0.0",
+    "knowledgeHash": "be32c347cb54b92ae69346bd2f670581aa5ee3347750f95eaaeb13ebf3cf0b9d",
+    "dictionaryVersion": "1.0.0 + paid-orders.synthetic.v1",
+    "dictionaryHash": "b2fa3cdd6088fede1819b5e8cbac8b25bacf8fc5f478cfc928ecce7b2b11fdae",
+    "sourcePolicyVersion": "paid-orders.synthetic.v1",
+    "sourcePolicyHash": "b5d1f576e3ddb7bbb01ced762ee7821ecfd7a38e987a446638498e6525127c78",
+    "packageHash": "f127eb04de2fc872be704fa1808be989c5388b0348c9e807b8d5612752be60ef"
+  },
+  "traceRecordHash": "98c8d116295a8c43acb441137ca2079e9ef282d2df7c31e67179b8e3dc0d8eba",
+  "traceEventId": "archive-0cf812600b7c06bceb7d79e5a6dd62f9e6bb75c72c68f56238f7468ae95d3b0b",
+  "domainGaps": [
+    "REAL_STORE_BINDING_UNVERIFIED",
+    "REAL_SOURCE_AND_REVIEWER_UNVERIFIED",
+    "COMPARISON_PERIOD_MISSING",
+    "REFUNDS_AND_NET_INCOME_UNVERIFIED"
+  ],
+  "replayed": false,
+  "formalTaskWrites": 0,
+  "workflowExecutions": 0
+}

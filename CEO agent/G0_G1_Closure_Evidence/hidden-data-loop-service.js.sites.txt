@@ -1,0 +1,47 @@
+1: import { randomUUID } from "node:crypto";
+2: import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
+3: import path from "node:path";
+4: import { ACTION_LOG_FILE, COMMAND_INBOX_FILE, EVENT_LOG_FILE, HIDDEN_DATA_DIR, KNOWLEDGE_ITEMS_FILE, QCLAW_RESULTS_FILE, QCLAW_STATE_FILE, QCLAW_TASKS_FILE, REVIEWS_FILE, SNAPSHOTS_FILE, TASK_STATE_FILE, TODAY_DASHBOARD_FILE } from "./config.js";
+5: import { enqueueFileWrite } from "./json-write-queue.js";
+6: export const QCLAW_TASK_STATUSES = [
+7:     "draft",
+8:     "pending_approval",
+9:     "approved",
+10:     "queued",
+77: export class HiddenDataLoopService {
+78:     dataDir;
+79:     constructor(options = {}) {
+80:         this.dataDir = options.dataDir ?? HIDDEN_DATA_DIR;
+81:     }
+82:     filePath(kind) {
+83:         const files = {
+84:             command_inbox: this.resolve(COMMAND_INBOX_FILE),
+85:             event_log: this.resolve(EVENT_LOG_FILE),
+86:             qclaw_tasks: this.resolve(QCLAW_TASKS_FILE),
+134:         const file = this.filePath(kind);
+135:         await enqueueFileWrite(file, async () => {
+136:             await writeFile(file, `${JSON.stringify(normalized)}\n`, { flag: "a" });
+137:         });
+138:         return normalized;
+139:     }
+140:     async readJsonl(kind) {
+141:         await this.ensureHiddenDataFiles();
+142:         const content = await readFile(this.filePath(kind), "utf8");
+152:         await enqueueFileWrite(file, async () => {
+153:             const temporary = `${file}.${process.pid}.${Date.now()}.tmp`;
+154:             await writeFile(temporary, `${JSON.stringify(data, null, 2)}\n`);
+155:             await rename(temporary, file);
+156:         });
+157:     }
+158:     async readJson(kind) {
+159:         await this.ensureHiddenDataFiles();
+160:         return JSON.parse(await readFile(this.filePath(kind), "utf8"));
+338:             if (await this.exists(file))
+339:                 return;
+340:             await writeFile(file, initialContent);
+341:         });
+342:     }
+343:     async exists(file) {
+344:         try {
+345:             await stat(file);
+346:             return true;

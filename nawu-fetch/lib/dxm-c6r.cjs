@@ -34,6 +34,30 @@ async function setEntryExitAllTime(page, log) {
   return r === 'CLICKED';
 }
 
+// ---------- 出入记录：切到「仓库位置=全部」（关键：默认锁在「浙江义乌仓」，会漏其它仓）----------
+// 2026-10-30 修：出入记录页「仓库位置」默认=浙江义乌仓（非「全部」），导致只抓到单仓。
+// DOM：ant-form-item 内 `label[title="仓库位置"]`（id=searchForm_warehoseId 拼写如此），
+//      选项为 .d-tag-group-item（全部 / 浙江义乌仓 默认 / 云仓-义乌 / 乐临仓-代发 / 洛慈-代发仓），
+//      当前项带 active。必须点「全部」才能覆盖所有仓。
+async function setEntryExitAllWarehouse(page, log) {
+  const r = await page.evaluate(() => {
+    const txt = (e) => ((e && e.innerText) || '').replace(/\s+/g, ' ').trim();
+    const label = document.querySelector('label[title="仓库位置"]') || document.querySelector('#searchForm_warehoseId');
+    if (!label) return 'NO_LABEL';
+    const box = label.closest('.ant-form-item') || label.parentElement;
+    if (!box) return 'NO_BOX';
+    const items = Array.from(box.querySelectorAll('.d-tag-group-item'));
+    const target = items.find((it) => /^全部/.test(txt(it)));
+    if (!target) return 'NO_ALL';
+    if (/(^|\s)active(\s|$)/.test(target.className || '')) return 'ALREADY';
+    target.click();
+    return 'CLICKED';
+  });
+  if (r === 'CLICKED') await sleep(6000);
+  log && log.info('出入记录 仓库位置=全部 -> ' + r);
+  return r === 'CLICKED' || r === 'ALREADY';
+}
+
 // 兜底：自定义日期范围（antd RangePicker，取可见输入框）
 async function setEntryExitDateRange(page, fromDate, toDate, log) {
   // 先点「自定义」快捷项（若存在）
@@ -76,6 +100,10 @@ function dayOf(v) { const m = String(v || '').match(/(\d{4}-\d{2}-\d{2})/); retu
 async function collectEntryExitWindow(page, opts, log) {
   const { fromDate, toDate, extractor, goNextPage, sleep, maxPages = 120, waitAfterNextMs = 2500 } = opts;
   if (typeof extractor !== 'function' || typeof goNextPage !== 'function') throw new Error('collectEntryExitWindow 缺少 extractor / goNextPage');
+
+  // ⓪ 仓库筛选：默认可能锁在「浙江义乌仓」，必须先切「全部」才能取到所有仓
+  const whOk = await setEntryExitAllWarehouse(page, log).catch(() => false);
+  if (!whOk) log && log.warn('出入记录「仓库位置=全部」未确认 → 可能仅取到默认仓');
 
   // ① 时间筛选：优先「全部」；失败回退自定义范围（保证能翻到窗口起点之前）
   let filterMode = 'ALL';
@@ -393,4 +421,4 @@ async function collectProductTypeMap(page, pageUrl, log) {
   return { counts, lists, declared, collected, complete };
 }
 
-module.exports = { clickText, setEntryExitAllTime, setEntryExitDateRange, ENTRYEXIT_COLUMNS, dayOf, collectEntryExitWindow, extractPurchaseOrderRows, extractSupplierRows, extractSupplyRelationRows, readProductTypeTabs, readTableTotal, extractProductTypeRows, clickProductTab, collectProductTypeMap };
+module.exports = { clickText, setEntryExitAllTime, setEntryExitAllWarehouse, setEntryExitDateRange, ENTRYEXIT_COLUMNS, dayOf, collectEntryExitWindow, extractPurchaseOrderRows, extractSupplierRows, extractSupplyRelationRows, readProductTypeTabs, readTableTotal, extractProductTypeRows, clickProductTab, collectProductTypeMap };

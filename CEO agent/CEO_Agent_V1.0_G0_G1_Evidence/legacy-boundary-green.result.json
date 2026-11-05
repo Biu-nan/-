@@ -1,0 +1,13 @@
+{
+  "label": "legacy-boundary-green",
+  "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+  "command": [
+    "node",
+    "--test",
+    "dist/test/ceo-legacy-boundary.test.js",
+    "dist/test/ceo-task-http.test.js",
+    "dist/test/ceo-conversation-entry.test.js"
+  ],
+  "exitCode": 0,
+  "seconds": 25.279
+}

@@ -1,0 +1,1495 @@
+{
+  "method": "non-evaluating static literal import/export/require scan; dynamic data/asset paths checked separately",
+  "roots": [
+    "dist/src/ceo-daily-plan.js",
+    "dist/src/ceo-daily-review.js",
+    "dist/src/ceo-decision-contract.js",
+    "dist/src/ceo-draft-workspace.js",
+    "dist/src/ceo-governance.js",
+    "dist/src/ceo-isolated-runtime.js",
+    "dist/src/ceo-legacy-view.js",
+    "dist/src/ceo-main-boundary.js",
+    "dist/src/ceo-operating-brief.js",
+    "dist/src/ceo-operating-context.js",
+    "dist/src/ceo-read-brief.js",
+    "dist/src/ceo-review-input-guard.js",
+    "dist/src/ceo-review-replanning.js",
+    "dist/src/ceo-runtime-host.js",
+    "dist/src/ceo-runtime-manifest.js",
+    "dist/src/ceo-task-evidence.js",
+    "dist/src/ceo-task-http.js",
+    "dist/src/ceo-task-workspace.js",
+    "dist/src/config.js",
+    "dist/src/server.js",
+    "scripts/ceo-draft-plan.mjs",
+    "scripts/ceo-read-brief.mjs",
+    "scripts/ceo-task-loop.mjs",
+    "scripts/ceo-workspace.mjs",
+    "watchdog.js"
+  ],
+  "visitedCount": 87,
+  "edges": [
+    {
+      "from": "watchdog.js",
+      "import": "./dist/src/ceo-main-boundary.js",
+      "resolved": "dist/src/ceo-main-boundary.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/ceo-main-boundary.js",
+      "import": "./ceo-governance.js",
+      "resolved": "dist/src/ceo-governance.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/ceo-main-boundary.js",
+      "import": "./ceo-runtime-manifest.js",
+      "resolved": "dist/src/ceo-runtime-manifest.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/ceo-main-boundary.js",
+      "import": "./ceo-runtime-host.js",
+      "resolved": "dist/src/ceo-runtime-host.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/ceo-runtime-host.js",
+      "import": "./ceo-runtime-manifest.js",
+      "resolved": "dist/src/ceo-runtime-manifest.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "scripts/ceo-workspace.mjs",
+      "import": "../dist/src/ceo-operating-context.js",
+      "resolved": "dist/src/ceo-operating-context.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "scripts/ceo-workspace.mjs",
+      "import": "../dist/src/ceo-draft-workspace.js",
+      "resolved": "dist/src/ceo-draft-workspace.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "scripts/ceo-workspace.mjs",
+      "import": "../dist/src/ceo-main-boundary.js",
+      "resolved": "dist/src/ceo-main-boundary.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/ceo-draft-workspace.js",
+      "import": "./ceo-operating-context.js",
+      "resolved": "dist/src/ceo-operating-context.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/ceo-draft-workspace.js",
+      "import": "./ceo-decision-contract.js",
+      "resolved": "dist/src/ceo-decision-contract.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/ceo-draft-workspace.js",
+      "import": "./ceo-daily-plan.js",
+      "resolved": "dist/src/ceo-daily-plan.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/ceo-draft-workspace.js",
+      "import": "./ceo-review-replanning.js",
+      "resolved": "dist/src/ceo-review-replanning.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/ceo-review-replanning.js",
+      "import": "./ceo-operating-context.js",
+      "resolved": "dist/src/ceo-operating-context.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/ceo-daily-plan.js",
+      "import": "./ceo-decision-contract.js",
+      "resolved": "dist/src/ceo-decision-contract.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "scripts/ceo-task-loop.mjs",
+      "import": "../dist/src/ceo-operating-context.js",
+      "resolved": "dist/src/ceo-operating-context.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "scripts/ceo-task-loop.mjs",
+      "import": "../dist/src/ceo-task-workspace.js",
+      "resolved": "dist/src/ceo-task-workspace.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "scripts/ceo-task-loop.mjs",
+      "import": "../dist/src/ceo-task-http.js",
+      "resolved": "dist/src/ceo-task-http.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "scripts/ceo-task-loop.mjs",
+      "import": "../dist/src/ceo-operating-brief.js",
+      "resolved": "dist/src/ceo-operating-brief.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "scripts/ceo-task-loop.mjs",
+      "import": "../dist/src/ceo-review-input-guard.js",
+      "resolved": "dist/src/ceo-review-input-guard.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "scripts/ceo-task-loop.mjs",
+      "import": "../dist/src/ceo-review-replanning.js",
+      "resolved": "dist/src/ceo-review-replanning.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "scripts/ceo-task-loop.mjs",
+      "import": "../dist/src/ceo-task-evidence.js",
+      "resolved": "dist/src/ceo-task-evidence.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "scripts/ceo-task-loop.mjs",
+      "import": "../dist/src/ceo-main-boundary.js",
+      "resolved": "dist/src/ceo-main-boundary.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/ceo-task-evidence.js",
+      "import": "./ceo-operating-context.js",
+      "resolved": "dist/src/ceo-operating-context.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/ceo-task-http.js",
+      "import": "./ceo-review-replanning.js",
+      "resolved": "dist/src/ceo-review-replanning.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/ceo-task-http.js",
+      "import": "./ceo-task-evidence.js",
+      "resolved": "dist/src/ceo-task-evidence.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/ceo-task-http.js",
+      "import": "./ceo-main-boundary.js",
+      "resolved": "dist/src/ceo-main-boundary.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/ceo-task-workspace.js",
+      "import": "./ceo-draft-workspace.js",
+      "resolved": "dist/src/ceo-draft-workspace.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/ceo-task-workspace.js",
+      "import": "./ceo-operating-context.js",
+      "resolved": "dist/src/ceo-operating-context.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/ceo-task-workspace.js",
+      "import": "./ceo-daily-review.js",
+      "resolved": "dist/src/ceo-daily-review.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/ceo-task-workspace.js",
+      "import": "./ceo-review-replanning.js",
+      "resolved": "dist/src/ceo-review-replanning.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/ceo-daily-review.js",
+      "import": "./ceo-operating-context.js",
+      "resolved": "dist/src/ceo-operating-context.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "scripts/ceo-read-brief.mjs",
+      "import": "../dist/src/ceo-read-brief.js",
+      "resolved": "dist/src/ceo-read-brief.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "scripts/ceo-draft-plan.mjs",
+      "import": "../dist/src/ceo-daily-plan.js",
+      "resolved": "dist/src/ceo-daily-plan.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./dianxiaomi-facts.js",
+      "resolved": "dist/src/dianxiaomi-facts.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./draft-executor-bridge.js",
+      "resolved": "dist/src/draft-executor-bridge.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./collector-bridge.js",
+      "resolved": "dist/src/collector-bridge.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./automation-service.js",
+      "resolved": "dist/src/automation-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./chatgpt-adapter.js",
+      "resolved": "dist/src/chatgpt-adapter.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./gemini-adapter.js",
+      "resolved": "dist/src/gemini-adapter.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./directory-images.js",
+      "resolved": "dist/src/directory-images.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./listing-contract.js",
+      "resolved": "dist/src/listing-contract.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./style-reference-service.js",
+      "resolved": "dist/src/style-reference-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./ecom-connector.js",
+      "resolved": "dist/src/ecom-connector.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./luxury-insert-service.js",
+      "resolved": "dist/src/luxury-insert-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./bag-charm-service.js",
+      "resolved": "dist/src/bag-charm-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./charm-listing-workspace-service.js",
+      "resolved": "dist/src/charm-listing-workspace-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./product-selection-service.js",
+      "resolved": "dist/src/product-selection-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./selection-board-service.js",
+      "resolved": "dist/src/selection-board-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./product-identity-service.js",
+      "resolved": "dist/src/product-identity-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./listing-template-snapshot-service.js",
+      "resolved": "dist/src/listing-template-snapshot-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./image-isolation-guard.js",
+      "resolved": "dist/src/image-isolation-guard.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./notebooklm-adapter.js",
+      "resolved": "dist/src/notebooklm-adapter.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./image-files.js",
+      "resolved": "dist/src/image-files.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./state-store.js",
+      "resolved": "dist/src/state-store.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./product-session.js",
+      "resolved": "dist/src/product-session.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./prompt-files.js",
+      "resolved": "dist/src/prompt-files.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./sleep-inhibitor.js",
+      "resolved": "dist/src/sleep-inhibitor.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./product-profile-service.js",
+      "resolved": "dist/src/product-profile-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./queue-service.js",
+      "resolved": "dist/src/queue-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./operation-service.js",
+      "resolved": "dist/src/operation-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./daily-operation-service.js",
+      "resolved": "dist/src/daily-operation-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./operator-service.js",
+      "resolved": "dist/src/operator-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./hidden-data-loop-service.js",
+      "resolved": "dist/src/hidden-data-loop-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./secretary-model.js",
+      "resolved": "dist/src/secretary-model.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./product-visual-assets-service.js",
+      "resolved": "dist/src/product-visual-assets-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./p0-protocol-service.js",
+      "resolved": "dist/src/p0-protocol-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./dianxiaomi-adapter.js",
+      "resolved": "dist/src/dianxiaomi-adapter.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./research-service.js",
+      "resolved": "dist/src/research-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./research-store.js",
+      "resolved": "dist/src/research-store.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./batch-listing-create.js",
+      "resolved": "dist/src/batch-listing-create.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./listing-engine.js",
+      "resolved": "dist/src/listing-engine.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "../../listing-agent/src/agent-client.js",
+      "resolved": "listing-agent/src/agent-client.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./system-state.js",
+      "resolved": "dist/src/system-state.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./ceo-main-boundary.js",
+      "resolved": "dist/src/ceo-main-boundary.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./ceo-runtime-host.js",
+      "resolved": "dist/src/ceo-runtime-host.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/server.js",
+      "import": "./dianxiaomi-facts.js",
+      "resolved": "dist/src/dianxiaomi-facts.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/dianxiaomi-facts.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/dianxiaomi-facts.js",
+      "import": "./listing-contract.js",
+      "resolved": "dist/src/listing-contract.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/agent-client.js",
+      "import": "./listing-agent.js",
+      "resolved": "listing-agent/src/listing-agent.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/agent-client.js",
+      "import": "./ai/chatgpt-provider.js",
+      "resolved": "listing-agent/src/ai/chatgpt-provider.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/agent-client.js",
+      "import": "./publishers/dianxiaomi-publisher.js",
+      "resolved": "listing-agent/src/publishers/dianxiaomi-publisher.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/publishers/dianxiaomi-publisher.js",
+      "import": "../../../dist/src/dianxiaomi-adapter.js",
+      "resolved": "dist/src/dianxiaomi-adapter.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/publishers/dianxiaomi-publisher.js",
+      "import": "../../../dist/src/config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/dianxiaomi-adapter.js",
+      "import": "./dianxiaomi-verify.js",
+      "resolved": "dist/src/dianxiaomi-verify.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/ai/chatgpt-provider.js",
+      "import": "../../../dist/src/chatgpt-adapter.js",
+      "resolved": "dist/src/chatgpt-adapter.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/ai/chatgpt-provider.js",
+      "import": "../../../dist/src/config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/chatgpt-adapter.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/chatgpt-adapter.js",
+      "import": "./image-compress.js",
+      "resolved": "dist/src/image-compress.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/listing-agent.js",
+      "import": "./types.js",
+      "resolved": "listing-agent/src/types.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/listing-agent.js",
+      "import": "./knowledge/profiles.js",
+      "resolved": "listing-agent/src/knowledge/profiles.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/listing-agent.js",
+      "import": "./stages/parse-stage.js",
+      "resolved": "listing-agent/src/stages/parse-stage.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/listing-agent.js",
+      "import": "./stages/generate-stage.js",
+      "resolved": "listing-agent/src/stages/generate-stage.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/listing-agent.js",
+      "import": "./stages/validate-stage.js",
+      "resolved": "listing-agent/src/stages/validate-stage.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/listing-agent.js",
+      "import": "./util.js",
+      "resolved": "listing-agent/src/util.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/stages/validate-stage.js",
+      "import": "../../../dist/src/product-fact-service.js",
+      "resolved": "dist/src/product-fact-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/stages/validate-stage.js",
+      "import": "../knowledge/field-spec.js",
+      "resolved": "listing-agent/src/knowledge/field-spec.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/stages/validate-stage.js",
+      "import": "../knowledge/profiles.js",
+      "resolved": "listing-agent/src/knowledge/profiles.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/knowledge/field-spec.js",
+      "import": "../../../dist/src/listing-knowledge.js",
+      "resolved": "dist/src/listing-knowledge.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/stages/generate-stage.js",
+      "import": "../../../dist/src/dianxiaomi-facts.js",
+      "resolved": "dist/src/dianxiaomi-facts.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/stages/generate-stage.js",
+      "import": "../knowledge/profiles.js",
+      "resolved": "listing-agent/src/knowledge/profiles.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/stages/generate-stage.js",
+      "import": "../util.js",
+      "resolved": "listing-agent/src/util.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/stages/parse-stage.js",
+      "import": "../../../dist/src/dianxiaomi-facts.js",
+      "resolved": "dist/src/dianxiaomi-facts.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/stages/parse-stage.js",
+      "import": "../../../dist/src/product-fact-service.js",
+      "resolved": "dist/src/product-fact-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "listing-agent/src/stages/parse-stage.js",
+      "import": "../util.js",
+      "resolved": "listing-agent/src/util.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/listing-engine.js",
+      "import": "./sku-naming.js",
+      "resolved": "dist/src/sku-naming.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/listing-engine.js",
+      "import": "./dianxiaomi-verify.js",
+      "resolved": "dist/src/dianxiaomi-verify.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/batch-listing-create.js",
+      "import": "./image-files.js",
+      "resolved": "dist/src/image-files.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/batch-listing-create.js",
+      "import": "./product-session.js",
+      "resolved": "dist/src/product-session.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/product-session.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/product-session.js",
+      "import": "./dianxiaomi-facts.js",
+      "resolved": "dist/src/dianxiaomi-facts.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/image-files.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/research-store.js",
+      "import": "./json-write-queue.js",
+      "resolved": "dist/src/json-write-queue.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/research-store.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/research-service.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/research-service.js",
+      "import": "./research-store.js",
+      "resolved": "dist/src/research-store.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/research-service.js",
+      "import": "./research-analyzer.js",
+      "resolved": "dist/src/research-analyzer.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/product-visual-assets-service.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/product-visual-assets-service.js",
+      "import": "./image-files.js",
+      "resolved": "dist/src/image-files.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/secretary-model.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/hidden-data-loop-service.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/hidden-data-loop-service.js",
+      "import": "./json-write-queue.js",
+      "resolved": "dist/src/json-write-queue.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/operator-service.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/operator-service.js",
+      "import": "./json-write-queue.js",
+      "resolved": "dist/src/json-write-queue.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/daily-operation-service.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/daily-operation-service.js",
+      "import": "./json-write-queue.js",
+      "resolved": "dist/src/json-write-queue.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/operation-service.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/operation-service.js",
+      "import": "./json-write-queue.js",
+      "resolved": "dist/src/json-write-queue.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/queue-service.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/queue-service.js",
+      "import": "./directory-images.js",
+      "resolved": "dist/src/directory-images.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/queue-service.js",
+      "import": "./product-session.js",
+      "resolved": "dist/src/product-session.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/directory-images.js",
+      "import": "./image-files.js",
+      "resolved": "dist/src/image-files.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/product-profile-service.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/product-profile-service.js",
+      "import": "./product-session.js",
+      "resolved": "dist/src/product-session.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/prompt-files.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/state-store.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/state-store.js",
+      "import": "./storyboard-gate-service.js",
+      "resolved": "dist/src/storyboard-gate-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/state-store.js",
+      "import": "./reliability/json-store.js",
+      "resolved": "dist/src/reliability/json-store.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/reliability/json-store.js",
+      "import": "../json-write-queue.js",
+      "resolved": "dist/src/json-write-queue.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/storyboard-gate-service.js",
+      "import": "./prompt-files.js",
+      "resolved": "dist/src/prompt-files.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/notebooklm-adapter.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/image-isolation-guard.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/image-isolation-guard.js",
+      "import": "./image-files.js",
+      "resolved": "dist/src/image-files.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/selection-board-service.js",
+      "import": "./directory-images.js",
+      "resolved": "dist/src/directory-images.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/selection-board-service.js",
+      "import": "./style-reference-service.js",
+      "resolved": "dist/src/style-reference-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/style-reference-service.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/style-reference-service.js",
+      "import": "./image-files.js",
+      "resolved": "dist/src/image-files.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/product-selection-service.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/product-selection-service.js",
+      "import": "./prompt-files.js",
+      "resolved": "dist/src/prompt-files.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/product-selection-service.js",
+      "import": "./image-files.js",
+      "resolved": "dist/src/image-files.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/charm-listing-workspace-service.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/bag-charm-service.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/bag-charm-service.js",
+      "import": "./directory-images.js",
+      "resolved": "dist/src/directory-images.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/bag-charm-service.js",
+      "import": "./prompt-files.js",
+      "resolved": "dist/src/prompt-files.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/bag-charm-service.js",
+      "import": "./product-session.js",
+      "resolved": "dist/src/product-session.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/luxury-insert-service.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/luxury-insert-service.js",
+      "import": "./directory-images.js",
+      "resolved": "dist/src/directory-images.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/luxury-insert-service.js",
+      "import": "./prompt-files.js",
+      "resolved": "dist/src/prompt-files.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/luxury-insert-service.js",
+      "import": "./product-session.js",
+      "resolved": "dist/src/product-session.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/luxury-insert-service.js",
+      "import": "./image-files.js",
+      "resolved": "dist/src/image-files.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/ecom-connector.js",
+      "import": "./ecom-contract.js",
+      "resolved": "dist/src/ecom-contract.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/gemini-adapter.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/gemini-adapter.js",
+      "import": "./image-compress.js",
+      "resolved": "dist/src/image-compress.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/automation-service.js",
+      "import": "./config.js",
+      "resolved": "dist/src/config.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/automation-service.js",
+      "import": "./style-reference-service.js",
+      "resolved": "dist/src/style-reference-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/automation-service.js",
+      "import": "./dianxiaomi-facts.js",
+      "resolved": "dist/src/dianxiaomi-facts.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/automation-service.js",
+      "import": "./listing-contract.js",
+      "resolved": "dist/src/listing-contract.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/automation-service.js",
+      "import": "./progress-manifest.js",
+      "resolved": "dist/src/progress-manifest.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/automation-service.js",
+      "import": "./image-files.js",
+      "resolved": "dist/src/image-files.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/automation-service.js",
+      "import": "./prompt-files.js",
+      "resolved": "dist/src/prompt-files.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/automation-service.js",
+      "import": "./image-framework.js",
+      "resolved": "dist/src/image-framework.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/automation-service.js",
+      "import": "./product-visual-assets-service.js",
+      "resolved": "dist/src/product-visual-assets-service.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": false
+    },
+    {
+      "from": "dist/src/ceo-isolated-runtime.js",
+      "import": "./ceo-runtime-manifest.js",
+      "resolved": "dist/src/ceo-runtime-manifest.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/ceo-isolated-runtime.js",
+      "import": "./ceo-runtime-host.js",
+      "resolved": "dist/src/ceo-runtime-host.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    },
+    {
+      "from": "dist/src/ceo-isolated-runtime.js",
+      "import": "./ceo-governance.js",
+      "resolved": "dist/src/ceo-governance.js",
+      "exists": true,
+      "gitListed": true,
+      "candidateChange": true
+    }
+  ],
+  "missing": [],
+  "outsideLocalImports": [],
+  "notGitListed": [],
+  "externalPackages": [
+    {
+      "name": "ajv-formats",
+      "version": "3.0.1",
+      "packageJson": "F:\\yikuaborder-deploy\\node_modules\\ajv-formats\\package.json",
+      "outsideWorktree": true,
+      "tracked": false
+    },
+    {
+      "name": "ajv",
+      "version": "8.20.0",
+      "packageJson": "F:\\yikuaborder-deploy\\node_modules\\ajv\\package.json",
+      "outsideWorktree": true,
+      "tracked": false
+    },
+    {
+      "name": "express",
+      "version": "4.22.2",
+      "packageJson": "F:\\yikuaborder-deploy\\node_modules\\express\\package.json",
+      "outsideWorktree": true,
+      "tracked": false
+    },
+    {
+      "name": "jsonrepair",
+      "version": "3.14.0",
+      "packageJson": "F:\\yikuaborder-deploy\\node_modules\\jsonrepair\\package.json",
+      "outsideWorktree": true,
+      "tracked": false
+    },
+    {
+      "name": "multer",
+      "version": "2.1.1",
+      "packageJson": "F:\\yikuaborder-deploy\\node_modules\\multer\\package.json",
+      "outsideWorktree": true,
+      "tracked": false
+    },
+    {
+      "name": "playwright-core",
+      "version": "1.60.0",
+      "packageJson": "F:\\yikuaborder-deploy\\node_modules\\playwright-core\\package.json",
+      "outsideWorktree": true,
+      "tracked": false
+    },
+    {
+      "name": "xlsx",
+      "version": "0.18.5",
+      "packageJson": "F:\\yikuaborder-deploy\\node_modules\\xlsx\\package.json",
+      "outsideWorktree": true,
+      "tracked": false
+    }
+  ]
+}

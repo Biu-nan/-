@@ -1,0 +1,195 @@
+ M .gitignore
+ A config/ceo-capabilities.v1.json
+ A dist/src/ceo-daily-plan.js
+ A dist/src/ceo-daily-review.js
+ A dist/src/ceo-decision-contract.js
+ A dist/src/ceo-draft-workspace.js
+ A dist/src/ceo-governance.js
+ A dist/src/ceo-isolated-runtime.js
+ A dist/src/ceo-legacy-view.js
+ A dist/src/ceo-main-boundary.js
+ A dist/src/ceo-operating-brief.js
+ A dist/src/ceo-operating-context.js
+ A dist/src/ceo-read-brief.js
+ A dist/src/ceo-review-input-guard.js
+ A dist/src/ceo-review-replanning.js
+ A dist/src/ceo-runtime-host.js
+ A dist/src/ceo-runtime-manifest.js
+ A dist/src/ceo-task-evidence.js
+ A dist/src/ceo-task-http.js
+ A dist/src/ceo-task-workspace.js
+ M dist/src/config.js
+ M dist/src/server.js
+ A dist/test/ceo-cli-safety.test.js
+ A dist/test/ceo-conversation-entry.test.js
+ A dist/test/ceo-daily-plan.test.js
+ A dist/test/ceo-daily-review-ui.test.js
+ A dist/test/ceo-daily-review.test.js
+ A dist/test/ceo-decision-contract.test.js
+ A dist/test/ceo-draft-cli.test.js
+ A dist/test/ceo-draft-workspace.test.js
+ A dist/test/ceo-evidence-check-ui.test.js
+ A dist/test/ceo-governance-bypass.test.js
+ A dist/test/ceo-governance.test.js
+ A dist/test/ceo-isolation-review.test.js
+ A dist/test/ceo-legacy-boundary.test.js
+ A dist/test/ceo-legacy-compat.test.js
+ A dist/test/ceo-main-boundary.test.js
+ A dist/test/ceo-main-entry.test.js
+ A dist/test/ceo-operating-brief-ui.test.js
+ A dist/test/ceo-operating-brief.test.js
+ A dist/test/ceo-operating-context.test.js
+ A dist/test/ceo-read-brief.test.js
+ A dist/test/ceo-replanning-ui.test.js
+ A dist/test/ceo-review-replanning.test.js
+ A dist/test/ceo-runtime-health.test.js
+ A dist/test/ceo-runtime-integration.test.js
+ A dist/test/ceo-runtime-manifest.test.js
+ A dist/test/ceo-task-cli.test.js
+ A dist/test/ceo-task-evidence.test.js
+ A dist/test/ceo-task-http.test.js
+ A dist/test/ceo-task-workspace.test.js
+ A dist/test/ceo-watchdog-safety.test.js
+ A dist/test/ceo-workspace-cli.test.js
+ A dist/test/fixtures/ceo-decision-cases.json
+ A dist/test/fixtures/ceo-operating-brief-fixture.js
+ A dist/test/fixtures/ceo-task-fixture.js
+ A public/ceo-tasks.html
+ A schemas/ceo-decision.schema.json
+ A schemas/ceo-principal.schema.json
+ A scripts/ceo-draft-plan.mjs
+ A scripts/ceo-read-brief.mjs
+ A scripts/ceo-task-loop.mjs
+ A scripts/ceo-workspace.mjs
+ M watchdog.js
+?? .superpowers/sdd/ceo-g0-g1-20261105/00-import.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/baseline-cli-repaired.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/baseline-cli-repaired.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/baseline-corrected.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/baseline-corrected.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/baseline-full.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/baseline-full.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/changed-files.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/cli-safety-green.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/cli-safety-green.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/cli-safety-red.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/cli-safety-red.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/diagnose-sqlite.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/diagnose-sqlite.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/failure-comparison.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/final-complete.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/final-failures.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/final-full-confirmed.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/final-full-confirmed.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/final-full.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/final-full.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/final-g1-confirmed.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/final-g1-confirmed.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/final-g1-new.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/final-g1-new.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/final-listeners.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/final-protection-syntax.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/final-related.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/final-related.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/final-reliability.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/final-reliability.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/final-verification.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/g0-before.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/g0-runtime.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/g1-focused.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/g1-focused.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/integration-green.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/integration-green.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/integration-red.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/integration-red.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/legacy-boundary-green.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/legacy-boundary-green.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/legacy-boundary-red.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/legacy-boundary-red.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/legacy-import-manifest.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/m01-green.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/m01-green.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/m01-red.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/m01-red.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/m02-green.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/m02-green.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/m02-red.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/m02-red.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/main-boundary-green.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/main-boundary-green.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/main-boundary-red.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/main-boundary-red.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/main-entry-green-2.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/main-entry-green-2.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/main-entry-green.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/main-entry-green.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/main-entry-red.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/main-entry-red.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/main-single-instance-green.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/main-single-instance-green.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/main-single-instance-red.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/main-single-instance-red.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/manifest-dependency-red.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/manifest-dependency-red.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/progress.md
+?? .superpowers/sdd/ceo-g0-g1-20261105/review-findings.md
+?? .superpowers/sdd/ceo-g0-g1-20261105/review-fixes-green.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/review-fixes-green.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/review-fixes-red.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/review-fixes-red.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/run.py
+?? .superpowers/sdd/ceo-g0-g1-20261105/standalone-cli-green.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/standalone-cli-green.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/standalone-cli-red.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/standalone-cli-red.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/test-result-index.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/test-safety.mjs
+?? .superpowers/sdd/ceo-g0-g1-20261105/watchdog-green.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/watchdog-green.result.json
+?? .superpowers/sdd/ceo-g0-g1-20261105/watchdog-red.diff
+?? .superpowers/sdd/ceo-g0-g1-20261105/watchdog-red.result.json
+?? .superpowers/test-data/manifest-7FGjzO/code/config/capabilities.json
+?? .superpowers/test-data/manifest-7FGjzO/code/config/server-credentials.json
+?? .superpowers/test-data/manifest-7FGjzO/code/dist/src/entry.js
+?? .superpowers/test-data/manifest-7FGjzO/code/public/panel.js
+?? .superpowers/test-data/manifest-7FGjzO/code/schemas/report.json
+?? .superpowers/test-data/manifest-8EdZv7/code/config/capabilities.json
+?? .superpowers/test-data/manifest-8EdZv7/code/dist/src/entry.js
+?? .superpowers/test-data/manifest-8EdZv7/code/public/panel.js
+?? .superpowers/test-data/manifest-8EdZv7/code/schemas/report.json
+?? .superpowers/test-data/manifest-CcOOwT/code/config/capabilities.json
+?? .superpowers/test-data/manifest-CcOOwT/code/dist/src/entry.js
+?? .superpowers/test-data/manifest-CcOOwT/code/public/panel.js
+?? .superpowers/test-data/manifest-CcOOwT/code/schemas/report.json
+?? .superpowers/test-data/manifest-UT3Q7K/code/config/capabilities.json
+?? .superpowers/test-data/manifest-UT3Q7K/code/dist/src/entry.js
+?? .superpowers/test-data/manifest-UT3Q7K/code/public/panel.js
+?? .superpowers/test-data/manifest-UT3Q7K/code/schemas/report.json
+?? .superpowers/test-data/manifest-hcc1TR/code/config/capabilities.json
+?? .superpowers/test-data/manifest-hcc1TR/code/dist/src/entry.js
+?? .superpowers/test-data/manifest-hcc1TR/code/public/panel.js
+?? .superpowers/test-data/manifest-hcc1TR/code/schemas/report.json
+?? .superpowers/test-data/manifest-nkGgLw/code/config/capabilities.json
+?? .superpowers/test-data/manifest-nkGgLw/code/dist/src/entry.js
+?? .superpowers/test-data/manifest-nkGgLw/code/public/panel.js
+?? .superpowers/test-data/manifest-nkGgLw/code/schemas/report.json
+?? .superpowers/test-data/manifest-qNzQFW/code/config/capabilities.json
+?? .superpowers/test-data/manifest-qNzQFW/code/dist/src/entry.js
+?? .superpowers/test-data/manifest-qNzQFW/code/public/panel.js
+?? .superpowers/test-data/manifest-qNzQFW/code/schemas/report.json
+?? .superpowers/test-data/manifest-vem4gp/code/config/capabilities.json
+?? .superpowers/test-data/manifest-vem4gp/code/dist/src/entry.js
+?? .superpowers/test-data/manifest-vem4gp/code/public/panel.js
+?? .superpowers/test-data/manifest-vem4gp/code/schemas/report.json
+?? .superpowers/test-data/manifest-wmqIdS/code/config/capabilities.json
+?? .superpowers/test-data/manifest-wmqIdS/code/dist/src/entry.js
+?? .superpowers/test-data/manifest-wmqIdS/code/public/panel.js
+?? .superpowers/test-data/manifest-wmqIdS/code/schemas/report.json
+?? .superpowers/test-data/runtime-Wx9srD/runtime.lease.json.stale-b405e1b1-e992-4a88-8e85-9db8abcb559d
+?? .superpowers/test-data/runtime-mJNXrd/runtime.lease.json
+?? .superpowers/test-data/runtime-ran8m1/code/entry.js
+?? .superpowers/test-data/runtime-ran8m1/code/panel.js
+?? .superpowers/test-data/runtime-ran8m1/code/policy.json
+?? .superpowers/test-data/runtime-ran8m1/code/schema.json
+?? .superpowers/test-data/runtime-ssyY1L/runtime.lease.json
+?? .superpowers/test-data/runtime-wOMloB/runtime.lease.json

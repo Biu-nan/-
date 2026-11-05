@@ -1,0 +1,12 @@
+{
+  "at": "2026-11-05T02:30:05.853698+00:00",
+  "cwd": "C:\\Users\\User\\WorkBuddy\\Worktrees\\yikuaborder-deploy\\master-9d64c319",
+  "command": [
+    "git",
+    "status",
+    "--short",
+    "--",
+    "config/metrics-schema.json"
+  ],
+  "exitCode": 0
+}

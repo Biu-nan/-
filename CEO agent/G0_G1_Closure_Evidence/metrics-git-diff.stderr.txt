@@ -1,0 +1,1 @@
+warning: in the working copy of 'config/metrics-schema.json', LF will be replaced by CRLF the next time Git touches it

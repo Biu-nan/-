@@ -110,3 +110,11 @@ nawu-fetch/*.zip
 /agents/**/fixtures/**/design/
 
 
+
+# ── 浏览器用户档案（登录态/会话/缓存，绝不入库）──
+.chrome-cdp-9223/
+
+# ── 临时验证与产物 ──
+_verify/
+_shortlist_result.json
+*.bak-*

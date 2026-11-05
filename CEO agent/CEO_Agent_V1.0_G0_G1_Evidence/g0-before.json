@@ -1,0 +1,103 @@
+{
+  "at": "2026-11-05T01:29:10.336527+00:00",
+  "protected": [
+    {
+      "path": "F:\\yikuaborder-deploy\\nawu-fetch\\lib\\dxm-c6r.cjs",
+      "exists": true,
+      "sha256": "745380ecbe24c5e6519d99c0c09cd9fe8f4a7c865a0a30589d7d2ec8099de6a0",
+      "bytes": 22414
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\nawu-fetch\\lib\\nawu-inventory.cjs",
+      "exists": true,
+      "sha256": "1e29ff7b95d48f03efd81a2779956d6183264c6d45bbf5165606080dbc9f7d80",
+      "bytes": 21651
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\public\\draft-executor-panel.js",
+      "exists": true,
+      "sha256": "98bf76037efa2b76d3c77a2595624a317931e63afff00b802f1c9aa09b19d91b",
+      "bytes": 12718
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\CEO agent\\CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md",
+      "exists": true,
+      "sha256": "294570a0e5cd27d937facbf7c7e2ecdd3202face159d420c555de5f228128a1e",
+      "bytes": 51184
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\server.js",
+      "exists": true,
+      "sha256": "7847a1587b35e985d1a44d5a39099443d2eabeed3f7f48ad7f2a969529437a02",
+      "bytes": 311580
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\watchdog.js",
+      "exists": true,
+      "sha256": "6dc83743c13751cf204c8a7cbe08929b1bc9d86c264ef298a5cec11a2829a609",
+      "bytes": 6527
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\run-state.json",
+      "exists": true,
+      "sha256": "378f5aa2f3ae0ca84f9df8144230c8b7fb89fc520a02cca292daabace19f0cc1",
+      "bytes": 693
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\config\\ceo-store-400370.json",
+      "exists": true,
+      "sha256": "0f7928c672bf04dea3e17cbf8dff929a5407b0c204d391308e1fabf857bef4f2",
+      "bytes": 1644
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\config\\metrics-schema.json",
+      "exists": true,
+      "sha256": "f3fbfb1454a934cbfc8b155b3513f5c64d5ec62470bd9391b018846986f68efc",
+      "bytes": 9917
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\data\\event_log.jsonl",
+      "exists": true,
+      "sha256": "5491d8971adf28a9a681119988a5f4b4da7a11891af2591314320a578b65fe7b",
+      "bytes": 22577
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\data\\action_log.jsonl",
+      "exists": true,
+      "sha256": "527199e9c07292ba21ea6169d5ec943fcb385c559e626dcef4d182b47e0e3ddd",
+      "bytes": 282
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\data\\snapshots.jsonl",
+      "exists": true,
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "bytes": 1
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\data\\reviews.jsonl",
+      "exists": true,
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "bytes": 1
+    }
+  ],
+  "git": {
+    "main": {
+      "root": "F:\\yikuaborder-deploy",
+      "head": "052abd71301f0409ad6295fea78f24bb83bc35f3",
+      "diffSha256": "989849c1e58377d303ddb4d5b9b03a76a0a9d57fcfa28a21503f83df202173f2",
+      "status": " M nawu-fetch/lib/dxm-c6r.cjs\n M nawu-fetch/lib/nawu-inventory.cjs\n M public/draft-executor-panel.js\n?? .chrome-cdp-9223/\n?? \"CEO agent/\"\n?? _shortlist_result.json\n?? _verify/\n?? docs/OPC_OS_ARCHITECTURE_v0.3.html\n?? docs/OPC_OS_BUILD_STANDARD_v1.0.md\n?? docs/OPC_OS_OPERATING_CHARTER_v1.0.md\n?? docs/OPC_OS_RUNTIME_FRAMEWORK_v1.0.html\n?? docs/phase1/POST_COMMIT_AUDIT.md\n?? docs/phase2b-real-preflight/\n?? docs/phase2d/\n?? docs/superpowers/specs/2026-11-03-ceo-agent-authority-design.md\n?? nawu-fetch/lib/nawu-inventory.cjs.bak-20261101\n"
+    },
+    "ceo": {
+      "root": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief",
+      "head": "fed03d366b14a7dfa75686086a0554002a148e61",
+      "diffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": "?? .test-baseline/\n?? .test-draft-full/\n?? .test-draft-reliability/\n?? .test-draft-reviewed-rel/\n?? .test-draft-reviewed/\n?? .test-final/\n?? .test-reliability/\n"
+    },
+    "run": {
+      "root": "F:\\yikuaborder-run",
+      "head": "8970876e55d1e371d51c37b0249d6c37d8d4d132",
+      "diffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": "?? 启动一跨.bat\n"
+    }
+  }
+}

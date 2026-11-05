@@ -1,0 +1,12 @@
+{
+  "label": "archival-state-red",
+  "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+  "command": [
+    "node",
+    "--test",
+    "dist/test/ceo-workflow-catalog.test.js",
+    "dist/test/ceo-g2a-service.test.js"
+  ],
+  "exitCode": 1,
+  "seconds": 0.656
+}

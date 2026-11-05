@@ -1,0 +1,483 @@
+[
+  {
+    "label": "adapter-chain-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-payment-loop.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 7.036,
+    "summary": {
+      "tests": "10",
+      "pass": "10",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "6969.6034"
+    }
+  },
+  {
+    "label": "archive-green-2",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-report-archive.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 10.566,
+    "summary": {
+      "tests": "9",
+      "pass": "6",
+      "fail": "3",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "10477.9538"
+    }
+  },
+  {
+    "label": "archive-green-3",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-report-archive.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 3.771,
+    "summary": {
+      "tests": "11",
+      "pass": "11",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "3708.1445"
+    }
+  },
+  {
+    "label": "archive-green-final",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-report-archive.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 4.843,
+    "summary": {
+      "tests": "14",
+      "pass": "14",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "4781.9618"
+    }
+  },
+  {
+    "label": "archive-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-report-archive.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 2.295,
+    "summary": {
+      "tests": "9",
+      "pass": "3",
+      "fail": "6",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "2232.7131"
+    }
+  },
+  {
+    "label": "archive-lock-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-report-archive.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 4.587,
+    "summary": {
+      "tests": "14",
+      "pass": "14",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "4520.6129"
+    }
+  },
+  {
+    "label": "archive-lock-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-report-archive.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 4.248,
+    "summary": {
+      "tests": "14",
+      "pass": "12",
+      "fail": "2",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "4185.7866"
+    }
+  },
+  {
+    "label": "archive-recovery-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-report-archive.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 3.603,
+    "summary": {
+      "tests": "11",
+      "pass": "7",
+      "fail": "4",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "3537.4417"
+    }
+  },
+  {
+    "label": "archive-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-report-archive.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 0.172,
+    "summary": {
+      "tests": "9",
+      "pass": "0",
+      "fail": "9",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "106.222"
+    }
+  },
+  {
+    "label": "demo",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      ".superpowers/sdd/ceo-g2b0-20261105/demo.mjs"
+    ],
+    "exitCode": 0,
+    "seconds": 1.286,
+    "summary": {}
+  },
+  {
+    "label": "final-b0",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-payment-domain.test.js",
+      "dist/test/ceo-payment-loop.test.js",
+      "dist/test/ceo-report-linkage.test.js",
+      "dist/test/ceo-report-archive.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 19.535,
+    "summary": {
+      "tests": "34",
+      "pass": "34",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "19472.7537"
+    }
+  },
+  {
+    "label": "final-g2a-regression",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-vnext-context.test.js",
+      "dist/test/ceo-shadow-analysis.test.js",
+      "dist/test/ceo-task-read-model.test.js",
+      "dist/test/ceo-workflow-catalog.test.js",
+      "dist/test/ceo-shadow-trace.test.js",
+      "dist/test/ceo-g2a-service.test.js",
+      "dist/test/ceo-g2a-contracts.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 19.848,
+    "summary": {
+      "tests": "68",
+      "pass": "68",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "19783.4837"
+    }
+  },
+  {
+    "label": "http-recovery",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-payment-loop.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 5.027,
+    "summary": {
+      "tests": "7",
+      "pass": "6",
+      "fail": "1",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "4955.6208"
+    }
+  },
+  {
+    "label": "linkage-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-report-linkage.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 0.21,
+    "summary": {
+      "tests": "1",
+      "pass": "0",
+      "fail": "1",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "129.7755"
+    }
+  },
+  {
+    "label": "loop-green-2",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-payment-loop.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 2.209,
+    "summary": {
+      "tests": "4",
+      "pass": "4",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "2149.1237"
+    }
+  },
+  {
+    "label": "loop-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-payment-loop.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 1.94,
+    "summary": {
+      "tests": "4",
+      "pass": "3",
+      "fail": "1",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "1879.0575"
+    }
+  },
+  {
+    "label": "loop-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-payment-loop.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 0.177,
+    "summary": {
+      "tests": "4",
+      "pass": "0",
+      "fail": "4",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "116.4871"
+    }
+  },
+  {
+    "label": "payment-green-2",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-payment-domain.test.js",
+      "dist/test/ceo-report-linkage.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 0.338,
+    "summary": {
+      "tests": "9",
+      "pass": "9",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "277.1752"
+    }
+  },
+  {
+    "label": "payment-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-payment-domain.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 0.227,
+    "summary": {
+      "tests": "8",
+      "pass": "1",
+      "fail": "7",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "152.3772"
+    }
+  },
+  {
+    "label": "payment-link-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-payment-domain.test.js",
+      "dist/test/ceo-report-linkage.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 0.259,
+    "summary": {
+      "tests": "9",
+      "pass": "8",
+      "fail": "1",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "195.0219"
+    }
+  },
+  {
+    "label": "payment-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-payment-domain.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 0.188,
+    "summary": {
+      "tests": "8",
+      "pass": "1",
+      "fail": "7",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "118.5369"
+    }
+  },
+  {
+    "label": "real-adapter-chain",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-payment-loop.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 151.029,
+    "summary": {
+      "tests": "10",
+      "pass": "0",
+      "fail": "10",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "150954.7954"
+    }
+  },
+  {
+    "label": "review-dates-proof-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-payment-domain.test.js",
+      "dist/test/ceo-payment-loop.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 4.653,
+    "summary": {
+      "tests": "19",
+      "pass": "15",
+      "fail": "4",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "4588.285"
+    }
+  },
+  {
+    "label": "review-fixes-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-payment-domain.test.js",
+      "dist/test/ceo-payment-loop.test.js",
+      "dist/test/ceo-report-linkage.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 5.825,
+    "summary": {
+      "tests": "20",
+      "pass": "20",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "5764.1061"
+    }
+  },
+  {
+    "label": "review-replay-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-payment-loop.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 4.41,
+    "summary": {
+      "tests": "9",
+      "pass": "7",
+      "fail": "2",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "4346.5126"
+    }
+  }
+]

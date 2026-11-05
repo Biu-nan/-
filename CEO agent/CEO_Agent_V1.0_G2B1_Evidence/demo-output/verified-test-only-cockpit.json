@@ -1,0 +1,84 @@
+{
+  "schema": "ceo-cockpit-projection/v1",
+  "status": "READY",
+  "storeAlias": "纳物一店",
+  "storeId": "400370",
+  "period": {
+    "start": "2026-11-01",
+    "end": "2026-11-04",
+    "timeZone": "Asia/Shanghai"
+  },
+  "verification": {
+    "status": "VERIFIED",
+    "receipt": "verify-5621e5f7fadd1cb372f8d06449531e6378e046a4387175ee956f99faf85795f0",
+    "failed": [],
+    "notEvaluated": []
+  },
+  "report": {
+    "reportId": null,
+    "analysisId": "analysis-5c65e424f7d11f763156d94f26f89619db29b39e2b5dca921ece8e9dc4865da8",
+    "contextId": "ctx-eacb965ed0cb56c0802ebc37066925176b7e32307c9f4c726a1a834922fe287b",
+    "createdAt": "2026-11-05T01:00:00.000Z",
+    "revision": null,
+    "correctsReportId": null
+  },
+  "facts": [
+    {
+      "factId": "payment-0",
+      "caliber": "orders.payment.count",
+      "label": "支付订单数",
+      "value": 2,
+      "unit": "单",
+      "quality": "VERIFIED",
+      "reasons": []
+    },
+    {
+      "factId": "payment-1",
+      "caliber": "orders.payment.units",
+      "label": "支付件数",
+      "value": 3,
+      "unit": "件",
+      "quality": "VERIFIED",
+      "reasons": []
+    },
+    {
+      "factId": "payment-2",
+      "caliber": "orders.payment.gross",
+      "label": "支付原始金额（非净收入）",
+      "value": 188.3,
+      "unit": "CNY",
+      "quality": "VERIFIED",
+      "reasons": []
+    }
+  ],
+  "gaps": [
+    "COMPARISON_PERIOD_MISSING",
+    "COSTS_AND_PENALTIES_UNVERIFIED",
+    "REFUNDS_AND_NET_INCOME_UNVERIFIED"
+  ],
+  "unverifiedFacts": [],
+  "priorities": [
+    {
+      "title": "核对支付后履约与退款",
+      "kind": "INVESTIGATE",
+      "factIds": [
+        "payment-0",
+        "payment-1",
+        "payment-2"
+      ],
+      "rationale": "已有同期间原始支付事实，尚缺履约和退款结果，不能等同净收入。",
+      "acceptance": "补充同店同期间的履约及退款对账；不触发任何订单操作。"
+    }
+  ],
+  "claimsSummary": {
+    "SUPPORTED": 3,
+    "CANNOT_DETERMINE": 0,
+    "NOT_A_FACT": 1
+  },
+  "actions": [],
+  "readOnly": true,
+  "formalTaskWrites": 0,
+  "workflowExecutions": 0,
+  "generatedAt": "2026-11-05T01:00:00.000Z",
+  "cockpitId": "cockpit-d6b7f4ede2af670757f1919d924d8dfa6ca0061b48e3ff9357b9ef32120cb637"
+}

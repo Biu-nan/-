@@ -1,0 +1,12 @@
+{
+  "at": "2026-11-05T02:36:42.965668+00:00",
+  "command": [
+    "node",
+    "--test",
+    "F:\\yikuaborder-deploy\\CEO agent\\G0_G1_Closure_Evidence\\dictionary-impact.test.mjs"
+  ],
+  "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+  "exitCode": 0,
+  "seconds": 0.261,
+  "environment": "same allowlisted environment and inherited test write/network guard as G1; synthetic data only"
+}

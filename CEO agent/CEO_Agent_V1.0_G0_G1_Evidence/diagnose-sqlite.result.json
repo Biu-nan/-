@@ -1,0 +1,12 @@
+{
+  "label": "diagnose-sqlite",
+  "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+  "command": [
+    "node",
+    "--input-type=module",
+    "-e",
+    "import {DatabaseSync} from 'node:sqlite'; import path from 'node:path'; try {const db=new DatabaseSync(path.join(process.env.TEMP,'diagnostic.sqlite')); db.exec('CREATE TABLE x(id INTEGER)'); db.close(); console.log('SQLITE_OK');} catch(e) {console.error(e); process.exitCode=1;}"
+  ],
+  "exitCode": 1,
+  "seconds": 0.069
+}

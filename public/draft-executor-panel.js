@@ -199,7 +199,9 @@
           } else {
             setBadge('FAILED', 'bad');
             const reasons = (s.reasons || []).map((x) => `<div style="color:#b45309;">• [${esc(x.stage)}] ${esc(x.reason)}</div>`).join('');
+            const blockers = (s.blockers || []).map((x) => `<div style="color:#dc2626;">⛔ ${esc(x)}</div>`).join('');
             show(`${errBox('未完成', f.error || s.error)}
+              ${blockers}
               ${reasons}
               ${steps ? `<div style="max-height:240px;overflow:auto;margin-top:8px;font-size:.92em;">${steps}</div>` : ''}`);
           }

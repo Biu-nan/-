@@ -1,0 +1,10 @@
+{
+  "at": "2026-11-05T02:30:03.991275+00:00",
+  "cwd": "F:\\yikuaborder-deploy",
+  "command": [
+    "git",
+    "status",
+    "--short"
+  ],
+  "exitCode": 0
+}

@@ -1,0 +1,16 @@
+{
+  "schema": "ceo-real-paid-verification-summary/v1",
+  "status": "VERIFIED",
+  "receipt": "verify-5621e5f7fadd1cb372f8d06449531e6378e046a4387175ee956f99faf85795f0",
+  "failedCount": 0,
+  "failed": [],
+  "storeAlias": "纳物一店",
+  "storeId": "400370",
+  "reviewerId": "owner-store-data",
+  "period": {
+    "start": "2026-11-01",
+    "end": "2026-11-04",
+    "timeZone": "Asia/Shanghai"
+  },
+  "exportGaps": []
+}

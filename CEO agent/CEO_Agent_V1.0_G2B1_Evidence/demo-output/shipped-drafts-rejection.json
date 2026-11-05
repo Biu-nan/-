@@ -1,0 +1,19 @@
+{
+  "schema": "ceo-real-paid-verification-summary/v1",
+  "status": "REJECTED",
+  "receipt": "verify-78f4e91c2fafeccc3ba17a24b6ca07119a8a4119467ad68de7b1be9d918a200e",
+  "failedCount": 6,
+  "failed": [
+    "REAL_CONTRACT_NOT_APPROVED",
+    "REAL_POLICY_NOT_APPROVED",
+    "STORE_MAPPING_UNVERIFIED",
+    "STORE_SCOPE_UNRESOLVED",
+    "REAL_APPROVAL_REVIEWER_UNAUTHORIZED",
+    "PREREQUISITE_FAILED"
+  ],
+  "storeAlias": "纳物一店",
+  "storeId": "400370",
+  "reviewerId": "owner-store-data",
+  "period": null,
+  "exportGaps": []
+}

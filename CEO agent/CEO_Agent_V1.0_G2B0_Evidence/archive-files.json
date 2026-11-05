@@ -1,0 +1,14 @@
+[
+  {
+    "file": "dist/src/ceo-report-archive.js",
+    "sha256": "1af4ab2e14b1a3f80d02c5e806c7e93b23e2ae89f0d61c1d7b4738daad41c3cf",
+    "bytes": 19700,
+    "diffExitCode": 1
+  },
+  {
+    "file": "dist/test/ceo-report-archive.test.js",
+    "sha256": "915e640f7221cd962c895fa8bbe2843975fd994c5ded5e8363e5c216c6c292bc",
+    "bytes": 13489,
+    "diffExitCode": 1
+  }
+]

@@ -1,0 +1,25 @@
+{
+  "schema": "ceo-g2b1-environment-events/v1",
+  "recordedAt": "2026-11-05T07:30:00Z",
+  "note": "Observed during this session. None of these were produced by commands this round executed; the round only ran git writes inside .worktrees/ceo-g2b1-20261105.",
+  "events": [
+    {
+      "eventId": "ENV-01",
+      "type": "HOST_AUTO_CHECKPOINT_COMMIT",
+      "commit": "e19e704",
+      "author": "Workbench <workbench@local>",
+      "committedAt": "2026-11-05 15:07:58 +0800",
+      "message": "[Checkout-checkpoint] from feature/ykb-v1-phase1-identity-state to master (15:07:01)",
+      "branch": "feature/ykb-v1-phase1-identity-state",
+      "branchActuallyChanged": false,
+      "mainWorktreeHeadBefore": "052abd7",
+      "mainWorktreeHeadAfter": "e19e704",
+      "pathsCommitted": 7592,
+      "includesHandoffDocs": 398,
+      "includesBrowserProfile": ".chrome-cdp-9223/ (contains a 4 MB binary and 91,586 lines of rule data)",
+      "includesNodeModules": 0,
+      "impactOnThisRound": "none — separate branch, separate worktree",
+      "recommendation": "Human decision. If unwanted, remove those paths with a follow-up commit rather than git reset, which would also discard the 398 handoff files."
+    }
+  ]
+}

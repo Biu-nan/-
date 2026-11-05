@@ -1,0 +1,83 @@
+{
+  "schema": "ceo-g2b1-test-result-index/v1",
+  "generatedAt": "2026-11-05T07:25:40.781Z",
+  "nodeVersion": "v22.22.2",
+  "runs": [
+    {
+      "id": "g2b1-special",
+      "command": "node --test <7 new test files>",
+      "tests": 61,
+      "pass": 61,
+      "fail": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "log": "logs/g2b1-special.stdout.log"
+    },
+    {
+      "id": "g2b0-regression",
+      "command": "node --test <4 G2B0 test files>",
+      "tests": 34,
+      "pass": 34,
+      "fail": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "log": "logs/g2b0-regression.stdout.log"
+    },
+    {
+      "id": "g2a-regression-serial",
+      "command": "node --test --test-concurrency=1 <7 G2A test files>",
+      "tests": 68,
+      "pass": 68,
+      "fail": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "log": "logs/g2a-regression-serial.stdout.log"
+    },
+    {
+      "id": "g2a-regression-parallel-first-attempt",
+      "command": "node --test <7 G2A test files> (parallel)",
+      "tests": 64,
+      "pass": 63,
+      "fail": 0,
+      "cancelled": 1,
+      "exitCode": 1,
+      "log": "logs/g2a-regression.stdout.log",
+      "note": "File-level 60s timeout on ceo-task-read-model.test.js under 7-way parallelism. Not a code failure; re-run serially 68/68. Recorded as Backlog item B-01."
+    },
+    {
+      "id": "full-suite",
+      "command": "node --test --test-concurrency=1 dist/test/*.test.js",
+      "tests": 635,
+      "pass": 609,
+      "fail": 26,
+      "cancelled": 0,
+      "exitCode": 1,
+      "log": "logs/full-suite.stdout.log"
+    },
+    {
+      "id": "historical-failure-baseline",
+      "command": "same 7 legacy files at db002b0 (pre-G2B1)",
+      "tests": 54,
+      "pass": 28,
+      "fail": 26,
+      "exitCode": 1,
+      "log": "logs/baseline-pre-g2b1-historical-failures.log"
+    },
+    {
+      "id": "historical-failure-same-subset",
+      "command": "same 7 legacy files on G2B1 branch",
+      "tests": 54,
+      "pass": 28,
+      "fail": 26,
+      "exitCode": 1,
+      "log": "logs/g2b1-same-subset-historical-failures.log",
+      "note": "Failure name set diff against baseline is empty (IDENTICAL_FAILURE_SET)."
+    },
+    {
+      "id": "demo",
+      "command": "node .superpowers/sdd/ceo-g2b1-20261105/demo.mjs",
+      "exitCode": 0,
+      "log": "logs/demo.stdout.log"
+    }
+  ]
+}

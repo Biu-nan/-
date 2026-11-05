@@ -1,0 +1,30 @@
+{
+  "schema": "ceo-g2b1-takeover-baseline/v1",
+  "verifiedAt": "2026-11-05T07:25:40.783Z",
+  "handoffWorkspace": "F:/yikuaborder-deploy/.worktrees/ceo-g2a-20261105",
+  "handoffBranch": "feature/ceo-g2a-20261105",
+  "handoffHead": "db002b0eaaa106fd2d7df76d42a723f2840a2d6d",
+  "g2b1Head": "61fd2ad987d60d98e5a1082f768a628ab4b38b47",
+  "handoffUncommittedPaths": 19,
+  "handoffUntracked": [
+    ".superpowers/"
+  ],
+  "handoffIntegrityAfterTakeover": "19/19 sha256 unchanged (verified twice)",
+  "newWorkspace": "F:/yikuaborder-deploy/.worktrees/ceo-g2b1-20261105",
+  "newBranch": "feature/ceo-g2b1-20261105",
+  "baseCommit": "db002b0eaaa106fd2d7df76d42a723f2840a2d6d",
+  "toolchain": {
+    "node": "v22.22.2",
+    "git": "git version 2.55.0.windows.3",
+    "npm": "10.9.7"
+  },
+  "g2b0DeclaredRuntime": "v24.14.1",
+  "runtimeDeviation": "This round runs on Node v22.22.2. runtimeHash binds process.version, so hashes are not comparable with the G2B0 report. Recorded as deviation D-B1-01.",
+  "agendsMd": "NOT_FOUND anywhere in the repository (searched maxdepth 3) — recorded as gap G-B1-01",
+  "evidenceDiffSha256": "7305210e2b897502add42bced2e558c2ca250a07fb058ff5e2be455462a9c886 (matches G2B0 report)",
+  "baselineTestReplay": {
+    "g2b0": 34,
+    "g2a": 68,
+    "note": "Only after creating the missing .superpowers/sdd/ceo-g2a-20261105 scratch directory; the missing directory produced 16 false ENOENT failures."
+  }
+}

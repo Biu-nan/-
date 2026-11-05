@@ -1,0 +1,1097 @@
+{
+  "schema": "ceo-readonly-audit-evidence/v1",
+  "capturedAt": "2026-11-05T00:58:17.903101+00:00",
+  "repositories": {
+    "main": {
+      "path": "F:\\yikuaborder-deploy",
+      "head": {
+        "exitCode": 0,
+        "stdout": "052abd71301f0409ad6295fea78f24bb83bc35f3",
+        "stderr": ""
+      },
+      "branch": {
+        "exitCode": 0,
+        "stdout": "feature/ykb-v1-phase1-identity-state",
+        "stderr": ""
+      },
+      "status": {
+        "exitCode": 0,
+        "stdout": "M nawu-fetch/lib/dxm-c6r.cjs\n M nawu-fetch/lib/nawu-inventory.cjs\n M public/draft-executor-panel.js\n?? .chrome-cdp-9223/\n?? \"CEO agent/\"\n?? _shortlist_result.json\n?? _verify/\n?? docs/OPC_OS_ARCHITECTURE_v0.3.html\n?? docs/OPC_OS_BUILD_STANDARD_v1.0.md\n?? docs/OPC_OS_OPERATING_CHARTER_v1.0.md\n?? docs/OPC_OS_RUNTIME_FRAMEWORK_v1.0.html\n?? docs/phase1/POST_COMMIT_AUDIT.md\n?? docs/phase2b-real-preflight/\n?? docs/phase2d/\n?? docs/superpowers/specs/2026-11-03-ceo-agent-authority-design.md\n?? nawu-fetch/lib/nawu-inventory.cjs.bak-20261101",
+        "stderr": ""
+      },
+      "trackedDiffSha256": "989849c1e58377d303ddb4d5b9b03a76a0a9d57fcfa28a21503f83df202173f2"
+    },
+    "ceo": {
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief",
+      "head": {
+        "exitCode": 0,
+        "stdout": "fed03d366b14a7dfa75686086a0554002a148e61",
+        "stderr": ""
+      },
+      "branch": {
+        "exitCode": 0,
+        "stdout": "upgrade/ceo-read-brief-20261026",
+        "stderr": ""
+      },
+      "status": {
+        "exitCode": 0,
+        "stdout": "?? .test-baseline/\n?? .test-draft-full/\n?? .test-draft-reliability/\n?? .test-draft-reviewed-rel/\n?? .test-draft-reviewed/\n?? .test-final/\n?? .test-reliability/",
+        "stderr": ""
+      },
+      "trackedDiffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "reliability": {
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\reliability-phase2",
+      "head": {
+        "exitCode": 0,
+        "stdout": "35291d8aa50d183e146612e2472021820793377e",
+        "stderr": ""
+      },
+      "branch": {
+        "exitCode": 0,
+        "stdout": "upgrade/reliability-phase2-20261025",
+        "stderr": ""
+      },
+      "status": {
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "trackedDiffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "run": {
+      "path": "F:\\yikuaborder-run",
+      "head": {
+        "exitCode": 0,
+        "stdout": "8970876e55d1e371d51c37b0249d6c37d8d4d132",
+        "stderr": ""
+      },
+      "branch": {
+        "exitCode": 0,
+        "stdout": "master",
+        "stderr": ""
+      },
+      "status": {
+        "exitCode": 0,
+        "stdout": "?? 启动一跨.bat",
+        "stderr": ""
+      },
+      "trackedDiffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "files": [
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\ai-adapter.js",
+      "sha256": "e78f6f87b452f91d43a526cb55d2231c71a20b3585cf226b1ac1900ca4c024ba",
+      "bytes": 49
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\automation-service.js",
+      "sha256": "4921ea7574f94887e52f71ce46cc9354cac3f63c56d19b5ade4ab1f5f858b5ad",
+      "bytes": 104342
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\bag-charm-service.js",
+      "sha256": "2b1117d457d68fbe44288307c8ad4ef01bd5b9ccfda5b111fdc9c0efb977f2c4",
+      "bytes": 26160
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\batch-listing-create.js",
+      "sha256": "acc04a0e7ca0fc14e73891b278d58de94b6a51e9412e14b8b1ca0e99e1593f9d",
+      "bytes": 53730
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\charm-listing-workspace-service.js",
+      "sha256": "eb8466cd1a1783f7c96ed2d4b0b39c1d24b7010255ffafdb31c2cb5c8b7bfd7e",
+      "bytes": 18213
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\chatgpt-adapter.js",
+      "sha256": "a57aeef3b7240c2f77b1cc5bb746c43117bfcf9e53013b9a5e81e777b464037e",
+      "bytes": 138671
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\collector-bridge.js",
+      "sha256": "734a622b3446b6de30d4265eaa03d09b1c7664996badeae759b5f9c1a2991686",
+      "bytes": 17972
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\config.js",
+      "sha256": "7f1661dbb12a392e4da08f010d8941d324c1c497d77aa56401872de499f72ca3",
+      "bytes": 61444
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\daily-operation-service.js",
+      "sha256": "048dbf2950f7b490d34066a78358afa538c5f826d0a40d4196c9c970196dea12",
+      "bytes": 9800
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\dianxiaomi-adapter.js",
+      "sha256": "61f4a44cf2a6c00835337027c482535d030025fbfe8d5ebdaf770e8ab47a07a1",
+      "bytes": 316457
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\dianxiaomi-facts.js",
+      "sha256": "ba661afc45e703760d9f6dceac7deb56755b8f38dbcf245a51d872a20666a0b2",
+      "bytes": 12645
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\dianxiaomi-verify.js",
+      "sha256": "2162e0e6781231f8fb081c6f7f648afc1d8ef22deb4370594992cd06f6c0f47e",
+      "bytes": 12802
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\directory-images.js",
+      "sha256": "8e79c3356b9bf30d9f563c63e31696dfc915eabac86e4822c5d4c6f84d07577e",
+      "bytes": 4979
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\draft-executor-bridge.js",
+      "sha256": "885bf2f11a3e5bdbdac9bb0f4c3b0169245be8f44835c8acb8fad022b025ae55",
+      "bytes": 6882
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\ecom-connector.js",
+      "sha256": "06ef560a1b32e9acb2f89970374adf36d215278fa0397e12f6fb4906bdf32592",
+      "bytes": 11006
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\ecom-contract.js",
+      "sha256": "37c66b7d4a1cc237558a1c8eed5c017330a4538a6a50732fc933c19749cecbbf",
+      "bytes": 6225
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\gemini-adapter.js",
+      "sha256": "832949f3ffe1fa25a0083bc40d527cd9a55e85ffe8779b7c572aaa6da7a2601e",
+      "bytes": 15898
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\hidden-data-loop-service.js",
+      "sha256": "1c2fdfac3e9e4c0ece4e9447ab3f3d8b2515233b6c108491c7407199af2b96aa",
+      "bytes": 14552
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\image-compress.js",
+      "sha256": "0ad7d5b348a20ebd0d1964b1fa709fcc5636d9c0339323f025e164baab2c916a",
+      "bytes": 1653
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\image-files.js",
+      "sha256": "d1a030be70425159cecea2720ef327019e82ff1996e447782f364d3f7a844dce",
+      "bytes": 10759
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\image-framework.js",
+      "sha256": "03a991362dc99b244757f7bdcec0cb723d2a4d5a8e1360788d83fcb039f631b5",
+      "bytes": 4327
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\image-isolation-guard.js",
+      "sha256": "a0f1675348464a97d541b99d8f1f766d4fbd75c54327ece2d66d7cdc8413f0fe",
+      "bytes": 3511
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\json-write-queue.js",
+      "sha256": "d5188d94c64d7618f5fbd940400df1320da08bb6842276a117ddfb7780a669ed",
+      "bytes": 517
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\listing-contract.js",
+      "sha256": "b44c721ac4bfecae2d4a956616320933fb7008793f524186a200fd7c06170aab",
+      "bytes": 13204
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\listing-engine.js",
+      "sha256": "7f36ca26ee898c3f1b43a35db711f796f3195bacffdcf3f77f0b6e73fbf18167",
+      "bytes": 39878
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\listing-knowledge.js",
+      "sha256": "a26e7329d2091c2a519f2b67922a710f872c62f7fe7566a1c4d4d266887b1f3f",
+      "bytes": 4769
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\listing-template-snapshot-service.js",
+      "sha256": "177aa03a091e1dfd6ed1a31bb2554c11ff03a04cb84a131bd2bc10ef104187fe",
+      "bytes": 9076
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\luxury-insert-service.js",
+      "sha256": "26416e37fe5adbcab875a8f3f08bd9aa4a69d1343ae74e036db71df3e4d86f8c",
+      "bytes": 114909
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\notebooklm-adapter.js",
+      "sha256": "eca7e897a9722313042fbe88a91de00c32aa3c1d5ce6cfb8dbb9e69b3d17ff4f",
+      "bytes": 7888
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\operation-service.js",
+      "sha256": "fa87093f4dba3d7d1f1782d643cb92fa6b2c888da4f659c1c354cf502bec1f03",
+      "bytes": 36836
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\operator-service.js",
+      "sha256": "a86e627589a1e90e944a7f0699f6781feaa94c2cb27a69e770c68f92083c1506",
+      "bytes": 3281
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\p0-protocol-service.js",
+      "sha256": "45364e2ddce5db8a16e27be5c01c3ef293a59ae5a4fa8a95de08a7f6068db9e3",
+      "bytes": 3954
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\product-fact-service.js",
+      "sha256": "60b1ace59f9fc8c8477149b8ff51b6d59856d62f1629e7ce78a3565ad8add189",
+      "bytes": 4253
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\product-identity-service.js",
+      "sha256": "7215fb98b91212e0f77a464f6b1cbb6ca7aa69e1efd97f84dc6ef00520e94393",
+      "bytes": 21953
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\product-profile-service.js",
+      "sha256": "ad5b2c7997310f650ba8f0a1f692238e90cf01219c847f308fd488727302ff86",
+      "bytes": 30280
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\product-selection-service.js",
+      "sha256": "5489f07e9047030a8abbccc513bb39e64860e2953c9e393de9280cab99b4928f",
+      "bytes": 25950
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\product-session.js",
+      "sha256": "0416d0d3bd054788a377a6e4ee37afc8fe15f7aaeb4a4ec5a45be86d74f7a1ee",
+      "bytes": 9092
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\product-visual-assets-service.js",
+      "sha256": "102f84756217558b6c34e508f20c8587bbfbf28bfc5ac879978bcedb461e8e5b",
+      "bytes": 11215
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\progress-manifest.js",
+      "sha256": "481193709e6c27278386fd86f28ee3253fd94bfe097fa38e5c2b634824d43c46",
+      "bytes": 3692
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\prompt-files.js",
+      "sha256": "2a368581c311dbbff1f6ed19056c6126127fa126fc96c8c9664bfdfc506ee813",
+      "bytes": 8336
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\queue-service.js",
+      "sha256": "c72ba2e74b5bbf63702c132c867fa7fbe59cbb666662937fa8a66003af2a4763",
+      "bytes": 22865
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\research-analyzer.js",
+      "sha256": "f8e746dcae1f0b87438503bbe62395189b1c3d049d90c24fdf95f7520a9dc434",
+      "bytes": 3407
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\research-service.js",
+      "sha256": "f500cbf65d240f4ee69a426acc148e1128ea8602545c36a5ca4fdf8690c5134a",
+      "bytes": 19569
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\research-store.js",
+      "sha256": "4ce769363b4a192b3416d212832ed43fc1778c97a0845762c16819fa906c2e74",
+      "bytes": 3112
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\secretary-model.js",
+      "sha256": "d460ae6ba5b61e740ed1194ebe53429cd42f50df1b3e856827467a0561d9a543",
+      "bytes": 12018
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\selection-board-service.js",
+      "sha256": "d1068e9310466258b422df617d101f275217e4e665f1e6090234dea5807cc501",
+      "bytes": 45945
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\server.js",
+      "sha256": "7847a1587b35e985d1a44d5a39099443d2eabeed3f7f48ad7f2a969529437a02",
+      "bytes": 311580
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\sku-naming.js",
+      "sha256": "3c7f815aefa9e4b5a031518f998a163e6e3656b1b824286128840e206ff844b6",
+      "bytes": 13561
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\sku-table.js",
+      "sha256": "81ca7786a78f42b5d10b360380f89c70f9b1da1d9f4ce9f3794e73c1d0acb038",
+      "bytes": 15119
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\sleep-inhibitor.js",
+      "sha256": "69cc1d22e7ddf021d3475b7f4744afc009537230642621ab9fb3b1b4b27a8b9c",
+      "bytes": 1561
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\state-store.js",
+      "sha256": "28bb4865cdd0c3e30f220d386370f7536efc9b742ac3453370410beeeac435fd",
+      "bytes": 6670
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\storyboard-gate-service.js",
+      "sha256": "a724e84969fd2ba1cf838c7a6b8427882ea8289fa2992afa3e8c6e51338ff2c5",
+      "bytes": 16736
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\style-reference-service.js",
+      "sha256": "345e9140df94d206c39cf56d33692cd50f66c11c8420367e3dacaa2d08d2e28a",
+      "bytes": 14762
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\system-state.js",
+      "sha256": "a84c5807f02bd77ee58b7b1511ae746df986743c19057a834772fdb69a397b1f",
+      "bytes": 31114
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\types.js",
+      "sha256": "01ae2a5b120382f9a648ced7ee8507493a134f216d100fc61600c6c9738235d2",
+      "bytes": 44
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\public\\ceo-command-center.js",
+      "sha256": "37dee4528b25ff41ff2ed1299fe7064863e1c1361e36d59111804a4790fbf837",
+      "bytes": 1357
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\public\\ceo-daily-review.js",
+      "sha256": "5ecfbbba89eadc8aa241a0879966554a64732583d84117edcef102e8952e6825",
+      "bytes": 7770
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\public\\ceo-evidence-check.js",
+      "sha256": "773bc0d5b558c17357c3e6b6cb16aba51901b1db6f58a80525eea2f43df7b5e4",
+      "bytes": 2413
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\public\\ceo-operating-brief.js",
+      "sha256": "24915b990ee68183217da3d7a8d86f9718335e508e5f1eb0c3068890409fea9c",
+      "bytes": 5342
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\public\\ceo-replanning.js",
+      "sha256": "e4d5b659b497971390bf7f3fd5e1b5d7fc7bdb8158af1d74486f1a72ac274e68",
+      "bytes": 2625
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\public\\ceo-task-layout.js",
+      "sha256": "cb0d846c8a4bf5c5179bf32b449405ab64cd6343564cee5dc4cefdf226e0ff41",
+      "bytes": 2625
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\public\\ceo-tasks.js",
+      "sha256": "8d08435448bceadb947b322ae7bd67ede877f1ba31b83e78a4b4de02241fdd93",
+      "bytes": 15663
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\nawu-fetch\\lib\\chatgpt-sender.cjs",
+      "sha256": "5b482e28311a148dff9c05de3075b564aad621523d425ca999b5c774d9cbdb15",
+      "bytes": 16538
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\nawu-fetch\\lib\\dxm-c6r.cjs",
+      "sha256": "745380ecbe24c5e6519d99c0c09cd9fe8f4a7c865a0a30589d7d2ec8099de6a0",
+      "bytes": 22414
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\nawu-fetch\\lib\\dxm-warehouse.cjs",
+      "sha256": "e82d367472c393d5def42a5b697b9f3b9c9230d4e0d5d91f78f618b8c83c052b",
+      "bytes": 10028
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\nawu-fetch\\lib\\enrich.cjs",
+      "sha256": "eac081cb8e22e614ea886ca71b5a5999fa6a705f7893c63796d15c0d43cc8ef5",
+      "bytes": 4921
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\nawu-fetch\\lib\\gates.cjs",
+      "sha256": "f83cf6d646c464c8d8935cb8876a66c750a79968d494f9f59ee3e34ebc6659de",
+      "bytes": 5888
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\nawu-fetch\\lib\\manifest.cjs",
+      "sha256": "db210adad2d17a65ab4f5c0f9edf74a22c6a4b43b99fb082cc6067c5c25ccb6d",
+      "bytes": 1829
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\nawu-fetch\\lib\\master.cjs",
+      "sha256": "8cc68bb31e32adf8e9f33edc06822d43f1410d330712d4678a071815dd03948b",
+      "bytes": 8169
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\nawu-fetch\\lib\\nawu-inventory.cjs",
+      "sha256": "1e29ff7b95d48f03efd81a2779956d6183264c6d45bbf5165606080dbc9f7d80",
+      "bytes": 21651
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\nawu-fetch\\lib\\normalize.cjs",
+      "sha256": "bdd17f2cfc5e922418d318fa1d469d7cded316d36d9735ae12b0bdc65e290e93",
+      "bytes": 3622
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\nawu-fetch\\lib\\output.cjs",
+      "sha256": "bb40e4197b336ffdc589bbf22f72cb6a27a4da8ed4205069b55979e72d969989",
+      "bytes": 3472
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\nawu-fetch\\lib\\storage.cjs",
+      "sha256": "4092d598b79e9f2174db287cca763d2366fb20f3f7e06759381ec44e8115588a",
+      "bytes": 3342
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\nawu-fetch\\lib\\timewindow.cjs",
+      "sha256": "7d46fd4b63aad33fcc678fea1c283a9c3ed02ab8750a18e8181102f5d2007caf",
+      "bytes": 2744
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\nawu-fetch\\lib\\wenmai-api.cjs",
+      "sha256": "b0aedb84856d4b5bff02a840808db2ba9dcf2a8ecf82d9c5a590ab1ed9e32464",
+      "bytes": 5217
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\scripts\\metrics-store.mjs",
+      "sha256": "eeef825caaf8823a7089f242f5bc83ae21a4020a63d63f6c02dc3b6a47d06ec8",
+      "bytes": 6724
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\scripts\\fetch-ae-metrics.mjs",
+      "sha256": "7a63af617c84e726853af0f893beb5d00c483fda6640400e9428cf859568d945",
+      "bytes": 18777
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\config\\metrics-schema.json",
+      "sha256": "f3fbfb1454a934cbfc8b155b3513f5c64d5ec62470bd9391b018846986f68efc",
+      "bytes": 9917
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\config\\ceo-store-400370.json",
+      "sha256": "0f7928c672bf04dea3e17cbf8dff929a5407b0c204d391308e1fabf857bef4f2",
+      "bytes": 1644
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\watchdog.js",
+      "sha256": "6dc83743c13751cf204c8a7cbe08929b1bc9d86c264ef298a5cec11a2829a609",
+      "bytes": 6527
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\package.json",
+      "sha256": "24b151ea5ee83d0d9b7b8e4b6e79f9e4653c2a212dbe5ae00e2b7e43ed737582",
+      "bytes": 927
+    },
+    {
+      "repository": "main",
+      "path": "F:\\yikuaborder-deploy\\CEO agent\\CEO_Agent_V1.0_Baseline_Audit_20261105.md",
+      "sha256": "b5d47f33c694ec8877e09f22bc34f71be7483ea835bcbbfa3bd9d0507168d1c2",
+      "bytes": 10813
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-daily-plan.js",
+      "sha256": "48c8015567513b9f09a109dd7db4b9ef3c9f8b41e4991ec90027e3d06463b586",
+      "bytes": 10809
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-daily-review.js",
+      "sha256": "e1e54347768837bd83241591a2910ae9f88f5dc896a9a87ff44b5cd09a6226f7",
+      "bytes": 3615
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-decision-contract.js",
+      "sha256": "c5a68aa9208f86e24d3c5531ab4061baae95ea136c267b890ebeef9f18759a68",
+      "bytes": 12421
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-draft-workspace.js",
+      "sha256": "7cc56022dbde24c3bd46d76c8782a0170a5f37bdf5aad65f8f9f6fffda260f86",
+      "bytes": 8106
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-operating-brief.js",
+      "sha256": "062c893ad797ef9973e1347e8346a94b2324dd6009ddff305d291241ec985f94",
+      "bytes": 9408
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-operating-context.js",
+      "sha256": "27cbd66b467adfe4f4006df31299c256a364818408e26c41534c5b1c004b96af",
+      "bytes": 7980
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-read-brief.js",
+      "sha256": "0ef3f919a094485729c85142438e33d3df6c4c297cc5b8631f9b38217f1fc928",
+      "bytes": 3684
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-review-input-guard.js",
+      "sha256": "5d6ad103c9b5b1d3007ef5a90e930da7f363485e6c5d67ce8b0045f0ab3e8c48",
+      "bytes": 3061
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-review-replanning.js",
+      "sha256": "3aacabe13b52bde293a9fb2033d0b5184b57c206f7118b51c853bc908c5f93de",
+      "bytes": 4827
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-task-evidence.js",
+      "sha256": "8afda41c987092edd9902dec6cb1faf9ef60272d77950d101aacc732e482e85d",
+      "bytes": 5170
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-task-http.js",
+      "sha256": "ea5b537b661353c90e2e5c1d66f68382b68cb2a984a5709bc549b69840312382",
+      "bytes": 13191
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-task-workspace.js",
+      "sha256": "99ae5d986ce5db7253c7a9b3ee4f3dec9eb899dc411782b81e93380c618d7e30",
+      "bytes": 16646
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\test\\ceo-conversation-entry.test.js",
+      "sha256": "92feeb3dac6c447b68f2601c76cd98bf3bfba4f41c5c473110c3586db961f923",
+      "bytes": 7130
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\test\\ceo-daily-plan.test.js",
+      "sha256": "6fe7ca329e23147724a6e8eb0386375607775b84eee8fd8119cce09f869ab644",
+      "bytes": 12082
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\test\\ceo-daily-review-ui.test.js",
+      "sha256": "1f2a60df11e79d551b50271aa7ad4275e5a20fffd8c9498fbc5bb8e42dd93867",
+      "bytes": 6712
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\test\\ceo-daily-review.test.js",
+      "sha256": "d212f117ca3bdbd9e155ed36393e1562dd42889a38fedd08dad7ec45dc02428b",
+      "bytes": 7518
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\test\\ceo-decision-contract.test.js",
+      "sha256": "c5bce449fd69f0d6dc6048823e23c0807d92235eaa529ddad6a1c17d78fcc28b",
+      "bytes": 8286
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\test\\ceo-draft-cli.test.js",
+      "sha256": "22f0b67e6b871ed6694dd03aff30ad63a245f6e86ce33c2f7aff06943c6deb9b",
+      "bytes": 3977
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\test\\ceo-draft-workspace.test.js",
+      "sha256": "c11e2c7ea7e137a2c0b6441eaebbee6c6fe655098b00b144cd891cacfea26008",
+      "bytes": 6348
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\test\\ceo-evidence-check-ui.test.js",
+      "sha256": "09cac83c2db811eb98dd9410a1aa8c18c33b8f31f3234554c33a895d15b1bd5f",
+      "bytes": 3236
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\test\\ceo-operating-brief-ui.test.js",
+      "sha256": "1f6cd47ae9763a5767fa7b35d1314e22e38e3f703c71e8896080c69d11500274",
+      "bytes": 7767
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\test\\ceo-operating-brief.test.js",
+      "sha256": "057e8965484c03e51a39eb7f65ad43ba522c7d475a5ab5ac86def7ffb05ef750",
+      "bytes": 5829
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\test\\ceo-operating-context.test.js",
+      "sha256": "234bd25f731cde1ebb862d30eda4dc11851bbc029e4b27ee26d94caa8da27f31",
+      "bytes": 7093
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\test\\ceo-read-brief.test.js",
+      "sha256": "d01f7d4d03dfcef320e0a50a8f231b20beffc7d8196a8b89f43cadbcdf268843",
+      "bytes": 9966
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\test\\ceo-replanning-ui.test.js",
+      "sha256": "e6d37047728d284a5d7f94b37b99076c038245a04c825eb8bce088ff82fc049a",
+      "bytes": 2622
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\test\\ceo-review-replanning.test.js",
+      "sha256": "fd61acc94388201e595285fcfac1c789be0a3de5ebd8d0a7b7c07c5cc46baf59",
+      "bytes": 9603
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\test\\ceo-task-cli.test.js",
+      "sha256": "53832aa37e752d40bae18ca6285a65c5acf826bc3e8d50acd35970ab4004bdc8",
+      "bytes": 7617
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\test\\ceo-task-evidence.test.js",
+      "sha256": "17a8c6da436e95e7a8d16864382739a5c7eb7fef27f6ba9f98daa76ac5ff24f4",
+      "bytes": 5600
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\test\\ceo-task-http.test.js",
+      "sha256": "47339121d373b628d2e9684a5a2912dfa96e273aa06a72b41b554b791fc4b0a3",
+      "bytes": 19336
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\test\\ceo-task-workspace.test.js",
+      "sha256": "cf36766f2586a76c23ddab774d0478b0c685092166a2eccebd34dd1438dc1a26",
+      "bytes": 10976
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\test\\ceo-workspace-cli.test.js",
+      "sha256": "cbd1bd4a1cc5ba17810ece4fb3584f76b295f1e184080831c2cec2c1457b45f9",
+      "bytes": 3606
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\schemas\\ceo-decision.schema.json",
+      "sha256": "f7cfbff87cb9454f191f2d8dc9b8a131999a8bfb6c0ce641ab3921eecaefa6cf",
+      "bytes": 3982
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\scripts\\ceo-draft-plan.mjs",
+      "sha256": "96a7718dec8b0b096cc6be5eeca7de8bf1431989a47a272de894db8d67465ad6",
+      "bytes": 1036
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\scripts\\ceo-read-brief.mjs",
+      "sha256": "91db8b83907cb8557dad866291fc9209e7421862bd60880592cde7e9db6ab7d0",
+      "bytes": 935
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\scripts\\ceo-task-loop.mjs",
+      "sha256": "e3ce1ebd2d026e9d6bd4c9d7d6541eaec6ef1df0aa027ebb3bb9065feb07a58c",
+      "bytes": 7996
+    },
+    {
+      "repository": "ceo",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\scripts\\ceo-workspace.mjs",
+      "sha256": "33504c73d1457ce04f509af8ff9e9bd1b35ee951b7cc66c35aaa0a0bcdb73b75",
+      "bytes": 2254
+    },
+    {
+      "repository": "reliability",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\reliability-phase2\\dist\\src\\state-store.js",
+      "sha256": "28bb4865cdd0c3e30f220d386370f7536efc9b742ac3453370410beeeac435fd",
+      "bytes": 6670
+    },
+    {
+      "repository": "reliability",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\reliability-phase2\\dist\\src\\batch-listing-create.js",
+      "sha256": "acc04a0e7ca0fc14e73891b278d58de94b6a51e9412e14b8b1ca0e99e1593f9d",
+      "bytes": 53730
+    },
+    {
+      "repository": "reliability",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\reliability-phase2\\dist\\src\\ecom-connector.js",
+      "sha256": "affd0580c8ca1e94490f20969c8bb861efe0153fca4d6be220928c83e501e924",
+      "bytes": 11577
+    },
+    {
+      "repository": "reliability",
+      "path": "F:\\yikuaborder-deploy\\.worktrees\\reliability-phase2\\dist\\src\\json-write-queue.js",
+      "sha256": "73e0d778849a0030d29f747d282d7ec1fcbc2d6b30935acbf1f1a4a830985afd",
+      "bytes": 529
+    },
+    {
+      "repository": "run",
+      "path": "F:\\yikuaborder-run\\dist\\src\\server.js",
+      "sha256": "3fb81bbb5b96d036a46a473f058e037bd400eb827319308a5e7884a42cbe8d03",
+      "bytes": 295114
+    },
+    {
+      "repository": "dependency-or-supplement",
+      "path": "F:\\yikuaborder-deploy\\listing-agent\\src\\listing-agent.js",
+      "sha256": "ab533b8730011ebc19f3c9f94295e50dbf4c30e4aa411eeebf9148f7eb1b1d24",
+      "bytes": 7783
+    },
+    {
+      "repository": "dependency-or-supplement",
+      "path": "F:\\yikuaborder-deploy\\listing-agent\\src\\agent-client.js",
+      "sha256": "5b02e5c5ab0d5b342848a7edfcebdaaf19348431541a2c6144594104dada86e2",
+      "bytes": 2692
+    },
+    {
+      "repository": "dependency-or-supplement",
+      "path": "F:\\yikuaborder-deploy\\listing-agent\\src\\publishers\\dianxiaomi-publisher.js",
+      "sha256": "6cd477dcbf2f4b83fddb2ba4324f23fd67e08650975e25eb04470ba463a18c34",
+      "bytes": 3685
+    },
+    {
+      "repository": "dependency-or-supplement",
+      "path": "D:\\ecom-translator\\tools\\dianxiaomi_draft_executor.mjs",
+      "sha256": "b3443e198715ff4e465fc357bf96636ea0acf3b773112d96a234a247ec458404",
+      "bytes": 97287
+    },
+    {
+      "repository": "dependency-or-supplement",
+      "path": "F:\\yikuaborder-phase2d-b2-b3-e6-wt\\dist\\src\\draft-executor-bridge.js",
+      "sha256": "885bf2f11a3e5bdbdac9bb0f4c3b0169245be8f44835c8acb8fad022b025ae55",
+      "bytes": 6882
+    }
+  ],
+  "scope": "Source audit and side-effect-reviewed read-only verification; no product writes",
+  "checks": {
+    "syntax": [
+      {
+        "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-daily-plan.js",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-daily-review.js",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-decision-contract.js",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-draft-workspace.js",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-operating-brief.js",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-operating-context.js",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-read-brief.js",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-review-input-guard.js",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-review-replanning.js",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-task-evidence.js",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-task-http.js",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\dist\\src\\ceo-task-workspace.js",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\scripts\\ceo-draft-plan.mjs",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\scripts\\ceo-read-brief.mjs",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\scripts\\ceo-task-loop.mjs",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\scripts\\ceo-workspace.mjs",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\dist\\src\\server.js",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\dist\\src\\ecom-connector.js",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\dist\\src\\draft-executor-bridge.js",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\dist\\src\\collector-bridge.js",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\dist\\src\\secretary-model.js",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\listing-agent\\src\\listing-agent.js",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\listing-agent\\src\\agent-client.js",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\listing-agent\\src\\publishers\\dianxiaomi-publisher.js",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "path": "F:\\yikuaborder-deploy\\scripts\\metrics-store.mjs",
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    ],
+    "pureTests": {
+      "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief",
+      "command": "node --test dist/test/ceo-decision-contract.test.js dist/test/ceo-daily-plan.test.js",
+      "exitCode": 0,
+      "tests": 73,
+      "passed": 73,
+      "failed": 0,
+      "skipped": 0,
+      "observedFrom": "Actual tool execution in this audit; summary transcribed, not a new run"
+    },
+    "readonlyContextProbe": {
+      "observedAt": "2026-11-05T00:59:14.109Z",
+      "contextId": "context-23c8833cb642817ddb4df0442f2cd0e5c7cab0747b8d8d4bbd87a8ddb4a76058",
+      "facts": 0,
+      "observations": 17,
+      "sourceFiles": 1,
+      "gaps": [
+        "COSTS_UNRECONCILED",
+        "METRIC_DEFINITIONS_UNVERIFIED",
+        "PERIOD_AND_COVERAGE_UNVERIFIED",
+        "UNIT_UNVERIFIED"
+      ],
+      "briefStatus": "UNAVAILABLE",
+      "briefReason": "BRIEF_CONTEXT_CHANGED",
+      "taskDatabaseOpened": false
+    },
+    "runtimeVersionGet": {
+      "method": "GET",
+      "url": "http://127.0.0.1:3000/api/version",
+      "sideEffectsReviewed": true,
+      "branch": "feature/ykb-v1-phase1-identity-state",
+      "commit": "052abd7",
+      "codeRoot": "F:\\yikuaborder-deploy",
+      "projectRoot": "F:\\yikuaborder-deploy",
+      "userDataDir": "F:\\yikuaborder-deploy",
+      "host": "0.0.0.0",
+      "port": 3000,
+      "pid": 18656,
+      "startedAt": "2026-10-31T01:24:13.295Z"
+    },
+    "listenerSnapshot": {
+      "3000": {
+        "address": "0.0.0.0",
+        "pid": 18656
+      },
+      "3173": "NO_LISTENER_OBSERVED",
+      "8765": {
+        "address": "127.0.0.1",
+        "pid": 17904
+      }
+    },
+    "scheduledTasks": "No matching names observed for ceo|yikua|nawu|一跨|纳物|workbuddy; not proof of absence of other scheduler mechanisms"
+  },
+  "operations": {
+    "businessWritePerformed": false,
+    "codeModified": false,
+    "databaseOpened": false,
+    "serviceStartedOrRestarted": false,
+    "credentialFilesRead": false,
+    "functionalTestsWithPersistentStateRun": false,
+    "newArtifactsOnly": [
+      "CEO_Agent_V1.0_Readonly_Audit_Evidence_20261105.json",
+      "CEO_Agent_V1.0_Readonly_Audit_Report_20261105.md"
+    ]
+  },
+  "finalVerification": {
+    "verifiedAt": "2026-11-05T01:04:49.337556+00:00",
+    "sourceFilesChecked": 128,
+    "sourceFilesChangedDuringAudit": [],
+    "trackedDiffChangedRepositories": [],
+    "reportSections": {
+      "A": true,
+      "B": true,
+      "C": true,
+      "D": true,
+      "E": true,
+      "F": true,
+      "G": true,
+      "H": true,
+      "I": true
+    },
+    "undefinedEvidenceReferences": [],
+    "missingRelativeLinks": [],
+    "reportLines": 330,
+    "artifacts": [
+      "CEO_Agent_V1.0_Baseline_Audit_20261105.md",
+      "CEO_Agent_V1.0_Readonly_Audit_Evidence_20261105.json",
+      "CEO_Agent_V1.0_Readonly_Audit_Report_20261105.md"
+    ]
+  },
+  "reportSha256": "3797e42198f7b1e55a63e1b6f91422ffe376e4529a0171cc81e663ced2ab53fa"
+}

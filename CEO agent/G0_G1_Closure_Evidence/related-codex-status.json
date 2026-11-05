@@ -1,0 +1,58 @@
+[
+  {
+    "source": "Codex history, first 30 entries",
+    "selected": [
+      {
+        "id": "01a1a933-2471-7d91-aafd-6d4dbdce1fd2",
+        "title": "继续只读审计",
+        "status": "active",
+        "cwd": "F:\\yikuaborder-deploy\\CEO agent",
+        "updatedAt": 1793845820
+      },
+      {
+        "id": "01a16668-0f0f-70e1-a471-164573fda6ac",
+        "title": "审核系统搭建框架",
+        "status": "notLoaded",
+        "cwd": "F:\\yikuaborder-deploy",
+        "updatedAt": 1793248615
+      },
+      {
+        "id": "01a17bfb-276b-7023-a3aa-30db58e1b593",
+        "title": "规划每日采购跨系统业务场景",
+        "status": "notLoaded",
+        "cwd": "F:\\yikuaborder-deploy",
+        "updatedAt": 1793248614
+      },
+      {
+        "id": "01a18334-186a-7990-8b06-cc0f3dc8043a",
+        "title": "审计一跨 OS 工程现状",
+        "status": "notLoaded",
+        "cwd": "F:\\yikuaborder-deploy",
+        "updatedAt": 1793248606
+      },
+      {
+        "id": "01a17fa5-79b8-7b21-b6db-0580a64fb7a9",
+        "title": "一跨电商 CEO",
+        "status": "notLoaded",
+        "cwd": "F:\\yikuaborder-deploy",
+        "updatedAt": 1793248591
+      },
+      {
+        "id": "01a163b3-c9c6-7f23-9008-d99adf2a9b53",
+        "title": "复述 Agent 架构方案",
+        "status": "notLoaded",
+        "cwd": "F:\\yikuaborder-deploy",
+        "updatedAt": 1792983090
+      },
+      {
+        "id": "01a064e9-8d94-7363-b931-f6508f2859bb",
+        "title": "将右下角包挂自动化的浮层删除掉",
+        "status": "notLoaded",
+        "cwd": "F:\\yikuaborder-deploy",
+        "updatedAt": 1792980664
+      }
+    ],
+    "ixspyMatchInReturnedTitles": false,
+    "limits": "No matched IXSPY Codex title in returned history; other tools or older history not excluded. No messages or credentials inspected."
+  }
+]

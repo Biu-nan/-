@@ -1,0 +1,35 @@
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:45:| F02 Runtime版本与启动不一致 | 首轮 `/api/version` 报告M代码根；本轮四HEAD未变、3173无监听；watchdog仍从自身目录启动相对入口并查有副作用的status | **运行证据+源码确认**；P0确定运行包，P1保证影子入口真实可用 | M01；不把无监听归因于崩溃，具体停止原因待查 |
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:97:| **P0** | 不解决无法安全运行 | M01代码包/单实例/健康检查安全；M02主体、模式、旁路写门禁和旧只读兼容；纯读取不能初始化生产状态 | 未通过不得向经营入口开放vNext；可在隔离数据上开发测试 |
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:100:| **Backlog** | 不阻塞首期长期能力 | 全公司多店扩展、员工管理、复杂Agent创建、完整K1–K4晋升系统、月季自治经营、多模型优化、外部系统全审、所有阶段树整合、历史全量失败清理 | 记录依赖，不顺带实施；若被首期调用则相应依赖须前移 |
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:114:### M01 Runtime、启动与纯健康检查【P0】
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:122:| 依赖 | D1确定基线、现有CEO库准确位置及启动所有者；M02决定模式配置；开发测试均用隔离目录 |
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:128:### M02 独立权限治理、审批边界与旧版兼容【P0】
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:135:| 接口与约束 | `authorizeCeoOperation({principal,operation,storeId,resource,mode,now})`，身份只能来自受信认证。能力集合区分legacy.read、shadow.read/analyze、human.review、后续task.write/workflow.execute。老agent令牌不自动变vNext令牌；明确映射为只读或冻结，既有人工调查执行者的权限需单独迁移确认。授权失败在任何业务副作用前终止 |
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:155:| 依赖 / 风险 | M01/M02、D3权威来源/有效期。成本、罚款、汇率或期间缺失会限制结论；首次核准需要Human工作，不能设默认通过。cloud数据流未批准则不发送经营资料到新云API |
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:168:| 依赖 / 风险 | M01库路径、M02能力、M03Context；真实库当前内容尚未验收，不能依据历史taskId推定仍存在 |
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:181:| P2边界 | 第一条实际派发只考虑已授权的只读调查能力；真实保存/采购/发布等另批。先修相应F05–F07，统一requestId/taskId/runId/attempt、审批摘要、资源所有权；超时/断联=UNKNOWN需核对，禁止因连接失败本地重复执行；保存草稿和真实发布严格区分 |
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:182:| 依赖 / 风险 | M02/M03/M04；外部执行器和其他阶段锁未完整验收。不接入的执行链无需为首期重写，但不能绕过M02访问它们 |
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:196:| 依赖 / 风险 | M02/M03/M04；须确认没有另一个未协调进程追加同一日志，否则暂停接入直至归属明确。身份及日志能力校验在写前完成；只允许固定类型的影子事件，不接受任意路径/角色/业务事件正文。日志损坏不能静默跳过成空历史；敏感原文/凭据不进日志 |
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:197:| 测试方法 | 新增`ceo-shadow-trace.test.js`；事件幂等/不同内容冲突、重启、两入口同提交、尾部损坏/写失败、Human驳回/纠错/暂停；读取缺日志不创建；验证任务库无业务变化 |
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:198:| 通过标准 | 每份被接纳报告均有持久证据及关联轨迹；同analysisId重复提交不重复追加，内容不同拒绝；写失败不显示已存档；损坏日志显式不可用；原记录不覆盖；模型不能伪造Human反馈 |
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:209:| 依赖 / 风险 | M01–M06；登录/CORS/localhost与127.0.0.1差异、旧session、本机/局域网入口可能回归；有反馈控件要取得owner身份，不能复用Agent凭据 |
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:224:| 测试方法 | 周边界/时区、同周重放、无数据、只失败、缺标签/费用、人工纠错追溯、提案未批准案例；手工生成一份真实影子周报或覆盖不足周报。P2再测漏触发/重启/并发触发 |
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:232:  D[Human批准版本 / 身份 / 数据口径] --> M01[M01 Runtime基线]
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:233:  M01 --> M02[M02 治理与旧只读]
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:234:  M02 --> M03[M03 证据与分析]
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:235:  M02 --> M04[M04 Taskboard只读]
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:236:  M02 --> M05[M05 Workflow状态]
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:255:| G1 安全底座 | M01 → M02；先写拒绝/健康/旧兼容反例，再最小实现，再回归 | P0全通过；旧CEO和影子身份在所有可达旁路写0；Human现有功能在认证迁移后可用；不部署 |
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:256:| G2 真实读取与影子核心 | M03基础 + M04/M05读取 → M03分析 → M06追加轨迹 | 真实核准输入、同库任务snapshot、纯Workflow状态、候选与反馈可追溯；正式库业务写0 |
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:263:- [ ] 写本模块边界失败反例，在隔离环境确认因缺能力而失败。
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:264:- [ ] 最小实现并记录实际变更文件，不为清旧失败扩大范围。
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:268:**发布包白名单**：选取C既有`ceo-*.js`、对应schema/fixtures、CLI及公共资源的必要传递依赖，并包含本次新增模块；M只纳入本方案明确的Runtime/治理/显示适配。构建清单必须覆盖import闭包及被忽略脚本，缺一个即失败。不整合R/Phase2b–d；R仅作为F05等局部补丁参考。
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:324:`npm test`和`npm run test:reliability`仅在隔离审查通过且变更依赖它们时执行；旧失败与同版本改前基线比较，不能把旧成绩冒充通过，也不能将Backlog缺陷借机一起重构。
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:335:| 日志/索引损坏 | 原记录保留并显式不可用，不从异常构造空成功；幂等索引可重建，主日志不可重写；记录失败时报告不能标已存档 |
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:348:| D2 | 首批范围与身份迁移 | 批M01–M08影子范围；旧CEO仅read、影子read/analyze，Human反馈；正式任务与执行均关闭。批准现有无认证入口迁移为显式Human认证 | G0/G1前；不接受旁路门禁则不能安全开放vNext |
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:349:| D3 | 第一批真实数据权威源、核准人、字段/窗口/有效期 | 首店已授权本地导出+不可变证据副本；先核准一个经营域；利润/成本缺失保持不可判断 | G2真实数据接入前；未确认只能fixture和缺口调查，不进入正式经营影子 |
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:354:建议审批可以分为“允许G0–G2隔离开发”和“允许G3影子发布”，降低一次签全的范围。批准影子日志写入不等于批准Taskboard写入，批准某条Workflow也不扩大旧CEO权限。
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:396:| A–H重点研究范围 | M01–M08逐项对应 |
+CEO agent/CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md:398:| 不重复充分检查 | 73/73和25/25引用原证据，本轮未重跑；仅复核变化敏感状态与范围关键路径 |
+CEO agent/CEO_Agent_V1.0_Baseline_Audit_20261105.md:50:调度需持久触发、去重、幂等、失败处理、恢复及必要补偿。
+CEO agent/CEO_Agent_V1.0_Baseline_Audit_20261105.md:114:| 执行可靠性 | 报告提出失败被成功覆盖、job关联与重试风险 | 必须核对后续补丁，不能断言风险仍存在或已解决 |

@@ -1,0 +1,11 @@
+{
+  "label": "contracts-red",
+  "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+  "command": [
+    "node",
+    "--test",
+    "dist/test/ceo-g2a-contracts.test.js"
+  ],
+  "exitCode": 1,
+  "seconds": 0.338
+}

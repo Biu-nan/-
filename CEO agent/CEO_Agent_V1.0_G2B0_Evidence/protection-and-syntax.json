@@ -1,0 +1,405 @@
+{
+  "at": "2026-11-05T06:33:41.766719+00:00",
+  "protected": [
+    {
+      "path": "F:\\yikuaborder-deploy\\nawu-fetch\\lib\\dxm-c6r.cjs",
+      "sha256": "745380ecbe24c5e6519d99c0c09cd9fe8f4a7c865a0a30589d7d2ec8099de6a0",
+      "currentSha256": "745380ecbe24c5e6519d99c0c09cd9fe8f4a7c865a0a30589d7d2ec8099de6a0",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\nawu-fetch\\lib\\nawu-inventory.cjs",
+      "sha256": "1e29ff7b95d48f03efd81a2779956d6183264c6d45bbf5165606080dbc9f7d80",
+      "currentSha256": "1e29ff7b95d48f03efd81a2779956d6183264c6d45bbf5165606080dbc9f7d80",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\public\\draft-executor-panel.js",
+      "sha256": "98bf76037efa2b76d3c77a2595624a317931e63afff00b802f1c9aa09b19d91b",
+      "currentSha256": "98bf76037efa2b76d3c77a2595624a317931e63afff00b802f1c9aa09b19d91b",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\CEO agent\\CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md",
+      "sha256": "294570a0e5cd27d937facbf7c7e2ecdd3202face159d420c555de5f228128a1e",
+      "currentSha256": "294570a0e5cd27d937facbf7c7e2ecdd3202face159d420c555de5f228128a1e",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\server.js",
+      "sha256": "7847a1587b35e985d1a44d5a39099443d2eabeed3f7f48ad7f2a969529437a02",
+      "currentSha256": "7847a1587b35e985d1a44d5a39099443d2eabeed3f7f48ad7f2a969529437a02",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\watchdog.js",
+      "sha256": "6dc83743c13751cf204c8a7cbe08929b1bc9d86c264ef298a5cec11a2829a609",
+      "currentSha256": "6dc83743c13751cf204c8a7cbe08929b1bc9d86c264ef298a5cec11a2829a609",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\run-state.json",
+      "sha256": "378f5aa2f3ae0ca84f9df8144230c8b7fb89fc520a02cca292daabace19f0cc1",
+      "currentSha256": "378f5aa2f3ae0ca84f9df8144230c8b7fb89fc520a02cca292daabace19f0cc1",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\config\\ceo-store-400370.json",
+      "sha256": "0f7928c672bf04dea3e17cbf8dff929a5407b0c204d391308e1fabf857bef4f2",
+      "currentSha256": "0f7928c672bf04dea3e17cbf8dff929a5407b0c204d391308e1fabf857bef4f2",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\config\\metrics-schema.json",
+      "sha256": "933d63c4e5f1c3223aacb60708a6a2ce2302a385f425c3ca10a0ab3692b905ed",
+      "currentSha256": "933d63c4e5f1c3223aacb60708a6a2ce2302a385f425c3ca10a0ab3692b905ed",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\data\\event_log.jsonl",
+      "sha256": "5491d8971adf28a9a681119988a5f4b4da7a11891af2591314320a578b65fe7b",
+      "currentSha256": "5491d8971adf28a9a681119988a5f4b4da7a11891af2591314320a578b65fe7b",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\data\\action_log.jsonl",
+      "sha256": "527199e9c07292ba21ea6169d5ec943fcb385c559e626dcef4d182b47e0e3ddd",
+      "currentSha256": "527199e9c07292ba21ea6169d5ec943fcb385c559e626dcef4d182b47e0e3ddd",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\data\\snapshots.jsonl",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "currentSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "unchanged": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\data\\reviews.jsonl",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "currentSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "unchanged": true
+    }
+  ],
+  "g1OriginalFiles": [
+    {
+      "path": ".gitignore",
+      "unchanged": true
+    },
+    {
+      "path": "config/ceo-capabilities.v1.json",
+      "unchanged": true
+    },
+    {
+      "path": "dist/src/ceo-daily-plan.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/src/ceo-daily-review.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/src/ceo-decision-contract.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/src/ceo-draft-workspace.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/src/ceo-governance.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/src/ceo-isolated-runtime.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/src/ceo-legacy-view.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/src/ceo-main-boundary.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/src/ceo-operating-brief.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/src/ceo-operating-context.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/src/ceo-read-brief.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/src/ceo-review-input-guard.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/src/ceo-review-replanning.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/src/ceo-runtime-host.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/src/ceo-runtime-manifest.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/src/ceo-task-evidence.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/src/ceo-task-http.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/src/ceo-task-workspace.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/src/config.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/src/server.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-cli-safety.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-conversation-entry.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-daily-plan.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-daily-review-ui.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-daily-review.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-decision-contract.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-draft-cli.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-draft-workspace.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-evidence-check-ui.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-governance-bypass.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-governance.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-isolation-review.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-legacy-boundary.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-legacy-compat.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-main-boundary.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-main-entry.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-operating-brief-ui.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-operating-brief.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-operating-context.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-read-brief.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-replanning-ui.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-review-replanning.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-runtime-health.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-runtime-integration.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-runtime-manifest.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-task-cli.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-task-evidence.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-task-http.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-task-workspace.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-watchdog-safety.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/ceo-workspace-cli.test.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/fixtures/ceo-decision-cases.json",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/fixtures/ceo-operating-brief-fixture.js",
+      "unchanged": true
+    },
+    {
+      "path": "dist/test/fixtures/ceo-task-fixture.js",
+      "unchanged": true
+    },
+    {
+      "path": "public/ceo-tasks.html",
+      "unchanged": true
+    },
+    {
+      "path": "schemas/ceo-decision.schema.json",
+      "unchanged": true
+    },
+    {
+      "path": "schemas/ceo-principal.schema.json",
+      "unchanged": true
+    },
+    {
+      "path": "scripts/ceo-draft-plan.mjs",
+      "unchanged": true
+    },
+    {
+      "path": "scripts/ceo-read-brief.mjs",
+      "unchanged": true
+    },
+    {
+      "path": "scripts/ceo-task-loop.mjs",
+      "unchanged": true
+    },
+    {
+      "path": "scripts/ceo-workspace.mjs",
+      "unchanged": true
+    },
+    {
+      "path": "watchdog.js",
+      "unchanged": true
+    }
+  ],
+  "syntax": [
+    {
+      "file": "dist/src/ceo-payment-domain.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "file": "dist/src/ceo-payment-loop.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "file": "dist/src/ceo-readiness-versions.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "file": "dist/src/ceo-report-archive.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "file": "dist/src/ceo-shadow-trace.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "file": "dist/src/ceo-vnext-analysis.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "file": "dist/src/ceo-vnext-context.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "file": "dist/test/ceo-payment-domain.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "file": "dist/test/ceo-payment-loop.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "file": "dist/test/ceo-report-archive.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "file": "dist/test/ceo-report-linkage.test.js",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "file": "dist/test/fixtures/ceo-payment-fixture.js",
+      "exitCode": 0,
+      "stderr": ""
+    }
+  ],
+  "diffCheckExitCode": 0,
+  "diffCheckOutput": "warning: in the working copy of 'config/ceo-paid-orders.synthetic.v1.json', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/src/ceo-readiness-versions.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/src/ceo-report-archive.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-report-archive.test.js', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'dist/test/ceo-report-linkage.test.js', LF will be replaced by CRLF the next time Git touches it\n"
+}

@@ -1,0 +1,402 @@
+TAP version 13
+# Subtest: actual context, task snapshot, workflow and report outputs meet published contracts
+ok 1 - actual context, task snapshot, workflow and report outputs meet published contracts
+  ---
+  duration_ms: 166.2723
+  type: 'test'
+  ...
+# Subtest: published report contract rejects formal task assignment and fourth priority
+ok 2 - published report contract rejects formal task assignment and fourth priority
+  ---
+  duration_ms: 28.1945
+  type: 'test'
+  ...
+# Subtest: trace event contract forbids arbitrary role and unknown event types
+ok 3 - trace event contract forbids arbitrary role and unknown event types
+  ---
+  duration_ms: 18.5476
+  type: 'test'
+  ...
+# (node:35120) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: context identity stays stable across load time while the exact evidence is unchanged
+ok 4 - context identity stays stable across load time while the exact evidence is unchanged
+  ---
+  duration_ms: 38.7761
+  type: 'test'
+  ...
+# Subtest: actual isolated HTTP joins only host inputs and durable trace; denied requests have no effects
+ok 5 - actual isolated HTTP joins only host inputs and durable trace; denied requests have no effects
+  ---
+  duration_ms: 162.4808
+  type: 'test'
+  ...
+# Subtest: trace failure never reports successful archival and host cross-store reads are refused
+ok 6 - trace failure never reports successful archival and host cross-store reads are refused
+  ---
+  duration_ms: 44.3816
+  type: 'test'
+  ...
+# Subtest: structured report separates facts, hypotheses and proposals with no formal task IDs
+ok 7 - structured report separates facts, hypotheses and proposals with no formal task IDs
+  ---
+  duration_ms: 60.9106
+  type: 'test'
+  ...
+# Subtest: forged context, too many priorities and task-shaped candidates are rejected
+ok 8 - forged context, too many priorities and task-shaped candidates are rejected
+  ---
+  duration_ms: 5.9888
+  type: 'test'
+  ...
+# Subtest: unsupported fact claims, profit without costs and stale context degrade
+ok 9 - unsupported fact claims, profit without costs and stale context degrade
+  ---
+  duration_ms: 4.9462
+  type: 'test'
+  ...
+# Subtest: cross-store or stale/mismatched task snapshot and future workflow state do not authorize plans
+ok 10 - cross-store or stale/mismatched task snapshot and future workflow state do not authorize plans
+  ---
+  duration_ms: 3.0103
+  type: 'test'
+  ...
+# Subtest: no verified facts permits only investigation suggestions
+ok 11 - no verified facts permits only investigation suggestions
+  ---
+  duration_ms: 3.1482
+  type: 'test'
+  ...
+# Subtest: a factual narrative cannot contradict the referenced numeric fact
+ok 12 - a factual narrative cannot contradict the referenced numeric fact
+  ---
+  duration_ms: 2.0871
+  type: 'test'
+  ...
+# Subtest: missing trace reads return [] and create no file or lock
+ok 13 - missing trace reads return [] and create no file or lock
+  ---
+  duration_ms: 22.7628
+  type: 'test'
+  ...
+# Subtest: trace policy version must be issued by governance, before any lock or log write
+ok 14 - trace policy version must be issued by governance, before any lock or log write
+  ---
+  duration_ms: 50.6721
+  type: 'test'
+  ...
+# Subtest: append commits a durable record and restart returns exactly the same event
+ok 15 - append commits a durable record and restart returns exactly the same event
+  ---
+  duration_ms: 35.3234
+  type: 'test'
+  ...
+# Subtest: analysis decisionSummary persists immutably and rejects unsafe or unbounded text
+ok 16 - analysis decisionSummary persists immutably and rejects unsafe or unbounded text
+  ---
+  duration_ms: 30.6874
+  type: 'test'
+  ...
+# Subtest: event and analysis dedup survive restart; conflicting IDs never overwrite history
+ok 17 - event and analysis dedup survive restart; conflicting IDs never overwrite history
+  ---
+  duration_ms: 52.9063
+  type: 'test'
+  ...
+# Subtest: only governance-issued principals and store capabilities can read or append; no denied call mutates files
+ok 18 - only governance-issued principals and store capabilities can read or append; no denied call mutates files
+  ---
+  duration_ms: 9.0392
+  type: 'test'
+  ...
+# Subtest: schema rejects unknown keys, task/run mutations and secrets without filesystem mutation
+ok 19 - schema rejects unknown keys, task/run mutations and secrets without filesystem mutation
+  ---
+  duration_ms: 8.1611
+  type: 'test'
+  ...
+# Subtest: Human correction appends links while original bytes remain; invalid links fail
+ok 20 - Human correction appends links while original bytes remain; invalid links fail
+  ---
+  duration_ms: 65.5455
+  type: 'test'
+  ...
+# Subtest: pause blocks new analyses across restart but permits feedback, duplicate analysis and Human resume
+ok 21 - pause blocks new analyses across restart but permits feedback, duplicate analysis and Human resume
+  ---
+  duration_ms: 80.4421
+  type: 'test'
+  ...
+# Subtest: corruption, truncation and tampering fail closed without overwriting bytes
+ok 22 - corruption, truncation and tampering fail closed without overwriting bytes
+  ---
+  duration_ms: 184.1398
+  type: 'test'
+  ...
+# Subtest: unmarked fixtures and lexical/symlink path escapes never create outside output
+ok 23 - unmarked fixtures and lexical/symlink path escapes never create outside output
+  ---
+  duration_ms: 17.2976
+  type: 'test'
+  ...
+# Subtest: path swap after construction fails closed
+ok 24 - path swap after construction fails closed
+  ---
+  duration_ms: 13.5961
+  type: 'test'
+  ...
+# Subtest: pre-existing lock is never stolen; a symlink lock is rejected
+ok 25 - pre-existing lock is never stolen; a symlink lock is rejected
+  ---
+  duration_ms: 2024.1594
+  type: 'test'
+  ...
+# Subtest: failed append does not report a saved record and retains existing bytes
+ok 26 - failed append does not report a saved record and retains existing bytes
+  ---
+  duration_ms: 16.9096
+  type: 'test'
+  ...
+# Subtest: write errors reject without claiming saved and never overwrite historical bytes
+ok 27 - write errors reject without claiming saved and never overwrite historical bytes
+  ---
+  duration_ms: 42.7629
+  type: 'test'
+  ...
+# Subtest: fsync errors reject initial and duplicate writes; successful retry resolves to the same record
+ok 28 - fsync errors reject initial and duplicate writes; successful retry resolves to the same record
+  ---
+  duration_ms: 37.7455
+  type: 'test'
+  ...
+# Subtest: partial append failure leaves prior bytes intact and subsequent operations fail closed
+ok 29 - partial append failure leaves prior bytes intact and subsequent operations fail closed
+  ---
+  duration_ms: 34.7356
+  type: 'test'
+  ...
+# Subtest: parallel instances serialize unique writes and deduplicate competing identical analyses
+ok 30 - parallel instances serialize unique writes and deduplicate competing identical analyses
+  ---
+  duration_ms: 210.5072
+  type: 'test'
+  ...
+# Subtest: separate processes serialize concurrent appends and restart dedup
+ok 31 - separate processes serialize concurrent appends and restart dedup
+  ---
+  duration_ms: 355.3583
+  type: 'test'
+  ...
+# (node:29044) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: existing task schema yields stable content snapshot and changes no directory bytes
+ok 32 - existing task schema yields stable content snapshot and changes no directory bytes
+  ---
+  duration_ms: 918.9496
+  type: 'test'
+  ...
+# Subtest: actual workspace import and command history remain readable without initialization
+ok 33 - actual workspace import and command history remain readable without initialization
+  ---
+  duration_ms: 343.5716
+  type: 'test'
+  ...
+# Subtest: missing database and missing table fail without creation or migration
+ok 34 - missing database and missing table fail without creation or migration
+  ---
+  duration_ms: 900.6354
+  type: 'test'
+  ...
+# Subtest: corrupt database and malformed payload fail explicitly without side effects
+ok 35 - corrupt database and malformed payload fail explicitly without side effects
+  ---
+  duration_ms: 1032.7902
+  type: 'test'
+  ...
+# Subtest: rejects unsupported store and mixed task or nested historical store
+ok 36 - rejects unsupported store and mixed task or nested historical store
+  ---
+  duration_ms: 1038.5175
+  type: 'test'
+  ...
+# Subtest: row version, content hash, event version chain and latest state disagreements fail
+ok 37 - row version, content hash, event version chain and latest state disagreements fail
+  ---
+  duration_ms: 1206.8928
+  type: 'test'
+  ...
+# Subtest: orphan or absent events cannot be silently treated as a valid task snapshot
+ok 38 - orphan or absent events cannot be silently treated as a valid task snapshot
+  ---
+  duration_ms: 1183.9249
+  type: 'test'
+  ...
+# Subtest: closed WAL header with absent sidefiles requires a copy before SQLite opens
+ok 39 - closed WAL header with absent sidefiles requires a copy before SQLite opens
+  ---
+  duration_ms: 861.136
+  type: 'test'
+  ...
+# Subtest: active concurrent WAL writer is refused without touching WAL or SHM bytes
+ok 40 - active concurrent WAL writer is refused without touching WAL or SHM bytes
+  ---
+  duration_ms: 990.1096
+  type: 'test'
+  ...
+# Subtest: rollback journal beside a concurrently modified DB requires an offline copy
+ok 41 - rollback journal beside a concurrently modified DB requires an offline copy
+  ---
+  duration_ms: 816.6682
+  type: 'test'
+  ...
+# Subtest: projection excludes arbitrary credential fields from task and event payloads
+ok 42 - projection excludes arbitrary credential fields from task and event payloads
+  ---
+  duration_ms: 1091.7551
+  type: 'test'
+  ...
+# Subtest: unsafe paths, invalid time, excessive payload and unsupported shape fail closed
+ok 43 - unsafe paths, invalid time, excessive payload and unsupported shape fail closed
+  ---
+  duration_ms: 1201.8403
+  type: 'test'
+  ...
+# Subtest: dist\\test\\ceo-task-read-model.test.js
+not ok 5 - dist\\test\\ceo-task-read-model.test.js
+  ---
+  duration_ms: 60004.2567
+  type: 'test'
+  location: 'F:\\yikuaborder-deploy\\.worktrees\\ceo-g2b1-20261105\\dist\\test\\ceo-task-read-model.test.js:1:1'
+  failureType: 'testTimeoutFailure'
+  error: 'test timed out after 60000ms'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# Subtest: approved synthetic zero stays zero; snapshot is immutable and evidence linked
+ok 45 - approved synthetic zero stays zero; snapshot is immutable and evidence linked
+  ---
+  duration_ms: 90.8705
+  type: 'test'
+  ...
+# Subtest: missing value degrades and exposes no usable value
+ok 46 - missing value degrades and exposes no usable value
+  ---
+  duration_ms: 3.1035
+  type: 'test'
+  ...
+# Subtest: stale degrades and exposes no usable value
+ok 47 - stale degrades and exposes no usable value
+  ---
+  duration_ms: 2.4523
+  type: 'test'
+  ...
+# Subtest: forged verification degrades and exposes no usable value
+ok 48 - forged verification degrades and exposes no usable value
+  ---
+  duration_ms: 2.8917
+  type: 'test'
+  ...
+# Subtest: changed evidence degrades and exposes no usable value
+ok 49 - changed evidence degrades and exposes no usable value
+  ---
+  duration_ms: 3.6891
+  type: 'test'
+  ...
+# Subtest: mixed period degrades and exposes no usable value
+ok 50 - mixed period degrades and exposes no usable value
+  ---
+  duration_ms: 2.6958
+  type: 'test'
+  ...
+# Subtest: cross store degrades and exposes no usable value
+ok 51 - cross store degrades and exposes no usable value
+  ---
+  duration_ms: 2.5805
+  type: 'test'
+  ...
+# Subtest: missing unit degrades and exposes no usable value
+ok 52 - missing unit degrades and exposes no usable value
+  ---
+  duration_ms: 2.3667
+  type: 'test'
+  ...
+# Subtest: unknown caliber degrades and exposes no usable value
+ok 53 - unknown caliber degrades and exposes no usable value
+  ---
+  duration_ms: 3.349
+  type: 'test'
+  ...
+# Subtest: future capture degrades and exposes no usable value
+ok 54 - future capture degrades and exposes no usable value
+  ---
+  duration_ms: 4.8961
+  type: 'test'
+  ...
+# Subtest: conflicting duplicate fact versions fail closed
+ok 55 - conflicting duplicate fact versions fail closed
+  ---
+  duration_ms: 2.7731
+  type: 'test'
+  ...
+# Subtest: both exact dictionaries preserve existing calibers but change context identity
+ok 56 - both exact dictionaries preserve existing calibers but change context identity
+  ---
+  duration_ms: 4.3956
+  type: 'test'
+  ...
+# Subtest: source policy rejects shipment GMV mislabeled paid even with valid host approval
+ok 57 - source policy rejects shipment GMV mislabeled paid even with valid host approval
+  ---
+  duration_ms: 3.027
+  type: 'test'
+  ...
+# Subtest: prototype names and missing units cannot become verified calibers
+ok 58 - prototype names and missing units cannot become verified calibers
+  ---
+  duration_ms: 6.2701
+  type: 'test'
+  ...
+# Subtest: future complete periods cannot be treated as observed business facts
+ok 59 - future complete periods cannot be treated as observed business facts
+  ---
+  duration_ms: 3.2049
+  type: 'test'
+  ...
+# Subtest: synthetic verified read capability is distinguishable from unverified real executors
+ok 60 - synthetic verified read capability is distinguishable from unverified real executors
+  ---
+  duration_ms: 36.2983
+  type: 'test'
+  ...
+# Subtest: invocation analysis is always UNEXECUTED and never calls injected executor
+ok 61 - invocation analysis is always UNEXECUTED and never calls injected executor
+  ---
+  duration_ms: 0.8791
+  type: 'test'
+  ...
+# Subtest: missing, stale, conflicting and unknown states fail closed
+ok 62 - missing, stale, conflicting and unknown states fail closed
+  ---
+  duration_ms: 2.0037
+  type: 'test'
+  ...
+# Subtest: cached workflow state expires again at proposal time
+ok 63 - cached workflow state expires again at proposal time
+  ---
+  duration_ms: 0.6477
+  type: 'test'
+  ...
+# Subtest: source freshness expires independently of wrapper load time
+ok 64 - source freshness expires independently of wrapper load time
+  ---
+  duration_ms: 0.7176
+  type: 'test'
+  ...
+1..64
+# tests 64
+# suites 0
+# pass 63
+# fail 0
+# cancelled 1
+# skipped 0
+# todo 0
+# duration_ms 60062.6589

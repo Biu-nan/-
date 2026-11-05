@@ -1,0 +1,184 @@
+// 经营事实存储层（append-only + 幂等）
+//
+// 设计铁律（来自 docs/SYSTEM_OPERATING_LOOP_v0.2.md）：
+//   1. 原始事实落库，指标永远重算 —— 不存算好的结论
+//   2. 抓取幂等，可补历史 —— 同一 (source,storeId,caliber,subject,window,statDate)
+//      同值不重复写；值变了追加一条新记录（历史保留），读取时取最后一条
+//   3. 抓不到就写 null + reason，绝不沿用上一周期数值
+//
+// 目录：
+//   data/metrics/facts/<source>/<YYYY-MM-DD>.jsonl   规范化事实
+//   data/metrics/raw/<source>/<YYYY-MM-DD>/<name>.json  原始响应快照（便于事后追溯）
+
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+export const PROJECT_ROOT = path.resolve(__dirname, '..');
+export const METRICS_DIR = path.join(PROJECT_ROOT, 'data', 'metrics');
+export const FACTS_DIR = path.join(METRICS_DIR, 'facts');
+export const RAW_DIR = path.join(METRICS_DIR, 'raw');
+export const SCHEMA_PATH = path.join(PROJECT_ROOT, 'config', 'metrics-schema.json');
+
+let _schemaCache = null;
+export async function loadSchema() {
+  if (_schemaCache) return _schemaCache;
+  const txt = await fs.readFile(SCHEMA_PATH, 'utf8');
+  _schemaCache = JSON.parse(txt);
+  return _schemaCache;
+}
+
+export function assertKnownCaliber(schema, caliber) {
+  if (!schema.calibers[caliber]) {
+    throw new Error(`未知口径 "${caliber}"。请先在 config/metrics-schema.json 的 calibers 中定义，禁止临时造词。`);
+  }
+}
+
+export function localDate(d = new Date()) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+export function factKey(f) {
+  return [f.source, f.storeId || '-', f.caliber, f.subject || '-', f.window || '-', f.statDate].join('|');
+}
+
+function sameValue(a, b) {
+  if (a === b) return true;
+  if (typeof a === 'number' && typeof b === 'number') return Math.abs(a - b) < 1e-9;
+  return false;
+}
+
+async function readJsonl(file) {
+  try {
+    const txt = await fs.readFile(file, 'utf8');
+    return txt.split('\n').filter(Boolean).map((l) => {
+      try { return JSON.parse(l); } catch { return null; }
+    }).filter(Boolean);
+  } catch (e) {
+    if (e.code === 'ENOENT') return [];
+    throw e;
+  }
+}
+
+/**
+ * 幂等写入事实。返回 { written, skipped, unchanged, total }
+ * facts[]: { source, storeId, caliber, subject, window, statDate, value, unit, reason?, meta? }
+ */
+export async function appendFacts(facts, { date } = {}) {
+  const schema = await loadSchema();
+  const byDate = new Map();
+
+  for (const f of facts) {
+    assertKnownCaliber(schema, f.caliber);
+    if (!f.statDate) f.statDate = date || localDate();
+    if (!f.source) throw new Error('fact 缺少 source');
+    const d = f.statDate;
+    if (!byDate.has(d)) byDate.set(d, []);
+    byDate.get(d).push(f);
+  }
+
+  const result = { written: 0, skipped: 0, changed: 0, total: facts.length, files: [] };
+
+  for (const [d, list] of byDate) {
+    const dir = path.join(FACTS_DIR, list[0].source);
+    await fs.mkdir(dir, { recursive: true });
+    const file = path.join(dir, `${d}.jsonl`);
+
+    const existing = await readJsonl(file);
+    const lastByKey = new Map();
+    for (const e of existing) lastByKey.set(factKey(e), e);
+
+    const lines = [];
+    for (const f of list) {
+      const key = factKey(f);
+      const prev = lastByKey.get(key);
+      const record = { ...f, key, capturedAt: f.capturedAt || new Date().toISOString() };
+      if (prev && sameValue(prev.value, record.value) && (prev.reason || null) === (record.reason || null)) {
+        result.skipped++;
+        continue;
+      }
+      if (prev) {
+        record.revision = (prev.revision || 1) + 1;
+        record.previousValue = prev.value;
+        result.changed++;
+      }
+      lines.push(JSON.stringify(record));
+      lastByKey.set(key, record);
+      result.written++;
+    }
+
+    if (lines.length) {
+      await fs.appendFile(file, lines.join('\n') + '\n', 'utf8');
+      result.files.push(path.relative(PROJECT_ROOT, file));
+    }
+  }
+
+  return result;
+}
+
+/** 读取某 source 某日全部事实，返回 Map<key, latest> */
+export async function readFactsDay(source, date) {
+  const file = path.join(FACTS_DIR, source, `${date}.jsonl`);
+  const rows = await readJsonl(file);
+  const map = new Map();
+  for (const r of rows) map.set(factKey(r), r);
+  return map;
+}
+
+/** 读取一个 source 在一段日期内的全部事实（取每日最后一条） */
+export async function readFactsRange(source, fromDate, toDate) {
+  const dir = path.join(FACTS_DIR, source);
+  let files = [];
+  try { files = (await fs.readdir(dir)).filter((f) => f.endsWith('.jsonl')).sort(); } catch { return []; }
+  const out = [];
+  for (const f of files) {
+    const d = f.replace('.jsonl', '');
+    if (fromDate && d < fromDate) continue;
+    if (toDate && d > toDate) continue;
+    const rows = await readJsonl(path.join(dir, f));
+    const last = new Map();
+    for (const r of rows) last.set(factKey(r), r);
+    out.push(...last.values());
+  }
+  return out;
+}
+
+/** 按口径取值（找不到返回 null，绝不猜） */
+export function pick(facts, { source, caliber, subject = '-', window = '-', storeId }) {
+  for (const f of facts) {
+    if (f.source !== source) continue;
+    if (f.caliber !== caliber) continue;
+    if ((f.subject || '-') !== subject) continue;
+    if ((f.window || '-') !== window) continue;
+    if (storeId && f.storeId !== storeId) continue;
+    return f;
+  }
+  return null;
+}
+
+/** 保存原始响应快照 */
+export async function saveRaw(source, name, data, { date } = {}) {
+  const d = date || localDate();
+  const dir = path.join(RAW_DIR, source, d);
+  await fs.mkdir(dir, { recursive: true });
+  const file = path.join(dir, `${name}.json`);
+  await fs.writeFile(file, JSON.stringify(data, null, 2), 'utf8');
+  return path.relative(PROJECT_ROOT, file);
+}
+
+/** 数据新鲜度判定：未声明更新时间一律 UNKNOWN */
+export function freshnessOf({ updatedAtText, platformDelayMinutes, maxDelayMinutes }, now = new Date()) {
+  if (!updatedAtText && platformDelayMinutes == null) {
+    return { freshness: 'UNKNOWN', ageMinutes: null, note: '平台未声明更新时间，不得当作实时数据' };
+  }
+  if (platformDelayMinutes != null) {
+    return {
+      freshness: platformDelayMinutes <= (maxDelayMinutes ?? 60) ? 'FRESH' : 'STALE',
+      ageMinutes: platformDelayMinutes,
+      note: `平台声明延迟 ${platformDelayMinutes} 分钟`,
+    };
+  }
+  return { freshness: 'UNKNOWN', ageMinutes: null, note: `无法解析更新时间: ${updatedAtText}`, now: now.toISOString() };
+}

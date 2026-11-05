@@ -1,0 +1,12 @@
+{
+  "label": "m06-governance-regression",
+  "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+  "command": [
+    "node",
+    "--test",
+    "dist/test/ceo-governance.test.js",
+    "dist/test/ceo-shadow-trace.test.js"
+  ],
+  "exitCode": 0,
+  "seconds": 4.034
+}

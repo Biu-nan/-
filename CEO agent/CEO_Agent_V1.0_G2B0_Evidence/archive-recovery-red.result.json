@@ -1,0 +1,11 @@
+{
+  "label": "archive-recovery-red",
+  "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+  "command": [
+    "node",
+    "--test",
+    "dist/test/ceo-report-archive.test.js"
+  ],
+  "exitCode": 1,
+  "seconds": 3.603
+}

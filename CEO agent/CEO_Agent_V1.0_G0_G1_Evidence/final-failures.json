@@ -1,0 +1,106 @@
+[
+  {
+    "location": "test at dist\\test\\automation-service-listing.test.js:114:5",
+    "name": "does not hard-stop image generation on storyboard or prompt-pack QC failures"
+  },
+  {
+    "location": "test at dist\\test\\automation-service-listing.test.js:156:5",
+    "name": "sends listing content with a stable backend fingerprint"
+  },
+  {
+    "location": "test at dist\\test\\automation-service-listing.test.js:174:5",
+    "name": "recovers listing content from previously sent Chinese listing prompts"
+  },
+  {
+    "location": "test at dist\\test\\basic-feature-smoke.test.js:80:5",
+    "name": "exposes all backend prompts in the knowledge prompt library"
+  },
+  {
+    "location": "test at dist\\test\\basic-feature-smoke.test.js:105:5",
+    "name": "exposes a manual reset for insert market radar selection"
+  },
+  {
+    "location": "test at dist\\test\\basic-feature-smoke.test.js:156:5",
+    "name": "keeps ChatGPT tool selection resilient to composer menu role changes"
+  },
+  {
+    "location": "test at dist\\test\\basic-feature-smoke.test.js:164:5",
+    "name": "does not hard-stop listing generation when ChatGPT web search cannot be toggled"
+  },
+  {
+    "location": "test at dist\\test\\basic-feature-smoke.test.js:186:5",
+    "name": "shows the Listing visual workflow v2 stages without replacing legacy controls"
+  },
+  {
+    "location": "test at dist\\test\\basic-feature-smoke.test.js:208:5",
+    "name": "keeps legacy planning completion available for standard Listing"
+  },
+  {
+    "location": "test at dist\\test\\ceo-workspace-cli.test.js:20:1",
+    "name": "inspect is read only and produces the host goal with quarantined facts"
+  },
+  {
+    "location": "test at dist\\test\\ceo-workspace-cli.test.js:25:1",
+    "name": "save-draft persists once using the inspected host context"
+  },
+  {
+    "location": "test at dist\\test\\chatgpt-wait.test.js:6:5",
+    "name": "uses the native editor insertion path for a long prompt"
+  },
+  {
+    "location": "test at dist\\test\\chatgpt-wait.test.js:18:5",
+    "name": "does not upload the same image twice when ChatGPT resets its file input"
+  },
+  {
+    "location": "test at dist\\test\\chatgpt-wait.test.js:53:5",
+    "name": "recognizes stopped thinking with no assistant output instead of waiting for the global timeout"
+  },
+  {
+    "location": "test at dist\\test\\daily-operation-service.test.js:146:5",
+    "name": "surfaces write failures instead of swallowing them"
+  },
+  {
+    "location": "test at dist\\test\\p0-protocol-service.test.js:9:5",
+    "name": "reads the smt_choice_listing workflow spec"
+  },
+  {
+    "location": "test at dist\\test\\p0-protocol-service.test.js:15:5",
+    "name": "reads the sample task"
+  },
+  {
+    "location": "test at dist\\test\\p0-protocol-service.test.js:23:5",
+    "name": "reads the context pack"
+  },
+  {
+    "location": "test at dist\\test\\p0-protocol-service.test.js:32:5",
+    "name": "reads the agent job"
+  },
+  {
+    "location": "test at dist\\test\\p0-protocol-service.test.js:41:5",
+    "name": "reads the artifact sample"
+  },
+  {
+    "location": "test at dist\\test\\p0-protocol-service.test.js:51:5",
+    "name": "assembles the smt_choice_listing sample chain"
+  },
+  {
+    "location": "test at dist\\test\\p0-protocol-service.test.js:68:5",
+    "name": "reports ready health when all P0 fixtures and the sample chain are available"
+  },
+  {
+    "location": "test at dist\\test\\prompt-files.test.js:15:5",
+    "name": "accepts all ten prompt start and end markers"
+  },
+  {
+    "location": "test at dist\\test\\prompt-files.test.js:30:5",
+    "name": "supports the seven-image luxury insert prompt pack"
+  },
+  {
+    "location": "test at dist\\test\\prompt-files.test.js:40:5",
+    "name": "keeps the strict luxury insert layouts and fixed copy in the template"
+  },
+  {
+    "location": "test at dist\\test\\prompt-files.test.js:68:5",
+    "name": "exposes Listing visual workflow v2 prompt templates through the prompt registry"
+  }
+]

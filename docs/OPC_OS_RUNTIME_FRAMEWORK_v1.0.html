@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>一跨 AI · OPC 落地运行框架 v1.0</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0E1014; --panel:#171A20; --panel2:#1E222A;
+  --line:rgba(255,255,255,.09); --line2:rgba(255,255,255,.16);
+  --txt:#E6E8EE; --dim:#9BA0AC; --dim2:#6B7280;
+  --purple:#8B82E8; --teal:#2DD4A7; --blue:#5B9BF5;
+  --amber:#F0A839; --green:#7BC95A; --red:#EE6A69; --coral:#E8845C;
+}
+body{
+  background:var(--bg); color:var(--txt);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  padding:36px 24px 64px; line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1240px;margin:0 auto}
+
+header{margin-bottom:28px;padding-bottom:22px;border-bottom:1px solid var(--line)}
+h1{font-size:23px;font-weight:600;letter-spacing:-.2px;margin-bottom:9px}
+h1 span{color:var(--teal)}
+.sub{font-size:13px;color:var(--dim);margin-bottom:15px}
+.tags{display:flex;flex-wrap:wrap;gap:8px}
+.tag{font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--line2);color:var(--dim)}
+.tag.warn{border-color:rgba(240,168,57,.5);color:var(--amber);background:rgba(240,168,57,.08)}
+.tag.ok{border-color:rgba(45,212,167,.45);color:var(--teal);background:rgba(45,212,167,.08)}
+.tag.red{border-color:rgba(238,106,105,.45);color:var(--red);background:rgba(238,106,105,.07)}
+
+h2{font-size:16px;font-weight:600;margin:34px 0 6px}
+h2 .n{color:var(--dim2);font-size:12px;font-weight:400;margin-right:8px}
+.lead{font-size:12.5px;color:var(--dim);margin-bottom:14px}
+
+/* ===== 主循环 ===== */
+.loop{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 24px}
+.stage{display:grid;grid-template-columns:46px 1fr;gap:14px;align-items:start}
+.stage .idx{
+  width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:600;margin-top:2px;
+}
+.stage .st-t{font-size:13.5px;font-weight:600;margin-bottom:3px}
+.stage .st-d{font-size:11.5px;color:var(--dim);line-height:1.55}
+.s1 .idx{background:rgba(136,135,128,.18);color:#B4B2A9}
+.s2 .idx{background:rgba(136,135,128,.18);color:#B4B2A9}
+.s3 .idx{background:rgba(136,135,128,.18);color:#B4B2A9}
+.s4 .idx{background:rgba(136,135,128,.18);color:#B4B2A9}
+.s5 .idx{background:rgba(136,135,128,.18);color:#B4B2A9}
+.s6 .idx{background:rgba(136,135,128,.18);color:#B4B2A9}
+.s7 .idx{background:rgba(136,135,128,.18);color:#B4B2A9}
+
+.gate{
+  margin:11px 0 11px 14px;padding:9px 14px;border-radius:9px;
+  border-left:2px solid;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;
+}
+.gate .g-n{font-size:12px;font-weight:600;white-space:nowrap}
+.gate .g-d{font-size:11.5px;color:var(--dim)}
+.gate .g-f{font-size:11px;margin-left:auto;white-space:nowrap}
+.g1{border-color:var(--amber);background:rgba(240,168,57,.06)}
+.g1 .g-n{color:var(--amber)}
+.g2{border-color:var(--blue);background:rgba(91,155,245,.06)}
+.g2 .g-n{color:var(--blue)}
+.g3{border-color:var(--red);background:rgba(238,106,105,.06)}
+.g3 .g-n{color:var(--red)}
+.g-f.bad{color:var(--red)}
+.g-f.mid{color:var(--amber)}
+.g-f.ok{color:var(--teal)}
+
+.arrow{color:var(--dim2);font-size:12px;margin:5px 0 5px 28px}
+.back{margin-top:14px;padding:9px 14px;border-radius:9px;background:rgba(45,212,167,.06);border-left:2px solid var(--teal);font-size:11.5px;color:var(--teal)}
+
+/* ===== 通用卡片 ===== */
+.grid{display:grid;gap:10px}
+.g2{grid-template-columns:repeat(2,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:13px 14px}
+.card .t{font-size:12.5px;font-weight:600;margin-bottom:5px}
+.card .d{font-size:11.5px;color:var(--dim);line-height:1.6}
+.card .who{font-size:10.5px;color:var(--dim2);margin-top:6px}
+.card.ok{border-color:rgba(45,212,167,.3);background:rgba(45,212,167,.04)}
+.card.ok .t{color:var(--teal)}
+.card.warn{border-color:rgba(240,168,57,.3);background:rgba(240,168,57,.04)}
+.card.warn .t{color:var(--amber)}
+.card.bad{border-color:rgba(238,106,105,.3);background:rgba(238,106,105,.04)}
+.card.bad .t{color:var(--red)}
+
+/* ===== 时间轴 ===== */
+.tl{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 20px 14px}
+.tl-row{display:grid;grid-template-columns:104px 1fr;gap:16px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.tl-row:last-child{border-bottom:none}
+.tl-time{font-size:12px;color:var(--dim2);font-variant-numeric:tabular-nums;padding-top:1px}
+.tl-body .h{font-size:12.5px;font-weight:600;margin-bottom:2px}
+.tl-body .p{font-size:11.5px;color:var(--dim);line-height:1.55}
+.tl-row.block{background:rgba(238,106,105,.05);border-radius:8px;padding:11px 10px;margin:2px -10px;border-bottom:none}
+.tl-row.block .tl-time{color:var(--red)}
+.tl-row.block .tl-body .h{color:var(--red)}
+
+/* ===== 表格 ===== */
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;font-weight:500;color:var(--dim2);font-size:11px;padding:8px 10px 8px 0;border-bottom:1px solid var(--line)}
+td{padding:9px 10px 9px 0;border-bottom:1px solid rgba(255,255,255,.045);vertical-align:top;line-height:1.55}
+tr:last-child td{border-bottom:none}
+.tbox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px 18px}
+.lvl{font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:5px;white-space:nowrap}
+.L0{background:rgba(238,106,105,.16);color:var(--red)}
+.L1{background:rgba(240,168,57,.16);color:var(--amber)}
+.L3{background:rgba(45,212,167,.16);color:var(--teal)}
+
+/* 一周 */
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.day{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:12px 10px;min-height:112px}
+.day .dn{font-size:11px;color:var(--dim2);margin-bottom:6px}
+.day .dt{font-size:12px;font-weight:600;margin-bottom:4px;line-height:1.4}
+.day .dd{font-size:11px;color:var(--dim);line-height:1.5}
+.day.key{border-color:rgba(45,212,167,.35);background:rgba(45,212,167,.05)}
+.day.key .dt{color:var(--teal)}
+.day.rest{opacity:.6}
+
+/* 启动顺序 */
+.plan{display:flex;flex-direction:column;gap:9px}
+.step{display:grid;grid-template-columns:74px 1fr;gap:14px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:12px 14px}
+.step .sd{font-size:11.5px;font-weight:600;color:var(--teal);white-space:nowrap}
+.step .st{font-size:12.5px;font-weight:600;margin-bottom:3px}
+.step .ss{font-size:11.5px;color:var(--dim);line-height:1.55}
+.step.no{border-color:rgba(238,106,105,.25);background:rgba(238,106,105,.04)}
+.step.no .sd{color:var(--red)}
+.step.no .st{color:#D9B4B4}
+
+.note{margin-top:30px;font-size:11.5px;color:var(--dim2);line-height:1.8;border-top:1px solid var(--line);padding-top:16px}
+.note b{color:var(--dim)}
+@media(max-width:980px){
+  .g4,.g3{grid-template-columns:repeat(2,1fr)}
+  .week{grid-template-columns:repeat(2,1fr)}
+  .tl-row{grid-template-columns:78px 1fr}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>一跨 AI · OPC <span>落地运行框架 v1.0</span></h1>
+  <div class="sub">从"设计好的架构"到"每天真的跑起来"——含每个环节的真实运行级别</div>
+  <div class="tags">
+    <span class="tag ok">北极星：净利为纲</span>
+    <span class="tag">依据 准则卡 v1.0</span>
+    <span class="tag warn">待审定 · 非开工指令</span>
+    <span class="tag red">含诚实标注：哪段是纸做的</span>
+  </div>
+</header>
+
+<h2><span class="n">01</span>日运行主回路：七段流程 · 三扇门</h2>
+<div class="lead">每一个环节都必须过对应的门。门不过，不许往下一段走——这是"落地"和"画着好看"的区别。</div>
+
+<div class="loop">
+
+  <div class="stage s1">
+    <div class="idx">1</div>
+    <div>
+      <div class="st-t">采集</div>
+      <div class="st-d">内部源：AliExpress / 店小秘 / 自有仓 / 财务　·　外部信号：平台规则公告 / 活动日历 / 竞品价格</div>
+    </div>
+  </div>
+
+  <div class="gate g1">
+    <span class="g-n">门 1 · 口径门</span>
+    <span class="g-d">语义层：指标字典 · 口径版本 · 单位校验 · 新鲜度 · 对账</span>
+    <span class="g-f bad">当前：字典已写，代码引用 0</span>
+  </div>
+
+  <div class="stage s2">
+    <div class="idx">2</div>
+    <div>
+      <div class="st-t">诊断</div>
+      <div class="st-d">五层顺序固定：利润 → 流量 → 转化 → 履约 → 现金流。上层异常常是下层问题的表现，不许跳层</div>
+    </div>
+  </div>
+
+  <div class="arrow">↓</div>
+
+  <div class="stage s3">
+    <div class="idx">3</div>
+    <div>
+      <div class="st-t">取舍</div>
+      <div class="st-d">与北极星（月净利 ≥¥12000）对比：做什么 / 不做什么 / 放弃什么。每条必须写机会成本</div>
+    </div>
+  </div>
+
+  <div class="gate g2">
+    <span class="g-n">门 2 · 容量门</span>
+    <span class="g-d">工时（Lance 可用 / 可购买 双栏）× 现金额度 × 执行带宽（CDP 并发 ≤2）</span>
+    <span class="g-f mid">不过 → 必须显式说"排不下"</span>
+  </div>
+
+  <div class="stage s4">
+    <div class="idx">4</div>
+    <div>
+      <div class="st-t">排程</div>
+      <div class="st-d">今日 ≤3 件。每件必带：动作 · 预计耗时 · 验收证据 · 谁做 · 追溯到哪个目标</div>
+    </div>
+  </div>
+
+  <div class="gate g3">
+    <span class="g-n">门 3 · 授权门</span>
+    <span class="g-d">A 自主事后报备 / B 通知后执行（须可回滚）/ C 必问白名单 —— 按「角色 × 店型」二维判定</span>
+    <span class="g-f mid">核心店最窄 · 测试店可放宽</span>
+  </div>
+
+  <div class="stage s5">
+    <div class="idx">5</div>
+    <div>
+      <div class="st-t">执行</div>
+      <div class="st-d">确定性代码优先，人做高后果动作。Agent 只出决策草案，不直接改库、不改状态</div>
+    </div>
+  </div>
+
+  <div class="arrow">↓</div>
+
+  <div class="stage s6">
+    <div class="idx">6</div>
+    <div>
+      <div class="st-t">回读核验</div>
+      <div class="st-d">结果未知 → 先查证，<b style="color:var(--red)">绝不重跑有副作用的流程</b>。人机共写，每次动作前回读实际状态</div>
+    </div>
+  </div>
+
+  <div class="arrow">↓</div>
+
+  <div class="stage s7">
+    <div class="idx">7</div>
+    <div>
+      <div class="st-t">记录</div>
+      <div class="st-d">决策记录（含谁批准 · 依据 · 失败条件）· 假设记录 · 口径债登记</div>
+    </div>
+  </div>
+
+  <div class="back">↺ 次日回到第 2 段。记录不是归档，是下一次诊断的输入 —— 没有记录，第 2 段每天都从零开始</div>
+
+</div>
+
+<h2><span class="n">02</span>运行主体：谁在跑、谁有权</h2>
+<div class="lead">已裁决为多角色决策，不是单一决策者。这决定了授权必须按「角色 × 店型」二维判定。</div>
+
+<div class="grid g4">
+  <div class="card ok">
+    <div class="t">Lance</div>
+    <div class="d">最终裁决 · 目标与授权来源 · 高后果动作执行</div>
+    <div class="who">C 档全部 · 核心店 A/B 档审核人</div>
+  </div>
+  <div class="card ok">
+    <div class="t">合伙人 / 助手</div>
+    <div class="d">参与决策。与 Lance 意见冲突时标「待仲裁」，不许 Agent 自行合并或取平均</div>
+    <div class="who">决策记录必须记「谁批准的」</div>
+  </div>
+  <div class="card">
+    <div class="t">CEO Agent</div>
+    <div class="d">唯一经营循环执行者。<b>不是唯一决策权威</b>。出草案、不落库</div>
+    <div class="who">继承 secretary-model 边界原则</div>
+  </div>
+  <div class="card">
+    <div class="t">外包（美工/客服/打包）</div>
+    <div class="d">可购买的时间。容量门单独一栏，不与 Lance 工时混算</div>
+    <div class="who">"排不下"有两种解法：少做，或买时间</div>
+  </div>
+</div>
+
+<h2><span class="n">03</span>一日运行轴（含你现有的固定作业）</h2>
+<div class="lead">框架不新造节奏，先把已经在跑的事放上去，再补缺的。</div>
+
+<div class="tl">
+
+  <div class="tl-row">
+    <div class="tl-time">07:30</div>
+    <div class="tl-body">
+      <div class="h">晨间一屏（新增）</div>
+      <div class="p">结论先行 → 红线区 → 今日三件 → 待你决定 → 观察中。一屏内看完，不滚动</div>
+    </div>
+  </div>
+
+  <div class="tl-row">
+    <div class="tl-time">08:00–10:30</div>
+    <div class="tl-body">
+      <div class="h">高精力段：硬任务</div>
+      <div class="p">上新、补货核对、Listing 优化 —— 需判断力、不可外包的部分集中放这里</div>
+    </div>
+  </div>
+
+  <div class="tl-row">
+    <div class="tl-time">10:30</div>
+    <div class="tl-body">
+      <div class="h">纳物抓取（已有固定作业）</div>
+      <div class="p">抓取 inventory 与 SKU —— 保持现有链路，不改动</div>
+    </div>
+  </div>
+
+  <div class="tl-row">
+    <div class="tl-time">11:00</div>
+    <div class="tl-body">
+      <div class="h">推送 5 个 xlsx 至采购助手（已有固定作业）</div>
+      <div class="p">应挂 freshness gate；过期则推「数据过期」而非推数字</div>
+    </div>
+  </div>
+
+  <div class="tl-row">
+    <div class="tl-time">13:00–15:00</div>
+    <div class="tl-body">
+      <div class="h">中段：B 档动作批量执行</div>
+      <div class="p">改标题/主图、阈值内调价、报名活动 —— 通知后执行，可回滚</div>
+    </div>
+  </div>
+
+  <div class="tl-row block">
+    <div class="tl-time">15:00–17:00</div>
+    <div class="tl-body">
+      <div class="h">日切禁区：不判断、不出结论</div>
+      <div class="p">平台日切归零窗口。数据在重算，任何"今天如何"的结论都不可信 —— 此窗口只做无判断的机械事务</div>
+    </div>
+  </div>
+
+  <div class="tl-row">
+    <div class="tl-time">17:00–19:00</div>
+    <div class="tl-body">
+      <div class="h">日终核对</div>
+      <div class="p">区分完成 / 受阻 / 待人 / 待数据 / 结果未知。未完成事项不消失，沿用原 ID 与截止</div>
+    </div>
+  </div>
+
+  <div class="tl-row">
+    <div class="tl-time">21:00</div>
+    <div class="tl-body">
+      <div class="h">记录与明日草案</div>
+      <div class="p">更新假设库、登记口径债、生成明日三件草案（次日晨间由你确认）</div>
+    </div>
+  </div>
+
+</div>
+
+<h2><span class="n">04</span>一周运行节拍</h2>
+<div class="lead">周的锚点只有两个：周一锁主线、周五判试验。其余是执行。</div>
+
+<div class="week">
+  <div class="day key">
+    <div class="dn">周一</div>
+    <div class="dt">主线锁定</div>
+    <div class="dd">上周 WBR 复盘 → 本周只选 1 个主攻方向。选不出就重拆目标</div>
+  </div>
+  <div class="day">
+    <div class="dn">周二</div>
+    <div class="dt">执行</div>
+    <div class="dd">硬任务推进，不做计划</div>
+  </div>
+  <div class="day">
+    <div class="dn">周三</div>
+    <div class="dt">执行</div>
+    <div class="dd">中段检查一次：三件是否还在轨</div>
+  </div>
+  <div class="day">
+    <div class="dn">周四</div>
+    <div class="dt">补货决策</div>
+    <div class="dd">可售天数与在途核对，出补货建议（转 C 档审批）</div>
+  </div>
+  <div class="day key">
+    <div class="dn">周五</div>
+    <div class="dt">试验判定</div>
+    <div class="dd">观察窗到期的假设出结论：成立 / 推翻 / 证据不足。不拖</div>
+  </div>
+  <div class="day">
+    <div class="dn">周六</div>
+    <div class="dt">内容批量</div>
+    <div class="dd">Listing 素材准备，可外包部分交出去</div>
+  </div>
+  <div class="day rest">
+    <div class="dn">周日</div>
+    <div class="dt">休</div>
+    <div class="dd">系统只读运行，只报异常</div>
+  </div>
+</div>
+
+<h2><span class="n">05</span>运行态：每个环节现在真的跑到哪一级</h2>
+<div class="lead">这一节是"落地"的核心。标红的是纸做的，别当成已建成。</div>
+
+<div class="tbox">
+<table>
+  <tr><th style="width:19%">环节</th><th style="width:31%">设计上应该怎样</th><th style="width:38%">当前真实状态</th><th style="width:12%">级别</th></tr>
+
+  <tr>
+    <td>采集（内部）</td>
+    <td class="d">多源汇聚，带来源与时间</td>
+    <td>collector-bridge / dianxiaomi / ecom-connector 已在</td>
+    <td><span class="lvl L1">L1</span></td>
+  </tr>
+  <tr>
+    <td>采集（外部信号）</td>
+    <td class="d">平台规则、活动日历、竞品价格</td>
+    <td style="color:var(--red)">未建立。规则突变无任何感知</td>
+    <td><span class="lvl L0">L0</span></td>
+  </tr>
+  <tr>
+    <td>门 1 口径</td>
+    <td class="d">运行时守门，forbidden 字段直接拒算</td>
+    <td style="color:var(--red)">metrics-schema.json 已写全，但全仓代码引用数 = 0</td>
+    <td><span class="lvl L0">L0</span></td>
+  </tr>
+  <tr>
+    <td>诊断（五层）</td>
+    <td class="d">利润→流量→转化→履约→现金流</td>
+    <td style="color:var(--red)">无实现。operation-service 只有动作库/规则库/分层</td>
+    <td><span class="lvl L0">L0</span></td>
+  </tr>
+  <tr>
+    <td>取舍（对北极星）</td>
+    <td class="d">与月净利对比决定做/不做</td>
+    <td style="color:var(--red)">阻塞：净利本身算不准（net 不含采购/头程/包装）</td>
+    <td><span class="lvl L0">L0</span></td>
+  </tr>
+  <tr>
+    <td>门 2 容量</td>
+    <td class="d">双栏工时 + 现金 + 带宽，不过则说排不下</td>
+    <td style="color:var(--red)">无。现在排程不受容量约束</td>
+    <td><span class="lvl L0">L0</span></td>
+  </tr>
+  <tr>
+    <td>排程</td>
+    <td class="d">≤3 件，每件带验收证据</td>
+    <td>run-state.json 只管单次上架运行，无跨域任务板</td>
+    <td><span class="lvl L1">L1</span></td>
+  </tr>
+  <tr>
+    <td>门 3 授权</td>
+    <td class="d">A/B/C × 角色 × 店型</td>
+    <td>secretary-model 已有"风险只升不降"正确原则；缺 A/B/C 与店型维度</td>
+    <td><span class="lvl L1">L1</span></td>
+  </tr>
+  <tr>
+    <td>执行</td>
+    <td class="d">确定性代码优先，可回滚</td>
+    <td>254 条路由；上新链路最完整，采购/库存/财务/售后 4 域无服务</td>
+    <td><span class="lvl L3">L3</span></td>
+  </tr>
+  <tr>
+    <td>回读核验</td>
+    <td class="d">结果未知先查，不重跑</td>
+    <td>dianxiaomi-verify / listing-contract 有雏形，未覆盖全动作</td>
+    <td><span class="lvl L1">L1</span></td>
+  </tr>
+  <tr>
+    <td>记录（决策/假设）</td>
+    <td class="d">可复算、可检索</td>
+    <td style="color:var(--red)">完全空白。无决策记录、无假设库、无复盘</td>
+    <td><span class="lvl L0">L0</span></td>
+  </tr>
+  <tr>
+    <td>学习（越用越准）</td>
+    <td class="d">假设库驱动</td>
+    <td style="color:var(--red)">空白。且模型不会因此变强，必须靠库</td>
+    <td><span class="lvl L0">L0</span></td>
+  </tr>
+</table>
+</div>
+
+<h2><span class="n">06</span>跑不动了怎么办：异常与降级</h2>
+<div class="grid g3">
+  <div class="card">
+    <div class="t">数据过期 / 口径冲突</div>
+    <div class="d">停止使用该数字做判断，界面标灰。建立补证任务，其他任务继续</div>
+  </div>
+  <div class="card">
+    <div class="t">平台规则突变</div>
+    <div class="d">停止受影响且未提交的动作 → 重评 → 保留旧审批处置。<b>不许按旧规则硬跑</b></div>
+  </div>
+  <div class="card">
+    <div class="t">人不可用 / 断网 / 浏览器挂</div>
+    <div class="d">系统只读运行，保留任务现场。恢复后先回读，不重跑有副作用流程</div>
+  </div>
+  <div class="card">
+    <div class="t">提交超时 / 结果未知</div>
+    <div class="d">先回读核实对象与状态。<b style="color:var(--red)">没有确认前不许重建、不许重试</b></div>
+  </div>
+  <div class="card">
+    <div class="t">容量不足</div>
+    <div class="d">显式输出"排不下" + 被推迟清单。禁止排出看起来能完成的假计划</div>
+  </div>
+  <div class="card">
+    <div class="t">多人意见冲突</div>
+    <div class="d">标记「待仲裁」，挂起不执行。Agent 不得自行合并、取平均或替任何一方推定</div>
+  </div>
+</div>
+
+<h2><span class="n">07</span>启动顺序：第一周真正要跑起来什么</h2>
+<div class="lead">不是七步全建，是先让回路有一个能跑通的窄环。</div>
+
+<div class="plan">
+  <div class="step">
+    <div class="sd">Day 1–3</div>
+    <div><div class="st">打通净利口径 + 让口径门生效</div><div class="ss">把 metrics-schema 变成运行时守门；补足采购/头程/包装成本项，做出可复算的单品净利。目标：过复算测试</div></div>
+  </div>
+  <div class="step">
+    <div class="sd">Day 4</div>
+    <div><div class="st">用真实数据跑一次复算测试</div><div class="ss">随机挑 10 个数字，从原始数据独立复算。全对才进下一步；有一个不对就停下来修口径</div></div>
+  </div>
+  <div class="step">
+    <div class="sd">Day 5–6</div>
+    <div><div class="st">建决策记录与假设记录的最小写入</div><div class="ss">只要字段能写、能按对象检索即可。先让它记得住，再让它想得对</div></div>
+  </div>
+  <div class="step">
+    <div class="sd">Day 7</div>
+    <div><div class="st">晨间一屏（只读版）</div><div class="ss">结论/红线/三件/待决/观察中。此时不含任何 Agent 判断，数据全部来自已过门的口径</div></div>
+  </div>
+  <div class="step no">
+    <div class="sd">本周不做</div>
+    <div><div class="st">CEO 判断逻辑 · 容量门自动化 · 3 个 Agent · 外部信号采集</div><div class="ss">这些都要建在"口径可信 + 有记录"之上。顺序反了，就是在假数据上盖判断层</div></div>
+  </div>
+</div>
+
+<div class="note">
+  <b>文档属性：</b>落地运行框架，依据《经营准则卡 v1.0》已裁决的 4 项（净利为纲 · 多角色决策 · 混合姿态 · 复算第一门）。<b>待审定，不构成开工授权。</b><br>
+  <b>运行态数据来源：</b>2026-11-04 对 <code>dist/src</code> 与 <code>config/</code> 的静态检索，服务在跑（PID 18656 · :3000）。<b>非运行时验证</b>，级别判断为推断，需 Lance 确认。<br>
+  <b>已知不一致：</b>CEO 设计稿仍写「唯一决策者」，与本图「多角色」冲突，修订待 Lance 确认。引用时以准则卡 §附 为准。<br>
+  <b>未解决的三个空白：</b>Lance 可用工时与现金上限 · 测试店单次投放上限 · 建设周期尺度。
+</div>
+
+</div>
+</body>
+</html>

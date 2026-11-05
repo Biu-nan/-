@@ -1,0 +1,21 @@
+ M config/metrics-schema.json
+ M nawu-fetch/lib/dxm-c6r.cjs
+ M nawu-fetch/lib/nawu-inventory.cjs
+ M public/draft-executor-panel.js
+?? .chrome-cdp-9223/
+?? "CEO agent/"
+?? _shortlist_result.json
+?? _verify/
+?? config/market-scan.json
+?? docs/IXSPY_MCP_INTEGRATION_ASSESSMENT_2026-11-05.md
+?? docs/IXSPY_P0_VALIDATION_2026-11-05.md
+?? docs/IXSPY_P1_CLOSEOUT_2026-11-05.md
+?? docs/OPC_OS_ARCHITECTURE_v0.3.html
+?? docs/OPC_OS_BUILD_STANDARD_v1.0.md
+?? docs/OPC_OS_OPERATING_CHARTER_v1.0.md
+?? docs/OPC_OS_RUNTIME_FRAMEWORK_v1.0.html
+?? docs/phase1/POST_COMMIT_AUDIT.md
+?? docs/phase2b-real-preflight/
+?? docs/phase2d/
+?? docs/superpowers/specs/2026-11-03-ceo-agent-authority-design.md
+?? nawu-fetch/lib/nawu-inventory.cjs.bak-20261101

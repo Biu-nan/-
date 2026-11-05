@@ -1,0 +1,11 @@
+{
+  "label": "legacy-boundary-red",
+  "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+  "command": [
+    "node",
+    "--test",
+    "dist/test/ceo-legacy-boundary.test.js"
+  ],
+  "exitCode": 1,
+  "seconds": 0.27
+}

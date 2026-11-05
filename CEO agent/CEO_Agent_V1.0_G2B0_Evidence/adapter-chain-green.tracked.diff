@@ -1,0 +1,738 @@
+diff --git a/config/ceo-g2b0-package.v1.json b/config/ceo-g2b0-package.v1.json
+new file mode 100644
+index 0000000..fa286a1
+--- /dev/null
++++ b/config/ceo-g2b0-package.v1.json
+@@ -0,0 +1,35 @@
++{
++  "schema": "ceo-g2b0-package/v1",
++  "runtimeVersion": "ceo-g2b0-fixture/v1",
++  "files": [
++    "dist/src/ceo-vnext-common.js",
++    "dist/src/ceo-vnext-context.js",
++    "dist/src/ceo-vnext-analysis.js",
++    "dist/src/ceo-payment-domain.js",
++    "dist/src/ceo-payment-loop.js",
++    "dist/src/ceo-readiness-versions.js",
++    "dist/src/ceo-report-archive.js",
++    "dist/src/ceo-shadow-trace.js",
++    "dist/src/ceo-task-read-model.js",
++    "dist/src/ceo-workflow-catalog.js",
++    "dist/src/ceo-governance.js",
++    "dist/src/ceo-main-boundary.js",
++    "dist/src/ceo-runtime-manifest.js",
++    "dist/src/ceo-runtime-host.js",
++    "config/ceo-g2b0-package.v1.json",
++    "config/ceo-capabilities.v1.json",
++    "config/ceo-data-sources.v1.json",
++    "config/ceo-paid-orders.synthetic.v1.json",
++    "config/ceo-knowledge.v1.json",
++    "config/ceo-workflow-capabilities.v1.json",
++    "prompts/ceo-vnext-core.md",
++    "dist/test/fixtures/ceo-g2a/metrics-schema.1.0.0.json",
++    "package.json",
++    "package-lock.json",
++    "dist/src/ceo-operating-context.js",
++    "schemas/ceo-shadow-report.schema.json",
++    "schemas/ceo-vnext-context.schema.json",
++    "schemas/ceo-shadow-event.schema.json",
++    "config/ceo-g2b0-connection-contract.v1.json"
++  ]
++}
+diff --git a/config/ceo-paid-orders.synthetic.v1.json b/config/ceo-paid-orders.synthetic.v1.json
+new file mode 100644
+index 0000000..2899d91
+--- /dev/null
++++ b/config/ceo-paid-orders.synthetic.v1.json
+@@ -0,0 +1 @@
++{"schema":"ceo-data-source-policy/v1","version":"paid-orders.synthetic.v1","mode":"SYNTHETIC_ONLY","storeId":"400370","approvedReviewers":["fixture-data-owner"],"sourceIds":["fixture-paid-export"],"maxCaptureAgeMs":86400000,"eventBasisByCaliber":{"orders.payment.count":["PAID_EVENT_GROSS"],"orders.payment.units":["PAID_EVENT_GROSS"],"orders.payment.gross":["PAID_EVENT_GROSS"]}}
+diff --git a/dist/src/ceo-payment-domain.js b/dist/src/ceo-payment-domain.js
+new file mode 100644
+index 0000000..34ca8de
+--- /dev/null
++++ b/dist/src/ceo-payment-domain.js
+@@ -0,0 +1,50 @@
++import {readFileSync} from 'node:fs';
++import {buildCeoVnextContext} from './ceo-vnext-context.js';
++import {sha,contentHash,freeze,fail,exact} from './ceo-vnext-common.js';
++
++const timestamp=s=>{
++ const m=typeof s==='string'&&/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,3})?(Z|[+-](\d{2}):(\d{2}))$/.exec(s);
++ return !!m&&Number.isFinite(Date.parse(m[1]))&&new Date(m[1]).toISOString().slice(0,10)===m[1]&&+m[2]<24&&+m[3]<60&&+m[4]<60&&(m[5]==='Z'||+m[6]<=14&&+m[7]<60&&(+m[6]<14||+m[7]===0))&&Number.isFinite(Date.parse(s));
++};
++
++const baseBytes=readFileSync(new URL('../test/fixtures/ceo-g2a/metrics-schema.1.0.0.json',import.meta.url));
++const sourcePolicy=JSON.parse(readFileSync(new URL('../../config/ceo-paid-orders.synthetic.v1.json',import.meta.url),'utf8'));
++const dictionary=JSON.parse(baseBytes);dictionary.version+=' + paid-orders.synthetic.v1';
++for(const [key,label,unit]of [['orders.payment.count','合成支付订单数','单'],['orders.payment.units','合成支付件数','件'],['orders.payment.gross','合成支付原始金额（非净收入）','CNY']])dictionary.calibers[key]={label,unit,source:'fixture-paid-export',definition:'Only synthetic own-store paid events; not market data, shipped sales, or net income.'};
++export const paidOrderDictionaryBytes=JSON.stringify(dictionary);
++export const paidOrderSourcePolicy=freeze(sourcePolicy);
++const periodOK=p=>exact(p,['start','end','timeZone'])&&[p.start,p.end].every(s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&Number.isFinite(Date.parse(s))&&new Date(s).toISOString().slice(0,10)===s)&&p.start<=p.end&&(()=>{try{new Intl.DateTimeFormat('en',{timeZone:p.timeZone});return typeof p.timeZone==='string'&&!!p.timeZone;}catch{return false;}})();
++/** Synthetic input only. A real export is deliberately not loadable until its contract is approved. */
++export function prepareCeoPaymentDomain({snapshot,approval=null,now=new Date()}={}){
++ if(!exact(snapshot,['schema','mode','revision','storeId','sourceKind','period','exportedAt','coverage','currency','rows'])||snapshot.schema!=='ceo-paid-order-snapshot/v1'||snapshot.mode!=='SYNTHETIC'||snapshot.storeId!=='400370'||snapshot.sourceKind!=='OWN_STORE_ORDER_EXPORT'||!Number.isSafeInteger(snapshot.revision)||snapshot.revision<1||!periodOK(snapshot.period)||!Array.isArray(snapshot.rows)||snapshot.rows.length>10000||!(now instanceof Date)||!Number.isFinite(+now))fail('INVALID_PAYMENT_SNAPSHOT');
++ const content=JSON.stringify(snapshot);if(Buffer.byteLength(content)>1048576)fail('PAYMENT_SOURCE_LIMIT');
++ const approved=approval&&exact(approval,['scope','storeId','snapshotHash','periodHash','reviewerId','reviewedAt'])&&approval.scope==='SYNTHETIC'&&approval.storeId===snapshot.storeId&&approval.snapshotHash===sha(content)&&approval.periodHash===contentHash(snapshot.period)&&sourcePolicy.approvedReviewers.includes(approval.reviewerId)&&timestamp(approval.reviewedAt)&&timestamp(snapshot.exportedAt)&&Date.parse(approval.reviewedAt)>=Date.parse(snapshot.exportedAt)&&Date.parse(approval.reviewedAt)<=+now;
++ const domainGaps=['REAL_STORE_BINDING_UNVERIFIED','REAL_SOURCE_AND_REVIEWER_UNVERIFIED','COMPARISON_PERIOD_MISSING','REFUNDS_AND_NET_INCOME_UNVERIFIED'];
++ if(!approved)domainGaps.push('SOURCE_APPROVAL_UNVERIFIED');if(snapshot.coverage!=='COMPLETE')domainGaps.push('EXPORT_COVERAGE_UNVERIFIED');
++ let conflict=false,unknown=false,unitsKnown=true,amountKnown=snapshot.currency==='CNY',orders=0,units=0,cents=0;
++ const seen=new Map(),formatter=new Intl.DateTimeFormat('en-CA',{timeZone:snapshot.period.timeZone,year:'numeric',month:'2-digit',day:'2-digit'});
++ for(const row of snapshot.rows){
++  if(!exact(row,['orderRef','storeId','orderStatus','itemCount','payment'])||typeof row.orderRef!=='string'||!/^syn-[A-Za-z0-9._:-]{1,100}$/.test(row.orderRef)||!exact(row.payment,['status','paidAt','amount','currency']))fail('INVALID_ORDER_ROW');
++  const digest=contentHash(row);if(seen.has(row.orderRef)){if(seen.get(row.orderRef)!==digest)conflict=true;continue;}seen.set(row.orderRef,digest);
++  if(row.storeId!==snapshot.storeId){conflict=true;continue;}
++  if(!['OPEN','FULFILLED','CANCELLED','REFUNDED','PARTIALLY_REFUNDED'].includes(row.orderStatus)){unknown=true;continue;}
++  if(!['PAID','UNPAID','UNKNOWN'].includes(row.payment.status)||row.payment.status==='UNKNOWN'){unknown=true;continue;}
++  if(row.payment.status==='UNPAID'){if(row.payment.paidAt!==null)conflict=true;continue;}
++  if(!timestamp(row.payment.paidAt)){unknown=true;continue;}
++  const paidAt=Date.parse(row.payment.paidAt);if(!timestamp(snapshot.exportedAt)||paidAt>Date.parse(snapshot.exportedAt)){unknown=true;continue;}
++  const day=formatter.format(new Date(paidAt));if(day<snapshot.period.start||day>snapshot.period.end)continue;
++  orders++;if(Number.isSafeInteger(row.itemCount)&&row.itemCount>=0)units+=row.itemCount;else unitsKnown=false;
++  const amount=row.payment.amount,scaled=typeof amount==='number'?amount*100:NaN;
++  if(row.payment.currency!=='CNY'||!Number.isFinite(scaled)||scaled<0||Math.abs(scaled-Math.round(scaled))>1e-7||!Number.isSafeInteger(Math.round(scaled)))amountKnown=false;else cents+=Math.round(scaled);
++ }
++ if(!Number.isSafeInteger(units)||!Number.isSafeInteger(cents)){unknown=true;domainGaps.push('NUMERIC_RANGE_UNVERIFIED');}
++ if(conflict)domainGaps.push('ORDER_SOURCE_CONFLICT');if(unknown)domainGaps.push('PAYMENT_STATUS_OR_TIME_UNVERIFIED');if(!unitsKnown)domainGaps.push('PAID_UNITS_MISSING');if(!amountKnown)domainGaps.push('CURRENCY_OR_AMOUNT_UNVERIFIED');
++ const usable=!unknown&&snapshot.coverage==='COMPLETE';const values=[usable?orders:null,usable&&unitsKnown?units:null,usable&&amountKnown?cents/100:null];
++ const facts=['orders.payment.count','orders.payment.units','orders.payment.gross'].map((caliber,i)=>({factId:'payment-'+i,version:snapshot.revision,storeId:conflict?'UNVERIFIED':snapshot.storeId,caliber,value:values[i],unit:['单','件','CNY'][i],...(i===2?{currency:'CNY'}:{}),period:structuredClone(snapshot.period),eventBasis:'PAID_EVENT_GROSS',capturedAt:snapshot.exportedAt,validUntil:timestamp(snapshot.exportedAt)?new Date(Date.parse(snapshot.exportedAt)+86400000).toISOString():null,coverage:snapshot.coverage,source:{path:'paid-orders.synthetic.json',sourceId:'fixture-paid-export',sha256:sha(content)}}));
++ const input={storeId:snapshot.storeId,dictionaryBytes:paidOrderDictionaryBytes,sourcePolicy:structuredClone(sourcePolicy),facts,evidence:[{path:'paid-orders.synthetic.json',content}],approvals:approved?facts.map(f=>({factId:f.factId,version:f.version,factHash:sha(JSON.stringify(f)),reviewerId:approval.reviewerId,reviewedAt:approval.reviewedAt})):[],period:structuredClone(snapshot.period),additionalGaps:domainGaps,now};
++ const fields=['scope','storeId','snapshotHash','periodHash','reviewerId','reviewedAt'];
++ const sourceApproval=approval&&typeof approval==='object'?Object.fromEntries(fields.filter(k=>Object.hasOwn(approval,k)).map(k=>[k,approval[k]])):null;
++ input.evidence.push({path:'approval.synthetic.json',content:JSON.stringify({scope:'SYNTHETIC',accepted:!!approved,sourceApproval,factApprovals:input.approvals,sourcePolicyHash:contentHash(sourcePolicy)})});
++ const context=buildCeoVnextContext(input);
++ return freeze({context,input,domainGaps,verificationScope:'SYNTHETIC',baseDictionaryHash:sha(baseBytes)});
++}
+diff --git a/dist/src/ceo-payment-loop.js b/dist/src/ceo-payment-loop.js
+new file mode 100644
+index 0000000..68a054f
+--- /dev/null
++++ b/dist/src/ceo-payment-loop.js
+@@ -0,0 +1,69 @@
++import http from 'node:http';
++import express from 'express';
++import {requireG1FixtureRoot} from './ceo-main-boundary.js';
++import {prepareCeoPaymentDomain} from './ceo-payment-domain.js';
++import {buildCeoShadowReport} from './ceo-vnext-analysis.js';
++import {contentHash,fail,exact,safeText} from './ceo-vnext-common.js';
++export const CEO_PAYMENT_QUESTION='分析纳物一店最近的经营情况，告诉我应该优先处理什么。';
++const requestOK=x=>typeof x==='string'&&/^[A-Za-z0-9._:-]{1,90}$/.test(x);
++export function createCeoPaymentLoop({fixtureRoot,governance,archive,trace,resolveVersions,loadPaymentInput,readTaskSnapshot,readWorkflowSnapshot,now=()=>new Date()}={}){
++ requireG1FixtureRoot({fixtureRoot,dataRoot:fixtureRoot});
++ if(!governance||![archive?.prepare,archive?.recover,archive?.confirmTrace,archive?.read,trace?.append,trace?.read,resolveVersions,loadPaymentInput,readTaskSnapshot,readWorkflowSnapshot,now].every(f=>typeof f==='function'))fail('READINESS_DEPENDENCY_REQUIRED');
++ const pending=new Map(),correctionPending=new Map();
++ function authorize(principal,operation){return governance.authorize({principal,operation,storeId:'400370'});}
++ function result(saved,replayed=false){if(saved.status!=='COMPLETE')fail('REPORT_NOT_COMPLETE');return{schema:'ceo-payment-readiness-result/v1',status:'COMPLETE',verificationScope:'SYNTHETIC',question:CEO_PAYMENT_QUESTION,reportId:saved.reportId,context:saved.context,report:saved.report,versions:saved.versions,traceRecordHash:saved.traceRecordHash,traceEventId:saved.traceReceipt.traceEventId,domainGaps:saved.report.dataGaps.filter(g=>g.gapId).map(g=>g.gapId),replayed,formalTaskWrites:0,workflowExecutions:0};}
++ async function complete(principal,saved){
++  if(saved.status==='COMPLETE')return saved;
++  const event={type:'ANALYSIS',storeId:'400370',eventId:'archive-'+saved.reportId.slice(7),analysisId:saved.report.analysisId,contextId:saved.context.contextId,snapshotId:saved.taskSnapshot.snapshotId,sourceHash:contentHash(saved.context.sourceRefs),policyVersion:governance.policyVersion,proposalRef:saved.report.planCandidates[0]?.proposalRef??null,reportId:saved.reportId,decisionSummary:JSON.stringify({reportId:saved.reportId,priorities:saved.report.priorities.map(p=>p.title.slice(0,30)),scope:'SYNTHETIC'})};
++  const record=await trace.append({principal,event});return archive.confirmTrace({principal,reportId:saved.reportId,traceRecord:record});
++ }
++ async function recover(principal,requestId){try{return await archive.recover({principal,requestId,storeId:'400370'});}catch(e){if(e.code==='ARCHIVE_NOT_FOUND')return null;throw e;}}
++ async function assemble(requestId,correctsReportId=null){
++  const input=await loadPaymentInput({correctsReportId}),domain=prepareCeoPaymentDomain({...input,now:now()});
++  const c=domain.context,verified=c.facts.filter(f=>f.quality==='VERIFIED');
++  const priorities=[];
++  if(verified.length!==3)priorities.push({title:'先补齐支付数据证据',kind:'INVESTIGATE',factIds:[],rationale:'支付来源、覆盖或核准存在缺口，不能把未知记为零。',acceptance:'取得完整闭期去标识订单支付快照，并由核准人确认店铺、期间、时区、状态和币种。'});
++  priorities.push({title:'核对支付后履约与退款',kind:'INVESTIGATE',factIds:verified.map(f=>f.factId),rationale:verified.length?'已有同期间原始支付事实，尚缺履约和退款结果，不能等同净收入。':'目前尚不能确认支付规模，应先核对状态和退款定义。',acceptance:'补充同店同期间的履约及退款对账，列出异常订单数量和原因；不触发任何订单操作。'});
++  priorities.push({title:'补齐同口径对比期再判断趋势',kind:'INVESTIGATE',factIds:verified.map(f=>f.factId),rationale:'只有一个期间，不能把规模变化归因于流量、价格或转化。',acceptance:'提供相邻等长闭期且口径、时区、币种一致的核准快照，输出可复核差异。'});
++  const draft={claims:[...c.facts.map((f,i)=>({claimId:'payment-fact-'+i,kind:'FACT',text:'host generated payment assertion',factIds:[f.factId],metric:'sales'})),{claimId:'diagnosis-scope',kind:'HYPOTHESIS',text:'支付后履约、退款或转化可能影响表现；当前证据不能确认具体原因。',factIds:[],metric:'general'}],priorities:priorities.slice(0,3),planCandidates:[]};
++  const taskSnapshot=await readTaskSnapshot(),workflowState=await readWorkflowSnapshot();
++  const report=buildCeoShadowReport({context:c,taskSnapshot,workflowState,draft,requestRef:requestId,now:now()});
++  return{context:c,report,evidence:domain.input.evidence,versions:resolveVersions(),taskSnapshot,workflowState,correctsReportId};
++ }
++ async function analyze(args={}){
++  if(!exact(args,['principal','requestId','question'])||!requestOK(args.requestId)||args.question!==CEO_PAYMENT_QUESTION)fail('INVALID_READINESS_REQUEST');authorize(args.principal,'analyze');
++  if(pending.has(args.requestId))return pending.get(args.requestId);
++  if(pending.size>=100)fail('READINESS_BUSY');
++  const promise=(async()=>{const old=await recover(args.principal,args.requestId);if(old)return result(await complete(args.principal,old),true);const bundle=await assemble(args.requestId);let saved;try{saved=await archive.prepare({principal:args.principal,requestId:args.requestId,...bundle});}catch(e){if(e.code!=='ARCHIVE_CONFLICT')throw e;saved=await recover(args.principal,args.requestId);if(!saved)throw e;}return result(await complete(args.principal,saved));})();pending.set(args.requestId,promise);try{return await promise;}finally{pending.delete(args.requestId);}
++ }
++ async function correctOnce(args={}){
++  if(!exact(args,['humanPrincipal','analysisPrincipal','requestId','correctsReportId','note','question'])||!requestOK(args.requestId)||!safeText(args.note)||args.note.length>1000||args.question!==CEO_PAYMENT_QUESTION)fail('INVALID_CORRECTION_REQUEST');
++  authorize(args.humanPrincipal,'human.review');authorize(args.analysisPrincipal,'analyze');
++  const recovered=await recover(args.humanPrincipal,args.requestId);if(recovered){const feedback=(await trace.read({principal:args.humanPrincipal,storeId:'400370'})).find(r=>r.event.feedbackId==='feedback-'+args.requestId);if(recovered.correctsReportId!==args.correctsReportId||!feedback||feedback.event.note!==args.note||feedback.actorId!==authorize(args.humanPrincipal,'human.review').actorId)fail('CORRECTION_CONFLICT');return result(await complete(args.analysisPrincipal,recovered),true);}
++  const old=await archive.read({principal:args.humanPrincipal,reportId:args.correctsReportId});const bundle=await assemble(args.requestId,args.correctsReportId);if(bundle.context.contextId===old.contextId)fail('CORRECTION_SOURCE_REVISION_REQUIRED');
++  const records=await trace.read({principal:args.humanPrincipal,storeId:'400370'}),previous=records.find(r=>r.recordHash===old.traceRecordHash);if(!previous)fail('ARCHIVE_TRACE_MISMATCH');
++  const {decisionSummary:oldSummary,...previousEvent}=previous.event;
++  await trace.append({principal:args.humanPrincipal,event:{...previousEvent,type:'HUMAN_CORRECTION',eventId:'human-'+args.requestId,feedbackId:'feedback-'+args.requestId,note:args.note,correctsEventId:previous.event.eventId}});
++  const prepared=await archive.prepare({principal:args.humanPrincipal,requestId:args.requestId,...bundle});return result(await complete(args.analysisPrincipal,prepared));
++ }
++ async function correct(args={}){
++  if(!exact(args,['humanPrincipal','analysisPrincipal','requestId','correctsReportId','note','question'])||!requestOK(args.requestId)||!safeText(args.note)||args.note.length>1000||args.question!==CEO_PAYMENT_QUESTION)fail('INVALID_CORRECTION_REQUEST');
++  const actor=authorize(args.humanPrincipal,'human.review');authorize(args.analysisPrincipal,'analyze');
++  const signature=contentHash({actor:actor.actorId,parent:args.correctsReportId,note:args.note,question:args.question});const old=correctionPending.get(args.requestId);if(old){if(old.signature!==signature)fail('CORRECTION_CONFLICT');return old.promise;}if(correctionPending.size>=100)fail('READINESS_BUSY');
++  const promise=correctOnce(args);correctionPending.set(args.requestId,{signature,promise});try{return await promise;}finally{correctionPending.delete(args.requestId);}
++ }
++ return Object.freeze({analyze,correct});
++}
++
++/** No WorkBuddy login/session or production credentials are imported; this is an explicit host API. */
++export async function startCeoPaymentReadinessService({fixtureRoot,governance,loop,archive,analysisPrincipal,port=0}={}){
++ if(port!==0)fail('ISOLATED_PORT_REQUIRED');requireG1FixtureRoot({fixtureRoot,dataRoot:fixtureRoot});governance.authorize({principal:analysisPrincipal,operation:'analyze',storeId:'400370'});
++ const app=express();app.disable('x-powered-by');app.use(express.json({limit:16384}));app.use((_req,res,next)=>{res.setHeader('Cache-Control','no-store');next();});
++ app.use((req,res,next)=>{try{req.principal=governance.authenticateToken(/^Bearer ([^\s]+)$/.exec(req.headers.authorization??'')?.[1]);next();}catch{res.status(401).json({error:'UNAUTHORIZED'});}});
++ const wrap=fn=>async(req,res)=>{try{res.json(await fn(req));}catch(e){const code=typeof e.code==='string'?e.code:'READINESS_UNAVAILABLE';res.status(code==='FORBIDDEN'?403:/^INVALID|REQUIRED/.test(code)?400:/CONFLICT|MISMATCH/.test(code)?409:503).json({error:code});}};
++ app.post('/api/ceo/payment-readiness',wrap(req=>{if(!exact(req.body,['requestId','question']))fail('INVALID_READINESS_REQUEST');return loop.analyze({principal:req.principal,...req.body});}));
++ app.post('/api/ceo/payment-corrections',wrap(req=>{if(!exact(req.body,['requestId','correctsReportId','note','question']))fail('INVALID_CORRECTION_REQUEST');return loop.correct({humanPrincipal:req.principal,analysisPrincipal,...req.body});}));
++ app.get('/api/ceo/payment-reports/:reportId',wrap(req=>archive.read({principal:req.principal,reportId:req.params.reportId})));
++ app.use((_req,res)=>res.status(403).json({error:'FORBIDDEN'}));app.use((_err,_req,res,_next)=>res.status(400).json({error:'INVALID_INPUT'}));
++ const server=http.createServer(app);server.requestTimeout=10000;server.headersTimeout=10000;await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});return Object.freeze({baseUrl:'http://127.0.0.1:'+server.address().port,stop:()=>new Promise(resolve=>{server.close(resolve);server.closeAllConnections();})});
++}
+diff --git a/dist/src/ceo-readiness-versions.js b/dist/src/ceo-readiness-versions.js
+new file mode 100644
+index 0000000..a9f80af
+--- /dev/null
++++ b/dist/src/ceo-readiness-versions.js
+@@ -0,0 +1,17 @@
++import {readFileSync,realpathSync} from 'node:fs';
++import {fileURLToPath} from 'node:url';
++import path from 'node:path';
++import {sha,contentHash,freeze,fail} from './ceo-vnext-common.js';
++const codeRoot=fileURLToPath(new URL('../../',import.meta.url));
++/** Host constructs this resolver, never a client versions object. Disk drift invalidates new writes. */
++export function createCeoReadinessVersionResolver({dictionaryBytes,sourcePolicy}={}){
++ const dictionaryString=Buffer.from(dictionaryBytes??'').toString('utf8'),dict=JSON.parse(dictionaryString),policy=structuredClone(sourcePolicy);
++ function capture(){
++  const config=JSON.parse(readFileSync(path.join(codeRoot,'config/ceo-g2b0-package.v1.json'),'utf8'));
++  const files=config.files.map(relative=>{if(typeof relative!=='string'||relative.includes('..')||path.isAbsolute(relative)||relative.includes('\\'))fail('INVALID_PACKAGE_PATH');const full=realpathSync(path.join(codeRoot,relative));const rel=path.relative(realpathSync(codeRoot),full);if(rel.startsWith('..')||path.isAbsolute(rel))fail('INVALID_PACKAGE_PATH');return{path:relative,sha256:sha(readFileSync(full))};});
++  const pack=JSON.parse(readFileSync(path.join(codeRoot,'config/ceo-knowledge.v1.json'),'utf8')),prompt=readFileSync(path.join(codeRoot,'prompts/ceo-vnext-core.md'));
++  const data={runtimeVersion:config.runtimeVersion,runtimeHash:contentHash({files,nodeVersion:process.version}),nodeVersion:process.version,knowledgeVersion:pack.version,knowledgeHash:contentHash({pack,promptHash:sha(prompt)}),dictionaryVersion:dict.version,dictionaryHash:sha(dictionaryString),sourcePolicyVersion:policy.version,sourcePolicyHash:contentHash(policy)};
++  return freeze({...data,packageHash:contentHash(data)});
++ }
++ const bound=capture();return()=>{const fresh=capture();if(contentHash(fresh)!==contentHash(bound))fail('RUNTIME_BINDING_CHANGED');return bound;};
++}
+diff --git a/dist/src/ceo-report-archive.js b/dist/src/ceo-report-archive.js
+new file mode 100644
+index 0000000..9da7f5b
+--- /dev/null
++++ b/dist/src/ceo-report-archive.js
+@@ -0,0 +1,155 @@
++import {constants,realpathSync,lstatSync,readFileSync,openSync,fstatSync,writeSync,fsyncSync,closeSync,unlinkSync,renameSync,mkdirSync} from 'node:fs';
++import {resolve,relative,isAbsolute,sep,dirname} from 'node:path';
++import {randomUUID} from 'node:crypto';
++import {setTimeout as delay} from 'node:timers/promises';
++import {contentHash,sha,freeze,fail} from './ceo-vnext-common.js';
++
++// Host-only synthetic adapter. No HTTP request fields supply authority, versions or trace truth.
++const ID=/^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/;
++const HASH=/^[a-f0-9]{64}$/;
++const REPORT=/^report-[a-f0-9]{64}$/;
++const LIMIT=8*1024*1024;
++const SECRET=/(?:authorization\s*:|bearer\s+|(?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|password|passwd|credential|client[_ -]?secret|private[_ -]?key)\s*["']?\s*[:=]|-----BEGIN [A-Z ]*PRIVATE KEY|\bsk-[A-Za-z0-9_-]{16,})/i;
++const plain=v=>v!==null&&typeof v==='object'&&!Array.isArray(v)&&[Object.prototype,null].includes(Object.getPrototypeOf(v));
++const stat=p=>{try{return lstatSync(p);}catch(e){if(e.code==='ENOENT')return null;throw e;}};
++const confined=(r,p)=>{const rel=relative(r,p);return rel===''||!isAbsolute(rel)&&rel!=='..'&&!rel.startsWith('..'+sep);};
++const same=(a,b)=>a.dev===b.dev&&a.ino===b.ino;
++function jsonBytes(v){
++ const seen=new Set();let count=0;
++ function check(x,depth=0){
++  if(depth>50||++count>100000)fail('INVALID_ARCHIVE_INPUT');
++  if(x===null||typeof x==='boolean'||typeof x==='string')return;
++  if(typeof x==='number'){if(!Number.isFinite(x))fail('INVALID_ARCHIVE_INPUT');return;}
++  if(!Array.isArray(x)&&!plain(x)||seen.has(x))fail('INVALID_ARCHIVE_INPUT');
++  seen.add(x);for(const key of Reflect.ownKeys(x)){if(Array.isArray(x)&&key==='length')continue;const d=Object.getOwnPropertyDescriptor(x,key);if(typeof key!=='string'||!d.enumerable||!Object.hasOwn(d,'value'))fail('INVALID_ARCHIVE_INPUT');check(d.value,depth+1);}seen.delete(x);
++ }
++ check(v);const bytes=Buffer.from(JSON.stringify(v),'utf8');if(!bytes.length||bytes.length>LIMIT)fail('INVALID_ARCHIVE_INPUT');if(SECRET.test(bytes.toString('utf8')))fail('ARCHIVE_SECRET_REJECTED');return bytes;
++}
++
++export function createCeoReportArchive({fixtureRoot,directory,governance,resolveVersions,traceReader,now=()=>new Date()}={}){
++ if(typeof fixtureRoot!=='string'||typeof directory!=='string'||typeof governance?.authorize!=='function'||typeof resolveVersions!=='function'||typeof now!=='function')fail('ISOLATED_FIXTURE_REQUIRED');
++ let root;try{root=realpathSync(resolve(fixtureRoot));}catch{fail('ISOLATED_FIXTURE_REQUIRED');}
++ const target=resolve(directory),lock=resolve(root,'.ceo-report-archive-'+sha(target).slice(0,16)+'.lock');
++ function paths(){
++  try{
++   if(realpathSync(resolve(fixtureRoot))!==root||!confined(root,target)||target===root)fail('ISOLATED_FIXTURE_REQUIRED');
++   const marker=resolve(root,'.ceo-isolated-fixture.json'),m=lstatSync(marker);if(!m.isFile()||m.isSymbolicLink()||m.nlink!==1||JSON.parse(readFileSync(marker,'utf8')).synthetic!==true)fail('ISOLATED_FIXTURE_REQUIRED');
++   for(const p of [target,lock]){let cursor=p;while(cursor!==root){const s=stat(cursor);if(s&&(s.isSymbolicLink()||!confined(root,realpathSync(cursor))||s.isFile()&&s.nlink!==1))fail('ISOLATED_FIXTURE_REQUIRED');cursor=dirname(cursor);}}
++  }catch{fail('ISOLATED_FIXTURE_REQUIRED');}
++ }
++ paths();
++ function auth(principal,operation,storeId='400370'){
++  const g=governance.authorize({principal,operation,storeId});if(g?.allowed!==true||!ID.test(g.actorId??'')||g.storeId!==storeId)fail('FORBIDDEN');return g;
++ }
++ function writeAuth(principal,correction,storeId){return auth(principal,correction?'human.review':'analyze',storeId);}
++ function checkPath(p){paths();if(!confined(target,p))fail('ISOLATED_FIXTURE_REQUIRED');let cursor=p;while(cursor!==root){const s=stat(cursor);if(s&&(s.isSymbolicLink()||s.isFile()&&s.nlink!==1||!confined(root,realpathSync(cursor))))fail('ISOLATED_FIXTURE_REQUIRED');cursor=dirname(cursor);}}
++ function bytesAt(p,max=LIMIT){checkPath(p);const s=stat(p);if(!s)fail('ARCHIVE_NOT_FOUND');if(!s.isFile()||s.size===0||s.size>max)fail('ARCHIVE_CORRUPT');const fd=openSync(p,constants.O_RDONLY|(constants.O_NOFOLLOW??0));try{const opened=fstatSync(fd);if(!same(s,opened)||opened.nlink!==1||!opened.isFile())fail('ISOLATED_FIXTURE_REQUIRED');const b=readFileSync(fd);if(b.length!==s.size)fail('ARCHIVE_CORRUPT');return b;}finally{closeSync(fd);}}
++ function parsed(p,max=LIMIT){const b=bytesAt(p,max);try{const s=b.toString('utf8');if(!Buffer.from(s).equals(b)||!s.endsWith('\n'))fail('ARCHIVE_CORRUPT');return JSON.parse(s);}catch{fail('ARCHIVE_CORRUPT');}}
++ function durableExisting(p){const s=stat(p),fd=openSync(p,constants.O_WRONLY|(constants.O_NOFOLLOW??0));try{if(!same(s,fstatSync(fd)))fail('ISOLATED_FIXTURE_REQUIRED');fsyncSync(fd);}finally{closeSync(fd);}}
++ function syncDirectory(p){if(process.platform==='win32')return;const fd=openSync(p,constants.O_RDONLY);try{fsyncSync(fd);}finally{closeSync(fd);}}
++ function atomic(p,bytes){
++  checkPath(p);if(stat(p)){if(!bytesAt(p,LIMIT*3).equals(bytes))fail('ARCHIVE_CORRUPT');durableExisting(p);return;}
++  const temporary=resolve(dirname(p),'.pending-'+randomUUID());checkPath(temporary);const fd=openSync(temporary,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|(constants.O_NOFOLLOW??0),0o600);
++  try{let offset=0;while(offset<bytes.length){const n=writeSync(fd,bytes,offset,bytes.length-offset);if(n<=0)fail('ARCHIVE_WRITE_FAILED');offset+=n;}fsyncSync(fd);}finally{closeSync(fd);}
++  checkPath(p);if(stat(p))fail('ARCHIVE_CONFLICT');renameSync(temporary,p);syncDirectory(dirname(p));
++ }
++ async function acquire(principal,operation,storeId){
++  const deadline=Date.now()+3000;
++  while(true){auth(principal,operation,storeId);paths();let fd;
++   try{fd=openSync(lock,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|(constants.O_NOFOLLOW??0),0o600);}catch(e){if(e.code!=='EEXIST')throw e;if(Date.now()>=deadline)fail('ARCHIVE_LOCKED');await delay(10);continue;}
++   const owned=fstatSync(fd),owner={pid:process.pid,token:randomUUID(),createdAt:new Date().toISOString()},bytes=Buffer.from(JSON.stringify({...owner,hash:contentHash(owner)}));
++   try{let offset=0;while(offset<bytes.length){const n=writeSync(fd,bytes,offset,bytes.length-offset);if(n<=0)fail('ARCHIVE_WRITE_FAILED');offset+=n;}}catch(e){try{if(same(owned,stat(lock)))unlinkSync(lock);}finally{closeSync(fd);}throw e;}
++   return()=>{try{const current=stat(lock);if(!current||!same(current,owned)||current.isSymbolicLink())fail('ARCHIVE_LOCK_CHANGED');unlinkSync(lock);}finally{closeSync(fd);}};
++  }
++ }
++ const manifestPath=id=>resolve(target,'manifests',id+'.json');
++ const receiptPath=id=>resolve(target,'receipts',id+'.json');
++ const requestKey=(storeId,requestId)=>contentHash({storeId,requestId});
++ const requestPath=(storeId,requestId)=>resolve(target,'requests',requestKey(storeId,requestId)+'.json');
++ function directories(){for(const p of [target,...['objects','manifests','receipts','requests'].map(x=>resolve(target,x))]){checkPath(p);if(!stat(p))mkdirSync(p);if(!lstatSync(p).isDirectory())fail('ISOLATED_FIXTURE_REQUIRED');}}
++ function objectRead(d){if(!plain(d)||!HASH.test(d.sha256??'')||!Number.isSafeInteger(d.size)||d.size<1||d.size>LIMIT)fail('ARCHIVE_CORRUPT');const b=bytesAt(resolve(target,'objects',d.sha256+'.blob'));if(b.length!==d.size||sha(b)!==d.sha256)fail('ARCHIVE_CORRUPT');return b;}
++ function loadManifest(reportId){
++  if(!REPORT.test(reportId??''))fail('INVALID_ARCHIVE_INPUT');const m=parsed(manifestPath(reportId));
++  const {manifestHash,...body}=m;if(!HASH.test(manifestHash??'')||contentHash(body)!==manifestHash||m.reportId!==reportId||m.schema!=='ceo-full-report-archive/v1'||!plain(m.objects)||!Array.isArray(m.evidence)||!['context','report','versions','taskSnapshot','workflowState'].every(k=>m.objects[k]))fail('ARCHIVE_CORRUPT');return m;
++ }
++ function materialize(m){
++  const data={};try{for(const [key,d]of Object.entries(m.objects))data[key]=JSON.parse(objectRead(d).toString('utf8'));}catch(e){if(e.code==='ISOLATED_FIXTURE_REQUIRED')throw e;fail('ARCHIVE_CORRUPT');}
++  const evidence=m.evidence.map(e=>({...e,content:objectRead(e).toString('utf8')}));
++  if(data.context.storeId!==m.storeId||data.report.storeId!==m.storeId||data.context.contextId!==m.contextId||data.report.analysisId!==m.analysisId||contentHash(data.versions)!==m.versionsHash)fail('ARCHIVE_CORRUPT');
++  let receipt=null;if(stat(receiptPath(m.reportId))){receipt=parsed(receiptPath(m.reportId));const {receiptHash,...body}=receipt;if(contentHash(body)!==receiptHash||receipt.reportId!==m.reportId||receipt.manifestHash!==m.manifestHash||receipt.versionsHash!==m.versionsHash||!HASH.test(receipt.traceRecordHash??''))fail('ARCHIVE_CORRUPT');}
++  return freeze({...m,...data,evidence,status:receipt?'COMPLETE':'PREPARED',traceRecordHash:receipt?.traceRecordHash??null,traceReceipt:receipt});
++ }
++ function linked(record,m){const e=record?.event;return e?.type==='ANALYSIS'&&e.reportId===m.reportId&&!['storeId','analysisId','contextId','sourceHash','policyVersion','proposalRef'].some(k=>e[k]!==m[k])&&e.snapshotId===m.taskSnapshotId;}
++ async function verifyReceipt(principal,data){
++  if(data.status!=='COMPLETE')return data;if(typeof traceReader!=='function')fail('ARCHIVE_TRACE_READER_REQUIRED');
++  const records=await traceReader({principal,storeId:data.storeId}),record=Array.isArray(records)&&records.find(r=>r.recordHash===data.traceRecordHash);
++  if(!record||!linked(record,data)||record.sequence!==data.traceReceipt.traceSequence||record.event.eventId!==data.traceReceipt.traceEventId)fail('ARCHIVE_TRACE_MISMATCH');return data;
++ }
++ function validateVersions(versions,context,report){
++  const trusted=resolveVersions({context,report});jsonBytes(trusted);if(!plain(trusted)||!['runtimeVersion','knowledgeVersion','dictionaryVersion','sourcePolicyVersion'].every(k=>typeof trusted[k]==='string'&&trusted[k].length>0&&trusted[k].length<=160)||!['runtimeHash','knowledgeHash','dictionaryHash','sourcePolicyHash','packageHash'].every(k=>HASH.test(trusted[k]??''))||contentHash(versions)!==contentHash(trusted))fail('ARCHIVE_VERSION_MISMATCH');
++  if(['knowledgeVersion','knowledgeHash','dictionaryVersion','dictionaryHash','sourcePolicyVersion'].some(k=>context[k]!==trusted[k])||context.sourcePolicyHash!==undefined&&context.sourcePolicyHash!==trusted.sourcePolicyHash||['knowledgeVersion','knowledgeHash','dictionaryHash'].some(k=>report[k]!==trusted[k]))fail('ARCHIVE_VERSION_MISMATCH');return structuredClone(trusted);
++ }
++ function intentRead(p){const intent=parsed(p,LIMIT*3);if(!plain(intent)||!plain(intent.manifest)||!Array.isArray(intent.blobs)||contentHash(intent.manifest)!==intent.manifestDigest)fail('ARCHIVE_CORRUPT');const {manifestHash,...body}=intent.manifest;if(contentHash(body)!==manifestHash)fail('ARCHIVE_CORRUPT');for(const b of intent.blobs){if(!HASH.test(b.sha256??'')||typeof b.base64!=='string')fail('ARCHIVE_CORRUPT');const raw=Buffer.from(b.base64,'base64');if(raw.length>LIMIT||sha(raw)!==b.sha256)fail('ARCHIVE_CORRUPT');}return intent;}
++ function finish(intent){
++  const m=intent.manifest;
++  // A committed manifest never permits silent repair or reconstruction of its missing objects.
++  if(stat(manifestPath(m.reportId))){const existing=loadManifest(m.reportId);if(contentHash(existing)!==contentHash(m))fail('ARCHIVE_CORRUPT');const result=materialize(existing);for(const d of [...Object.values(m.objects),...m.evidence])durableExisting(resolve(target,'objects',d.sha256+'.blob'));durableExisting(manifestPath(m.reportId));return result;}
++  if(stat(receiptPath(m.reportId)))fail('ARCHIVE_CORRUPT');
++  for(const b of intent.blobs){const raw=Buffer.from(b.base64,'base64');atomic(resolve(target,'objects',b.sha256+'.blob'),raw);}
++  // All full objects are read and checked before publishing the immutable manifest.
++  for(const d of [...Object.values(m.objects),...m.evidence])objectRead(d);
++  atomic(manifestPath(m.reportId),Buffer.from(JSON.stringify(m)+'\n'));return materialize(loadManifest(m.reportId));
++ }
++ async function prepare({principal,requestId,context,report,evidence,versions,taskSnapshot,workflowState,correctsReportId=null}={}){
++  const storeId=context?.storeId,operation=correctsReportId?'human.review':'analyze';const grant=writeAuth(principal,correctsReportId,storeId);
++  if(!ID.test(requestId??'')||storeId!=='400370'||!plain(context)||!plain(report)||report.storeId!==storeId||report.contextId!==context.contextId||!ID.test(context.contextId??'')||!ID.test(report.analysisId??'')||taskSnapshot?.storeId!==storeId||workflowState?.storeId!==storeId||!ID.test(taskSnapshot?.snapshotId??'')||report.taskSnapshotId!==undefined&&report.taskSnapshotId!==taskSnapshot.snapshotId||report.workflowSnapshotId!==undefined&&report.workflowSnapshotId!==workflowState.snapshotId||!Array.isArray(context.sourceRefs)||context.sourceRefs.some(x=>!HASH.test(x))||!Array.isArray(evidence)||evidence.length>1000||correctsReportId!==null&&!REPORT.test(correctsReportId))fail('INVALID_ARCHIVE_INPUT');
++  const trustedVersions=validateVersions(versions,context,report),values={context,report,versions:trustedVersions,taskSnapshot,workflowState},blobs=[],objects={};let total=0;
++  const add=bytes=>{total+=bytes.length;if(total>LIMIT)fail('INVALID_ARCHIVE_INPUT');const d={sha256:sha(bytes),size:bytes.length};blobs.push({...d,base64:bytes.toString('base64')});return d;};
++  for(const [key,value]of Object.entries(values)){const bytes=jsonBytes(value);objects[key]=add(bytes);values[key]=JSON.parse(bytes.toString('utf8'));}
++  // Snapshot before yielding to the cross-process lock; later caller mutation cannot alter linkage.
++  ({context,report,taskSnapshot,workflowState}=values);
++  const pathsSeen=new Set(),evidenceRefs=evidence.map(e=>{if(!plain(e)||typeof e.path!=='string'||e.path.length>300||!e.path||e.path.split(/[\\/]/).some(p=>!p||p==='.'||p==='..')||/^(?:[A-Za-z]:|\/|\\)/.test(e.path)||pathsSeen.has(e.path)||typeof e.content!=='string'||Buffer.byteLength(e.content)>1048576)fail('INVALID_ARCHIVE_INPUT');pathsSeen.add(e.path);if(SECRET.test(e.content))fail('ARCHIVE_SECRET_REJECTED');const d=add(Buffer.from(e.content,'utf8'));if(e.sha256!==undefined&&e.sha256!==d.sha256)fail('ARCHIVE_EVIDENCE_MISMATCH');return{path:e.path,...d};});
++  if(context.sourceRefs.some(h=>!evidenceRefs.some(e=>e.sha256===h)))fail('ARCHIVE_EVIDENCE_MISMATCH');
++  const logical={storeId,requestId,actorId:grant.actorId,objects,evidence:evidenceRefs,correctsReportId},digest=contentHash(logical),reportId='report-'+digest;
++  const release=await acquire(principal,operation,storeId);
++  try{
++   writeAuth(principal,correctsReportId,storeId);directories();const rp=requestPath(storeId,requestId);
++   if(stat(rp)){const old=intentRead(rp);if(old.manifest.requestHash!==digest)fail('ARCHIVE_CONFLICT');return await verifyReceipt(principal,finish(old));}
++   let revision=1;if(correctsReportId){const old=await verifyReceipt(principal,materialize(loadManifest(correctsReportId)));if(old.storeId!==storeId||old.status!=='COMPLETE'||old.analysisId===report.analysisId)fail('ARCHIVE_CORRECTION_MISMATCH');revision=old.revision+1;}
++   const createdAt=now();if(!(createdAt instanceof Date)||!Number.isFinite(+createdAt))fail('INVALID_ARCHIVE_INPUT');
++   const body={schema:'ceo-full-report-archive/v1',reportId,storeId,requestId,requestHash:digest,actorId:grant.actorId,createdAt:createdAt.toISOString(),contextId:context.contextId,analysisId:report.analysisId,taskSnapshotId:taskSnapshot.snapshotId,sourceHash:contentHash(context.sourceRefs),policyVersion:grant.policyVersion,proposalRef:report.planCandidates?.[0]?.proposalRef??null,versionsHash:contentHash(trustedVersions),objects,evidence:evidenceRefs,correctsReportId,revision};
++   const manifest={...body,manifestHash:contentHash(body)},intent={manifest,manifestDigest:contentHash(manifest),blobs};atomic(rp,Buffer.from(JSON.stringify(intent)+'\n'));return finish(intent);
++  }finally{release();}
++ }
++ async function read({principal,reportId,storeId='400370'}={}){
++  auth(principal,'read',storeId);paths();const release=await acquire(principal,'read',storeId);try{const m=loadManifest(reportId);if(m.storeId!==storeId)fail('FORBIDDEN');return await verifyReceipt(principal,materialize(m));}finally{release();}
++ }
++ async function recover({principal,requestId,storeId='400370'}={}){
++  auth(principal,'read',storeId);if(!ID.test(requestId??''))fail('INVALID_ARCHIVE_INPUT');paths();const pending=intentRead(requestPath(storeId,requestId)),operation=pending.manifest.correctsReportId?'human.review':'analyze';auth(principal,operation,storeId);
++  const release=await acquire(principal,operation,storeId);try{const intent=intentRead(requestPath(storeId,requestId));if(intent.manifest.storeId!==storeId||intent.manifest.requestId!==requestId)fail('ARCHIVE_CORRUPT');return await verifyReceipt(principal,finish(intent));}finally{release();}
++ }
++ async function recoverLock({principal,storeId='400370'}={}){
++  let operation='analyze';try{auth(principal,operation,storeId);}catch(e){if(e.code!=='FORBIDDEN')throw e;operation='human.review';auth(principal,operation,storeId);}
++  paths();const expected=stat(lock);if(!expected)return freeze({recovered:false,preservedPath:null});if(!expected.isFile()||expected.size<1||expected.size>2048)fail('ARCHIVE_LOCK_CORRUPT');
++  let owner;try{owner=JSON.parse(readFileSync(lock,'utf8'));}catch{fail('ARCHIVE_LOCK_CORRUPT');}const {hash,...body}=owner??{};
++  if(!plain(owner)||!Number.isSafeInteger(owner.pid)||owner.pid<1||typeof owner.token!=='string'||typeof owner.createdAt!=='string'||contentHash(body)!==hash)fail('ARCHIVE_LOCK_CORRUPT');
++  try{process.kill(owner.pid,0);fail('ARCHIVE_LOCK_ACTIVE');}catch(e){if(e.code!=='ESRCH')fail('ARCHIVE_LOCK_ACTIVE');}
++  // Preserve the interrupted process's lock as evidence; never unlink another process's residue.
++  auth(principal,operation,storeId);paths();const current=stat(lock);if(!current||!same(current,expected)||!readFileSync(lock).equals(Buffer.from(JSON.stringify(owner))))fail('ARCHIVE_LOCK_CHANGED');
++  const preservedPath=lock+'.abandoned-'+randomUUID();renameSync(lock,preservedPath);syncDirectory(root);return freeze({recovered:true,preservedPath});
++ }
++ async function confirmTrace({principal,reportId,traceRecord,storeId='400370'}={}){
++  // Human may confirm a Human-prepared correction; shadow may confirm its trusted new analysis.
++  let operation='analyze';try{auth(principal,operation,storeId);}catch(e){if(e.code!=='FORBIDDEN')throw e;operation='human.review';auth(principal,operation,storeId);}
++  if(typeof traceReader!=='function')fail('ARCHIVE_TRACE_READER_REQUIRED');
++  const release=await acquire(principal,operation,storeId);try{
++   const m=loadManifest(reportId),data=materialize(m);if(m.storeId!==storeId)fail('FORBIDDEN');const records=await traceReader({principal,storeId});
++   const record=Array.isArray(records)&&records.find(r=>r.recordHash===traceRecord?.recordHash);if(!record||contentHash(record)!==contentHash(traceRecord))fail('ARCHIVE_TRACE_MISMATCH');
++   const e=record.event;if(!linked(record,m))fail('ARCHIVE_TRACE_MISMATCH');
++   if(data.status==='COMPLETE'){if(data.traceRecordHash!==record.recordHash)fail('ARCHIVE_CONFLICT');return data;}
++   auth(principal,operation,storeId);const body={schema:'ceo-report-trace-receipt/v1',reportId,manifestHash:m.manifestHash,versionsHash:m.versionsHash,traceRecordHash:record.recordHash,traceSequence:record.sequence,traceEventId:e.eventId};const receipt={...body,receiptHash:contentHash(body)};
++   atomic(receiptPath(reportId),Buffer.from(JSON.stringify(receipt)+'\n'));return materialize(m);
++  }finally{release();}
++ }
++ return Object.freeze({prepare,read,recover,recoverLock,confirmTrace});
++}
+diff --git a/dist/src/ceo-shadow-trace.js b/dist/src/ceo-shadow-trace.js
+index 50580f3..685b404 100644
+--- a/dist/src/ceo-shadow-trace.js
++++ b/dist/src/ceo-shadow-trace.js
+@@ -5,7 +5,7 @@ import {setTimeout as delay} from 'node:timers/promises';
+ 
+ // Synthetic adapter only. The host owns snapshots, analysis and any future production trace integration.
+ const TYPES = new Set(['ANALYSIS','HUMAN_FEEDBACK','HUMAN_CORRECTION','HUMAN_PAUSE','HUMAN_RESUME']);
+-const EVENT_KEYS = new Set(['type','storeId','eventId','analysisId','contextId','snapshotId','sourceHash','policyVersion','proposalRef','feedbackId','correctsEventId','note','decisionSummary']);
++const EVENT_KEYS = new Set(['type','storeId','eventId','analysisId','contextId','snapshotId','sourceHash','policyVersion','proposalRef','feedbackId','correctsEventId','note','decisionSummary','reportId']);
+ const RECORD_KEYS = ['sequence','recordedAt','actorId','contentHash','previousHash','event','recordHash'].sort();
+ const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/;
+ const HASH = /^[a-f0-9]{64}$/;
+@@ -22,6 +22,7 @@ const freeze = value => {for(const child of Object.values(value))if(plain(child)
+ function validateEvent(value) {
+  if(!plain(value) || Reflect.ownKeys(value).some(k=>typeof k!=='string'||!EVENT_KEYS.has(k)) || Object.values(Object.getOwnPropertyDescriptors(value)).some(d=>!Object.hasOwn(d,'value')))fail('INVALID_TRACE_EVENT');
+  const e={...value};
++ if(Object.hasOwn(e,'reportId')&&(typeof e.reportId!=='string'||!ID.test(e.reportId)))fail('INVALID_TRACE_EVENT');
+  if(!TYPES.has(e.type) || !['storeId','eventId','analysisId','contextId','snapshotId'].every(k=>typeof e[k]==='string'&&ID.test(e[k])) || typeof e.sourceHash!=='string'||!HASH.test(e.sourceHash) || typeof e.policyVersion!=='string'||!/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,119}$/.test(e.policyVersion))fail('INVALID_TRACE_EVENT');
+  if(!Object.hasOwn(e,'proposalRef') || !(e.proposalRef===null || typeof e.proposalRef==='string'&&ID.test(e.proposalRef)))fail('INVALID_TRACE_EVENT');
+  if(Object.hasOwn(e,'feedbackId') && (typeof e.feedbackId!=='string'||!ID.test(e.feedbackId)))fail('INVALID_TRACE_EVENT');
+@@ -49,7 +50,7 @@ function duplicate(state,event,digest) {
+ function checkTransition(state,event) {
+  if(event.type==='ANALYSIS') {if(state.paused)fail('TRACE_PAUSED');return;}
+  const analysis=state.analyses.get(event.analysisId)?.event;
+- if(!analysis || ['storeId','contextId','snapshotId','sourceHash','policyVersion','proposalRef'].some(k=>analysis[k]!==event[k]))fail('TRACE_REFERENCE_MISMATCH');
++ if(!analysis || ['storeId','contextId','snapshotId','sourceHash','policyVersion','proposalRef','reportId'].some(k=>analysis[k]!==event[k]))fail('TRACE_REFERENCE_MISMATCH');
+  if(event.type==='HUMAN_CORRECTION') {
+   const target=state.events.get(event.correctsEventId)?.event;
+   if(!target || target.analysisId!==event.analysisId || target.storeId!==event.storeId)fail('TRACE_REFERENCE_MISMATCH');
+diff --git a/dist/src/ceo-vnext-analysis.js b/dist/src/ceo-vnext-analysis.js
+index 5651288..72fc67a 100644
+--- a/dist/src/ceo-vnext-analysis.js
++++ b/dist/src/ceo-vnext-analysis.js
+@@ -1,10 +1,11 @@
+ import {isCeoVnextContext} from './ceo-vnext-context.js';
+ import {contentHash,freeze,fail,safeText,timestamp,exact} from './ceo-vnext-common.js';
+-export function buildCeoShadowReport({context,taskSnapshot,workflowState,draft,now=new Date()}={}){
++export function buildCeoShadowReport({context,taskSnapshot,workflowState,draft,requestRef=null,now=new Date()}={}){
+  if(!isCeoVnextContext(context)||!(now instanceof Date)||!Number.isFinite(+now))fail('UNTRUSTED_CONTEXT');
+  for(const snapshot of [taskSnapshot,workflowState])if(snapshot?.storeId!==context.storeId)fail('STORE_MISMATCH');
+  if(taskSnapshot.schema!=='ceo-task-snapshot/v1'||workflowState.schema!=='ceo-workflow-state/v1'||!Array.isArray(taskSnapshot.tasks)||!Array.isArray(workflowState.workflows)||!safeText(taskSnapshot.snapshotId)||!safeText(workflowState.snapshotId))fail('INVALID_SNAPSHOT');
+  if(!exact(draft,['claims','priorities','planCandidates'])||![draft.claims,draft.priorities,draft.planCandidates].every(Array.isArray)||draft.priorities.length>3||draft.claims.length>100||draft.planCandidates.length>20)fail('INVALID_ANALYSIS');
++ if(requestRef!==null&&(typeof requestRef!=='string'||!/^[A-Za-z0-9._:-]{1,90}$/.test(requestRef)))fail('INVALID_REQUEST_REF');
+  const stopReasons=[];if(Date.parse(context.validUntil)<=+now||Date.parse(context.capturedAt)>+now)stopReasons.push('CONTEXT_STALE');
+  for(const [name,snapshot]of [['TASK',taskSnapshot],['WORKFLOW',workflowState]])if(!timestamp(snapshot.capturedAt)||Date.parse(snapshot.capturedAt)>+now||+now-Date.parse(snapshot.capturedAt)>300000)stopReasons.push(name+'_SNAPSHOT_STALE');
+  const usable=new Map(context.facts.filter(f=>f.quality==='VERIFIED'&&Date.parse(f.validUntil)>+now).map(f=>[f.factId,f]));
+@@ -17,11 +18,12 @@ export function buildCeoShadowReport({context,taskSnapshot,workflowState,draft,n
+   return{...structuredClone(c),text,assertions,status:c.kind==='FACT'?(supported?'SUPPORTED':'CANNOT_DETERMINE'):'NOT_A_FACT',value:null,...(c.kind==='FACT'&&!supported?{reason:['profit','roi'].includes(c.metric)?'COSTS_AND_PENALTIES_UNVERIFIED':'EVIDENCE_UNAVAILABLE'}:{})};
+  });
+  function candidate(c,plan=false){
+-  if(!exact(c,['title','kind','factIds'],plan?['existingTaskRefs']:[])||!safeText(c.title)||!['INVESTIGATE','PLAN'].includes(c.kind)||!Array.isArray(c.factIds))fail('INVALID_PROPOSAL');
++  if(!exact(c,['title','kind','factIds'],plan?['existingTaskRefs','rationale','acceptance']:['rationale','acceptance'])||!safeText(c.title)||!['INVESTIGATE','PLAN'].includes(c.kind)||!Array.isArray(c.factIds))fail('INVALID_PROPOSAL');
++  if(['rationale','acceptance'].some(k=>Object.hasOwn(c,k)&&!safeText(c[k])))fail('INVALID_PROPOSAL');
+   if(c.kind!=='INVESTIGATE'&&(stopReasons.length||!refsOK(c.factIds)||!c.factIds.length))fail('EVIDENCE_REQUIRED');
+   for(const ref of c.existingTaskRefs??[]){if(!exact(ref,['taskId','version'])||!taskSnapshot.tasks.some(t=>t.taskId===ref.taskId&&t.version===ref.version))fail('TASK_VERSION_CONFLICT');}
+   return{...structuredClone(c),...(plan?{proposalRef:'proposal-'+contentHash({contextId:context.contextId,taskSnapshot:taskSnapshot.snapshotId,c}),status:'PROPOSED',formalTaskCreated:false}:{})};
+  }
+- const data={schema:'ceo-shadow-report/v1',storeId:context.storeId,contextId:context.contextId,snapshotId:context.contextId,taskSnapshotId:taskSnapshot.snapshotId,workflowSnapshotId:workflowState.snapshotId,knowledgeVersion:context.knowledgeVersion,knowledgeHash:context.knowledgeHash,dictionaryHash:context.dictionaryHash,sourceRefs:context.sourceRefs,claims,priorities:draft.priorities.map(c=>candidate(c)),planCandidates:draft.planCandidates.map(c=>candidate(c,true)),dataGaps:context.dataGaps,stopReasons,createdAt:now.toISOString(),readOnlyBusiness:true,workflowExecutions:0,formalTaskWrites:0};
++ const data={schema:'ceo-shadow-report/v1',...(requestRef?{requestRef}:{}),storeId:context.storeId,contextId:context.contextId,snapshotId:context.contextId,taskSnapshotId:taskSnapshot.snapshotId,workflowSnapshotId:workflowState.snapshotId,knowledgeVersion:context.knowledgeVersion,knowledgeHash:context.knowledgeHash,dictionaryHash:context.dictionaryHash,sourceRefs:context.sourceRefs,claims,priorities:draft.priorities.map(c=>candidate(c)),planCandidates:draft.planCandidates.map(c=>candidate(c,true)),dataGaps:context.dataGaps,stopReasons,createdAt:now.toISOString(),readOnlyBusiness:true,workflowExecutions:0,formalTaskWrites:0};
+  return freeze({...data,analysisId:'analysis-'+contentHash(data)});
+ }
+diff --git a/dist/src/ceo-vnext-context.js b/dist/src/ceo-vnext-context.js
+index 03e4c3c..8b348f3 100644
+--- a/dist/src/ceo-vnext-context.js
++++ b/dist/src/ceo-vnext-context.js
+@@ -1,6 +1,6 @@
+ import {readFileSync} from 'node:fs';
+ import {sha,contentHash,freeze,fail,timestamp,safeText} from './ceo-vnext-common.js';
+-const policy=JSON.parse(readFileSync(new URL('../../config/ceo-data-sources.v1.json',import.meta.url),'utf8'));
++const defaultPolicy=JSON.parse(readFileSync(new URL('../../config/ceo-data-sources.v1.json',import.meta.url),'utf8'));
+ const knowledge=JSON.parse(readFileSync(new URL('../../config/ceo-knowledge.v1.json',import.meta.url),'utf8'));
+ const prompt=readFileSync(new URL('../../prompts/ceo-vnext-core.md',import.meta.url),'utf8');
+ const issued=new WeakSet();
+@@ -8,13 +8,16 @@ const date=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&Number.isFinit
+ const periodOK=p=>p&&date(p.start)&&date(p.end)&&p.start<=p.end&&safeText(p.timeZone)&&(()=>{try{new Intl.DateTimeFormat('en',{timeZone:p.timeZone});return true;}catch{return false;}})();
+ export const isCeoVnextContext=c=>issued.has(c);
+ /** Trusted host API; approvals/evidence are never accepted from the analysis request body. */
+-export function buildCeoVnextContext({storeId,dictionaryBytes,knowledgePack=knowledge,facts=[],evidence=[],approvals=[],period,now=new Date()}={}){
++export function buildCeoVnextContext({storeId,dictionaryBytes,knowledgePack=knowledge,facts=[],evidence=[],approvals=[],period,sourcePolicy=defaultPolicy,additionalGaps=[],now=new Date()}={}){
++ const policy=structuredClone(sourcePolicy);
++ if(policy?.schema!=='ceo-data-source-policy/v1'||policy.mode!=='SYNTHETIC_ONLY'||policy.storeId!=='400370'||typeof policy.version!=='string'||!Array.isArray(policy.approvedReviewers)||!policy.approvedReviewers.length||!policy.approvedReviewers.every(x=>typeof x==='string'&&x.startsWith('fixture-'))||!Array.isArray(policy.sourceIds)||!policy.sourceIds.length||!policy.sourceIds.every(x=>typeof x==='string'&&x.startsWith('fixture-'))||!Number.isSafeInteger(policy.maxCaptureAgeMs)||policy.maxCaptureAgeMs<1||policy.maxCaptureAgeMs>86400000||!policy.eventBasisByCaliber||typeof policy.eventBasisByCaliber!=='object')fail('INVALID_SOURCE_POLICY');
+  if(storeId!==policy.storeId||!periodOK(period)||!(now instanceof Date)||!Number.isFinite(+now)||!Array.isArray(facts)||facts.length>1000||!Array.isArray(evidence)||evidence.length>1000||!Array.isArray(approvals)||approvals.length>1000)fail('INVALID_CONTEXT_INPUT');
+  const bytes=Buffer.from(dictionaryBytes??'');if(!bytes.length||bytes.length>1048576)fail('INVALID_DICTIONARY');let dictionary;try{dictionary=JSON.parse(bytes);}catch{fail('INVALID_DICTIONARY');}if(!dictionary.calibers||typeof dictionary.calibers!=='object')fail('INVALID_DICTIONARY');
+  const pack=structuredClone(knowledgePack);if(pack.schema!=='ceo-core-knowledge/v1'||!safeText(pack.version)||!Array.isArray(pack.entries)||pack.entries.length>100||pack.entries.some(x=>!['FACT','RULE','HYPOTHESIS','PROPOSAL','EXPERIENCE'].includes(x.kind)||!safeText(x.id)||!safeText(x.text)))fail('INVALID_KNOWLEDGE');
+  const evidenceMap=new Map();for(const e of evidence){if(!safeText(e?.path)||typeof e.content!=='string'||Buffer.byteLength(e.content)>1048576||evidenceMap.has(e.path))fail('INVALID_EVIDENCE');evidenceMap.set(e.path,sha(e.content));}
+  const duplicates=new Map();for(const f of facts){if(!safeText(f?.factId)||!Number.isSafeInteger(f.version)||f.version<1)fail('INVALID_FACT');const k=f.factId;const old=duplicates.get(k);duplicates.set(k,old===undefined?contentHash(f):old===contentHash(f)?old:null);}
+- const dataGaps=[];
++ if(!Array.isArray(additionalGaps)||additionalGaps.length>30||additionalGaps.some(g=>typeof g!=='string'||!/^[A-Z0-9_]{1,100}$/.test(g)))fail('INVALID_DATA_GAPS');
++ const dataGaps=additionalGaps.map(gapId=>({gapId,quality:'UNVERIFIED'}));
+  const rows=facts.map(f=>{
+   let quality='VERIFIED';const reasons=[];const caliber=Object.hasOwn(dictionary.calibers,f.caliber)?dictionary.calibers[f.caliber]:null;
+   const conflict=f.storeId!==storeId||!periodOK(f.period)||contentHash(f.period)!==contentHash(period)||duplicates.get(f.factId)===null;
+@@ -30,7 +33,7 @@ export function buildCeoVnextContext({storeId,dictionaryBytes,knowledgePack=know
+   if(quality!=='VERIFIED')dataGaps.push({factId:f.factId,quality,reasons});
+   return{factId:f.factId,version:f.version,storeId,caliber:typeof f.caliber==='string'?f.caliber:null,value:quality==='VERIFIED'?f.value:null,unit:caliber?.unit??null,currency:f.currency??null,period:structuredClone(period),quality,reasons,validUntil:timestamp(f.validUntil)?f.validUntil:null,source:sourceOK?{path:source.path,sha256:source.sha256,sourceId:source.sourceId}:null};
+  });
+- const context={schema:'ceo-vnext-context/v1',storeId,mode:'SHADOW',sourcePolicyVersion:policy.version,dictionaryVersion:dictionary.version??'UNKNOWN',dictionaryHash:sha(bytes),knowledgeVersion:pack.version,knowledgeHash:contentHash({pack,promptHash:sha(prompt)}),period:structuredClone(period),facts:rows,dataGaps,sourceRefs:[...new Set(rows.filter(r=>r.source).map(r=>r.source.sha256))],capturedAt:now.toISOString(),validUntil:new Date(Math.min(+now+300000,...rows.filter(r=>r.quality==='VERIFIED').map(r=>Date.parse(r.validUntil)))).toISOString(),readOnlyBusiness:true};
++ const context={schema:'ceo-vnext-context/v1',storeId,mode:'SHADOW',sourcePolicyVersion:policy.version,sourcePolicyHash:contentHash(policy),reviewHash:contentHash(approvals),dictionaryVersion:dictionary.version??'UNKNOWN',dictionaryHash:sha(bytes),knowledgeVersion:pack.version,knowledgeHash:contentHash({pack,promptHash:sha(prompt)}),period:structuredClone(period),facts:rows,dataGaps,sourceRefs:[...new Set(rows.filter(r=>r.source).map(r=>r.source.sha256))],capturedAt:now.toISOString(),validUntil:new Date(Math.min(+now+300000,...rows.filter(r=>r.quality==='VERIFIED').map(r=>Date.parse(r.validUntil)))).toISOString(),readOnlyBusiness:true};
+  const {capturedAt:loadTime,validUntil:expiry,...identity}=context;
+  const result=freeze({...context,contextId:'ctx-'+contentHash(identity)});issued.add(result);return result;
+ }
+diff --git a/dist/test/ceo-payment-domain.test.js b/dist/test/ceo-payment-domain.test.js
+new file mode 100644
+index 0000000..0ac3fd4
+--- /dev/null
++++ b/dist/test/ceo-payment-domain.test.js
+@@ -0,0 +1,16 @@
++import {paymentInput} from './fixtures/ceo-payment-fixture.js';
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import {sha,contentHash} from '../src/ceo-vnext-common.js';
++const api=await import('../src/ceo-payment-domain.js').catch(e=>{if(e.code==='ERR_MODULE_NOT_FOUND')return {};throw e;});
++
++function build(x){assert.equal(typeof api.prepareCeoPaymentDomain,'function');return api.prepareCeoPaymentDomain(x);}
++test('gross paid orders, units and CNY amount are separate approved synthetic metrics',()=>{const d=build(paymentInput());assert.deepEqual(d.context.facts.map(f=>f.value),[1,2,12.34]);assert.ok(d.context.facts.every(f=>f.quality==='VERIFIED'));assert.equal(d.verificationScope,'SYNTHETIC');assert.ok(d.domainGaps.includes('REAL_STORE_BINDING_UNVERIFIED'));});
++test('no approval, partial coverage and stale export never become verified',()=>{for(const change of [x=>x.approval=null,x=>x.snapshot.coverage='PARTIAL',x=>x.now=new Date('2026-11-07T00:00:00Z')]){const x=paymentInput();change(x);assert.ok(build(x).context.facts.every(f=>f.quality!=='VERIFIED'&&f.value===null));}});
++test('empty complete approved export is true zero; empty unknown export remains missing',()=>{const x=paymentInput();x.snapshot.rows=[];x.approval.snapshotHash=sha(JSON.stringify(x.snapshot));assert.deepEqual(build(x).context.facts.map(f=>f.value),[0,0,0]);x.snapshot.coverage='UNKNOWN';assert.ok(build(x).context.facts.every(f=>f.value===null));});
++test('market data, unsupported source or PII-shaped rows are rejected',()=>{for(const change of [x=>x.snapshot.sourceKind='MARKET',x=>x.snapshot.mode='REAL',x=>x.snapshot.rows[0].email='person@example.invalid']){const x=paymentInput();change(x);assert.throws(()=>build(x));}});
++test('cross-store and conflicting duplicate rows produce conflict, never partial totals',()=>{for(const change of [x=>x.snapshot.rows[0].storeId='400371',x=>x.snapshot.rows.push({...x.snapshot.rows[0],itemCount:9})]){const x=paymentInput();change(x);x.approval.snapshotHash=sha(JSON.stringify(x.snapshot));assert.ok(build(x).context.facts.every(f=>f.quality==='CONFLICT'&&f.value===null));}});
++test('unknown paid status, missing units and mixed currency degrade affected metrics',()=>{const x=paymentInput();x.snapshot.rows[0].payment.status='UNKNOWN';x.approval.snapshotHash=sha(JSON.stringify(x.snapshot));assert.ok(build(x).context.facts.every(f=>f.value===null));const y=paymentInput();y.snapshot.rows[0].itemCount=null;y.snapshot.rows[0].payment.currency='USD';y.approval.snapshotHash=sha(JSON.stringify(y.snapshot));const f=build(y).context.facts;assert.equal(f[0].value,1);assert.equal(f[1].value,null);assert.equal(f[2].value,null);});
++test('refund and fulfillment states do not turn gross paid events into net income',()=>{const x=paymentInput();x.snapshot.rows[0].orderStatus='REFUNDED';x.approval.snapshotHash=sha(JSON.stringify(x.snapshot));const d=build(x);assert.equal(d.context.facts[0].value,1);assert.ok(d.domainGaps.includes('REFUNDS_AND_NET_INCOME_UNVERIFIED'));assert.equal(d.context.facts[2].value,12.34);});
++test('payment event uses explicit timezone and exact period; no implicit recent period',()=>{const x=paymentInput();x.snapshot.rows[0].payment.paidAt='2026-10-31T18:00:00Z';x.approval.snapshotHash=sha(JSON.stringify(x.snapshot));assert.equal(build(x).context.facts[0].value,1);x.snapshot.period.timeZone='America/Los_Angeles';x.snapshot.exportedAt='2026-11-05T23:00:00Z';x.approval.reviewedAt='2026-11-05T23:30:00Z';x.now=new Date('2026-11-06T00:00:00Z');x.approval.snapshotHash=sha(JSON.stringify(x.snapshot));x.approval.periodHash=contentHash(x.snapshot.period);assert.equal(build(x).context.facts[0].value,0);delete x.snapshot.period.timeZone;assert.throws(()=>build(x));});
++test('invalid calendar timestamps never normalize into verified paid events',()=>{for(const field of ['paidAt','exportedAt','reviewedAt']){const x=paymentInput();x.snapshot.period={start:'2026-03-01',end:'2026-03-03',timeZone:'Asia/Shanghai'};x.snapshot.exportedAt='2026-03-04T00:00:00Z';x.snapshot.rows[0].payment.paidAt='2026-03-02T00:00:00Z';x.approval.reviewedAt='2026-03-04T01:00:00Z';x.now=new Date('2026-03-04T02:00:00Z');if(field==='paidAt')x.snapshot.rows[0].payment.paidAt='2026-02-30T00:00:00Z';if(field==='exportedAt')x.snapshot.exportedAt='2026-02-30T00:00:00Z';if(field==='reviewedAt')x.approval.reviewedAt='2026-02-30T00:00:00Z';x.approval.snapshotHash=sha(JSON.stringify(x.snapshot));x.approval.periodHash=contentHash(x.snapshot.period);assert.ok(build(x).context.facts.every(f=>f.quality!=='VERIFIED'),field);}});
+diff --git a/dist/test/ceo-payment-loop.test.js b/dist/test/ceo-payment-loop.test.js
+new file mode 100644
+index 0000000..df35c98
+--- /dev/null
++++ b/dist/test/ceo-payment-loop.test.js
+@@ -0,0 +1,37 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import {mkdtemp,writeFile,rm,readFile} from 'node:fs/promises';
++import {DatabaseSync} from 'node:sqlite';
++import {readCeoTaskSnapshot} from '../src/ceo-task-read-model.js';
++import {readCeoWorkflowState} from '../src/ceo-workflow-catalog.js';
++import os from 'node:os';
++import path from 'node:path';
++import {paymentInput} from './fixtures/ceo-payment-fixture.js';
++import {prepareCeoPaymentDomain,paidOrderDictionaryBytes,paidOrderSourcePolicy} from '../src/ceo-payment-domain.js';
++import {createCeoGovernance} from '../src/ceo-governance.js';
++import {createCeoShadowTrace} from '../src/ceo-shadow-trace.js';
++const api=await import('../src/ceo-payment-loop.js').catch(()=>({}));
++const versionsApi=await import('../src/ceo-readiness-versions.js').catch(()=>({}));
++const question='分析纳物一店最近的经营情况，告诉我应该优先处理什么。';
++async function setup(t){
++ assert.equal(typeof api.createCeoPaymentLoop,'function');assert.equal(typeof versionsApi.createCeoReadinessVersionResolver,'function');
++ const stops=[],protection={};const root=await mkdtemp(path.join(os.tmpdir(),'b0-loop-'));t.after(async()=>{for(const stop of stops.reverse())await stop();try{if(protection.dbPath)assert.deepEqual(await readFile(protection.dbPath),protection.before);}finally{await rm(root,{recursive:true,force:true});}});await writeFile(path.join(root,'.ceo-isolated-fixture.json'),'{"synthetic":true}');
++ const credentials={legacy:{id:'fixture-legacy',profile:'legacy',storeId:'400370',token:'l'.repeat(48)},shadow:{id:'fixture-shadow',profile:'shadow',storeId:'400370',token:'s'.repeat(48)},human:{id:'fixture-human',profile:'human',storeId:'400370',token:'h'.repeat(48)}};const governance=createCeoGovernance({credentials}),p=Object.fromEntries(Object.entries(credentials).map(([k,c])=>[k,governance.authenticateToken(c.token)]));
++ const input=paymentInput(),clock=()=>input.now,resolveVersions=versionsApi.createCeoReadinessVersionResolver({dictionaryBytes:paidOrderDictionaryBytes,sourcePolicy:paidOrderSourcePolicy});const trace=createCeoShadowTrace({fixtureRoot:root,filePath:path.join(root,'events.jsonl'),governance,now:clock});
++ const {createCeoReportArchive}=await import('../src/ceo-report-archive.js');const archive=createCeoReportArchive({fixtureRoot:root,directory:path.join(root,'archive'),governance,resolveVersions,traceReader:x=>trace.read(x),now:clock});
++ const faults={traceWrite:false};const traceProxy={read:args=>trace.read(args),append:args=>{if(faults.traceWrite)throw Object.assign(new Error('synthetic write injection'),{code:'TRACE_WRITE_FAILED'});return trace.append(args);}};
++ const dbPath=path.join(root,'synthetic-tasks.sqlite'),db=new DatabaseSync(dbPath);db.exec('CREATE TABLE ceo_tasks(task_id TEXT,version INTEGER,payload_json TEXT);CREATE TABLE ceo_task_events(event_id INTEGER,task_id TEXT,command TEXT,actor_id TEXT,created_at TEXT,payload_json TEXT)');db.close();const dbBefore=await readFile(dbPath);protection.dbPath=dbPath;protection.before=dbBefore;
++ const loop=api.createCeoPaymentLoop({fixtureRoot:root,governance,archive,trace:traceProxy,resolveVersions,loadPaymentInput:async()=>input,readTaskSnapshot:()=>readCeoTaskSnapshot({dbPath,fixtureRoot:root,offlineSnapshot:true,storeId:'400370',now:clock()}),readWorkflowSnapshot:async()=>readCeoWorkflowState({storeId:'400370',snapshot:{storeId:'400370',version:1,capturedAt:clock().toISOString(),states:[{workflowId:'system.state.read',version:'1',status:'IDLE'}]},now:clock()}),now:clock});return{root,input,p,governance,trace,archive,loop,resolveVersions,faults,stops};
++}
++test('exact business question produces grounded priorities with acceptance, full immutable report and durable trace',async t=>{
++ const x=await setup(t),result=await x.loop.analyze({principal:x.p.shadow,requestId:'question-1',question});assert.equal(result.status,'COMPLETE');assert.equal(result.verificationScope,'SYNTHETIC');assert.ok(result.report.priorities.length<=3&&result.report.priorities.length>0);assert.ok(result.report.priorities.every(p=>p.acceptance&&p.rationale&&Array.isArray(p.factIds)));assert.ok(result.report.claims.some(c=>c.kind==='FACT'&&c.status==='SUPPORTED'));assert.ok(result.report.claims.some(c=>c.kind==='HYPOTHESIS'));assert.ok(result.domainGaps.length);const stored=await x.archive.read({principal:x.p.human,reportId:result.reportId});assert.deepEqual(stored.report,result.report);assert.deepEqual(stored.context,result.context);assert.equal(stored.status,'COMPLETE');assert.ok(stored.evidence[0].content.includes('syn-order-1'));const events=await x.trace.read({principal:x.p.human,storeId:'400370'});assert.equal(events.length,1);assert.equal(events[0].event.reportId,result.reportId);assert.equal(result.report.formalTaskWrites,0);assert.equal(result.report.workflowExecutions,0);
++});
++test('retry after restart is idempotent; client supplied facts or versions cannot grant authority',async t=>{const x=await setup(t),a=await x.loop.analyze({principal:x.p.shadow,requestId:'stable',question});x.input.now=new Date(+x.input.now+1000);const b=await x.loop.analyze({principal:x.p.shadow,requestId:'stable',question});assert.equal(a.reportId,b.reportId);assert.equal((await x.trace.read({principal:x.p.human,storeId:'400370'})).length,1);await assert.rejects(()=>x.loop.analyze({principal:x.p.legacy,requestId:'bad',question}),/FORBIDDEN/);await assert.rejects(()=>x.loop.analyze({principal:x.p.shadow,requestId:'bad',question,facts:[{quality:'VERIFIED'}]}),/INVALID/);});
++test('unapproved or missing snapshot data outputs gaps and investigation-only suggestions',async t=>{const x=await setup(t);x.input.approval=null;const r=await x.loop.analyze({principal:x.p.shadow,requestId:'no-approval',question});assert.ok(r.context.facts.every(f=>f.value===null));assert.ok(r.report.priorities.every(p=>p.kind==='INVESTIGATE'));assert.ok(!r.report.claims.some(c=>c.kind==='FACT'&&c.status==='SUPPORTED'));});
++test('Human correction appends new report version and feedback without overwriting history',async t=>{const x=await setup(t),a=await x.loop.analyze({principal:x.p.shadow,requestId:'old',question});x.input.snapshot.revision=2;x.input.snapshot.rows[0].itemCount=3;const {sha}=await import('../src/ceo-vnext-common.js');x.input.approval.snapshotHash=sha(JSON.stringify(x.input.snapshot));const b=await x.loop.correct({humanPrincipal:x.p.human,analysisPrincipal:x.p.shadow,requestId:'correction-1',correctsReportId:a.reportId,note:'synthetic source correction',question});assert.notEqual(a.reportId,b.reportId);const old=await x.archive.read({principal:x.p.human,reportId:a.reportId}),newer=await x.archive.read({principal:x.p.human,reportId:b.reportId});assert.equal(old.context.facts[1].value,2);assert.equal(newer.context.facts[1].value,3);assert.equal(newer.correctsReportId,a.reportId);assert.equal(newer.revision,2);await assert.rejects(()=>x.loop.correct({humanPrincipal:x.p.shadow,analysisPrincipal:x.p.shadow,requestId:'forged',correctsReportId:a.reportId,note:'x',question}),/FORBIDDEN/);});
++test('actual HTTP roundtrip returns readable archived report, rejects body authority and formal execution routes',async t=>{const x=await setup(t);const server=await api.startCeoPaymentReadinessService({fixtureRoot:x.root,governance:x.governance,loop:x.loop,archive:x.archive,analysisPrincipal:x.p.shadow});x.stops.push(()=>server.stop());const request=(route,body,token='s'.repeat(48))=>fetch(server.baseUrl+route,{method:body?'POST':'GET',headers:{authorization:'Bearer '+token,'content-type':'application/json'},body:body?JSON.stringify(body):undefined});const response=await request('/api/ceo/payment-readiness',{requestId:'http-1',question});assert.equal(response.status,200);const result=await response.json();assert.equal(result.status,'COMPLETE');const stored=await request('/api/ceo/payment-reports/'+result.reportId,null,'h'.repeat(48));assert.equal(stored.status,200);assert.deepEqual((await stored.json()).report,result.report);assert.equal((await request('/api/ceo/payment-readiness',{requestId:'fake',question,versions:{approved:true}})).status,400);assert.equal((await request('/api/ceo/payment-readiness',{requestId:'legacy',question},'l'.repeat(48))).status,403);assert.equal((await request('/api/ceo/payment-corrections',{requestId:'fake-human',correctsReportId:result.reportId,note:'fake',question})).status,403);assert.equal((await request('/api/workflow/execute',{commit:true})).status,403);await assert.rejects(()=>api.startCeoPaymentReadinessService({port:3173}),/ISOLATED_PORT_REQUIRED/);});
++test('trace write failure leaves PREPARED; retry completes original bytes without creating a newer report',async t=>{const x=await setup(t);x.faults.traceWrite=true;await assert.rejects(()=>x.loop.analyze({principal:x.p.shadow,requestId:'pending',question}),{code:'TRACE_WRITE_FAILED'});const prepared=await x.archive.recover({principal:x.p.shadow,requestId:'pending'});assert.equal(prepared.status,'PREPARED');x.faults.traceWrite=false;x.input.snapshot.rows[0].itemCount=999;const resumed=await x.loop.analyze({principal:x.p.shadow,requestId:'pending',question});assert.equal(resumed.status,'COMPLETE');assert.equal(resumed.reportId,prepared.reportId);assert.equal(resumed.context.facts[1].value,2);assert.equal((await x.trace.read({principal:x.p.human,storeId:'400370'})).length,1);});
++test('runtime, knowledge, dictionary and source-policy bindings are actual host hashes',async t=>{const x=await setup(t),domain=prepareCeoPaymentDomain(x.input),v=x.resolveVersions();assert.match(v.runtimeHash,/^[a-f0-9]{64}$/);assert.match(v.packageHash,/^[a-f0-9]{64}$/);for(const key of ['knowledgeVersion','knowledgeHash','dictionaryVersion','dictionaryHash','sourcePolicyVersion','sourcePolicyHash'])assert.equal(v[key],domain.context[key],key);const old=x.resolveVersions();const y=versionsApi.createCeoReadinessVersionResolver({dictionaryBytes:paidOrderDictionaryBytes+' ',sourcePolicy:paidOrderSourcePolicy});assert.notEqual(y().packageHash,old.packageHash);});
++test('archived approval envelope preserves reviewer and exact source/fact approval hashes',async t=>{const x=await setup(t),r=await x.loop.analyze({principal:x.p.shadow,requestId:'review-proof',question}),saved=await x.archive.read({principal:x.p.human,reportId:r.reportId});const envelope=JSON.parse(saved.evidence.find(e=>e.path==='approval.synthetic.json').content);assert.equal(envelope.sourceApproval.reviewerId,'fixture-data-owner');assert.equal(envelope.sourceApproval.snapshotHash,x.input.approval.snapshotHash);const {contentHash}=await import('../src/ceo-vnext-common.js');assert.equal(contentHash(envelope.factApprovals),saved.context.reviewHash);});
++test('distinct requests at the same clock produce distinct linked analysis identities',async t=>{const x=await setup(t),a=await x.loop.analyze({principal:x.p.shadow,requestId:'one',question}),b=await x.loop.analyze({principal:x.p.shadow,requestId:'two',question});assert.notEqual(a.report.analysisId,b.report.analysisId);assert.notEqual(a.reportId,b.reportId);assert.equal((await x.trace.read({principal:x.p.human,storeId:'400370'})).length,2);});
++test('correction replay cannot silently switch its parent report or feedback note',async t=>{const x=await setup(t),a=await x.loop.analyze({principal:x.p.shadow,requestId:'base',question});x.input.snapshot.revision=2;x.input.snapshot.rows[0].itemCount=3;const {sha}=await import('../src/ceo-vnext-common.js');x.input.approval.snapshotHash=sha(JSON.stringify(x.input.snapshot));const args={humanPrincipal:x.p.human,analysisPrincipal:x.p.shadow,requestId:'fix',correctsReportId:a.reportId,note:'approved synthetic correction',question};const fixed=await x.loop.correct(args);assert.equal((await x.loop.correct(args)).reportId,fixed.reportId);await assert.rejects(()=>x.loop.correct({...args,note:'different note'}),/CORRECTION_CONFLICT/);await assert.rejects(()=>x.loop.correct({...args,correctsReportId:fixed.reportId}),/CORRECTION_CONFLICT/);});
+diff --git a/dist/test/ceo-report-archive.test.js b/dist/test/ceo-report-archive.test.js
+new file mode 100644
+index 0000000..0005812
+--- /dev/null
++++ b/dist/test/ceo-report-archive.test.js
+@@ -0,0 +1,102 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import {mkdtempSync,writeFileSync,readFileSync,readdirSync,mkdirSync,linkSync,existsSync,renameSync,unlinkSync} from 'node:fs';
++import fs from 'node:fs';
++import {syncBuiltinESMExports} from 'node:module';
++import {join} from 'node:path';
++import {tmpdir} from 'node:os';
++import {spawn} from 'node:child_process';
++import {pathToFileURL} from 'node:url';
++import {createCeoGovernance} from '../src/ceo-governance.js';
++import {createCeoShadowTrace} from '../src/ceo-shadow-trace.js';
++import {contentHash,sha} from '../src/ceo-vnext-common.js';
++const api=await import('../src/ceo-report-archive.js').catch(e=>{if(e.code==='ERR_MODULE_NOT_FOUND')return {};throw e;});
++function fixture(t,options={}){
++ assert.equal(typeof api.createCeoReportArchive,'function','full archive feature missing');
++ const fixtureRoot=mkdtempSync(join(tmpdir(),'ceo-archive-'));writeFileSync(join(fixtureRoot,'.ceo-isolated-fixture.json'),'{"synthetic":true}');
++ const credentials={shadow:{id:'shadow',profile:'shadow',storeId:'400370',token:'s'.repeat(48)},human:{id:'human',role:'owner',profile:'human',storeId:'400370',token:'h'.repeat(48)},legacy:{id:'legacy',profile:'legacy',storeId:'400370',token:'l'.repeat(48)}};
++ const governance=createCeoGovernance({credentials}),principals=Object.fromEntries(Object.entries(credentials).map(([k,c])=>[k,governance.authenticateToken(c.token)]));
++ const versions={runtimeVersion:'g2b0-synthetic',runtimeHash:'d'.repeat(64),sourcePolicyHash:'e'.repeat(64),knowledgeVersion:'k1',knowledgeHash:'a'.repeat(64),dictionaryVersion:'d1',dictionaryHash:'b'.repeat(64),sourcePolicyVersion:'s1',packageHash:'c'.repeat(64)};
++ const context={schema:'ceo-vnext-context/v1',storeId:'400370',contextId:'ctx-synthetic',sourceRefs:[sha('synthetic evidence\n')],...versions};delete context.runtimeVersion;delete context.packageHash;
++ const report={schema:'ceo-shadow-report/v1',storeId:'400370',contextId:context.contextId,analysisId:'analysis-synthetic',snapshotId:context.contextId,knowledgeVersion:versions.knowledgeVersion,knowledgeHash:versions.knowledgeHash,dictionaryHash:versions.dictionaryHash,planCandidates:[],claims:[{text:'合成测试报告'}]};
++ const taskSnapshot={storeId:'400370',snapshotId:'tasks-1'},workflowState={storeId:'400370',snapshotId:'flows-1'};
++ const trace=createCeoShadowTrace({fixtureRoot,filePath:join(fixtureRoot,'trace.jsonl'),governance});
++ const directory=join(fixtureRoot,'archive');
++ const open=(extra={})=>api.createCeoReportArchive({fixtureRoot,directory,governance,resolveVersions:()=>versions,traceReader:args=>trace.read(args),now:()=>new Date('2026-11-05T00:00:00Z'),...options,...extra});
++ const args={principal:principals.shadow,requestId:'request-1',context,report,evidence:[{path:'synthetic/evidence.txt',content:'synthetic evidence\n',sha256:sha('synthetic evidence\n')}],versions,taskSnapshot,workflowState};
++ const event={type:'ANALYSIS',storeId:'400370',eventId:'event-1',analysisId:report.analysisId,contextId:context.contextId,snapshotId:taskSnapshot.snapshotId,sourceHash:contentHash(context.sourceRefs),policyVersion:governance.policyVersion,proposalRef:null};
++ return{fixtureRoot,directory,governance,...principals,versions,context,report,trace,open,archive:open(),args,event};
++}
++test('full immutable objects and raw evidence survive restart; trace receipt alone completes',async t=>{
++ const f=fixture(t),prepared=await f.archive.prepare(f.args);assert.equal(prepared.status,'PREPARED');assert.match(prepared.reportId,/^report-[a-f0-9]{64}$/);
++ const before=await f.open().read({principal:f.legacy,reportId:prepared.reportId});assert.deepEqual(before.context,f.context);assert.deepEqual(before.report,f.report);assert.equal(before.evidence[0].content,'synthetic evidence\n');assert.equal(before.status,'PREPARED');
++ const traceRecord=await f.trace.append({principal:f.shadow,event:{...f.event,reportId:prepared.reportId}});const complete=await f.archive.confirmTrace({principal:f.shadow,reportId:prepared.reportId,traceRecord});assert.equal(complete.status,'COMPLETE');assert.equal(complete.traceRecordHash,traceRecord.recordHash);
++ assert.deepEqual(await f.open().read({principal:f.human,reportId:prepared.reportId}),complete);
++});
++test('issued principals, capabilities, store and runtime version binding precede mutation',async t=>{
++ const f=fixture(t),before=readdirSync(f.fixtureRoot);for(const principal of [{...f.shadow},f.legacy,f.human])await assert.rejects(()=>f.archive.prepare({...f.args,principal}),e=>['UNAUTHORIZED','FORBIDDEN'].includes(e.code));
++ await assert.rejects(()=>f.archive.prepare({...f.args,versions:{...f.versions,runtimeVersion:'forged'}}),{code:'ARCHIVE_VERSION_MISMATCH'});assert.deepEqual(readdirSync(f.fixtureRoot),before);
++ await assert.rejects(()=>f.archive.read({principal:{...f.human},reportId:'report-'+ 'a'.repeat(64)}),{code:'UNAUTHORIZED'});
++});
++test('request id is stable across restart/concurrent calls and conflicts never overwrite',async t=>{
++ const f=fixture(t);const rows=await Promise.all(Array.from({length:8},()=>f.open().prepare(f.args)));assert.equal(new Set(rows.map(r=>r.reportId)).size,1);
++ const old=await f.open().prepare(f.args);await assert.rejects(()=>f.open().prepare({...f.args,report:{...f.report,claims:[]}}),{code:'ARCHIVE_CONFLICT'});assert.equal((await f.archive.read({principal:f.shadow,reportId:old.reportId})).report.claims.length,1);
++});
++test('forged/mismatched trace and missing trusted reader never report complete',async t=>{
++ const f=fixture(t),p=await f.archive.prepare(f.args),record=await f.trace.append({principal:f.shadow,event:{...f.event,reportId:p.reportId}});
++ await assert.rejects(()=>f.archive.confirmTrace({principal:f.shadow,reportId:p.reportId,traceRecord:{...record,recordHash:'a'.repeat(64)}}),{code:'ARCHIVE_TRACE_MISMATCH'});
++ await assert.rejects(()=>f.open({traceReader:undefined}).confirmTrace({principal:f.shadow,reportId:p.reportId,traceRecord:record}),{code:'ARCHIVE_TRACE_READER_REQUIRED'});
++ assert.equal((await f.archive.read({principal:f.shadow,reportId:p.reportId})).status,'PREPARED');
++});
++test('correction is a Human immutable new version linked to completed original',async t=>{
++ const f=fixture(t),p=await f.archive.prepare(f.args),r=await f.trace.append({principal:f.shadow,event:{...f.event,reportId:p.reportId}});await f.archive.confirmTrace({principal:f.shadow,reportId:p.reportId,traceRecord:r});
++ const correction={...f.args,requestId:'correction-1',correctsReportId:p.reportId,report:{...f.report,analysisId:'analysis-correction',claims:[{text:'Human correction'}]}};
++ await assert.rejects(()=>f.archive.prepare(correction),{code:'FORBIDDEN'});const next=await f.archive.prepare({...correction,principal:f.human});assert.notEqual(next.reportId,p.reportId);assert.equal(next.correctsReportId,p.reportId);assert.equal(next.revision,2);
++ assert.equal((await f.archive.read({principal:f.shadow,reportId:p.reportId})).report.claims[0].text,'合成测试报告');
++});
++test('corrupt/missing objects fail closed and retries preserve corrupt bytes',async t=>{
++ const f=fixture(t),p=await f.archive.prepare(f.args),object=join(f.directory,'objects',p.objects.report.sha256+'.blob');writeFileSync(object,'corrupt tail');
++ await assert.rejects(()=>f.archive.read({principal:f.shadow,reportId:p.reportId}),{code:'ARCHIVE_CORRUPT'});await assert.rejects(()=>f.archive.prepare(f.args),{code:'ARCHIVE_CORRUPT'});assert.equal(readFileSync(object,'utf8'),'corrupt tail');
++});
++test('failure after object creation safely retries without premature manifest success',async t=>{
++ const f=fixture(t),original=fs.fsyncSync;let calls=0;fs.fsyncSync=(fd)=>{if(++calls===4)throw Object.assign(new Error('synthetic write failure'),{code:'EIO'});return original(fd);};syncBuiltinESMExports();
++ try{await assert.rejects(()=>f.archive.prepare(f.args),{code:'EIO'});}finally{fs.fsyncSync=original;syncBuiltinESMExports();}
++ const prepared=await f.open().prepare(f.args);assert.equal(prepared.status,'PREPARED');assert.equal((await f.open().read({principal:f.shadow,reportId:prepared.reportId})).evidence[0].content,f.args.evidence[0].content);
++});
++test('reject secrets, evidence hash mismatch/traversal, oversized bytes without archive writes',async t=>{
++ const f=fixture(t),before=readdirSync(f.fixtureRoot);for(const evidence of [[{path:'../escape',content:'x'}],[{path:'synthetic/a',content:'password=synthetic-only'}],[{path:'synthetic/a',content:'x',sha256:'a'.repeat(64)}],[{path:'synthetic/a',content:'x'.repeat(1048577)}]])await assert.rejects(()=>f.archive.prepare({...f.args,evidence}),e=>['INVALID_ARCHIVE_INPUT','ARCHIVE_SECRET_REJECTED','ARCHIVE_EVIDENCE_MISMATCH'].includes(e.code));assert.deepEqual(readdirSync(f.fixtureRoot),before);
++});
++test('hardlinked objects and escaped directory roots are rejected',async t=>{
++ const f=fixture(t);assert.throws(()=>f.open({directory:join(f.fixtureRoot,'..','escaped')}),{code:'ISOLATED_FIXTURE_REQUIRED'});const p=await f.archive.prepare(f.args),object=join(f.directory,'objects',p.objects.report.sha256+'.blob');linkSync(object,join(f.fixtureRoot,'preserved-hardlink'));
++ await assert.rejects(()=>f.archive.read({principal:f.shadow,reportId:p.reportId}),{code:'ISOLATED_FIXTURE_REQUIRED'});
++});
++test('explicit recovery finishes pending intent without replacing old committed objects',async t=>{
++ const f=fixture(t),original=fs.fsyncSync;let calls=0;fs.fsyncSync=fd=>{if(++calls===3)throw Object.assign(new Error('synthetic interruption'),{code:'EIO'});return original(fd);};syncBuiltinESMExports();
++ try{await assert.rejects(()=>f.archive.prepare(f.args),{code:'EIO'});}finally{fs.fsyncSync=original;syncBuiltinESMExports();}
++ const p=await f.open().recover({principal:f.shadow,requestId:f.args.requestId});assert.equal(p.status,'PREPARED');
++ const object=join(f.directory,'objects',p.objects.report.sha256+'.blob');renameSync(object,object+'.preserved-missing');
++ await assert.rejects(()=>f.open().recover({principal:f.shadow,requestId:f.args.requestId}),{code:'ARCHIVE_CORRUPT'});assert.equal(existsSync(object),false);
++});
++test('lost/corrupt durable trace after completion fails closed on read and retry',async t=>{
++ const f=fixture(t),p=await f.archive.prepare(f.args),record=await f.trace.append({principal:f.shadow,event:{...f.event,reportId:p.reportId}});await f.archive.confirmTrace({principal:f.shadow,reportId:p.reportId,traceRecord:record});
++ writeFileSync(join(f.fixtureRoot,'trace.jsonl'),'{incomplete');
++ await assert.rejects(()=>f.open().read({principal:f.shadow,reportId:p.reportId}),{code:'TRACE_CORRUPT'});
++ await assert.rejects(()=>f.open().prepare(f.args),{code:'TRACE_CORRUPT'});
++});
++test('multiple processes serialize the same request with one stable manifest',async t=>{
++ const f=fixture(t);const script=`import {createCeoReportArchive} from ${JSON.stringify(new URL('../src/ceo-report-archive.js',import.meta.url).href)};import {createCeoGovernance} from ${JSON.stringify(new URL('../src/ceo-governance.js',import.meta.url).href)};const i=JSON.parse(process.argv[1]),g=createCeoGovernance({credentials:{s:{id:'shadow',profile:'shadow',storeId:'400370',token:'s'.repeat(48)}}}),principal=g.authenticateToken('s'.repeat(48));const a=createCeoReportArchive({fixtureRoot:i.fixtureRoot,directory:i.directory,governance:g,resolveVersions:()=>i.args.versions});process.stdout.write((await a.prepare({...i.args,principal})).reportId);`;
++ const child=()=>new Promise((yes,no)=>{const p=spawn(process.execPath,['--input-type=module','-e',script,JSON.stringify({fixtureRoot:f.fixtureRoot,directory:f.directory,args:{...f.args,principal:undefined}})],{windowsHide:true});let out='',err='';p.stdout.on('data',x=>out+=x);p.stderr.on('data',x=>err+=x);p.on('error',no);p.on('close',code=>code===0?yes(out):no(new Error(err)));});
++ const ids=await Promise.all([child(),child(),child()]);assert.equal(new Set(ids).size,1);assert.equal(readdirSync(join(f.directory,'manifests')).length,1);
++});
++test('dead-process lock recovery preserves abandoned lock and pending artifacts',async t=>{
++ const f=fixture(t);assert.equal(typeof f.archive.recoverLock,'function');const file=join(f.fixtureRoot,'.ceo-report-archive-'+sha(f.directory).slice(0,16)+'.lock');
++ const body={pid:2147483647,token:'synthetic-abandoned',createdAt:'2026-11-05T00:00:00.000Z'};writeFileSync(file,JSON.stringify({...body,hash:contentHash(body)}));
++ await assert.rejects(()=>f.archive.recoverLock({principal:f.legacy}),{code:'FORBIDDEN'});const result=await f.archive.recoverLock({principal:f.shadow});assert.equal(result.recovered,true);assert.equal(existsSync(file),false);assert.equal(existsSync(result.preservedPath),true);
++ assert.equal((await f.archive.prepare(f.args)).status,'PREPARED');
++});
++test('live-process locks and snapshot/policy contradictions fail closed',async t=>{
++ const f=fixture(t);const file=join(f.fixtureRoot,'.ceo-report-archive-'+sha(f.directory).slice(0,16)+'.lock'),body={pid:process.pid,token:'synthetic-live',createdAt:'2026-11-05T00:00:00.000Z'};writeFileSync(file,JSON.stringify({...body,hash:contentHash(body)}));
++ await assert.rejects(()=>f.archive.recoverLock({principal:f.shadow}),{code:'ARCHIVE_LOCK_ACTIVE'});unlinkSync(file);
++ await assert.rejects(()=>f.archive.prepare({...f.args,context:{...f.context,sourcePolicyHash:'f'.repeat(64)}}),{code:'ARCHIVE_VERSION_MISMATCH'});
++ await assert.rejects(()=>f.archive.prepare({...f.args,report:{...f.report,taskSnapshotId:'different'}}),{code:'INVALID_ARCHIVE_INPUT'});
++});
+diff --git a/dist/test/ceo-report-linkage.test.js b/dist/test/ceo-report-linkage.test.js
+new file mode 100644
+index 0000000..efc00a6
+--- /dev/null
++++ b/dist/test/ceo-report-linkage.test.js
+@@ -0,0 +1,11 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import {mkdtemp,writeFile,rm} from 'node:fs/promises';
++import os from 'node:os';
++import path from 'node:path';
++import {createCeoGovernance} from '../src/ceo-governance.js';
++import {createCeoShadowTrace} from '../src/ceo-shadow-trace.js';
++test('trace carries immutable reportId and Human feedback cannot switch it',async t=>{
++ const root=await mkdtemp(path.join(os.tmpdir(),'b0-report-link-'));t.after(()=>rm(root,{recursive:true,force:true}));await writeFile(path.join(root,'.ceo-isolated-fixture.json'),'{"synthetic":true}');const credentials={shadow:{id:'fixture-shadow',profile:'shadow',storeId:'400370',token:'s'.repeat(48)},human:{id:'fixture-human',profile:'human',storeId:'400370',token:'h'.repeat(48)}},governance=createCeoGovernance({credentials});const trace=createCeoShadowTrace({fixtureRoot:root,filePath:path.join(root,'events.jsonl'),governance});
++ const e={type:'ANALYSIS',storeId:'400370',eventId:'e1',analysisId:'a1',contextId:'c1',snapshotId:'s1',sourceHash:'a'.repeat(64),policyVersion:governance.policyVersion,proposalRef:null,reportId:'report-'+'b'.repeat(64)};await trace.append({principal:governance.authenticateToken(credentials.shadow.token),event:e});assert.equal((await trace.read({principal:governance.authenticateToken(credentials.human.token),storeId:'400370'}))[0].event.reportId,e.reportId);await assert.rejects(()=>trace.append({principal:governance.authenticateToken(credentials.human.token),event:{...e,type:'HUMAN_FEEDBACK',eventId:'f1',note:'synthetic',reportId:'other'}}),/TRACE_REFERENCE_MISMATCH/);
++});
+diff --git a/dist/test/fixtures/ceo-payment-fixture.js b/dist/test/fixtures/ceo-payment-fixture.js
+new file mode 100644
+index 0000000..ac46fc8
+--- /dev/null
++++ b/dist/test/fixtures/ceo-payment-fixture.js
+@@ -0,0 +1,5 @@
++import {sha,contentHash} from '../../src/ceo-vnext-common.js';
++export function paymentInput(){
++ const snapshot={schema:'ceo-paid-order-snapshot/v1',mode:'SYNTHETIC',revision:1,storeId:'400370',sourceKind:'OWN_STORE_ORDER_EXPORT',period:{start:'2026-11-01',end:'2026-11-04',timeZone:'Asia/Shanghai'},exportedAt:'2026-11-04T23:00:00Z',coverage:'COMPLETE',currency:'CNY',rows:[{orderRef:'syn-order-1',storeId:'400370',orderStatus:'OPEN',itemCount:2,payment:{status:'PAID',paidAt:'2026-11-02T00:00:00Z',amount:12.34,currency:'CNY'}}]};
++ return{snapshot,approval:{scope:'SYNTHETIC',storeId:'400370',snapshotHash:sha(JSON.stringify(snapshot)),periodHash:contentHash(snapshot.period),reviewerId:'fixture-data-owner',reviewedAt:'2026-11-04T23:30:00Z'},now:new Date('2026-11-05T00:00:00Z')};
++}
+diff --git a/docs/superpowers/plans/2026-11-05-ceo-g2b0.md b/docs/superpowers/plans/2026-11-05-ceo-g2b0.md
+new file mode 100644
+index 0000000..95d43dd
+--- /dev/null
++++ b/docs/superpowers/plans/2026-11-05-ceo-g2b0.md
+@@ -0,0 +1,17 @@
++# CEO G2-B0 Execution Plan
++
++Spec: Human G2-B0 authorization and accepted CEO v1.0 minimal change scope; G2-A is preserved local checkpoint db002b0.
++Goal: full-report archive + single payment-performance preparation + synthetic end-to-end readiness package, without production integration.
++Constraints: use same isolated tree, never read credentials or raw identifiable order data; no real DB/log/service writes; no executor; no cleanup of blocked directories; real bindings UNVERIFIED unless existing evidence proves them.
++Architecture: existing G1 governance and G2-A context/trace reused; immutable file objects in synthetic owned root; content-bound manifest receipt, trace-commit status; deterministic payment adapter with trusted host approval only. WorkBuddy supplies reasoning candidates, never authority/tool execution.
++Review focus: false VERIFIED approval, conflating paid orders/units with shipped sales, cross-currency/timezone/window, partial archive vs complete success, concurrent retries/restart, correction history, host-forged runtime version.
++
++- [ ] Snapshot G2-A and protect baseline; preserve all prior evidence and residues.
++- [ ] Read-only bounded source inventory: source/field/time/status/unit/store mapping/reviewer, no repeated DB search. Write connection-contract evidence with UNVERIFIED gates.
++- [ ] Full immutable Context/report/evidence archive with injected trusted owner API, synthetic filesystem adapter, dedup/conflict/recovery; authorization before writes; RED/GREEN.
++- [ ] Paid-order performance snapshot contract and synthetic adapter; approved dictionary overlay in synthetic inputs only, no real dictionary edits; zero/null, statuses, refunds, currencies, exact period/tz, approval/content binding RED/GREEN.
++- [ ] Minimal question-to-report workflow: explicit fixed Chinese goal, verified facts and gaps, hypotheses, <=3 grounded priorities with acceptance criteria, archive and trace receipt linkage, Human correction -> new report version. No tasks/executors.
++- [ ] Independent review, fixes with RED/GREEN, targeted new/G2-A compatibility. Full historical failures only if actual chain changes justify it; do not repeat completed tests unnecessarily.
++- [ ] Report, incremental diff, evidence hashes, G2-B1 gates and Human decisions; stop.
++
++Implementation subtask files are disjoint. Original G1 tree and main config remain unchanged. No design reconfirmation per explicit authorization.
+diff --git a/schemas/ceo-shadow-event.schema.json b/schemas/ceo-shadow-event.schema.json
+index 81008dc..38d8bf9 100644
+--- a/schemas/ceo-shadow-event.schema.json
++++ b/schemas/ceo-shadow-event.schema.json
+@@ -73,6 +73,10 @@
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 2000
++    },
++    "reportId": {
++      "type": "string",
++      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$"
+     }
+   },
+   "allOf": [
+diff --git a/schemas/ceo-shadow-report.schema.json b/schemas/ceo-shadow-report.schema.json
+index 725f496..cb68493 100644
+--- a/schemas/ceo-shadow-report.schema.json
++++ b/schemas/ceo-shadow-report.schema.json
+@@ -135,6 +135,10 @@
+     "analysisId": {
+       "type": "string",
+       "pattern": "^analysis-[a-f0-9]{64}$"
++    },
++    "requestRef": {
++      "type": "string",
++      "pattern": "^[A-Za-z0-9._:-]{1,90}$"
+     }
+   },
+   "required": [
+diff --git a/schemas/ceo-vnext-context.schema.json b/schemas/ceo-vnext-context.schema.json
+index 71e1acb..38abce8 100644
+--- a/schemas/ceo-vnext-context.schema.json
++++ b/schemas/ceo-vnext-context.schema.json
+@@ -88,6 +88,14 @@
+     },
+     "contextId": {
+       "type": "string"
++    },
++    "sourcePolicyHash": {
++      "type": "string",
++      "pattern": "^[a-f0-9]{64}$"
++    },
++    "reviewHash": {
++      "type": "string",
++      "pattern": "^[a-f0-9]{64}$"
+     }
+   },
+   "required": [

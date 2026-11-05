@@ -1,0 +1,11 @@
+{
+  "label": "review-replay-red",
+  "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+  "command": [
+    "node",
+    "--test",
+    "dist/test/ceo-payment-loop.test.js"
+  ],
+  "exitCode": 1,
+  "seconds": 4.41
+}

@@ -1,0 +1,118 @@
+[
+  {
+    "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\.superpowers\\sdd\\2026-10-28-ceo-evidence-check\\runtime-before.json",
+    "sha256": "0483dc5116dd45f39e20f6b6a6b8bbe6c859b9193afedc1905dca628a2798687",
+    "evidence": {
+      "database": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\.superpowers\\sdd\\2026-10-27-ceo-shared-task-loop\\manual-loop-preview.sqlite",
+      "tables": {
+        "ceo_context_snapshots": {
+          "count": 1,
+          "sha256": "b3e15fde11ea91f6abe94b05ea3b281bc4ac21c145dd365a60f17967b2d252f7"
+        },
+        "ceo_daily_reviews": {
+          "count": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "ceo_decision_versions": {
+          "count": 3,
+          "sha256": "690aec31bd709dfd0592f235ef884c066adfd68bc366039139cc37f54f50f4e3"
+        },
+        "ceo_entry_draft_requests": {
+          "count": 2,
+          "sha256": "0d8e4b01bb39f2d98929148cf401589dc0d174fe3a232fc7e7c063f7dbf08437"
+        },
+        "ceo_goal_versions": {
+          "count": 1,
+          "sha256": "a94f25278e506d8d9c96e4b6d7ee3513fa33c788fe7b93d5ae1de369a594a9bb"
+        },
+        "ceo_plan_review_links": {
+          "count": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "ceo_plan_versions": {
+          "count": 3,
+          "sha256": "8de0bf26e0d1dd8bf309297dc8bbcdbda91bbe87770da6d3fc40b415b2686f8c"
+        },
+        "ceo_task_events": {
+          "count": 22,
+          "sha256": "38cc422d46417d5eb1343f76b43ce806f92780f9d06358442ea91631da3811ab"
+        },
+        "ceo_task_operations": {
+          "count": 15,
+          "sha256": "12e22818f2ba01f04f888fb16a123ab1733409ba8798366d137aa16375d8c0e3"
+        },
+        "ceo_tasks": {
+          "count": 7,
+          "sha256": "8a8c76b563951594a9600432e37980395056ed679f39c3f09854e6d32bc177a4"
+        }
+      },
+      "protectedAssets": {
+        "public/app.js": "71cdc9218be082cb73c02f86e8a162b166cbb2e359788baa1d6a5c93d5265dcb",
+        "public/index.html": "8af0b50286df92eb4d0727df218c47c5f61be92bebb3239b9b870a622b2ea951",
+        "public/styles.css": "b2892d8a11c3a64d3c6df5e228133a34791607261a83bf7266e55f460859065d",
+        "public/workflow-alert.js": "8c3a1a347680cfb808dc2a1f310539ec0b257d96404d34e67aabc076708e5a22",
+        "public/workflow-alert.css": "05bc90f5b0901965c8dcb2f732accbfcdbeeed3b1ed8f7b41c5b21f93a9afa76",
+        "run-state.json": "2d91f64e3275403a86716dfbe3566f6a0e1d09fc7c26d95f7807a977ee964d66"
+      }
+    }
+  },
+  {
+    "path": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\.superpowers\\sdd\\2026-10-28-ceo-evidence-check\\runtime-after.json",
+    "sha256": "d08effd6501e679485e2531065ba168a9d356c42342c5d2e5b8cc51719a42136",
+    "evidence": {
+      "database": "F:\\yikuaborder-deploy\\.worktrees\\ceo-read-brief\\.superpowers\\sdd\\2026-10-27-ceo-shared-task-loop\\manual-loop-preview.sqlite",
+      "tables": {
+        "ceo_context_snapshots": {
+          "count": 1,
+          "sha256": "b3e15fde11ea91f6abe94b05ea3b281bc4ac21c145dd365a60f17967b2d252f7"
+        },
+        "ceo_daily_reviews": {
+          "count": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "ceo_decision_versions": {
+          "count": 3,
+          "sha256": "690aec31bd709dfd0592f235ef884c066adfd68bc366039139cc37f54f50f4e3"
+        },
+        "ceo_entry_draft_requests": {
+          "count": 2,
+          "sha256": "0d8e4b01bb39f2d98929148cf401589dc0d174fe3a232fc7e7c063f7dbf08437"
+        },
+        "ceo_goal_versions": {
+          "count": 1,
+          "sha256": "a94f25278e506d8d9c96e4b6d7ee3513fa33c788fe7b93d5ae1de369a594a9bb"
+        },
+        "ceo_plan_review_links": {
+          "count": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "ceo_plan_versions": {
+          "count": 3,
+          "sha256": "8de0bf26e0d1dd8bf309297dc8bbcdbda91bbe87770da6d3fc40b415b2686f8c"
+        },
+        "ceo_task_events": {
+          "count": 22,
+          "sha256": "38cc422d46417d5eb1343f76b43ce806f92780f9d06358442ea91631da3811ab"
+        },
+        "ceo_task_operations": {
+          "count": 15,
+          "sha256": "12e22818f2ba01f04f888fb16a123ab1733409ba8798366d137aa16375d8c0e3"
+        },
+        "ceo_tasks": {
+          "count": 7,
+          "sha256": "8a8c76b563951594a9600432e37980395056ed679f39c3f09854e6d32bc177a4"
+        }
+      },
+      "protectedAssets": {
+        "public/app.js": "71cdc9218be082cb73c02f86e8a162b166cbb2e359788baa1d6a5c93d5265dcb",
+        "public/index.html": "d16ee4226ca86cc43751d54a08620207b82f3df5ca771cd91e8736c0eaa41f73",
+        "public/styles.css": "b2892d8a11c3a64d3c6df5e228133a34791607261a83bf7266e55f460859065d",
+        "public/workflow-alert.js": "8c3a1a347680cfb808dc2a1f310539ec0b257d96404d34e67aabc076708e5a22",
+        "public/workflow-alert.css": "05bc90f5b0901965c8dcb2f732accbfcdbeeed3b1ed8f7b41c5b21f93a9afa76",
+        "run-state.json": "ddc0f7a0a67fec3509c3bf49daeed3f058e26bb0cf80d2e243f8cd3560b265dd"
+      },
+      "allRowsUnchanged": true,
+      "protectedUnchanged": false
+    }
+  }
+]

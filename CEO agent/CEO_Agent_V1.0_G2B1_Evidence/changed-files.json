@@ -1,0 +1,300 @@
+{
+  "schema": "ceo-g2b1-changed-files/v1",
+  "baseCommit": "db002b0eaaa106fd2d7df76d42a723f2840a2d6d",
+  "count": 41,
+  "added": 35,
+  "modified": 6,
+  "diff": {
+    "path": "diff/g2b1-from-g2a-checkpoint.diff",
+    "sha256": "db7f78e4765875c597bcace149add787319a8467e2b9d6c7fc3f97cc4497d1ea"
+  },
+  "files": [
+    {
+      "path": "config/ceo-g2b0-connection-contract.v1.json",
+      "status": "ADDED",
+      "sha256": "5e88a459e0b74f2242a4e1e19e6d78ba01aa62cf50a10e6f494c56a84e20803f",
+      "bytes": 2706,
+      "lines": 102
+    },
+    {
+      "path": "config/ceo-g2b0-package.v1.json",
+      "status": "ADDED",
+      "sha256": "5b3a4f66c0a83b781ea3e8029532900b79c26e5017c4a4ddcc1700f1db1e0380",
+      "bytes": 1273,
+      "lines": 35
+    },
+    {
+      "path": "config/ceo-g2b1-connection-contract.v1.json",
+      "status": "ADDED",
+      "sha256": "33080f02e43129bc4e2cd49ec59ecbf2ccdc292016c92b7b4a07d1a73726f9b3",
+      "bytes": 4543,
+      "lines": 123
+    },
+    {
+      "path": "config/ceo-g2b1-package.v1.json",
+      "status": "ADDED",
+      "sha256": "bf161316a14424c5b35ba3ebd5ac59df98f0265d2575862dafc9047c70881740",
+      "bytes": 1875,
+      "lines": 49
+    },
+    {
+      "path": "config/ceo-paid-orders.real-contract.v1.json",
+      "status": "ADDED",
+      "sha256": "b07561b30d378bd32849ca7c866dac5c5a791f8028f3707f3b4d65dba23931e6",
+      "bytes": 4196,
+      "lines": 85
+    },
+    {
+      "path": "config/ceo-paid-orders.real-policy.v1.json",
+      "status": "ADDED",
+      "sha256": "2ecd05888ace5b49e49cbe48edf227fb68bde7884429054effb9405b8fd30e36",
+      "bytes": 755,
+      "lines": 26
+    },
+    {
+      "path": "config/ceo-paid-orders.synthetic.v1.json",
+      "status": "ADDED",
+      "sha256": "d5686dacc400fb5a64c9f60c6be88243c7c097bd89d90d0d73df61c100eb8b4b",
+      "bytes": 381,
+      "lines": 1
+    },
+    {
+      "path": "config/ceo-store-mapping.v1.json",
+      "status": "ADDED",
+      "sha256": "5e507860b9a0814a9fb89364f813116795bf2b8307cb4edea156aa1acb834633",
+      "bytes": 956,
+      "lines": 25
+    },
+    {
+      "path": "dist/src/ceo-cockpit-projection.js",
+      "status": "ADDED",
+      "sha256": "4ac19e8691e9895e654e38167d80ff00f7b99844fe459c68d4824bd1af02045f",
+      "bytes": 5236,
+      "lines": 91
+    },
+    {
+      "path": "dist/src/ceo-paid-order-contract.js",
+      "status": "ADDED",
+      "sha256": "3a8cc6019fca00b122fea595d4c3c935ce60034dfe579ea7efd7e15240ff3c58",
+      "bytes": 12725,
+      "lines": 170
+    },
+    {
+      "path": "dist/src/ceo-paid-order-core.js",
+      "status": "ADDED",
+      "sha256": "e17462817e3ebe4f24b3eeae5b62287132ff1ae6798d11f3ab58d348ff2f19b1",
+      "bytes": 8098,
+      "lines": 74
+    },
+    {
+      "path": "dist/src/ceo-payment-domain.js",
+      "status": "ADDED",
+      "sha256": "f6014c2a816512a7a2df38f302c7b9ef5e38a14c8da5f7421dd264a279867e13",
+      "bytes": 2178,
+      "lines": 38
+    },
+    {
+      "path": "dist/src/ceo-payment-loop.js",
+      "status": "ADDED",
+      "sha256": "d3a4b3e10efadc3b4dc68bcaaf7be4980437757167a573619673dae88af244a2",
+      "bytes": 11126,
+      "lines": 76
+    },
+    {
+      "path": "dist/src/ceo-readiness-versions.js",
+      "status": "ADDED",
+      "sha256": "431bdd64681bb29c2fce3ed42b00997a4a751a7142e86e5e8cb390282c86f6c6",
+      "bytes": 2195,
+      "lines": 20
+    },
+    {
+      "path": "dist/src/ceo-real-data-verification.js",
+      "status": "ADDED",
+      "sha256": "2c71feb7f46a8dbfb3f5d22ef9c6b3bc6cb58c71c4fbb3def4774b06ecf8e48d",
+      "bytes": 8587,
+      "lines": 153
+    },
+    {
+      "path": "dist/src/ceo-real-export-adapter.js",
+      "status": "ADDED",
+      "sha256": "dad82b2127b664c14dbee929fcfb6093ba8d21dd3c5f3fe1bb4c426b0dc10b83",
+      "bytes": 9395,
+      "lines": 137
+    },
+    {
+      "path": "dist/src/ceo-report-archive.js",
+      "status": "ADDED",
+      "sha256": "1af4ab2e14b1a3f80d02c5e806c7e93b23e2ae89f0d61c1d7b4738daad41c3cf",
+      "bytes": 19700,
+      "lines": 155
+    },
+    {
+      "path": "dist/src/ceo-shadow-trace.js",
+      "status": "MODIFIED",
+      "sha256": "0289f1f3e77c2cccdf787e9b6e9568bd9c14eab56067bf20e4d6db67edd8a2a5",
+      "bytes": 11667,
+      "lines": 165
+    },
+    {
+      "path": "dist/src/ceo-store-mapping.js",
+      "status": "ADDED",
+      "sha256": "a331aec9c698c5864a953ed93d54b99ff63952a031030eb34f3d5e42d847c104",
+      "bytes": 7593,
+      "lines": 109
+    },
+    {
+      "path": "dist/src/ceo-vnext-analysis.js",
+      "status": "MODIFIED",
+      "sha256": "f4a83dddb5eff0344a8b3fba8759cfcdd4f9aa367178820bd346eb8083533d66",
+      "bytes": 4357,
+      "lines": 29
+    },
+    {
+      "path": "dist/src/ceo-vnext-context.js",
+      "status": "MODIFIED",
+      "sha256": "4b1d6e7e3645478dbe517270b99ba68bbcfa2f9dbbe703c58e4fd3ddbbf5baab",
+      "bytes": 9014,
+      "lines": 71
+    },
+    {
+      "path": "dist/test/ceo-cockpit-projection.test.js",
+      "status": "ADDED",
+      "sha256": "070f9e65606907e6767a3e5dcef789c024ac71b9d2c544f097e6687134f6680e",
+      "bytes": 8726,
+      "lines": 135
+    },
+    {
+      "path": "dist/test/ceo-g2b1-contracts.test.js",
+      "status": "ADDED",
+      "sha256": "05ef1524d60e2f2647593f7ad6aed8973b5c05af7c2f94c89e190702f1335e5b",
+      "bytes": 5629,
+      "lines": 71
+    },
+    {
+      "path": "dist/test/ceo-g2b1-real-loop.test.js",
+      "status": "ADDED",
+      "sha256": "94c3e72e7dd6673ec4e0c38636248419bfa915f4133462b2c0a7c5dcf51e4a15",
+      "bytes": 9489,
+      "lines": 124
+    },
+    {
+      "path": "dist/test/ceo-paid-order-contract.test.js",
+      "status": "ADDED",
+      "sha256": "d29eec66b89c8ba552c3070a6e9ea76f9e6253da887ddad20a99f6e3c2b9c743",
+      "bytes": 8189,
+      "lines": 126
+    },
+    {
+      "path": "dist/test/ceo-payment-domain.test.js",
+      "status": "ADDED",
+      "sha256": "05af48983b2e642f799d6a483c105bac68af1545f876f074bbc8aab28efacebb",
+      "bytes": 4598,
+      "lines": 16
+    },
+    {
+      "path": "dist/test/ceo-payment-loop.test.js",
+      "status": "ADDED",
+      "sha256": "67f6482c6651e3f872a5a6635bce1931feaa4b2133425c1ba60fa3ef379976ef",
+      "bytes": 12041,
+      "lines": 37
+    },
+    {
+      "path": "dist/test/ceo-real-data-verification.test.js",
+      "status": "ADDED",
+      "sha256": "0f8ac7fe59f27589baea2e5ca97aea576f31ba7f3da24c943ddc4863fbb5ac9b",
+      "bytes": 6544,
+      "lines": 125
+    },
+    {
+      "path": "dist/test/ceo-real-export-adapter.test.js",
+      "status": "ADDED",
+      "sha256": "645d9a315739cb264d72def2d874b94ad3d82ce74de824950d078704aeef7b7e",
+      "bytes": 9400,
+      "lines": 116
+    },
+    {
+      "path": "dist/test/ceo-report-archive.test.js",
+      "status": "ADDED",
+      "sha256": "915e640f7221cd962c895fa8bbe2843975fd994c5ded5e8363e5c216c6c292bc",
+      "bytes": 13489,
+      "lines": 102
+    },
+    {
+      "path": "dist/test/ceo-report-linkage.test.js",
+      "status": "ADDED",
+      "sha256": "db5449837cd823f7d1cca2993c4b71344367c68ddb84609c3e116840be3f85ab",
+      "bytes": 1614,
+      "lines": 11
+    },
+    {
+      "path": "dist/test/ceo-store-mapping.test.js",
+      "status": "ADDED",
+      "sha256": "985ae2f1e5b32f74cfebb438c1ddff6e62ef75eaeecd2d03ca33a31f1fdacf10",
+      "bytes": 6999,
+      "lines": 135
+    },
+    {
+      "path": "dist/test/fixtures/ceo-payment-fixture.js",
+      "status": "ADDED",
+      "sha256": "164eef493be37270bb42529eac06b630b81f71ceec9deb9c732e62604404bebf",
+      "bytes": 790,
+      "lines": 5
+    },
+    {
+      "path": "dist/test/fixtures/ceo-real-chain-fixture.js",
+      "status": "ADDED",
+      "sha256": "6efa57a05f936050c4250db32ddfc5bde608e40002c0e8f7fcd2f2e0134156da",
+      "bytes": 3096,
+      "lines": 36
+    },
+    {
+      "path": "dist/test/fixtures/ceo-real-export-fixture.js",
+      "status": "ADDED",
+      "sha256": "6c9e3515bfd2aaca0a9700be930dea9490ed72133f5447ecd586835e7d1004ca",
+      "bytes": 2255,
+      "lines": 42
+    },
+    {
+      "path": "docs/superpowers/plans/2026-11-05-ceo-g2b0.md",
+      "status": "ADDED",
+      "sha256": "5955f9c97e938210eb893c4c1506642ad75e3d536c262e90570079636a49d724",
+      "bytes": 2687,
+      "lines": 19
+    },
+    {
+      "path": "schemas/ceo-cockpit-projection.schema.json",
+      "status": "ADDED",
+      "sha256": "c0f1037302a0e54858c677a2d0922aa9102ffc55f35482e2b3ca3e81e4603e71",
+      "bytes": 3727,
+      "lines": 96
+    },
+    {
+      "path": "schemas/ceo-real-paid-verification.schema.json",
+      "status": "ADDED",
+      "sha256": "8e299307e8be536881460e87efbb9124cf7e784f683e869b0e758a27095ff270",
+      "bytes": 2546,
+      "lines": 69
+    },
+    {
+      "path": "schemas/ceo-shadow-event.schema.json",
+      "status": "MODIFIED",
+      "sha256": "cf742e7dad65ad732cf2aaa2e5ae618d3e9cbc0453c77e2a5d09a3d0bde10c8e",
+      "bytes": 2167,
+      "lines": 105
+    },
+    {
+      "path": "schemas/ceo-shadow-report.schema.json",
+      "status": "MODIFIED",
+      "sha256": "ede5d8c898384963466a9d1b6863641130faa50155548adc10b3bb29876ed672",
+      "bytes": 3362,
+      "lines": 166
+    },
+    {
+      "path": "schemas/ceo-vnext-context.schema.json",
+      "status": "MODIFIED",
+      "sha256": "f8ba3180605d65d4b6b086baad815783566df03f200ddf2474f4be10cb18768d",
+      "bytes": 2330,
+      "lines": 119
+    }
+  ]
+}

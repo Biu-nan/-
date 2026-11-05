@@ -1,0 +1,16 @@
+scripts/market-scan-plan.mjs:213:  if (args.out) fs.writeFileSync(args.out, `${JSON.stringify(plan, null, 2)}\n`);
+scripts/ingest-ixspy-raw.mjs:12://   - caliber 必须已在 config/metrics-schema.json 注册，否则 appendFacts 直接抛错（禁止临时造词）
+scripts/ingest-ixspy-raw.mjs:19:import { appendFacts } from './metrics-store.mjs';
+scripts/ingest-ixspy-raw.mjs:155:  if (args.out) fs.writeFileSync(args.out, jsonl);
+scripts/ingest-ixspy-raw.mjs:169:  appendFacts(facts)
+dist/src/hidden-data-loop-service.js:2:import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
+dist/src/hidden-data-loop-service.js:136:            await writeFile(file, `${JSON.stringify(normalized)}\n`, { flag: "a" });
+dist/src/hidden-data-loop-service.js:154:            await writeFile(temporary, `${JSON.stringify(data, null, 2)}\n`);
+dist/src/hidden-data-loop-service.js:340:            await writeFile(file, initialContent);
+scripts/metrics-store.mjs:22:export const SCHEMA_PATH = path.join(PROJECT_ROOT, 'config', 'metrics-schema.json');
+scripts/metrics-store.mjs:25:export async function loadSchema() {
+scripts/metrics-store.mjs:34:    throw new Error(`未知口径 "${caliber}"。请先在 config/metrics-schema.json 的 calibers 中定义，禁止临时造词。`);
+scripts/metrics-store.mjs:69:export async function appendFacts(facts, { date } = {}) {
+scripts/metrics-store.mjs:70:  const schema = await loadSchema();
+scripts/metrics-store.mjs:167:  await fs.writeFile(file, JSON.stringify(data, null, 2), 'utf8');
+scripts/stratify-products.mjs:449:  fs.writeFileSync(outFile, JSON.stringify(report, null, 1), 'utf8');

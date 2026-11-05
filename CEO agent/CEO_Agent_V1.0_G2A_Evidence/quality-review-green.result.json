@@ -1,0 +1,14 @@
+{
+  "label": "quality-review-green",
+  "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+  "command": [
+    "node",
+    "--test",
+    "dist/test/ceo-vnext-context.test.js",
+    "dist/test/ceo-shadow-analysis.test.js",
+    "dist/test/ceo-g2a-service.test.js",
+    "dist/test/ceo-workflow-catalog.test.js"
+  ],
+  "exitCode": 0,
+  "seconds": 0.668
+}

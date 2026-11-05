@@ -1,0 +1,16 @@
+{
+  "verifiedStatus": "VERIFIED",
+  "verifiedReceipt": "verify-5621e5f7fadd1cb372f8d06449531e6378e046a4387175ee956f99faf85795f0",
+  "rejectedStatus": "REJECTED",
+  "rejectedReceipt": "verify-78f4e91c2fafeccc3ba17a24b6ca07119a8a4119467ad68de7b1be9d918a200e",
+  "rejectedFailed": [
+    "REAL_CONTRACT_NOT_APPROVED",
+    "REAL_POLICY_NOT_APPROVED",
+    "STORE_MAPPING_UNVERIFIED",
+    "STORE_SCOPE_UNRESOLVED",
+    "REAL_APPROVAL_REVIEWER_UNAUTHORIZED",
+    "PREREQUISITE_FAILED"
+  ],
+  "cockpitStatus": "READY",
+  "blockedCockpitStatus": "BLOCKED"
+}

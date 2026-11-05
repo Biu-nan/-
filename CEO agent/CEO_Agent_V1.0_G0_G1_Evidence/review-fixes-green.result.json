@@ -1,0 +1,13 @@
+{
+  "label": "review-fixes-green",
+  "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+  "command": [
+    "node",
+    "--test",
+    "dist/test/ceo-main-boundary.test.js",
+    "dist/test/ceo-isolation-review.test.js",
+    "dist/test/ceo-main-entry.test.js"
+  ],
+  "exitCode": 0,
+  "seconds": 3.257
+}

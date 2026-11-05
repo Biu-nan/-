@@ -1,0 +1,52 @@
+{
+  "version": {
+    "branch": "feature/ykb-v1-phase1-identity-state",
+    "commit": "052abd7",
+    "codeRoot": "F:\\yikuaborder-deploy",
+    "projectRoot": "F:\\yikuaborder-deploy",
+    "userDataDir": "F:\\yikuaborder-deploy",
+    "host": "0.0.0.0",
+    "port": 3000,
+    "startedAt": "2026-10-31T01:24:13.295Z",
+    "pid": 18656
+  },
+  "httpStatus": 200,
+  "assets": [
+    {
+      "path": "public/index.html",
+      "httpStatus": 200,
+      "servedSha256": "dfd787f397b8032d66297db42f99136e11261242eb04e113b7f3385da39b3764",
+      "diskSha256": "dfd787f397b8032d66297db42f99136e11261242eb04e113b7f3385da39b3764",
+      "matches": true
+    },
+    {
+      "path": "public/ceo-command-center.js",
+      "httpStatus": 200,
+      "servedSha256": "37dee4528b25ff41ff2ed1299fe7064863e1c1361e36d59111804a4790fbf837",
+      "diskSha256": "37dee4528b25ff41ff2ed1299fe7064863e1c1361e36d59111804a4790fbf837",
+      "matches": true
+    },
+    {
+      "path": "public/ceo-tasks.js",
+      "httpStatus": 200,
+      "servedSha256": "8d08435448bceadb947b322ae7bd67ede877f1ba31b83e78a4b4de02241fdd93",
+      "diskSha256": "8d08435448bceadb947b322ae7bd67ede877f1ba31b83e78a4b4de02241fdd93",
+      "matches": true
+    },
+    {
+      "path": "public/app.js",
+      "httpStatus": 200,
+      "servedSha256": "3718c77def79e00a3589cae728b25615d641f454e90a7dd17bb5cd54f5cc3481",
+      "diskSha256": "3718c77def79e00a3589cae728b25615d641f454e90a7dd17bb5cd54f5cc3481",
+      "matches": true
+    },
+    {
+      "path": "public/styles.css",
+      "httpStatus": 200,
+      "servedSha256": "fdb366f97ea869379b3099db7b025e0ac480744555fd92c3046cf493f69878ec",
+      "diskSha256": "fdb366f97ea869379b3099db7b025e0ac480744555fd92c3046cf493f69878ec",
+      "matches": true
+    }
+  ],
+  "safety": "only reviewed version endpoint and static assets; no /api/status call"
+}

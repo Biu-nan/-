@@ -1,0 +1,187 @@
+{
+  "version": "1.1.0",
+  "updatedAt": "2026-11-05",
+  "note": "IXSPY 市场侧周更抓取配置。来源：docs/IXSPY_P0_VALIDATION_2026-11-05.md。任何改动必须同步更新 verify 脚本。",
+  "platform": "aliexpress",
+  "source": "ixspy",
+  "storeId": "market:aliexpress",
+  "budget": {
+    "monthlyCreditCap": 5000,
+    "perRunCreditCap": 400,
+    "hardStopOnExceed": true
+  },
+  "defaults": {
+    "maxPages": 1,
+    "pageSize": 50,
+    "allowFullRank": false,
+    "fullRankCreditWarning": 400
+  },
+  "costTable": {
+    "category_resource": 0,
+    "category_children": 0,
+    "category_lookup": 0,
+    "rank_date_list": 0,
+    "product_rank": 20,
+    "store_rank": 20,
+    "product_search": 20,
+    "store_search": 20,
+    "category_research": 30,
+    "market_insights": 30,
+    "keyword_rank": 30,
+    "product_detail_perId": 2,
+    "store_detail_perId": 2,
+    "product_orders_sku_stat": 3,
+    "product_orders_region_stat": 3,
+    "product_orders_shipping_stat": 3,
+    "product_trend_data": 3,
+    "store_category_stat": 5,
+    "store_orders_region_stat": 5,
+    "store_trend_data": 5
+  },
+  "targets": [
+    {
+      "categoryId": 25900,
+      "name": "整理包",
+      "level": 2,
+      "enabled": true,
+      "researchable": true,
+      "why": "供需比 2.30；313 商品/108 店/月销 6714/均价 $5.63/集中度 57。下面只有 2 个叶子，是内胆赛道的父节点",
+      "rankTypes": [
+        "normal_hot",
+        "new_inc"
+      ],
+      "keyword": false,
+      "regionOfInterest": [
+        "BR",
+        "ES",
+        "US"
+      ]
+    },
+    {
+      "categoryId": 25907,
+      "name": "隐藏内胆",
+      "level": 3,
+      "enabled": true,
+      "researchable": false,
+      "why": "★ 内胆本体所在叶子：146 商品 / 仅 29 店 / 月销 1586 / 均价 $9.17 / 集中度 78。对手极少是最大信号",
+      "rankTypes": [
+        "normal_hot"
+      ],
+      "keyword": false,
+      "regionOfInterest": [
+        "BR",
+        "ES",
+        "US"
+      ]
+    },
+    {
+      "categoryId": 25906,
+      "name": "便携式折叠包",
+      "level": 3,
+      "enabled": true,
+      "researchable": false,
+      "why": "供需比 3.16（全箱包最高）/ 167 商品 / 82 店 / 月销 5128 / 均价 $4.19",
+      "rankTypes": [
+        "normal_hot"
+      ],
+      "keyword": false,
+      "regionOfInterest": [
+        "BR",
+        "ES",
+        "US"
+      ]
+    },
+    {
+      "categoryId": 17870,
+      "name": "功能腰包",
+      "level": 2,
+      "enabled": true,
+      "researchable": false,
+      "why": "供需比 1.19、集中度 36（分散）、均价 $7.01；keyword 实测有数据(273条)",
+      "rankTypes": [
+        "normal_hot"
+      ],
+      "keyword": false,
+      "regionOfInterest": [
+        "ES",
+        "KR"
+      ]
+    },
+    {
+      "categoryId": 6503,
+      "name": "童包",
+      "level": 2,
+      "enabled": false,
+      "researchable": true,
+      "why": "供需比 2.64 最高但集中度 89（前几名通吃），先观察不投入",
+      "rankTypes": [
+        "normal_hot"
+      ],
+      "keyword": false,
+      "regionOfInterest": [
+        "BR",
+        "US",
+        "MX"
+      ]
+    },
+    {
+      "categoryId": 12426,
+      "name": "箱包(一级,关键词用)",
+      "level": 1,
+      "enabled": true,
+      "researchable": false,
+      "why": "关键词榜一级类目，实测 5568 条有数据；仅用于关键词库，不做选品",
+      "rankTypes": [],
+      "keyword": true,
+      "regionOfInterest": [
+        "ALL",
+        "US",
+        "RU"
+      ]
+    },
+    {
+      "categoryId": 12686,
+      "name": "内衣/家居服(一级,关键词用)",
+      "level": 1,
+      "enabled": true,
+      "researchable": false,
+      "why": "乳贴主营类目，关键词库用",
+      "rankTypes": [],
+      "keyword": true,
+      "regionOfInterest": [
+        "ALL",
+        "US",
+        "RU"
+      ]
+    }
+  ],
+  "caliberMap": {
+    "product_rank": {
+      "rank_sales_count": "market.rank.sales7d@product_rank",
+      "total_sales": "market.rank.total_sales@product_rank",
+      "product_price": "market.rank.price@product_rank"
+    },
+    "category_research": {
+      "sales_count_1m": "market.category.sales_1m@category_research",
+      "total_products": "market.category.products@category_research",
+      "supply_demand_1m": "market.category.supply_demand_1m@category_research",
+      "top100_avg_price": "market.category.top100_price@category_research"
+    },
+    "keyword_rank": {
+      "searches_count": "market.keyword.searches@keyword_rank",
+      "competitive_index": "market.keyword.competitive@keyword_rank",
+      "conversion_rate": "market.keyword.cvr@keyword_rank"
+    }
+  },
+  "redLines": [
+    "禁止跨接口混用同名指标：sales_count_7d 在 product_rank 与 product_detail 不一致（实测 36346 vs 0），只认 product_rank",
+    "禁止对 total_sales_trend 做日差分推日销：该字段是累计计数器，单日可跳 +3266",
+    "禁止把 rank_date 在不同榜种间复用：keyword_rank 最新日期比 normal_rank 晚一周",
+    "禁止全量翻页：product_rank 1000 条 = 400 积分；keyword_rank 5568 条 = 8370 积分",
+    "禁止用一级类目热销榜做选品：Top20 中位价 $1.83、68% 单品 ≤$3、单店占 82%",
+    "禁止用 store_logo 识别店铺：所有店铺返回同一张默认图",
+    "禁止对 researchable=false 的叶子类目调 category_research：实测返回空仍扣 30 积分（25906/17870 各烧一次）",
+    "keyword_rank 覆盖不稳定：12426 有 5568 条、17870 有 273 条、25900 返回 0 条；必须先查 keyword-coverage.json，rows=0 直接跳过"
+  ],
+  "keywordCoverageFile": "data/market/ixspy/keyword-coverage.json"
+}

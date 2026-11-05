@@ -1,0 +1,828 @@
+[
+  {
+    "label": "baseline-cli-repaired",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-task-cli.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 6.8,
+    "summary": {
+      "tests": "2",
+      "pass": "2",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "6735.2821"
+    },
+    "stdout": "baseline-cli-repaired.stdout.log",
+    "stderr": "baseline-cli-repaired.stderr.log",
+    "diff": "baseline-cli-repaired.diff"
+  },
+  {
+    "label": "baseline-corrected",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/*.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 72.783,
+    "summary": {
+      "tests": "417",
+      "pass": "390",
+      "fail": "27",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "72677.6361"
+    },
+    "stdout": "baseline-corrected.stdout.log",
+    "stderr": "baseline-corrected.stderr.log",
+    "diff": "baseline-corrected.diff"
+  },
+  {
+    "label": "baseline-full",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/*.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 9.397,
+    "summary": {
+      "tests": "417",
+      "pass": "320",
+      "fail": "97",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "9265.8362"
+    },
+    "stdout": "baseline-full.stdout.log",
+    "stderr": "baseline-full.stderr.log",
+    "diff": "baseline-full.diff"
+  },
+  {
+    "label": "cli-safety-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-cli-safety.test.js",
+      "dist/test/ceo-task-cli.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 6.895,
+    "summary": {
+      "tests": "3",
+      "pass": "3",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "6834.4885"
+    },
+    "stdout": "cli-safety-green.stdout.log",
+    "stderr": "cli-safety-green.stderr.log",
+    "diff": "cli-safety-green.diff"
+  },
+  {
+    "label": "cli-safety-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-cli-safety.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 0.481,
+    "summary": {
+      "tests": "1",
+      "pass": "0",
+      "fail": "1",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "413.3746"
+    },
+    "stdout": "cli-safety-red.stdout.log",
+    "stderr": "cli-safety-red.stderr.log",
+    "diff": "cli-safety-red.diff"
+  },
+  {
+    "label": "diagnose-sqlite",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--input-type=module",
+      "-e",
+      "import {DatabaseSync} from 'node:sqlite'; import path from 'node:path'; try {const db=new DatabaseSync(path.join(process.env.TEMP,'diagnostic.sqlite')); db.exec('CREATE TABLE x(id INTEGER)'); db.close(); console.log('SQLITE_OK');} catch(e) {console.error(e); process.exitCode=1;}"
+    ],
+    "exitCode": 1,
+    "seconds": 0.069,
+    "summary": {},
+    "stdout": "diagnose-sqlite.stdout.log",
+    "stderr": "diagnose-sqlite.stderr.log",
+    "diff": "diagnose-sqlite.diff"
+  },
+  {
+    "label": "final-full-confirmed",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "cmd",
+      "/d",
+      "/c",
+      "npm",
+      "test"
+    ],
+    "exitCode": 1,
+    "seconds": 75.977,
+    "summary": {
+      "tests": "472",
+      "pass": "446",
+      "fail": "26",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "75292.7267"
+    },
+    "stdout": "final-full-confirmed.stdout.log",
+    "stderr": "final-full-confirmed.stderr.log",
+    "diff": "final-full-confirmed.diff"
+  },
+  {
+    "label": "final-full",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "cmd",
+      "/d",
+      "/c",
+      "npm",
+      "test"
+    ],
+    "exitCode": 1,
+    "seconds": 84.563,
+    "summary": {
+      "tests": "472",
+      "pass": "446",
+      "fail": "26",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "75397.3474"
+    },
+    "stdout": "final-full.stdout.log",
+    "stderr": "final-full.stderr.log",
+    "diff": "final-full.diff"
+  },
+  {
+    "label": "final-g1-confirmed",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-cli-safety.test.js",
+      "dist/test/ceo-governance-bypass.test.js",
+      "dist/test/ceo-governance.test.js",
+      "dist/test/ceo-isolation-review.test.js",
+      "dist/test/ceo-legacy-boundary.test.js",
+      "dist/test/ceo-legacy-compat.test.js",
+      "dist/test/ceo-main-boundary.test.js",
+      "dist/test/ceo-main-entry.test.js",
+      "dist/test/ceo-runtime-health.test.js",
+      "dist/test/ceo-runtime-integration.test.js",
+      "dist/test/ceo-runtime-manifest.test.js",
+      "dist/test/ceo-watchdog-safety.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 12.166,
+    "summary": {
+      "tests": "55",
+      "pass": "55",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "12102.1914"
+    },
+    "stdout": "final-g1-confirmed.stdout.log",
+    "stderr": "final-g1-confirmed.stderr.log",
+    "diff": "final-g1-confirmed.diff"
+  },
+  {
+    "label": "final-g1-new",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-cli-safety.test.js",
+      "dist/test/ceo-governance-bypass.test.js",
+      "dist/test/ceo-governance.test.js",
+      "dist/test/ceo-isolation-review.test.js",
+      "dist/test/ceo-legacy-boundary.test.js",
+      "dist/test/ceo-legacy-compat.test.js",
+      "dist/test/ceo-main-boundary.test.js",
+      "dist/test/ceo-main-entry.test.js",
+      "dist/test/ceo-runtime-health.test.js",
+      "dist/test/ceo-runtime-integration.test.js",
+      "dist/test/ceo-runtime-manifest.test.js",
+      "dist/test/ceo-watchdog-safety.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 16.512,
+    "summary": {
+      "tests": "55",
+      "pass": "54",
+      "fail": "1",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "16001.566"
+    },
+    "stdout": "final-g1-new.stdout.log",
+    "stderr": "final-g1-new.stderr.log",
+    "diff": "final-g1-new.diff"
+  },
+  {
+    "label": "final-related",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-task-cli.test.js",
+      "dist/test/ceo-task-http.test.js",
+      "dist/test/ceo-conversation-entry.test.js",
+      "dist/test/ceo-read-brief.test.js",
+      "dist/test/ceo-decision-contract.test.js",
+      "dist/test/ceo-daily-plan.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 30.07,
+    "summary": {
+      "tests": "142",
+      "pass": "142",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "29911.6522"
+    },
+    "stdout": "final-related.stdout.log",
+    "stderr": "final-related.stderr.log",
+    "diff": "final-related.diff"
+  },
+  {
+    "label": "final-reliability",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "cmd",
+      "/d",
+      "/c",
+      "npm",
+      "run",
+      "test:reliability"
+    ],
+    "exitCode": 0,
+    "seconds": 20.092,
+    "summary": {
+      "tests": "45",
+      "pass": "45",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "16360.74"
+    },
+    "stdout": "final-reliability.stdout.log",
+    "stderr": "final-reliability.stderr.log",
+    "diff": "final-reliability.diff"
+  },
+  {
+    "label": "g1-focused",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-runtime-manifest.test.js",
+      "dist/test/ceo-runtime-health.test.js",
+      "dist/test/ceo-runtime-integration.test.js",
+      "dist/test/ceo-governance.test.js",
+      "dist/test/ceo-governance-bypass.test.js",
+      "dist/test/ceo-legacy-compat.test.js",
+      "dist/test/ceo-legacy-boundary.test.js",
+      "dist/test/ceo-cli-safety.test.js",
+      "dist/test/ceo-main-boundary.test.js",
+      "dist/test/ceo-main-entry.test.js",
+      "dist/test/ceo-watchdog-safety.test.js",
+      "dist/test/ceo-task-cli.test.js",
+      "dist/test/ceo-task-http.test.js",
+      "dist/test/ceo-conversation-entry.test.js",
+      "dist/test/ceo-read-brief.test.js",
+      "dist/test/ceo-decision-contract.test.js",
+      "dist/test/ceo-daily-plan.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 30.042,
+    "summary": {
+      "tests": "192",
+      "pass": "192",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "29979.6664"
+    },
+    "stdout": "g1-focused.stdout.log",
+    "stderr": "g1-focused.stderr.log",
+    "diff": "g1-focused.diff"
+  },
+  {
+    "label": "integration-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-runtime-integration.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 0.647,
+    "summary": {
+      "tests": "5",
+      "pass": "5",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "589.6208"
+    },
+    "stdout": "integration-green.stdout.log",
+    "stderr": "integration-green.stderr.log",
+    "diff": "integration-green.diff"
+  },
+  {
+    "label": "integration-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-runtime-integration.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 0.197,
+    "summary": {
+      "tests": "5",
+      "pass": "0",
+      "fail": "5",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "93.68"
+    },
+    "stdout": "integration-red.stdout.log",
+    "stderr": "integration-red.stderr.log",
+    "diff": "integration-red.diff"
+  },
+  {
+    "label": "legacy-boundary-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-legacy-boundary.test.js",
+      "dist/test/ceo-task-http.test.js",
+      "dist/test/ceo-conversation-entry.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 25.279,
+    "summary": {
+      "tests": "27",
+      "pass": "27",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "25208.0346"
+    },
+    "stdout": "legacy-boundary-green.stdout.log",
+    "stderr": "legacy-boundary-green.stderr.log",
+    "diff": "legacy-boundary-green.diff"
+  },
+  {
+    "label": "legacy-boundary-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-legacy-boundary.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 0.27,
+    "summary": {
+      "tests": "1",
+      "pass": "0",
+      "fail": "1",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "201.7974"
+    },
+    "stdout": "legacy-boundary-red.stdout.log",
+    "stderr": "legacy-boundary-red.stderr.log",
+    "diff": "legacy-boundary-red.diff"
+  },
+  {
+    "label": "m01-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-runtime-manifest.test.js",
+      "dist/test/ceo-runtime-health.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 0.895,
+    "summary": {
+      "tests": "14",
+      "pass": "14",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "834.7273"
+    },
+    "stdout": "m01-green.stdout.log",
+    "stderr": "m01-green.stderr.log",
+    "diff": "m01-green.diff"
+  },
+  {
+    "label": "m01-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-runtime-manifest.test.js",
+      "dist/test/ceo-runtime-health.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 0.18,
+    "summary": {
+      "tests": "14",
+      "pass": "0",
+      "fail": "14",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "113.276"
+    },
+    "stdout": "m01-red.stdout.log",
+    "stderr": "m01-red.stderr.log",
+    "diff": "m01-red.diff"
+  },
+  {
+    "label": "m02-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-governance.test.js",
+      "dist/test/ceo-governance-bypass.test.js",
+      "dist/test/ceo-legacy-compat.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 0.614,
+    "summary": {
+      "tests": "24",
+      "pass": "24",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "547.4266"
+    },
+    "stdout": "m02-green.stdout.log",
+    "stderr": "m02-green.stderr.log",
+    "diff": "m02-green.diff"
+  },
+  {
+    "label": "m02-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-governance.test.js",
+      "dist/test/ceo-governance-bypass.test.js",
+      "dist/test/ceo-legacy-compat.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 4.041,
+    "summary": {
+      "tests": "24",
+      "pass": "0",
+      "fail": "24",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "3967.0272"
+    },
+    "stdout": "m02-red.stdout.log",
+    "stderr": "m02-red.stderr.log",
+    "diff": "m02-red.diff"
+  },
+  {
+    "label": "main-boundary-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-main-boundary.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 1.119,
+    "summary": {
+      "tests": "3",
+      "pass": "3",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "1055.6117"
+    },
+    "stdout": "main-boundary-green.stdout.log",
+    "stderr": "main-boundary-green.stderr.log",
+    "diff": "main-boundary-green.diff"
+  },
+  {
+    "label": "main-boundary-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-main-boundary.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 0.255,
+    "summary": {
+      "tests": "3",
+      "pass": "0",
+      "fail": "3",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "193.1871"
+    },
+    "stdout": "main-boundary-red.stdout.log",
+    "stderr": "main-boundary-red.stderr.log",
+    "diff": "main-boundary-red.diff"
+  },
+  {
+    "label": "main-entry-green-2",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-main-entry.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 1.358,
+    "summary": {
+      "tests": "1",
+      "pass": "1",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "1295.196"
+    },
+    "stdout": "main-entry-green-2.stdout.log",
+    "stderr": "main-entry-green-2.stderr.log",
+    "diff": "main-entry-green-2.diff"
+  },
+  {
+    "label": "main-entry-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-main-entry.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 1.195,
+    "summary": {
+      "tests": "1",
+      "pass": "0",
+      "fail": "1",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "1124.4546"
+    },
+    "stdout": "main-entry-green.stdout.log",
+    "stderr": "main-entry-green.stderr.log",
+    "diff": "main-entry-green.diff"
+  },
+  {
+    "label": "main-entry-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-main-entry.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 1.869,
+    "summary": {
+      "tests": "1",
+      "pass": "0",
+      "fail": "1",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "1806.1109"
+    },
+    "stdout": "main-entry-red.stdout.log",
+    "stderr": "main-entry-red.stderr.log",
+    "diff": "main-entry-red.diff"
+  },
+  {
+    "label": "main-single-instance-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-main-entry.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 3.159,
+    "summary": {
+      "tests": "1",
+      "pass": "1",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "3083.528"
+    },
+    "stdout": "main-single-instance-green.stdout.log",
+    "stderr": "main-single-instance-green.stderr.log",
+    "diff": "main-single-instance-green.diff"
+  },
+  {
+    "label": "main-single-instance-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-main-entry.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 3.088,
+    "summary": {
+      "tests": "1",
+      "pass": "0",
+      "fail": "1",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "3019.0916"
+    },
+    "stdout": "main-single-instance-red.stdout.log",
+    "stderr": "main-single-instance-red.stderr.log",
+    "diff": "main-single-instance-red.diff"
+  },
+  {
+    "label": "manifest-dependency-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-isolation-review.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 0.263,
+    "summary": {
+      "tests": "2",
+      "pass": "0",
+      "fail": "2",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "196.3925"
+    },
+    "stdout": "manifest-dependency-red.stdout.log",
+    "stderr": "manifest-dependency-red.stderr.log",
+    "diff": "manifest-dependency-red.diff"
+  },
+  {
+    "label": "review-fixes-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-main-boundary.test.js",
+      "dist/test/ceo-isolation-review.test.js",
+      "dist/test/ceo-main-entry.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 3.257,
+    "summary": {
+      "tests": "8",
+      "pass": "8",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "3192.9046"
+    },
+    "stdout": "review-fixes-green.stdout.log",
+    "stderr": "review-fixes-green.stderr.log",
+    "diff": "review-fixes-green.diff"
+  },
+  {
+    "label": "review-fixes-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-main-boundary.test.js",
+      "dist/test/ceo-isolation-review.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 1.216,
+    "summary": {
+      "tests": "6",
+      "pass": "3",
+      "fail": "3",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "1148.1081"
+    },
+    "stdout": "review-fixes-red.stdout.log",
+    "stderr": "review-fixes-red.stderr.log",
+    "diff": "review-fixes-red.diff"
+  },
+  {
+    "label": "standalone-cli-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-cli-safety.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 1.189,
+    "summary": {
+      "tests": "2",
+      "pass": "2",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "1112.2283"
+    },
+    "stdout": "standalone-cli-green.stdout.log",
+    "stderr": "standalone-cli-green.stderr.log",
+    "diff": "standalone-cli-green.diff"
+  },
+  {
+    "label": "standalone-cli-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-cli-safety.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 0.908,
+    "summary": {
+      "tests": "2",
+      "pass": "1",
+      "fail": "1",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "834.5554"
+    },
+    "stdout": "standalone-cli-red.stdout.log",
+    "stderr": "standalone-cli-red.stderr.log",
+    "diff": "standalone-cli-red.diff"
+  },
+  {
+    "label": "watchdog-green",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-watchdog-safety.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 0.272,
+    "summary": {
+      "tests": "1",
+      "pass": "1",
+      "fail": "0",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "204.2829"
+    },
+    "stdout": "watchdog-green.stdout.log",
+    "stderr": "watchdog-green.stderr.log",
+    "diff": "watchdog-green.diff"
+  },
+  {
+    "label": "watchdog-red",
+    "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+    "command": [
+      "node",
+      "--test",
+      "dist/test/ceo-watchdog-safety.test.js"
+    ],
+    "exitCode": 1,
+    "seconds": 0.245,
+    "summary": {
+      "tests": "1",
+      "pass": "0",
+      "fail": "1",
+      "cancelled": "0",
+      "skipped": "0",
+      "duration_ms": "183.9836"
+    },
+    "stdout": "watchdog-red.stdout.log",
+    "stderr": "watchdog-red.stderr.log",
+    "diff": "watchdog-red.diff"
+  }
+]

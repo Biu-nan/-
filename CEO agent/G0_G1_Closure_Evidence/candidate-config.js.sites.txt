@@ -1,0 +1,24 @@
+1: import path from "node:path";
+2: import { fileURLToPath } from "node:url";
+3: export const CODE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+4: export const PROJECT_ROOT = process.cwd();
+5: 
+6: // 多用户数据隔离：USER_DATA_DIR 环境变量指定用户数据根目录
+17: export const ABANDONED_PRODUCTS_DIR = path.join(USER_DATA_DIR, "已遗弃产品");
+18: export const PRODUCT_PROFILE_FILE = path.join(PRODUCT_ROOT, "product-profile.json");
+19: export const PRODUCT_PROFILE_SCHEMA_FILE = path.join(CODE_ROOT, "schemas", "product-profile.schema.json");
+20: export const PRODUCT_PROFILE_LOG_FILE = path.join(USER_DATA_DIR, "product-profile.log");
+21: export const PRODUCT_QUEUE_DIR = path.join(USER_DATA_DIR, "商品队列");
+22: export const PRODUCT_QUEUE_TASKS_DIR = path.join(PRODUCT_QUEUE_DIR, "tasks");
+78: export const SELECTION_BOARD_IMAGES_DIR = path.join(SELECTION_BOARD_DIR, "images");
+79: export const SELECTION_BOARD_STYLE_DIR = path.join(SELECTION_BOARD_DIR, "style-refs");
+80: export const PROMPTS_DIR = path.join(CODE_ROOT, "prompts");
+81: export const INSERT_PROMPT_FILE = path.join(PROMPTS_DIR, "05_LUXURY_INSERT_PROMPT.md");
+82: export const INSERT_MARKET_RADAR_PROMPT_FILE = path.join(PROMPTS_DIR, "06_INSERT_MARKET_RADAR_PROMPT.md");
+83: export const INSERT_LISTING_CONTENT_PROMPT_FILE = path.join(PROMPTS_DIR, "07_INSERT_LISTING_CONTENT_PROMPT.md");
+90: export const CHROME_PROFILE_DIR = path.join(USER_DATA_DIR, ".chrome-profile");
+91: export const CHROME_DEBUG_PORT = Number(process.env.CHROME_DEBUG_PORT ?? 9223);
+92: export const PUBLIC_DIR = path.join(CODE_ROOT, "public");
+93: export const RESEARCH_PROMPT_FILE = path.join(PROMPTS_DIR, "01_RESEARCH_PROMPT.md");
+94: export const PLANNING_PROMPT_FILE = path.join(PROMPTS_DIR, "02_VISUAL_PLANNING_PROMPT.md");
+95: // 批量模式跳过联网调研时使用的简化规划 Prompt（不引用 Top 10 / Chrome AI，避免触发 ChatGPT 联网搜索）

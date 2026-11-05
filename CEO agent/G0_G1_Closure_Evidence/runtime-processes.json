@@ -1,0 +1,42 @@
+{
+  "observedAt": "2026-11-05T02:32:25.7032289Z",
+  "listeners": [
+    {
+      "address": "0.0.0.0",
+      "port": 3000,
+      "pid": 18656
+    }
+  ],
+  "ownerChain": [
+    {
+      "pid": 18656,
+      "parentPid": 17160,
+      "name": "node.exe",
+      "executable": "F:\\软件\\node.exe",
+      "executableProductVersion": "24.14.1",
+      "createdUtc": "2026-10-31T01:21:56.1239700Z",
+      "recognizedEntry": "dist/src/server.js (relative argument; absolute source corroborated by version API)",
+      "argumentsOmitted": true
+    },
+    {
+      "pid": 17160,
+      "parentPid": 16664,
+      "name": "node.exe",
+      "executable": "F:\\软件\\node.exe",
+      "executableProductVersion": "24.14.1",
+      "createdUtc": "2026-10-31T01:20:04.5179230Z",
+      "recognizedEntry": "F:\\yikuaborder-deploy\\watchdog.js",
+      "argumentsOmitted": true
+    },
+    {
+      "pid": 16664,
+      "parentPid": 16608,
+      "name": "cmd.exe",
+      "executable": "C:\\Windows\\System32\\cmd.exe",
+      "executableProductVersion": "10.0.26100.9949",
+      "createdUtc": "2026-10-31T01:19:55.0883420Z",
+      "recognizedEntry": "F:\\yikuaborder-deploy\\watchdog.js",
+      "argumentsOmitted": true
+    }
+  ]
+}

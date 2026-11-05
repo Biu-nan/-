@@ -11,6 +11,7 @@ import { loadVerifiedText, productKeyOf, recordArtifact } from "./progress-manif
 import { scanProductImages } from "./image-files.js";
 import { extractImagePrompt, isOutlineOnlyPlanningText, readPrompt, validatePromptPack } from "./prompt-files.js";
 import { validateImageFramework } from "./image-framework.js";
+import { buildKeywordPromptBlockFromProductFacts } from "./keyword-library.js";
 import { ProductVisualAssetsService } from "./product-visual-assets-service.js";
 const SEO_KEYWORDS_FINGERPRINT = "Google Ads SEO Keyword Research Prompt";
 const LISTING_CONTENT_FINGERPRINT = "AliExpress Listing Commercial Delivery Prompt";
@@ -1267,7 +1268,7 @@ export class AutomationService {
                 freshChatContext = this.buildFreshChatFactsContext(existing);
             }
             // 批量模式下跳过市场调研：不注入 researchText，直接基于产品事实生成 SEO/Listing
-            const seoPrompt = (seoOnly && !existing.skipResearch)
+            let seoPrompt = (seoOnly && !existing.skipResearch)
                 ? `${seoPromptTemplate}
 
 ## 本商品已完成的联网市场调研与 VOC
@@ -1277,6 +1278,26 @@ ${existing.researchText ?? ""}
 
 请明确基于以上产品事实、市场调研和 VOC 生成关键词，不依赖视觉规划或生图结果。`
                 : seoPromptTemplate;
+            // 关键词库注入：用 IXSPY 实测词替换"让模型自己想关键词"。
+            // 失败一律忽略（fail-open），但注入内容本身 fail-closed（没把握就不注入）。
+            // 回滚：KEYWORD_LIBRARY_INJECT=0
+            if (process.env.KEYWORD_LIBRARY_INJECT !== "0") {
+                try {
+                    const kw = buildKeywordPromptBlockFromProductFacts(PRODUCT_FACT_FILE);
+                    if (kw.block) {
+                        seoPrompt = `${seoPrompt}
+
+${kw.block}`;
+                        console.log(`[keywords] 已注入 category=${kw.meta.categoryId} source=${kw.meta.source} primary=${kw.meta.primary}`);
+                        await this.store.update({ keywordLibrary: kw.meta });
+                    } else {
+                        console.log(`[keywords] 未注入：${kw.meta.reason}`);
+                        await this.store.update({ keywordLibrary: kw.meta });
+                    }
+                } catch (e) {
+                    console.warn("[keywords] 注入失败（忽略，不影响主流程）：", e && e.message);
+                }
+            }
             // 不使用 recoverCompletedResponse 预赋值：其「最后一条 assistant 兜底」会在首跑时把 MVP1 事实底稿误当成 SEO 词库，
             // 导致 SEO / Listing 两个 Prompt 都被跳过，最终 03/04 两份文件都写成事实底稿（"只做了事实确定"）。
             const manifestPath = path.join(PRODUCT_ROOT, "progress-manifest.json");

@@ -1,0 +1,83 @@
+{
+  "at": "2026-11-05T02:35:04.399509+00:00",
+  "files": [
+    {
+      "path": "F:\\yikuaborder-deploy\\nawu-fetch\\lib\\dxm-c6r.cjs",
+      "priorFinalSha256": "745380ecbe24c5e6519d99c0c09cd9fe8f4a7c865a0a30589d7d2ec8099de6a0",
+      "closureSha256": "745380ecbe24c5e6519d99c0c09cd9fe8f4a7c865a0a30589d7d2ec8099de6a0",
+      "sameAsPriorFinal": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\nawu-fetch\\lib\\nawu-inventory.cjs",
+      "priorFinalSha256": "1e29ff7b95d48f03efd81a2779956d6183264c6d45bbf5165606080dbc9f7d80",
+      "closureSha256": "1e29ff7b95d48f03efd81a2779956d6183264c6d45bbf5165606080dbc9f7d80",
+      "sameAsPriorFinal": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\public\\draft-executor-panel.js",
+      "priorFinalSha256": "98bf76037efa2b76d3c77a2595624a317931e63afff00b802f1c9aa09b19d91b",
+      "closureSha256": "98bf76037efa2b76d3c77a2595624a317931e63afff00b802f1c9aa09b19d91b",
+      "sameAsPriorFinal": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\CEO agent\\CEO_Agent_V1.0_Minimal_Change_Scope_20261105.md",
+      "priorFinalSha256": "294570a0e5cd27d937facbf7c7e2ecdd3202face159d420c555de5f228128a1e",
+      "closureSha256": "294570a0e5cd27d937facbf7c7e2ecdd3202face159d420c555de5f228128a1e",
+      "sameAsPriorFinal": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\dist\\src\\server.js",
+      "priorFinalSha256": "7847a1587b35e985d1a44d5a39099443d2eabeed3f7f48ad7f2a969529437a02",
+      "closureSha256": "7847a1587b35e985d1a44d5a39099443d2eabeed3f7f48ad7f2a969529437a02",
+      "sameAsPriorFinal": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\watchdog.js",
+      "priorFinalSha256": "6dc83743c13751cf204c8a7cbe08929b1bc9d86c264ef298a5cec11a2829a609",
+      "closureSha256": "6dc83743c13751cf204c8a7cbe08929b1bc9d86c264ef298a5cec11a2829a609",
+      "sameAsPriorFinal": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\run-state.json",
+      "priorFinalSha256": "378f5aa2f3ae0ca84f9df8144230c8b7fb89fc520a02cca292daabace19f0cc1",
+      "closureSha256": "378f5aa2f3ae0ca84f9df8144230c8b7fb89fc520a02cca292daabace19f0cc1",
+      "sameAsPriorFinal": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\config\\ceo-store-400370.json",
+      "priorFinalSha256": "0f7928c672bf04dea3e17cbf8dff929a5407b0c204d391308e1fabf857bef4f2",
+      "closureSha256": "0f7928c672bf04dea3e17cbf8dff929a5407b0c204d391308e1fabf857bef4f2",
+      "sameAsPriorFinal": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\config\\metrics-schema.json",
+      "priorFinalSha256": "933d63c4e5f1c3223aacb60708a6a2ce2302a385f425c3ca10a0ab3692b905ed",
+      "closureSha256": "933d63c4e5f1c3223aacb60708a6a2ce2302a385f425c3ca10a0ab3692b905ed",
+      "sameAsPriorFinal": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\data\\event_log.jsonl",
+      "priorFinalSha256": "5491d8971adf28a9a681119988a5f4b4da7a11891af2591314320a578b65fe7b",
+      "closureSha256": "5491d8971adf28a9a681119988a5f4b4da7a11891af2591314320a578b65fe7b",
+      "sameAsPriorFinal": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\data\\action_log.jsonl",
+      "priorFinalSha256": "527199e9c07292ba21ea6169d5ec943fcb385c559e626dcef4d182b47e0e3ddd",
+      "closureSha256": "527199e9c07292ba21ea6169d5ec943fcb385c559e626dcef4d182b47e0e3ddd",
+      "sameAsPriorFinal": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\data\\snapshots.jsonl",
+      "priorFinalSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "closureSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "sameAsPriorFinal": true
+    },
+    {
+      "path": "F:\\yikuaborder-deploy\\data\\reviews.jsonl",
+      "priorFinalSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "closureSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "sameAsPriorFinal": true
+    }
+  ]
+}

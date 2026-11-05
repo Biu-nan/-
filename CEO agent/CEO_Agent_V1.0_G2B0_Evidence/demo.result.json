@@ -1,0 +1,10 @@
+{
+  "label": "demo",
+  "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g2a-20261105",
+  "command": [
+    "node",
+    ".superpowers/sdd/ceo-g2b0-20261105/demo.mjs"
+  ],
+  "exitCode": 0,
+  "seconds": 1.286
+}

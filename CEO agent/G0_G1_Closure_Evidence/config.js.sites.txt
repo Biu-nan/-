@@ -1,0 +1,107 @@
+1: ﻿import path from "node:path";
+2: export const PROJECT_ROOT = process.cwd();
+3: 
+4: // 多用户数据隔离：USER_DATA_DIR 环境变量指定用户数据根目录
+5: // 未设置则默认使用 PROJECT_ROOT
+6: const rawUserDir = process.env.USER_DATA_DIR;
+7: export const USER_DATA_DIR = rawUserDir
+8:     ? path.isAbsolute(rawUserDir)
+9:         ? rawUserDir
+10:         : path.join(PROJECT_ROOT, rawUserDir)
+11:     : PROJECT_ROOT;
+12: 
+13: export const PRODUCT_ROOT = path.join(USER_DATA_DIR, "当前产品");
+14: export const COMPLETED_PRODUCTS_DIR = path.join(USER_DATA_DIR, "已完成产品");
+15: export const ABANDONED_PRODUCTS_DIR = path.join(USER_DATA_DIR, "已遗弃产品");
+16: export const PRODUCT_PROFILE_FILE = path.join(PRODUCT_ROOT, "product-profile.json");
+17: export const PRODUCT_PROFILE_SCHEMA_FILE = path.join(PROJECT_ROOT, "schemas", "product-profile.schema.json");
+18: export const PRODUCT_PROFILE_LOG_FILE = path.join(USER_DATA_DIR, "product-profile.log");
+19: export const PRODUCT_QUEUE_DIR = path.join(USER_DATA_DIR, "商品队列");
+20: export const PRODUCT_QUEUE_TASKS_DIR = path.join(PRODUCT_QUEUE_DIR, "tasks");
+21: export const PRODUCT_QUEUE_STATE_FILE = path.join(PRODUCT_QUEUE_DIR, "queue-state.json");
+22: export const OPERATION_PROFILES_FILE = path.join(PROJECT_ROOT, "operation-profiles.json");
+23: export const STORE_PROFILES_FILE = path.join(PROJECT_ROOT, "store-profiles.json");
+24: export const LISTING_CARDS_FILE = path.join(PROJECT_ROOT, "listing-cards.json");
+25: export const LISTING_SKU_MAPPINGS_FILE = path.join(PROJECT_ROOT, "listing-sku-mappings.json");
+26: export const PERFORMANCE_SNAPSHOTS_FILE = path.join(PROJECT_ROOT, "performance-snapshots.json");
+27: export const OPERATION_ACTIONS_FILE = path.join(PROJECT_ROOT, "operation-actions.json");
+28: export const OPERATION_RULES_FILE = path.join(PROJECT_ROOT, "operation-rules.json");
+29: export const DATA_COLLECTION_TASKS_FILE = path.join(PROJECT_ROOT, "data-collection-tasks.json");
+30: export const DAILY_WAITING_ITEMS_FILE = path.join(PROJECT_ROOT, "daily-waiting-items.json");
+31: export const OPERATORS_FILE = path.join(PROJECT_ROOT, "operators.json");
+32: export const HIDDEN_DATA_DIR = path.join(USER_DATA_DIR, "data");
+33: export const PRODUCT_VISUAL_ASSETS_DIR = path.join(HIDDEN_DATA_DIR, "product-visual-assets");
+34: export const PRODUCT_VISUAL_ASSETS_FILE = path.join(HIDDEN_DATA_DIR, "product-visual-assets.json");
+35: export const IMAGE_GENERATION_LOG_FILE = path.join(HIDDEN_DATA_DIR, "image-generation-log.jsonl");
+36: export const COMMAND_INBOX_FILE = path.join(HIDDEN_DATA_DIR, "command_inbox.jsonl");
+37: export const EVENT_LOG_FILE = path.join(HIDDEN_DATA_DIR, "event_log.jsonl");
+38: export const QCLAW_TASKS_FILE = path.join(HIDDEN_DATA_DIR, "qclaw_tasks.jsonl");
+39: export const QCLAW_RESULTS_FILE = path.join(HIDDEN_DATA_DIR, "qclaw_results.jsonl");
+40: export const ACTION_LOG_FILE = path.join(HIDDEN_DATA_DIR, "action_log.jsonl");
+41: export const SNAPSHOTS_FILE = path.join(HIDDEN_DATA_DIR, "snapshots.jsonl");
+42: export const REVIEWS_FILE = path.join(HIDDEN_DATA_DIR, "reviews.jsonl");
+43: export const KNOWLEDGE_ITEMS_FILE = path.join(HIDDEN_DATA_DIR, "knowledge_items.jsonl");
+44: export const TASK_STATE_FILE = path.join(HIDDEN_DATA_DIR, "task_state.json");
+45: export const TODAY_DASHBOARD_FILE = path.join(HIDDEN_DATA_DIR, "today_dashboard.json");
+46: export const QCLAW_STATE_FILE = path.join(HIDDEN_DATA_DIR, "qclaw_state.json");
+47: export const PRODUCT_IMAGES_DIR = path.join(PRODUCT_ROOT, "产品图");
+48: 
+49: /* ── 参考风格图（Style Reference）──
+50:    只提供风格（背景 / 版式 / 光影 / 字体 / 图标 / 气质），不提供任何产品事实。
+51:    必须与「产品图」目录物理隔离：一旦混入 产品图/，会被 scanProductImages 当成源图，
+52:    从而进入身份锁、hash 校验和店小秘图源，造成货不对板。 */
+64: export const CHARM_CONTEXT_IMAGES_DIR = path.join(PRODUCT_ROOT, "挂件场景图");
+65: export const CHARM_OUTPUT_DIR = path.join(PRODUCT_ROOT, "挂件output");
+66: export const SELECTION_DIR = path.join(PROJECT_ROOT, "selection-output");
+67: export const SELECTION_CANDIDATES_FILE = path.join(PROJECT_ROOT, "selection-candidates.json");
+68: 
+69: /* ── 选品看板（Selection Board）──
+70:    人工选品的单一事实来源：一行一个候选产品，承载图片、来源 URL、客观信息、
+71:    参考风格图、SKU 表格与生命周期状态。
+72:    边界：看板图片独立存放，**不得**直接写进 当前产品/产品图/；
+73:    只有「推送上品」这个显式动作才会复制进上品流程，避免候选池污染运行态。 */
+76: export const SELECTION_BOARD_IMAGES_DIR = path.join(SELECTION_BOARD_DIR, "images");
+77: export const SELECTION_BOARD_STYLE_DIR = path.join(SELECTION_BOARD_DIR, "style-refs");
+78: export const PROMPTS_DIR = path.join(PROJECT_ROOT, "prompts");
+79: export const INSERT_PROMPT_FILE = path.join(PROMPTS_DIR, "05_LUXURY_INSERT_PROMPT.md");
+80: export const INSERT_MARKET_RADAR_PROMPT_FILE = path.join(PROMPTS_DIR, "06_INSERT_MARKET_RADAR_PROMPT.md");
+81: export const INSERT_LISTING_CONTENT_PROMPT_FILE = path.join(PROMPTS_DIR, "07_INSERT_LISTING_CONTENT_PROMPT.md");
+82: export const CHARM_PROMPT_FILE = path.join(PROMPTS_DIR, "11_BAG_CHARM_IMAGE_PROMPT.md");
+83: export const CHARM_LISTING_CONTENT_PROMPT_FILE = path.join(PROMPTS_DIR, "12_BAG_CHARM_LISTING_CONTENT_PROMPT.md");
+84: export const SELECTION_PROMPT_FILE = path.join(PROMPTS_DIR, "08_PRODUCT_SELECTION_PROMPT.md");
+85: export const INSERT_STOCK_SHEET_RECORDS_FILE = path.join(PROJECT_ROOT, "insert-stock-sheet-records.json");
+86: export const GOOGLE_SHEETS_WEBHOOK_CONFIG_FILE = path.join(PROJECT_ROOT, "google-sheets-webhook.json");
+87: export const STATE_FILE = path.join(USER_DATA_DIR, "run-state.json");
+88: export const CHROME_PROFILE_DIR = path.join(USER_DATA_DIR, ".chrome-profile");
+89: export const CHROME_DEBUG_PORT = Number(process.env.CHROME_DEBUG_PORT ?? 9223);
+90: export const PUBLIC_DIR = path.join(PROJECT_ROOT, "public");
+91: export const RESEARCH_PROMPT_FILE = path.join(PROMPTS_DIR, "01_RESEARCH_PROMPT.md");
+92: export const PLANNING_PROMPT_FILE = path.join(PROMPTS_DIR, "02_VISUAL_PLANNING_PROMPT.md");
+93: // 批量模式跳过联网调研时使用的简化规划 Prompt（不引用 Top 10 / Chrome AI，避免触发 ChatGPT 联网搜索）
+94: export const PLANNING_BATCH_NO_RESEARCH_PROMPT_FILE = path.join(PROMPTS_DIR, "02B_VISUAL_PLANNING_BATCH_PROMPT.md");
+95: export const SEO_KEYWORDS_PROMPT_FILE = path.join(PROMPTS_DIR, "03_SEO_KEYWORDS_PROMPT.md");
+96: export const LISTING_CONTENT_PROMPT_FILE = path.join(PROMPTS_DIR, "04_LISTING_CONTENT_PROMPT.md");
+102: // ===== 爆款研究中心（Hit Product Research Center，2026-07-24）=====
+103: // 单品拆解报告的研究中心：导入爆款图+数据 → ChatGPT 多模态拆解爆款因子。
+104: export const HOT_PRODUCTS_FILE = path.join(HIDDEN_DATA_DIR, "hot-products.json");
+105: export const HOT_PRODUCTS_DIR = path.join(HIDDEN_DATA_DIR, "hot-products");
+106: export const HOT_PRODUCT_TEARDOWN_PROMPT_FILE = path.join(PROMPTS_DIR, "10_HOT_PRODUCT_TEARDOWN.md");
+107: export const HOT_PRODUCT_TEARDOWN_FINGERPRINT = "# 爆款拆解分析 Agent v0.1";
+108: // 发现源（二阶段）：反向图搜 + 免费门户关键词搜的截图落盘目录
+109: export const DISCOVER_DIR = path.join(HIDDEN_DATA_DIR, "discover-sessions");
+110: export const CHROME_PATH = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+111: export const PORT = Number(process.env.PORT ?? 3000);
+112: export const HOST = process.env.HOST ?? "0.0.0.0";
+113: export const CHATGPT_URL = "https://chatgpt.com/";
+114: // ChatGPT 对话模型与推理档位：适配器每次发送前自动对齐到该值（环境变量可覆盖）。
+115: // - CHATGPT_MODEL：模型名子串，如 "GPT-5.6 Sol"（大小写/空格不敏感，按包含匹配）
+170: export const DIANXIAOMI_URL = DIANXIAOMI_URL_CHOICE;
+171: export const DIANXIAOMI_TEMPLATE_PRODUCT_ID = "1005005575013300";
+172: export const PRODUCT_FACT_FILE = path.join(PROJECT_ROOT, "product-facts.json");
+173: export const PRODUCT_FACT_SCHEMA_FILE = path.join(PROJECT_ROOT, "schemas", "product-fact.schema.json");
+174: // 固定配置（托管模式 Choice 下本店既有配置；按用户 2026-07-20 确认）
+175: // 托管模式创建页无独立 运费/服务/属性/变种/产品模板/区域调价 表单字段：
+176: //  - 变体轴由产品事实（设计 SKU）决定，不固化；
+177: //  - 属性由产品事实（方便客户了解 + 搜索权重）决定，不固化；
+178: //  - 运费/服务/产品模板/区域调价 不需要固化。
+179: // ===== 店小秘 ERP 自动化上品（多类目 Profile，2026-07-22 重构）=====

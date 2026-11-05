@@ -1,0 +1,22 @@
+{
+  "label": "final-g1-confirmed",
+  "cwd": "F:\\yikuaborder-deploy\\.worktrees\\ceo-g0-g1-20261105",
+  "command": [
+    "node",
+    "--test",
+    "dist/test/ceo-cli-safety.test.js",
+    "dist/test/ceo-governance-bypass.test.js",
+    "dist/test/ceo-governance.test.js",
+    "dist/test/ceo-isolation-review.test.js",
+    "dist/test/ceo-legacy-boundary.test.js",
+    "dist/test/ceo-legacy-compat.test.js",
+    "dist/test/ceo-main-boundary.test.js",
+    "dist/test/ceo-main-entry.test.js",
+    "dist/test/ceo-runtime-health.test.js",
+    "dist/test/ceo-runtime-integration.test.js",
+    "dist/test/ceo-runtime-manifest.test.js",
+    "dist/test/ceo-watchdog-safety.test.js"
+  ],
+  "exitCode": 0,
+  "seconds": 12.166
+}

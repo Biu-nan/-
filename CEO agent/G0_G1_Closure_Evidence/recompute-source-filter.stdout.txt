@@ -1,0 +1,3 @@
+10:  readFactsRange, loadSchema, localDate, PROJECT_ROOT,
+59:  const dxm = await readFactsRange('dianxiaomi', DATE, DATE);
+60:  const ae = await readFactsRange('aliexpress', DATE, DATE);
