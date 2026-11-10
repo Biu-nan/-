@@ -50,6 +50,8 @@ scripts/*
 !/scripts/verify-phase1-identity-state.mjs
 !/scripts/audit-product-identity.mjs
 !/scripts/build-provisional-identity.mjs
+# A2 合并执行器：A2 的实际执行依赖它，不能只躺在被忽略的目录里（同 启动一跨.bat 的教训）
+!/scripts/a2-merge.mjs
 dist/src/dx_verify_detail.mjs
 dist/src/poll_runall.mjs
 
