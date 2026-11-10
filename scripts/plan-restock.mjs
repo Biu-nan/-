@@ -12,7 +12,7 @@
  *   · 在途 = inRoadInventoryNum
  *   · 销量 = recent7dSalesNum（配 window=7）或 recent30dSalesNum（配 window=30）
  *
- * 用法：node scripts/plan-restock.mjs [--env 400370] [--window 7] [--json]
+ * 用法：node scripts/plan-restock.mjs [--env 400370] [--window 7] [--date 2026-11-10] [--source full|page1] [--json]
  */
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -28,11 +28,39 @@ const val = (n, d) => { const i = argv.indexOf(`--${n}`); return i >= 0 && argv[
 const ENV = val("env", "400370");
 const WIN = Number(val("window", "7"));
 const AS_JSON = argv.includes("--json");
+const DATE = val("date", new Date().toISOString().slice(0, 10));
+const SOURCE = val("source", "full"); // full=全量 items-raw.json；page1=item-query-page1.json
 
-const rawPath = path.join(ROOT, `data/metrics/raw/aliexpress/2026-11-10/env-${ENV}/item-query-page1.json`);
-const raw = JSON.parse(await readFile(rawPath, "utf8"));
-const list = raw?.data?.data?.list ?? [];
-if (!list.length) { console.error("item-query 里没有商品明细:", rawPath); process.exit(2); }
+// 数据源：优先全量 items-raw.json（fetch-ae-items.mjs 落盘，覆盖全店 474 商品），
+// 缺失则回退 item-query-page1.json（仅第 1 页 9 个商品）。
+const FULL_PATH = path.join(ROOT, `data/metrics/raw/aliexpress/${DATE}/items-raw.json`);
+const P1_PATH = path.join(ROOT, `data/metrics/raw/aliexpress/${DATE}/env-${ENV}/item-query-page1.json`);
+
+async function readJsonSafe(p) {
+  try { return { ok: true, data: JSON.parse(await readFile(p, "utf8")) }; }
+  catch (e) { return { ok: false, err: e.message, p }; }
+}
+
+const _full = await readJsonSafe(FULL_PATH);
+const useFull = SOURCE !== "page1" && _full.ok;
+let data, srcLabel;
+if (useFull) {
+  data = _full.data;
+  srcLabel = "full";
+} else {
+  const _p1 = await readJsonSafe(P1_PATH);
+  if (!_p1.ok) {
+    console.error("找不到商品数据源（全量与 page1 均缺失）:\n  " + FULL_PATH + "\n  " + P1_PATH);
+    process.exit(2);
+  }
+  data = _p1.data;
+  srcLabel = "page1";
+}
+const SRC_PATH = useFull ? FULL_PATH : P1_PATH;
+const list = useFull ? (data.items ?? []) : (data?.data?.data?.list ?? []);
+const SRC_KIND = srcLabel;
+const DECLARED_TOTAL = useFull ? (data.total ?? null) : null;
+if (!list.length) { console.error("商品数据源为空:", SRC_PATH); process.exit(2); }
 
 const limits = await loadLimits();
 const now = new Date().toISOString();
@@ -83,7 +111,10 @@ const maxTotal = limits.quantity.maxTotalPerOrder;
 if (AS_JSON) {
   console.log(JSON.stringify({ env: ENV, window: WIN, rows, total, maxTotal }, null, 2));
 } else {
-  console.log(`店 ${ENV} · 窗口 ${WIN}d · 商品 ${rows.length} 个（item-query page1）\n`);
+  const coverageNote = SRC_KIND === "full" && DECLARED_TOTAL
+    ? `（全量 ${list.length}/${DECLARED_TOTAL} ${data.coverage ?? ""}）`
+    : `（${SRC_KIND}${SRC_KIND === "page1" ? " · 仅第1页9商品" : ""}）`;
+  console.log(`店 ${ENV} · 窗口 ${WIN}d · 商品 ${rows.length} 个${coverageNote} · 源 ${path.basename(SRC_PATH)}\n`);
   console.log(`${"itemId".padEnd(18)}${"名称".padEnd(28)}${"可用".padStart(6)}${"在途".padStart(6)}${"销量".padStart(6)}${"日均".padStart(7)}${"覆盖".padStart(8)}${"建议".padStart(7)}${"拆单".padStart(6)}  结论`);
   for (const x of rows) {
     console.log(
