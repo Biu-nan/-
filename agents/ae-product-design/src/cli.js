@@ -7,7 +7,7 @@ import path from "node:path";
 import { recordBenchmark } from "./benchmark.js";
 import { runAgent } from "./runner.js";
 import { ModelClient } from "./model.js";
-import { Tracer } from "../../_shared/trace.js";
+import { Tracer } from "../../../dist/src/agent-shared/trace.js";
 import { CHROME_DEBUG_PORT, CHROME_PROFILE_DIR } from "../../../dist/src/config.js";
 
 const HELP = `
@@ -173,7 +173,7 @@ async function main() {
   // Amazon A+ 套图模式：独立的套图逻辑（模块编排 + 问句卖点 + 精确像素）
   if (opts.mode === "a-plus") {
     const { runAplus } = await import("./a-plus-runner.js");
-    const { Tracer: T } = await import("../../_shared/trace.js");
+    const { Tracer: T } = await import("../../../dist/src/agent-shared/trace.js");
     const { ModelClient: M } = await import("./model.js");
     const tracer = new T({
       file: path.join(path.resolve(opts.outDir ?? path.join(path.resolve(opts.productDir), "design")), "trace.jsonl"),

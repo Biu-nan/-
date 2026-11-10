@@ -18,6 +18,7 @@
 
 dist/** -text
 listing-agent/** -text
+agents/** -text
 public/** -text
 schemas/** -text
 prompts/** -text

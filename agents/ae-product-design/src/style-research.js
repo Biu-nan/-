@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import { chromium } from "playwright-core";
 import { CHROME_DEBUG_PORT } from "../../../dist/src/config.js";
-import { AgentError, CODES } from "../../_shared/errors.js";
+import { AgentError, CODES } from "../../../dist/src/agent-shared/errors.js";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";

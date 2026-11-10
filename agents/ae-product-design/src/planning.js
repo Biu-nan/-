@@ -3,8 +3,8 @@
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { validatePromptPack, validateStoryboard, validateStyleDossier } from "../../_shared/schemas.js";
-import { readJson } from "../../_shared/state.js";
+import { validatePromptPack, validateStoryboard, validateStyleDossier } from "../../../dist/src/agent-shared/schemas.js";
+import { readJson } from "../../../dist/src/agent-shared/state.js";
 
 const PROMPT_DIR = path.join(import.meta.dirname, "..", "prompts");
 const CONFIG_DIR = path.join(import.meta.dirname, "..", "config");

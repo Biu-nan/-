@@ -6,7 +6,7 @@ import path from "node:path";
 import { jsonrepair } from "jsonrepair";
 import { ChatGptAdapter } from "../../../dist/src/chatgpt-adapter.js";
 import { MODEL_PROFILES } from "../../../dist/src/config.js";
-import { AgentError, CODES } from "../../_shared/errors.js";
+import { AgentError, CODES } from "../../../dist/src/agent-shared/errors.js";
 
 /** 从模型回复中提取 JSON：去围栏 → 首尾括号配对 → jsonrepair 兜底 */
 export function extractJson(text) {

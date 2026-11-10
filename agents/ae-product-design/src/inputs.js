@@ -3,8 +3,8 @@
 
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import { AgentError, CODES } from "../../_shared/errors.js";
-import { sanitizeFacts } from "../../_shared/permissions.js";
+import { AgentError, CODES } from "../../../dist/src/agent-shared/errors.js";
+import { sanitizeFacts } from "../../../dist/src/agent-shared/permissions.js";
 import { readImageInfo } from "./image-info.js";
 
 const IMAGE_EXT = new Set([".jpg", ".jpeg", ".png", ".webp"]);

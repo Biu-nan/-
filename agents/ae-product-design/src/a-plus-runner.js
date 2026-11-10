@@ -27,7 +27,7 @@ export async function runAplus({ productDir, outDir, model, tracer, opts = {} })
   const planFile = path.join(aplusDir, "a-plus-plan.json");
   let plan = null;
   if (opts.reusePlan) {
-    const { readJson } = await import("../../_shared/state.js");
+    const { readJson } = await import("../../../dist/src/agent-shared/state.js");
     plan = await readJson(planFile);
   }
   if (!plan) {
@@ -36,7 +36,7 @@ export async function runAplus({ productDir, outDir, model, tracer, opts = {} })
   await model.tracer.write("context.selected", {
     output_summary: { modules: plan.modules.map((m) => m.moduleId) },
   });
-  const { writeJson } = await import("../../_shared/state.js");
+  const { writeJson } = await import("../../../dist/src/agent-shared/state.js");
   await writeJson(planFile, plan);
   await writeJson(path.join(aplusDir, "a-plus-copy.json"), {
     modules: plan.modules.map((m) => ({ moduleId: m.moduleId, why: m.why, copy: m.copy })),

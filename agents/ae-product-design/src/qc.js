@@ -3,7 +3,7 @@
 
 import path from "node:path";
 import { dimensionVerdict, readImageInfo } from "./image-info.js";
-import { judgeHeroScore, validateHeroScoreStructure, validateQc } from "../../_shared/schemas.js";
+import { judgeHeroScore, validateHeroScoreStructure, validateQc } from "../../../dist/src/agent-shared/schemas.js";
 import { buildQcPrompt } from "./planning.js";
 import { makeThumbnail } from "./image-tools.js";
 

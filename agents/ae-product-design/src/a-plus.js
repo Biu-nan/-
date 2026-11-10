@@ -8,7 +8,7 @@ import { readFile, readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { AgentError, CODES } from "../../_shared/errors.js";
+import { AgentError, CODES } from "../../../dist/src/agent-shared/errors.js";
 import { fill, loadPrompt } from "./planning.js";
 
 const execFileP = promisify(execFile);

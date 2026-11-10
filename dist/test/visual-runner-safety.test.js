@@ -5,7 +5,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { runAgent } from "../../agents/ae-product-design/src/runner.js";
 import { ModelClient } from "../../agents/ae-product-design/src/model.js";
-import { AgentError, CODES } from "../../agents/_shared/errors.js";
+import { AgentError, CODES } from "../src/agent-shared/errors.js";
 
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j6QAAAABJRU5ErkJggg==", "base64");
 async function fixture(t, ids, failId) {

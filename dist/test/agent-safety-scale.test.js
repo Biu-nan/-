@@ -75,9 +75,9 @@ test("没有对等项的资源常量拒绝猜测（MODEL_CALL）", () => {
 });
 
 test("对照实证：两套标号在同一个字母上含义不同", async () => {
-  const legacy = await import("../../agents/_shared/permissions.js");
+  const legacy = await import("../src/agent-shared/permissions.js");
   // 字面相同
-  assert.equal(legacy.PERMISSIONS.FS_WRITE, "P3");
+  assert.equal(legacy.RESOURCE_AXIS.FS_WRITE, "P3");
   // 含义不同：框架 P3 不是"写本地文件"
   assert.doesNotMatch(SIDE_EFFECTS.P3.name, /本地文件/);
   assert.match(SIDE_EFFECTS.P3.name, /平台/);

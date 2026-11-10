@@ -8,10 +8,10 @@ import { access, mkdir, rename } from "node:fs/promises";
 import path from "node:path";
 import readline from "node:readline/promises";
 
-import { AgentError, CODES, asAgentError } from "../../_shared/errors.js";
-import { assertWithin } from "../../_shared/permissions.js";
-import { markStage, newState, loadState, readJson, saveState, stageDone, writeJson } from "../../_shared/state.js";
-import { Tracer } from "../../_shared/trace.js";
+import { AgentError, CODES, asAgentError } from "../../../dist/src/agent-shared/errors.js";
+import { assertWithin } from "../../../dist/src/agent-shared/permissions.js";
+import { markStage, newState, loadState, readJson, saveState, stageDone, writeJson } from "../../../dist/src/agent-shared/state.js";
+import { Tracer } from "../../../dist/src/agent-shared/trace.js";
 import { generateSlot, guardPrompt } from "./generate.js";
 import { buildFactsText, buildSlotText, loadInputs } from "./inputs.js";
 import { ModelClient } from "./model.js";
@@ -29,7 +29,7 @@ import { slotDataReadiness } from "./readiness.js";
 import { auditImage, buildSkuLockText, identifyProduct } from "./vision-identify.js";
 import { loadBenchmark } from "./benchmark.js";
 import { buildKeywords, collectStyleRefs, loadExistingRefs } from "./style-research.js";
-import { validatePromptPack, validateStoryboard } from "../../_shared/schemas.js";
+import { validatePromptPack, validateStoryboard } from "../../../dist/src/agent-shared/schemas.js";
 
 export const LIMITS = {
   maxAttemptsPerSlot: 3,
