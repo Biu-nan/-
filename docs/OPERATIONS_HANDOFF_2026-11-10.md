@@ -173,11 +173,11 @@ Get-CimInstance Win32_Process -Filter "name='node.exe'" |
 
 | 块 | 需要你给什么 | 我收到后做什么 | 验收 |
 |---|---|---|---|
-| **A2d-0** | 什么都不用，**已完成** `c813f1f` | 只差 §1 的重启 | §1 三条 |
+| **A2d-0** | 什么都不用，`c813f1f` **已完成** | ✅ 18:13 已由常驻终端重启，运行态闭环 | `watchdog.log` 出现「初始探针：via=api-status」、服务 200 |
 | **A2d-1** | 「批准升级 run 并装网关」（含 A2c2 的 6 步授权） | 按上表 6 步 + 装 `installCeoMainBoundary` | 服务 200、看门狗走 `via=healthz`、无重启循环 |
 | **A2d-2** | 一份设计评审结论：真实 principal 从哪来、前端凭据怎么存、看门狗带不带 token、Listing Agent 怎么授权、轮换与撤销 | 按结论实现，不先写码 | 需单独一轮 |
 
-**顺序不能跳**：A2d-0 重启生效 → A2d-1 才有 `/healthz` 可探 → A2d-2 才有可保护的 `/api/*`。
+**顺序不能跳**：A2d-0（✅ 已生效）→ A2d-1 才有 `/healthz` 可探 → A2d-2 才有可保护的 `/api/*`。
 `ceo-governance.js` 要求 token ≥32 字节且 `storeId === 400370`；前端若把 token 放 localStorage 等于公开，
 所以 A2d-2 不是「加个中间件」。
 
