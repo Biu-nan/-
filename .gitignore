@@ -56,6 +56,9 @@ scripts/*
 !/scripts/verify-watchdog-probe.mjs
 # 干净检出复现性验收：证明 git 里的字节 == 生产磁盘字节
 !/scripts/verify-clean-checkout.mjs
+# C3 成本对账 / E1 T1 回写抽取器：同理，交付脚本不能只躺在被忽略的目录里
+!/scripts/reconcile-cogs.py
+!/scripts/writeback-t1.mjs
 dist/src/dx_verify_detail.mjs
 dist/src/poll_runall.mjs
 
