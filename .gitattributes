@@ -24,3 +24,6 @@ prompts/** -text
 config/** -text
 package.json -text
 package-lock.json -text
+# 看门狗不参与任何指纹，但它是保命组件，也按原始字节存：避免改动它时
+# 又制造一处"git status 显示干净、实际字节不一致"的漂移（§16 的教训）。
+watchdog.js -text
