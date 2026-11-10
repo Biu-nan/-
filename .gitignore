@@ -139,3 +139,6 @@ nawu-fetch/*.zip
 _verify/
 _shortlist_result.json
 *.bak-*
+# C2b 按日抓取探测与执行器（只读工具，交付资产）
+!/scripts/probe-ae-daily.mjs
+!/scripts/fetch-ae-daily.mjs
