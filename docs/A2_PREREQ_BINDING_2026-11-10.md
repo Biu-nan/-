@@ -885,3 +885,67 @@ A2d-2 不是"给 /api 加个中间件"：`ceo-governance.js` 要求 token ≥32 
 | `c813f1f` | A2d-0 兼容健康探针 + 回归脚本 |
 
 **仍未做**：A2d-1（run 升级）、A2d-2（凭据体系）、看门狗由 Lance 在终端常驻启动。
+
+---
+
+## 18. 端到端验收：从 git 干净检出能否复现生产清单（2026-11-10 17:45）
+
+### 18.1 为什么 §16 的逐文件比对还不够
+
+§16 证明了「285 个受管文件 `sha256(git cat-file)` == `sha256(磁盘)`」。
+但那仍是在**同一个工作区里**做的比对 —— 它证明"当前状态干净"，
+没有证明"把仓库单独取出来能跑"。
+
+A2c 的批准绑定 manifest 指纹，而清单构建依赖一整组路径同时存在
+（`dist/src`、`listing-agent/src`、`public`、`schemas`、`prompts`、
+`config/ceo-capabilities.v1.json`、`package.json`…）。A4/A5 之前
+其中若干文件根本不在库里，所以哪怕每个已入库文件字节都对，
+**全新 clone 依然构建不出生产清单**。
+
+所以要验的是：从 `HEAD` 单独重建一份代码根，
+用它构建 `PRODUCTION` manifest，看能不能成功、内容是否与生产磁盘一致。
+
+### 18.2 做法
+
+新增 `scripts/verify-clean-checkout.mjs`（纯 Node，不依赖 tar、不改工作区）：
+
+1. `git ls-files` 取受管文件清单
+2. `git cat-file -p HEAD:<path>` 把每个 blob 的**原始字节**写进临时目录
+   （`-text` 规则保证 blob 就是 checkout 后工作区的字节）
+3. 分别以「生产工作区」和「临时检出」为 `codeRoot` 构建 `PRODUCTION` manifest
+4. 比 `manifest.files` 的 `group|path|sha256|bytes`（排序后算**内容指纹**）
+5. 再用临时检出目录里的模块**本身**构建一次，确认它能独立运行
+
+**注意**：`manifest.fingerprint` 本身包含 `codeRoot`/`dataRoot`，
+两个不同路径必然不同，不能直接比；比的是去掉根路径后的纯内容。
+
+### 18.3 结果
+
+| 项 | 结果 |
+|---|---|
+| 从 HEAD 重建的受管文件 | **285** |
+| manifest 文件数 | 磁盘 **152** / 检出 **152** / 检出模块 **152** |
+| **内容指纹** | 三份全部 `f35bda86f88db00f77be3eb3…` |
+| `manifest.fingerprint` | 磁盘 ≠ 检出（**预期**：含 codeRoot） |
+| 准入原因 | 磁盘 = 检出 = `BINDING_APPROVAL_MISSING` |
+| `health.mode` | 磁盘 = 检出 = `PRODUCTION` |
+| `ops-stores.example.json` | 跟出来了；**`ops-stores.json` 真件没有被带出** ✅ |
+
+**结论**：git 干净检出复现出与生产磁盘逐文件相同的字节，
+清单可独立构建，准入状态一致。§16 的字节修复 + A4/A5 的路径补齐
+在这里合成了一条完整证据链。
+
+先用 `git archive HEAD … | tar -x` 手跑过一遍（152 文件、同一内容指纹），
+再固化成一键脚本并入库（`6de8d38`），两种做法结论一致。
+
+### 18.4 顺带产出的下一份准备工件
+
+只读差分 `docs/RUN_UPGRADE_DIFF_2026-11-10.md`：
+run 是 deploy 的**严格子集**（"仅 run 有" = 0），
+但升级 = 新增 104 + 覆盖 42 = **146 个文件**，且跨越 12 天的业务版本变化
+（2 个 prompt、7 个前端、14 个服务核心、`package-lock.json`）。
+其中 P0 是 `config.js` 的 `PROJECT_ROOT → CODE_ROOT` 切换必须与
+`prompts/`、`public/` **成对原子同步**，否则会静默用旧口径或启动即退出。
+
+这份差分**没有执行任何写操作**，它把 A2c2 从"要不要升级"变成一份可核对的清单，
+并进一步支持「A2d-2 定型前不动 run」的结论。
