@@ -56,6 +56,12 @@ if (CEO_PRODUCTION_MODE) {
    node scripts/verify-production-gate.mjs --self-test
    ```
    期望：`SELF-TEST PASS`（已验证 3/3）。
+
+1b. **片段自测**（把 §2 的代码逐字挂到真实 express 上，生产/非生产双跑，进程内起停）：
+   ```
+   node scripts/verify-production-gate.mjs --self-test-snippet
+   ```
+   期望：`SNIPPET-TEST PASS`——已验：PRODUCTION 下 `/api/status=404`、非生产下 `/api/status=200`（共 6/6）。**这条直接证明要 apply 的那段代码在 express 4.22.2 下行为正确**。
 2. **应用后 · 生产实例**（设 `CEO_PRODUCTION_MODE=1` 起实例后）：
    ```
    node scripts/verify-production-gate.mjs --port 3000 --mode PRODUCTION --expect-api 404
