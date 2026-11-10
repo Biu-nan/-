@@ -1,0 +1,21 @@
+import {mkdir,writeFile} from 'node:fs/promises';
+import path from 'node:path';
+import {createHash,randomUUID} from 'node:crypto';
+import {validateOperationalBatch,CEO_OPERATIONAL_QUESTION} from '../../src/ceo-operational-entry.js';
+import {buildUnapprovedShadow} from '../../src/ceo-unapproved-shadow.js';
+export async function syntheticConversationRun(root,{mutate=()=>{},failed=false,stale=false,tamperArchive=false,blockConversationArchive=false}={}){
+ const at=new Date(Date.now()-(stale?86400000:0)).toISOString(),batchId='aeb-fixture-'+randomUUID(),reportId='ceo-op-'+randomUUID();
+ const specs=[...['today','7d','30d'].map(window=>['sales.qty.total',window,'件']),...Object.entries({'catalog.brokenSize':'个','catalog.outOfStock':'个','catalog.platformItems':'个','inventory.actual':'件','inventory.occupied':'件','inventory.transit':'件','sales.amount.gmv':'CNY','sales.amount.pending':'CNY','sales.amount.net':'CNY','traffic.pv':'次','traffic.uv':'人','conv.buyers':'人','conv.rate':'%','lifecycle.activeSkus':'个'}).map(([c,u])=>[c,'today',u])];
+ const apis=['mtop.global.merchant.shop.sales.summary','mtop.global.merchant.sales.summary','mtop.global.merchant.sales.query','mtop.ae.merchant.fund.accounting.queryfundoverview','mtop.aliexpress.seller.data.delay.plan','mtop.aliexpress.dps.query'];
+ const identity={status:'COLLECTED',accessMode:'READ_ONLY',collectedAt:at,storeIdentity:{envId:'400370',name:'纳物-箱包全托1店',platform:'全球速卖通'}};
+ const batch={schema:'ceo-ae-metrics-batch/v1',batchId,status:failed?'FAILED':'COLLECTED',exitCode:failed?1:0,requestedAt:at,collectedAt:at,collectorVersion:'v2',collectorHash:'a'.repeat(64),sourceHash:'b'.repeat(64),accessMode:'READ_ONLY',verificationStatus:'UNAPPROVED',approvalRef:null,storeIdentity:{envId:'400370'},period:{timezone:'PST'},metrics:specs.map(([caliber,window,unit])=>({caliber,window,unit,subject:'STORE',storeId:'env:400370',value:10,availability:'AVAILABLE',sourceField:caliber==='sales.qty.total'?{today:'todaySalesNum','7d':'recent7dSalesNum','30d':'recent30dSalesNum'}[window]:null})),session:{batchId,envId:'400370',channelId:'2358891',cdpPort:21001,openEnv:{envId:'400370',cdpPort:21001,pid:51001,method:'openEnv',endpoint:'http://127.0.0.1:3980/openEnv'},browser:{port:21001,product:'Chrome/fixture-only'},browserIdentity:{status:'MATCHED',envId:'400370',cdpPort:21001,claimedPid:51001,observedPid:51001,product:'Chrome/fixture-only',observedAt:at},cacheDisabled:true,dryRun:true,keepOpen:true,platformTimezone:'PST',routes:Object.entries({sales:'/m_apps/aechoice-Sales-statistics/sub-sales-aeChoice',fund:'/m_apps/fund/onestop',store:'/m_apps/one-stop-service-sycm/store-overview'}).map(([name,pathname])=>({name,pathname,host:'csp.aliexpress.com',channelId:'2358891',observedAt:at})),responseEvidence:apis.map(api=>({api,host:'seller-acs.aliexpress.com',observedAt:at,payloadHash:'c'.repeat(64)})),domEvidence:[{name:'store',channelId:'2358891',observedAt:at,payloadHash:'d'.repeat(64)}]}};
+ mutate({identity,batch});
+ const validation=validateOperationalBatch({identity,batch,requestStartedAt:at});
+ const shadow=buildUnapprovedShadow({batch:{...batch,metrics:validation.metrics},question:CEO_OPERATIONAL_QUESTION});
+ const report={schema:'ceo-operational-report/v1',reportId,question:CEO_OPERATIONAL_QUESTION,requestedAt:at,completedAt:at,status:failed?'FAILED':'UNAPPROVED',failure:failed?'COLLECTION_FAILED':null,verificationStatus:'UNAPPROVED',formalContextStatus:'NOT_ELIGIBLE',identity,batch,validation,shadow,facts:failed?[]:validation.metrics.filter(m=>m.availability==='AVAILABLE'),priorities:failed?[]:shadow.priorities,hypotheses:[],effects:{formalTasksCreated:0,workflowExecutorCalls:0,productionDataWrites:0,productionLogWrites:0}};
+ const reportDirectory=path.join(root,reportId);await mkdir(reportDirectory);
+ const body=JSON.stringify(report,null,2)+'\n';await writeFile(path.join(reportDirectory,'report.json'),body);await writeFile(path.join(reportDirectory,'receipt.json'),JSON.stringify({reportId,batchId,reportHash:createHash('sha256').update(body).digest('hex')}));
+ if(tamperArchive)await writeFile(path.join(reportDirectory,'report.json'),body+' ');
+ if(blockConversationArchive)await writeFile(path.join(reportDirectory,'conversation-entry.json'),'{"preserve":true}');
+ return{report,reportDirectory};
+}

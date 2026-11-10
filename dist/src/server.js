@@ -60,6 +60,9 @@ const LISTING_ENGINE_COMMIT = String(process.env.LISTING_ENGINE_COMMIT || "1") !
 import { ListingAgentClient } from "../../listing-agent/src/agent-client.js";
 // 系统状态总账（F1）：把 6 套并行状态机归一化成一份只读视图。详见 docs/SYSTEM_FRAMEWORK_v1.0.md
 import { buildSystemState } from "./system-state.js";
+import { installCeoMainBoundary, createMainRuntimeInfo, requireG1FixtureRoot } from "./ceo-main-boundary.js";
+import { acquireOrRecoverLease } from "./ceo-lease-boot.js";
+import { randomUUID } from "node:crypto";
 
 // The WorkBuddy runtime injects a "safe-delete" shim (genie-safe-delete.cjs) that
 // intercepts fs.rm and throws SAFE_DELETE_BULK_CONFIRM_REQUIRED once the per-turn
@@ -77,6 +80,22 @@ console.error("[startup] safe-delete bulk guard disabled:",
     "TOOL_CALL_ID=", JSON.stringify(process.env.CODEBUDDY_TOOL_CALL_ID));
 
 const app = express();
+// A2-①：G1 候选形态必须由 CEO_G1_FIXTURE_ROOT 显式开启，未设置时整段是死的。
+// 原因（详见 docs/A2_PREREQ_BINDING_2026-11-10.md §9.1 阻塞 A）：requireG1FixtureRoot 在夹具缺失时
+// 直接 throw，而这发生在模块顶层、listen 之前 —— 生产主目录一旦合入这段，每次重启都会在监听前退出，
+// 看门狗每 15s 拉一次、每次都同样退出，等于把 :3000 变成永久重启循环。
+// 所以「夹具没配」必须退化成「不启用 CEO 形态」，而不是「启动失败」。
+const CEO_G1_ENABLED = Boolean(process.env.CEO_G1_FIXTURE_ROOT);
+const ceoFixtureRoot = CEO_G1_ENABLED ? requireG1FixtureRoot({ fixtureRoot: process.env.CEO_G1_FIXTURE_ROOT, dataRoot: USER_DATA_DIR, projectRoot: PROJECT_ROOT }) : null;
+const ceoMainIdentity = CEO_G1_ENABLED ? Object.freeze({ pid: process.pid, entryPath: fileURLToPath(import.meta.url), instanceId: randomUUID(), releaseId: process.env.CEO_RELEASE_ID ?? "g1-unreleased", startedAt: new Date().toISOString() }) : null;
+// 租约保护的是「同一端口不许有两个实例」。生产目前不持有租约，因此 A2b 的自愈能力在生产不生效 ——
+// 这不是降级，而是「今天本来就没有这层保护」，合并不应该顺手把生产的失败模式换掉。
+const ceoMainLease = CEO_G1_ENABLED ? (await acquireOrRecoverLease({
+    leasePath: path.join(ceoFixtureRoot, "ceo-main-runtime.lease.json"),
+    identity: ceoMainIdentity,
+    port: PORT,
+    onEvent: (event) => console.log("[lease]", JSON.stringify(event)),
+})).lease : null;
 
 // Listing Agent 客户端单例（双形态：默认 HTTP 调独立服务 http://localhost:${AGENT_PORT}，不可达回退进程内）。
 const agentClient = new ListingAgentClient();
@@ -411,6 +430,10 @@ catch (error) {
     console.warn("[identity] 400370 登记跳过:", error instanceof Error ? error.message : String(error));
 }
 app.use(express.json());
+// G1 candidate only. Unconfigured identities fail closed; no real credential discovery/migration.
+// A2-①：未启用时返回 null 而不是去装网关。网关会拦下全部 /api/*（公开白名单只有 /healthz 与 /api/version），
+// 生产没有夹具凭据 ⇒ 装上就是 /api/status 全线 401 ⇒ 看门狗判死（§9.1 阻塞 B）。
+const ceoBoundary = CEO_G1_ENABLED ? installCeoMainBoundary(app, { fixtureRoot: process.env.CEO_G1_FIXTURE_ROOT }) : null;
 app.use(express.static(PUBLIC_DIR));
 // 产品图静态文件服务（用于前端预览已上传的图片）
 app.use("/product-images", express.static(PRODUCT_IMAGES_DIR));
@@ -6619,10 +6642,21 @@ function readCodeVersion() {
     }
 }
 const CODE_VERSION = { ...readCodeVersion(), codeRoot: CODE_ROOT };
-const SERVER_STARTED_AT = new Date().toISOString();
-app.get("/api/version", (request, response) => {
+const SERVER_STARTED_AT = CEO_G1_ENABLED ? ceoMainIdentity.startedAt : new Date().toISOString();
+const ceoRuntimeInfo = CEO_G1_ENABLED ? await createMainRuntimeInfo({ codeRoot: CODE_ROOT, dataRoot: USER_DATA_DIR, releaseId: ceoMainIdentity.releaseId, instanceId: ceoMainIdentity.instanceId, startedAt: SERVER_STARTED_AT }) : null;
+if (CEO_G1_ENABLED) {
+    // 只有 CEO 形态才挂 /healthz。生产的存活探针历来是 /api/status，凭空多一条没人消费的探针
+    // 只会造成"有两个真相"的错觉，所以这里跟着模式走，不做成永远存在的路由。
+    app.get("/healthz", async (_request, response) => {
+        const health = await ceoRuntimeInfo.health();
+        response.status(health.ready ? 200 : 503).json(health);
+    });
+}
+app.get("/api/version", async (request, response) => {
     response.json({
         ...CODE_VERSION,
+        ...(ceoRuntimeInfo ? await ceoRuntimeInfo.health() : {}),
+        ...(ceoBoundary ? { governance: ceoBoundary } : {}),
         projectRoot: PROJECT_ROOT,
         userDataDir: USER_DATA_DIR,
         host: HOST,
@@ -6649,8 +6683,19 @@ process.on("unhandledRejection", (error) => {
 });
 for (const signal of ["SIGTERM", "SIGINT"]) {
     process.on(signal, () => {
+        // 「忙时拒绝关闭」只在 CEO 形态生效：生产今天的语义就是直接关，
+        // 合并不该顺手把停服语义也换掉（Windows 看门狗走 taskkill /F，本来也不经过这里）。
+        if (CEO_G1_ENABLED && (store.get().running || store.get().autoRun || isListingCreateRunning())) {
+            console.error("[runtime] in-flight state requires Human reconciliation; refusing automatic stop");
+            return;
+        }
         sleepInhibitor.stop();
-        server.close(() => process.exit(0));
+        if (ceoMainLease) {
+            server.close(async () => { await ceoMainLease.release(); process.exit(0); });
+            server.closeAllConnections();
+        } else {
+            server.close(() => process.exit(0));
+        }
     });
 }
 //# sourceMappingURL=server.js.map

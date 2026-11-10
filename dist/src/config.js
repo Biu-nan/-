@@ -1,4 +1,6 @@
 ﻿import path from "node:path";
+import { fileURLToPath } from "node:url";
+export const CODE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 export const PROJECT_ROOT = process.cwd();
 
 // 多用户数据隔离：USER_DATA_DIR 环境变量指定用户数据根目录
@@ -14,7 +16,7 @@ export const PRODUCT_ROOT = path.join(USER_DATA_DIR, "当前产品");
 export const COMPLETED_PRODUCTS_DIR = path.join(USER_DATA_DIR, "已完成产品");
 export const ABANDONED_PRODUCTS_DIR = path.join(USER_DATA_DIR, "已遗弃产品");
 export const PRODUCT_PROFILE_FILE = path.join(PRODUCT_ROOT, "product-profile.json");
-export const PRODUCT_PROFILE_SCHEMA_FILE = path.join(PROJECT_ROOT, "schemas", "product-profile.schema.json");
+export const PRODUCT_PROFILE_SCHEMA_FILE = path.join(CODE_ROOT, "schemas", "product-profile.schema.json");
 export const PRODUCT_PROFILE_LOG_FILE = path.join(USER_DATA_DIR, "product-profile.log");
 export const PRODUCT_QUEUE_DIR = path.join(USER_DATA_DIR, "商品队列");
 export const PRODUCT_QUEUE_TASKS_DIR = path.join(PRODUCT_QUEUE_DIR, "tasks");
@@ -75,7 +77,7 @@ export const SELECTION_BOARD_DIR = path.join(PRODUCT_QUEUE_DIR, "选品看板");
 export const SELECTION_BOARD_FILE = path.join(SELECTION_BOARD_DIR, "board.json");
 export const SELECTION_BOARD_IMAGES_DIR = path.join(SELECTION_BOARD_DIR, "images");
 export const SELECTION_BOARD_STYLE_DIR = path.join(SELECTION_BOARD_DIR, "style-refs");
-export const PROMPTS_DIR = path.join(PROJECT_ROOT, "prompts");
+export const PROMPTS_DIR = path.join(CODE_ROOT, "prompts");
 export const INSERT_PROMPT_FILE = path.join(PROMPTS_DIR, "05_LUXURY_INSERT_PROMPT.md");
 export const INSERT_MARKET_RADAR_PROMPT_FILE = path.join(PROMPTS_DIR, "06_INSERT_MARKET_RADAR_PROMPT.md");
 export const INSERT_LISTING_CONTENT_PROMPT_FILE = path.join(PROMPTS_DIR, "07_INSERT_LISTING_CONTENT_PROMPT.md");
@@ -87,7 +89,7 @@ export const GOOGLE_SHEETS_WEBHOOK_CONFIG_FILE = path.join(PROJECT_ROOT, "google
 export const STATE_FILE = path.join(USER_DATA_DIR, "run-state.json");
 export const CHROME_PROFILE_DIR = path.join(USER_DATA_DIR, ".chrome-profile");
 export const CHROME_DEBUG_PORT = Number(process.env.CHROME_DEBUG_PORT ?? 9223);
-export const PUBLIC_DIR = path.join(PROJECT_ROOT, "public");
+export const PUBLIC_DIR = path.join(CODE_ROOT, "public");
 export const RESEARCH_PROMPT_FILE = path.join(PROMPTS_DIR, "01_RESEARCH_PROMPT.md");
 export const PLANNING_PROMPT_FILE = path.join(PROMPTS_DIR, "02_VISUAL_PLANNING_PROMPT.md");
 // 批量模式跳过联网调研时使用的简化规划 Prompt（不引用 Top 10 / Chrome AI，避免触发 ChatGPT 联网搜索）

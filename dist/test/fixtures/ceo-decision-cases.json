@@ -1,0 +1,66 @@
+{
+  "note": "Synthetic contract fixtures only. Future December figures are not real store data or a registered production profit caliber.",
+  "now": "2027-01-02T00:00:00.000Z",
+  "goal": {
+    "schema": "ceo-goal/v1", "goalId": "goal-store-400370-20261026", "version": 1,
+    "storeRef": { "platform": "aliexpress-choice", "environmentId": "400370" },
+    "period": { "fromDate": "2026-12-01", "toDate": "2026-12-31", "timeZone": "Asia/Shanghai" },
+    "targets": [
+      { "targetId": "daily-paid-items", "value": 200, "caliber": "sales.qty.total", "unit": "件", "window": "DAY", "metricStatus": "VERIFIED" },
+      { "targetId": "monthly-operating-profit-ex-quality-penalty", "value": 12000, "caliber": "profit.operating.ex_quality_penalty", "unit": "CNY", "window": "MONTH", "metricStatus": "VERIFIED" }
+    ],
+    "deadline": null, "capacityMinutes": 240, "bufferMinutes": 60
+  },
+  "facts": [
+    {
+      "factId": "paid", "version": 1, "storeRef": { "platform": "aliexpress-choice", "environmentId": "400370" },
+      "caliber": "sales.qty.total", "unit": "件", "value": 180,
+      "period": { "start": "2026-12-31T00:00:00+08:00", "end": "2027-01-01T00:00:00+08:00" },
+      "observedAt": "2027-01-01T00:10:00Z", "quality": "USABLE", "coverage": { "ratio": 1, "complete": true }
+    },
+    {
+      "factId": "profit", "version": 1, "storeRef": { "platform": "aliexpress-choice", "environmentId": "400370" },
+      "caliber": "profit.operating.ex_quality_penalty", "unit": "CNY", "value": 11000,
+      "period": { "start": "2026-12-01T00:00:00+08:00", "end": "2027-01-01T00:00:00+08:00" },
+      "observedAt": "2027-01-01T01:00:00Z", "quality": "USABLE",
+      "coverage": { "ratio": 1, "complete": true, "costsReconciled": true, "qualityPenaltiesExcluded": true }
+    },
+    {
+      "factId": "stock", "version": 1, "storeRef": { "platform": "aliexpress-choice", "environmentId": "400370" },
+      "caliber": "inventory.physical.available", "unit": "件", "value": 20,
+      "period": { "start": "2026-12-31T00:00:00+08:00", "end": "2027-01-01T00:00:00+08:00" },
+      "observedAt": "2027-01-01T00:10:00Z", "quality": "USABLE", "coverage": { "ratio": 1, "complete": true }
+    }
+  ],
+  "decision": {
+    "schema": "ceo-decision/v1", "decisionId": "decision-1", "status": "DRAFT",
+    "goalId": "goal-store-400370-20261026", "goalVersion": 1,
+    "storeRef": { "platform": "aliexpress-choice", "environmentId": "400370" }, "policyVersion": "ceo-policy/v1",
+    "options": [{ "actionId": "investigate", "description": "核对供给与成本再决定投入" }, { "actionId": "hold", "description": "维持现状至下一观察点" }],
+    "chosenActionId": "investigate",
+    "evidenceRefs": [{ "factId": "paid", "version": 1 }, { "factId": "profit", "version": 1 }, { "factId": "stock", "version": 1 }],
+    "affectsTargets": ["daily-paid-items", "monthly-operating-profit-ex-quality-penalty"],
+    "claims": [
+      {
+        "claimId": "paid-assessment", "targetId": "daily-paid-items", "claimType": "TARGET_ASSESSMENT", "verdict": "SUPPORTED",
+        "caliber": "sales.qty.total", "unit": "件", "period": { "start": "2026-12-31T00:00:00+08:00", "end": "2027-01-01T00:00:00+08:00" },
+        "evidenceBindings": [{ "factId": "paid", "version": 1, "role": "PRIMARY_METRIC" }]
+      },
+      {
+        "claimId": "profit-assessment", "targetId": "monthly-operating-profit-ex-quality-penalty", "claimType": "TARGET_ASSESSMENT", "verdict": "SUPPORTED",
+        "caliber": "profit.operating.ex_quality_penalty", "unit": "CNY", "period": { "start": "2026-12-01T00:00:00+08:00", "end": "2027-01-01T00:00:00+08:00" },
+        "evidenceBindings": [{ "factId": "profit", "version": 1, "role": "PRIMARY_METRIC" }]
+      }
+    ],
+    "assumptions": ["这只是输入契约示例，不证明选项最优或目标已达成"],
+    "stopConditions": ["事实或目标版本改变时停止沿用本决定"],
+    "reviewAt": "2027-01-03T00:00:00Z", "conclusion": "RECOMMENDATION"
+  },
+  "cases": [
+    { "id": "C1", "title": "时间有限：旧库存依据不能沿用", "mutation": "stale-stock", "readiness": "INVALID", "code": "STALE_FACT", "counterexample": "库存事实已更新为版本2，仍用版本1安排补货" },
+    { "id": "C2", "title": "活动降价：平台净收入不能证明利润", "mutation": "platform-net", "readiness": "INVALID", "code": "CALIBER_MISMATCH", "counterexample": "未扣货值等成本却声称降价后利润足够" },
+    { "id": "C3", "title": "转化下降：覆盖不足先调查", "mutation": "partial-data", "readiness": "NEEDS_EVIDENCE", "code": "INCOMPLETE_FACT", "counterexample": "样本不全直接改图改价" },
+    { "id": "C4", "title": "断货与到货：不能挪用另一店的库存", "mutation": "other-store", "readiness": "INVALID", "code": "STORE_MISMATCH", "counterexample": "同名商品的其他店库存被当成本店可用库存" },
+    { "id": "C5", "title": "不行动：允许明确证据不足", "mutation": "no-action", "readiness": "NEEDS_EVIDENCE", "code": "INSUFFICIENT_EVIDENCE", "counterexample": "为了显得主动强行创建行动" }
+  ]
+}

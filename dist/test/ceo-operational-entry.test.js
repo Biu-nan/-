@@ -1,0 +1,55 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {buildUnapprovedShadow} from '../src/ceo-unapproved-shadow.js';
+const entry=await import('../src/ceo-operational-entry.js').catch(()=>({}));
+const source=await import('../src/ceo-ae-metrics-source.js');
+const Q='分析纳物一店最近的经营情况，告诉我应该优先处理什么。';
+const time='2026-11-05T13:30:00.000Z';
+const now=new Date('2026-11-05T13:31:00.000Z');
+function fixture(){
+ const specs=[['sales.qty.total','today'],['sales.qty.total','7d'],['sales.qty.total','30d'],...['catalog.brokenSize','catalog.outOfStock','catalog.platformItems','inventory.actual','inventory.occupied','inventory.transit','sales.amount.gmv','sales.amount.pending','sales.amount.net','traffic.pv','traffic.uv','conv.buyers','conv.rate','lifecycle.activeSkus'].map(c=>[c,'today'])];
+ const batch={schema:'ceo-ae-metrics-batch/v1',batchId:'aeb-unit-only',status:'COLLECTED',exitCode:0,requestedAt:time,collectedAt:'2026-11-05T13:30:30.000Z',accessMode:'READ_ONLY',verificationStatus:'UNAPPROVED',approvalRef:null,collectorVersion:'v2',sourceHash:'a'.repeat(64),sourceSystem:'AliExpress',storeIdentity:{envId:'400370'},period:{timezone:'PST'},metrics:specs.map(([caliber,window])=>({caliber,window,effectiveWindow:window,subject:'STORE',value:10,unit:caliber.startsWith('sales.amount')?'CNY':caliber==='conv.rate'?'%':caliber.startsWith('catalog.')||caliber==='lifecycle.activeSkus'?'个':/traffic.uv|conv.buyers/.test(caliber)?'人':caliber==='traffic.pv'?'次':'件',availability:'AVAILABLE',periodStatus:caliber.startsWith('sales.amount')?'UNVERIFIED_PERIOD':caliber.startsWith('sales.qty')?'PLATFORM_FIELD_NAME':caliber.startsWith('catalog')||caliber.startsWith('inventory')?'POINT_IN_TIME_SNAPSHOT':'PLATFORM_META_WINDOW',platformWindow:caliber.startsWith('traffic')||caliber.startsWith('conv')||caliber.startsWith('lifecycle')?'platform_default_30d':null,sourceField:caliber==='sales.qty.total'?{today:'todaySalesNum','7d':'recent7dSalesNum','30d':'recent30dSalesNum'}[window]:null,storeId:'env:400370',meta:{coverage:'PARTIAL',sampleSize:20,total:474}})),session:{batchId:'aeb-unit-only',envId:'400370',channelId:'2358891',cdpPort:9223,browserIdentity:{status:'MATCHED',envId:'400370',cdpPort:9223,claimedPid:100,observedPid:100,product:'Chrome/unit-fixture',observedAt:'2026-11-05T13:30:10.000Z'},openEnv:{envId:'400370',cdpPort:9223,pid:100,method:'openEnv',endpoint:'http://127.0.0.1:3980/openEnv'},browser:{port:9223,product:'Chrome/unit-fixture',protocol:'1.3'},cacheDisabled:true,dryRun:true,keepOpen:true,platformTimezone:'PST',routes:['sales','fund','store'].map(k=>({name:k,host:'csp.aliexpress.com',pathname:{sales:'/m_apps/aechoice-Sales-statistics/sub-sales-aeChoice',fund:'/m_apps/fund/onestop',store:'/m_apps/one-stop-service-sycm/store-overview'}[k],channelId:'2358891',observedAt:'2026-11-05T13:30:10.000Z'})),responseEvidence:[{api:'mtop.global.merchant.shop.sales.summary',host:'csp.aliexpress.com',observedAt:'2026-11-05T13:30:10.000Z',payloadHash:'b'.repeat(64)}]}};
+ return{identity:{status:'COLLECTED',batchId:'wmb-unit-only',collectedAt:time,accessMode:'READ_ONLY',storeIdentity:{envId:'400370',name:'纳物-箱包全托1店',platform:'全球速卖通'}},batch,requestStartedAt:time,now};
+}
+const valid=x=>{assert.equal(typeof entry.validateOperationalBatch,'function','operational validator must exist');return entry.validateOperationalBatch(x);};
+test('fixed CEO question is explicit and preserves the approved scope',()=>assert.equal(entry.CEO_OPERATIONAL_QUESTION,Q));
+test('real-shaped batch passes operational validation without formal approval',()=>{const r=valid(fixture());assert.equal(r.status,'PASS');assert.equal(r.verificationStatus,'UNAPPROVED');assert.equal(r.formalContextStatus,'NOT_ELIGIBLE');assert.equal(r.metrics.length,17);});
+for(const [name,mutate] of [
+ ['wrong store',x=>x.identity.storeIdentity.envId='416488'],
+ ['renamed store',x=>x.identity.storeIdentity.name='别的店'],
+ ['wrong browser',x=>x.batch.session.cdpPort=9224],
+ ['wrong channel',x=>x.batch.session.routes[1].channelId='2443536'],
+ ['redirected page',x=>x.batch.session.routes[1].host='login.aliexpress.com'],
+ ['stale batch',x=>x.batch.requestedAt='2026-11-04T13:30:00Z'],
+ ['future batch',x=>x.batch.collectedAt='2026-11-06T13:30:00Z'],
+ ['session batch mismatch',x=>x.batch.session.batchId='other'],
+ ['cache enabled',x=>x.batch.session.cacheDisabled=false],
+ ['write mode',x=>x.batch.session.dryRun=false],
+ ['closes environment',x=>x.batch.session.keepOpen=false],
+ ['collector failure',x=>x.batch.exitCode=2],
+ ['unknown timezone',x=>x.batch.session.platformTimezone='Asia/Shanghai'],
+ ['missing response provenance',x=>x.batch.session.responseEvidence=[]],
+ ['unexpected metric',x=>x.batch.metrics[0].caliber='market.price'],
+ ['wrong monetary unit',x=>x.batch.metrics[9].unit='USD'],
+ ['duplicate metric',x=>x.batch.metrics.push({...x.batch.metrics[0]})],
+ ['forged verification',x=>x.batch.verificationStatus='VERIFIED']
+])test(`rejects ${name}`,()=>{const x=fixture();mutate(x);assert.equal(valid(x).status,'REJECTED');});
+test('a missing metric keeps the fixed denominator and null reason',()=>{const x=fixture();x.batch.metrics.pop();const r=valid(x);assert.equal(r.status,'PASS');assert.equal(r.metrics.length,17);assert.equal(r.metrics.at(-1).value,null);assert.equal(r.metrics.at(-1).availability,'UNAVAILABLE');assert.ok(r.warnings.length);});
+test('suspicious values are unavailable to analysis',()=>{const x=fixture();x.batch.metrics[12].suspects=['likely_skeleton_value'];const r=valid(x);assert.equal(r.metrics[12].availability,'UNAVAILABLE');assert.equal(r.metrics[12].value,null);});
+test('unknown monetary window cannot be promoted by collector meta',()=>{const x=fixture();x.batch.metrics[9].periodStatus='PLATFORM_META_WINDOW';x.batch.metrics[9].platformWindow='today';const r=valid(x);assert.equal(r.metrics[9].periodStatus,'UNVERIFIED_PERIOD');assert.equal(r.metrics[9].effectiveWindow,null);});
+test('DOM 30d is not treated as platform-verified window without page evidence',()=>{const r=valid(fixture());assert.equal(r.metrics[12].periodStatus,'COLLECTOR_DEFAULT');assert.equal(r.metrics[12].effectiveWindow,null);});
+test('shadow never infers monetary window using history or cross-period division',()=>{const x=fixture();x.batch.metrics[9].value=30378.13;const s=buildUnapprovedShadow({batch:x.batch,question:Q,now});const text=JSON.stringify(s);assert.doesNotMatch(text,/14\.13|12\.83|折算|历史单件|极可能|AMOUNT_WINDOW_MISMATCH/);assert.ok(s.priorities.length<=3);assert.equal(s.gateStatus,'NOT_ELIGIBLE');});
+test('different metric windows cannot produce PV/UV anomaly',()=>{const x=fixture();x.batch.metrics[12].value=1;x.batch.metrics[12].effectiveWindow='today';x.batch.metrics[13].value=100;x.batch.metrics[13].effectiveWindow='30d';const s=buildUnapprovedShadow({batch:x.batch,question:Q,now});assert.ok(!s.anomalies.some(a=>a.id==='PV_LT_UV'));});
+test('collector invocation is exact allowlist, dry-run, keep-open, sanitized environment',()=>{assert.equal(typeof source.buildCollectorInvocation,'function');const r=source.buildCollectorInvocation({envId:'400370',scriptPath:new URL('../src/collectors/ae-metrics.v2.mjs',import.meta.url).pathname.replace(/^\/([A-Za-z]:)/,'$1'),batchId:'unit',env:{AE_SHAPE_OUT:'production',AE_CHANNEL_ID:'2443536',NODE_OPTIONS:'evil',PATH:'safe'}});assert.ok(r.args.includes('--permission'));assert.ok(r.args.includes('--allow-fs-read=*'));assert.equal(r.args.filter(a=>a.startsWith('--allow-fs-write=')).length,1);assert.ok(r.args.find(a=>a.startsWith('--allow-fs-write=')).endsWith('collector-runtime\\unit'));assert.equal(r.env.TEMP,r.runtimeDirectory);assert.equal(r.env.TMP,r.runtimeDirectory);assert.ok(r.args.includes('--dry-run'));assert.ok(r.args.includes('--keep-open'));assert.equal(r.env.AE_SHAPE_OUT,undefined);assert.equal(r.env.AE_CHANNEL_ID,undefined);assert.equal(r.env.NODE_OPTIONS,undefined);assert.equal(r.env.PATH,'safe');assert.throws(()=>source.buildCollectorInvocation({scriptPath:'C:/evil/ae-metrics.v2.mjs'}),/SCRIPT_NOT_ALLOWED/);});
+test('invalid question never touches a real backend or creates output',async()=>{assert.equal(typeof entry.runOperationalQuery,'function');await assert.rejects(entry.runOperationalQuery({question:'给二店下单'}),/QUESTION_NOT_ALLOWED/);});
+
+const live=await import('../src/ceo-live-source-contract.js').catch(()=>({}));
+test('page identity is recheckable after a delayed DOM or response read',()=>{assert.equal(typeof live.assertLivePageIdentity,'function');assert.equal(live.assertLivePageIdentity('https://csp.aliexpress.com/path?channelId=2358891','https://csp.aliexpress.com/path?channelId=2358891'),'2358891');for(const u of ['https://csp.aliexpress.com/path?channelId=2443536','https://login.aliexpress.com/path?channelId=2358891','https://csp.aliexpress.com/other?channelId=2358891'])assert.throws(()=>live.assertLivePageIdentity(u,'https://csp.aliexpress.com/path?channelId=2358891'),/PAGE_IDENTITY_MISMATCH/);});
+test('missing or nonnumeric inventory rows remain unknown instead of zero',()=>{assert.equal(typeof live.summarizeInventorySample,'function');const x=live.summarizeInventorySample({list:[{realWarehouseInventoryNum:4,lockedInventoryNum:0,inRoadInventoryNum:2},{}],total:30});assert.equal(x.real,null);assert.equal(x.locked,null);assert.equal(x.transit,null);assert.equal(x.coverage,'PARTIAL');assert.equal(live.summarizeInventorySample({}).real,null);assert.equal(live.summarizeInventorySample({list:[],total:0}).real,0);assert.equal(live.summarizeInventorySample({list:[],total:30}).real,null);});
+
+test('zero available business facts and freshness-only cannot be a successful report',()=>{const x=fixture();for(const m of x.batch.metrics){m.value=null;m.availability='UNAVAILABLE';}x.batch.metrics.push({caliber:'sales.qty.total',subject:'DATA_FRESHNESS',value:'OK'});assert.equal(valid(x).status,'REJECTED');});
+test('unapproved page route or unknown response API is rejected',()=>{let x=fixture();x.batch.session.routes[0].pathname='/wrong';assert.equal(valid(x).status,'REJECTED');x=fixture();x.batch.session.responseEvidence[0].api='mtop.unknown';assert.equal(valid(x).status,'REJECTED');});
+
+test('actual Wenmai-returned CDP binding is used rather than an unrelated available port',()=>{const x=fixture();x.batch.session.cdpPort=16396;x.batch.session.openEnv.cdpPort=16396;x.batch.session.browser.port=16396;x.batch.session.browserIdentity.cdpPort=16396;assert.equal(valid(x).status,'PASS');assert.equal(valid(x).environment.cdpPort,16396);assert.equal(valid(x).environment.authority,'WENMAI_OPEN_ENV');x.batch.session.openEnv.envId='416488';assert.equal(valid(x).status,'REJECTED');});
+
+test('the freshly observed seller-acs official response host is accepted, arbitrary hosts rejected',()=>{const x=fixture();x.batch.session.responseEvidence[0].host='seller-acs.aliexpress.com';assert.equal(valid(x).status,'PASS');x.batch.session.responseEvidence[0].host='attacker.invalid';assert.equal(valid(x).status,'REJECTED');});
