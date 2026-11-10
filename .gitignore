@@ -142,3 +142,5 @@ _shortlist_result.json
 # C2b 按日抓取探测与执行器（只读工具，交付资产）
 !/scripts/probe-ae-daily.mjs
 !/scripts/fetch-ae-daily.mjs
+# D4 商品级补货计划（只读计算）
+!/scripts/plan-restock.mjs
