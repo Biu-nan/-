@@ -5,15 +5,22 @@
 # 或重新 clone 会把 LF 转成 CRLF → 每个文件 sha256 变 → 全库指纹变 →
 # 所有已签发的批准记录同时失效（verifyRuntimeManifest 报 RELEASE_BYTES_CHANGED）。
 #
-# 下面把 manifest 涉及的路径全部标成 -text（不做任何换行转换，按原样存取）。
+# 下面把"会被算 sha256"的路径全部标成 -text（不做任何换行转换，按原样存取）。
 # 刻意不写 `* -text`：那会改变整个仓库的换行行为，影响面远超需要保护的范围。
-# 规则与 dist/src/ceo-main-boundary.js 的 files 清单一一对应，改那边要同步改这里。
+#
+# 注意：算 sha256 的清单不止一处。已知三处，改任一处都要同步这里：
+#   1. dist/src/ceo-main-boundary.js  createMainRuntimeInfo 的 files
+#   2. dist/src/ceo-conversation-cli.js:12  policy 组
+#   3. dist/src/ceo-operational-entry.js:102  bindings.files
+# 第 2、3 处会引入 config/ 下的不同文件，所以 config 用整目录规则，
+# 不逐个列举 —— 曾经只列 ceo-capabilities 一项，结果 ceo-knowledge 与
+# ceo-workbuddy-host.candidate 被归一化成 LF 入库，与磁盘字节不一致。
 
 dist/** -text
 listing-agent/** -text
 public/** -text
 schemas/** -text
 prompts/** -text
+config/** -text
 package.json -text
 package-lock.json -text
-config/ceo-capabilities.v1.json -text
