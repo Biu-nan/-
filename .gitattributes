@@ -1,0 +1,19 @@
+# manifest 指纹的字节来源必须稳定
+#
+# createRuntimeManifest 对 codeRoot 下每个文件算 sha256，指纹覆盖这些路径。
+# 本仓库 core.autocrlf = true 且此前没有 .gitattributes，意味着一次 checkout
+# 或重新 clone 会把 LF 转成 CRLF → 每个文件 sha256 变 → 全库指纹变 →
+# 所有已签发的批准记录同时失效（verifyRuntimeManifest 报 RELEASE_BYTES_CHANGED）。
+#
+# 下面把 manifest 涉及的路径全部标成 -text（不做任何换行转换，按原样存取）。
+# 刻意不写 `* -text`：那会改变整个仓库的换行行为，影响面远超需要保护的范围。
+# 规则与 dist/src/ceo-main-boundary.js 的 files 清单一一对应，改那边要同步改这里。
+
+dist/** -text
+listing-agent/** -text
+public/** -text
+schemas/** -text
+prompts/** -text
+package.json -text
+package-lock.json -text
+config/ceo-capabilities.v1.json -text
