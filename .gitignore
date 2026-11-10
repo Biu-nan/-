@@ -52,6 +52,10 @@ scripts/*
 !/scripts/build-provisional-identity.mjs
 # A2 合并执行器：A2 的实际执行依赖它，不能只躺在被忽略的目录里（同 启动一跨.bat 的教训）
 !/scripts/a2-merge.mjs
+# A2d-0 探针回归脚本：同理，验证脚本不能只躺在被忽略的目录里
+!/scripts/verify-watchdog-probe.mjs
+# 干净检出复现性验收：证明 git 里的字节 == 生产磁盘字节
+!/scripts/verify-clean-checkout.mjs
 dist/src/dx_verify_detail.mjs
 dist/src/poll_runall.mjs
 
