@@ -159,11 +159,16 @@ const main = async () => {
   if (process.argv.includes("--workflow")) {
     const { runPurchaseWorkflow } = await import("./workflow.js");
     const snapshot = JSON.parse(await readFile(arg("--snapshot"), "utf8"));
+    // decide.js 的日均 = sales.qty.total / params.window。若 window 与实际数据窗口
+    // 不一致（例如数据是 7 天总量、window 默认 14），日会被腰斩、覆盖天数被高估一倍。
+    // 优先级：--window > snapshot.params.window > snapshot.historyDays > 14（保持旧默认）。
+    const win = Number(arg("--window", snapshot.params?.window ?? snapshot.historyDays ?? 14));
     const r = await runPurchaseWorkflow({
       storeId: arg("--store", snapshot.storeId ?? "400370"),
       asOf: arg("--as-of", snapshot.asOf),
       calibers: snapshot.calibers,
       historyDays: Number(arg("--history-days", snapshot.historyDays ?? 14)),
+      params: { ...(snapshot.params ?? {}), window: win },
       cumulativeSalesBefore30d: snapshot.cumulativeSalesBefore30d ?? 0,
       transitCollectedAt: snapshot.collectedAt ?? null,
       skuId: arg("--sku", snapshot.skuId ?? undefined),
