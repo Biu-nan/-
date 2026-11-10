@@ -156,3 +156,5 @@ _shortlist_result.json
 !/scripts/install-daily-task.mjs
 # C2b-B 平台导出导入器（按日 CSV → fact_store_daily，交付资产）
 !/scripts/import-platform-export.mjs
+# A2d 方案 C 生产门验证器（含进程内 self-test，交付资产）
+!/scripts/verify-production-gate.mjs
