@@ -86,8 +86,16 @@ const app = express();
 // 看门狗每 15s 拉一次、每次都同样退出，等于把 :3000 变成永久重启循环。
 // 所以「夹具没配」必须退化成「不启用 CEO 形态」，而不是「启动失败」。
 const CEO_G1_ENABLED = Boolean(process.env.CEO_G1_FIXTURE_ROOT);
+// A2c：生产模式与 G1 夹具模式互斥，因为两者的结构前提相反 ——
+// 夹具模式要求「单根 + 数据根里放 synthetic:true」，生产模式要求「双根 + 不许有该标记」。
+// 同时开没有意义，这里让夹具模式优先（它是更早、更窄的那条路）。
+// 生产模式只负责两件事：如实自报身份（/healthz、/api/version 里 mode=PRODUCTION）、
+// 并在准入不通过时**拒绝启动**。它刻意不安装网关 —— /api/* 的凭据与鉴权是 A2d 的事，
+// 现在装上会把所有请求挡成 401，看门狗随即判定失联并 taskkill，等于自造重启循环。
+const CEO_PRODUCTION_MODE = !CEO_G1_ENABLED && process.env.CEO_PRODUCTION_MODE === "1";
+const CEO_RUNTIME_MODE = CEO_G1_ENABLED ? "SHADOW" : (CEO_PRODUCTION_MODE ? "PRODUCTION" : null);
 const ceoFixtureRoot = CEO_G1_ENABLED ? requireG1FixtureRoot({ fixtureRoot: process.env.CEO_G1_FIXTURE_ROOT, dataRoot: USER_DATA_DIR, projectRoot: PROJECT_ROOT }) : null;
-const ceoMainIdentity = CEO_G1_ENABLED ? Object.freeze({ pid: process.pid, entryPath: fileURLToPath(import.meta.url), instanceId: randomUUID(), releaseId: process.env.CEO_RELEASE_ID ?? "g1-unreleased", startedAt: new Date().toISOString() }) : null;
+const ceoMainIdentity = CEO_RUNTIME_MODE !== null ? Object.freeze({ pid: process.pid, entryPath: fileURLToPath(import.meta.url), instanceId: randomUUID(), releaseId: process.env.CEO_RELEASE_ID ?? "g1-unreleased", startedAt: new Date().toISOString() }) : null;
 // 租约保护的是「同一端口不许有两个实例」。生产目前不持有租约，因此 A2b 的自愈能力在生产不生效 ——
 // 这不是降级，而是「今天本来就没有这层保护」，合并不应该顺手把生产的失败模式换掉。
 const ceoMainLease = CEO_G1_ENABLED ? (await acquireOrRecoverLease({
@@ -6642,9 +6650,12 @@ function readCodeVersion() {
     }
 }
 const CODE_VERSION = { ...readCodeVersion(), codeRoot: CODE_ROOT };
-const SERVER_STARTED_AT = CEO_G1_ENABLED ? ceoMainIdentity.startedAt : new Date().toISOString();
-const ceoRuntimeInfo = CEO_G1_ENABLED ? await createMainRuntimeInfo({ codeRoot: CODE_ROOT, dataRoot: USER_DATA_DIR, releaseId: ceoMainIdentity.releaseId, instanceId: ceoMainIdentity.instanceId, startedAt: SERVER_STARTED_AT }) : null;
-if (CEO_G1_ENABLED) {
+const SERVER_STARTED_AT = CEO_RUNTIME_MODE !== null ? ceoMainIdentity.startedAt : new Date().toISOString();
+// 生产模式下这里会抛 PRODUCTION_ADMISSION_DENIED:<reason>，且发生在 listen 之前 ——
+// 这是刻意的：被拒绝的生产**不应该**以"降级成影子"的方式继续跑，那会让准入形同虚设。
+// 代价是配置错误会表现为启动即退出（看门狗反复重试），所以原因码必须能一眼定位。
+const ceoRuntimeInfo = CEO_RUNTIME_MODE !== null ? await createMainRuntimeInfo({ codeRoot: CODE_ROOT, dataRoot: USER_DATA_DIR, releaseId: ceoMainIdentity.releaseId, instanceId: ceoMainIdentity.instanceId, startedAt: SERVER_STARTED_AT, mode: CEO_RUNTIME_MODE }) : null;
+if (CEO_RUNTIME_MODE !== null) {
     // 只有 CEO 形态才挂 /healthz。生产的存活探针历来是 /api/status，凭空多一条没人消费的探针
     // 只会造成"有两个真相"的错觉，所以这里跟着模式走，不做成永远存在的路由。
     app.get("/healthz", async (_request, response) => {
