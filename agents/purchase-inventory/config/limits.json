@@ -1,0 +1,78 @@
+{
+  "schema": "purchase-inventory/limits/v1",
+  "agentId": "purchase-inventory",
+  "version": "0.1",
+  "storeId": "400370",
+
+  "sideEffect": {
+    "allowed": ["P0", "P1"],
+    "denied": ["P2", "P3", "P4", "P5", "P6"],
+    "rationale": "本 Agent 只读聚合 + 写本地草稿。任何改平台数据、发布、删除一律越权。"
+  },
+
+  "quantity": {
+    "maxSuggestPerSku": 500,
+    "maxTotalPerOrder": 2000,
+    "maxSkusPerRun": 50,
+    "minOrderPerSku": 20,
+    "onViolation": "SPLIT_AND_REQUIRE_HUMAN",
+    "rationale": "让一次误判最多占用 2000 件资金，而不是整店。"
+  },
+
+  "money": {
+    "outputAllowed": false,
+    "maxAmount": 0,
+    "currency": null,
+    "onViolation": "REJECT_WHOLE_BATCH",
+    "rationale": "config/metrics-schema.json 33 个口径中没有任何成本/COGS 口径（C3 未完成）。输出金额即编造。",
+    "blockedUntil": "C3_COGS_APPROVED"
+  },
+
+  "platformWrite": {
+    "allowed": false,
+    "onViolation": "DENY",
+    "rationale": "采购单只落本地草稿，必须人在 Gate 上点。"
+  },
+
+  "gate": {
+    "requiredForVerdicts": ["RESTOCK"],
+    "notRequiredFor": ["WATCH", "OVERSTOCK", "DEAD_STOCK", "NO_HISTORY"],
+    "defaultIfIgnored": "stall",
+    "allowTimeoutPass": false,
+    "rationale": "Gate 不许超时放行。标记类结论无副作用，不必打断人。"
+  },
+
+  "calibers": {
+    "required": [
+      "inventory.actual",
+      "inventory.occupied",
+      "inventory.transit",
+      "sales.qty.total"
+    ],
+    "optional": ["sales.qty.direct"],
+    "forbidden": [
+      {
+        "id": "inventory.sellable",
+        "in": "coverage_calc",
+        "reason": "平台可售额度 ≠ 物理库存（实测 213,682 vs 1,264）"
+      },
+      {
+        "id": "conv.buyers",
+        "in": "quantity_calc",
+        "reason": "量纲是订单/买家，不是件数"
+      }
+    ],
+    "onMissing": "FAIL_CLOSED"
+  },
+
+  "timeWindow": {
+    "rejectBeijingHours": [15, 16],
+    "reason": "平台日切归零，写入即污染",
+    "onViolation": "REFUSE_AND_WAIT_NEXT_WINDOW"
+  },
+
+  "concurrency": {
+    "maxParallel": 2,
+    "rationale": "与现有采集链一致，避免抢 CDP 会话。"
+  }
+}

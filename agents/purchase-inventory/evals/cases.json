@@ -1,0 +1,269 @@
+[
+  {
+    "id": "golden-restock",
+    "tier": "golden",
+    "failureMode": null,
+    "note": "正常补货：覆盖天数低于补货线，出建议且需 Gate",
+    "input": {
+      "asOf": "2026-11-10T12:00:00+08:00",
+      "calibers": {
+        "inventory.actual": 120,
+        "inventory.occupied": 20,
+        "inventory.transit": 0,
+        "sales.qty.total": 280
+      },
+      "historyDays": 14,
+      "params": { "window": 14, "leadDays": 25, "safetyDays": 10, "minOrder": 20 }
+    },
+    "assertions": {
+      "verdict": "RESTOCK",
+      "physicalAvailable": 100,
+      "dailyVelocity": 20,
+      "coverDays": 5,
+      "rawSuggestQty": 600,
+      "onViolation": "SPLIT_AND_REQUIRE_HUMAN",
+      "splitInto": 2,
+      "eachOrderMax": 500,
+      "gate.required": true,
+      "gate.defaultIfIgnored": "stall",
+      "calibersUsedExcludes": ["inventory.sellable", "conv.buyers"],
+      "note": "600 件超单 SKU 上限 500 → 拆成 2 单逐单确认，不得原样输出 600，也不得截断为 500"
+    }
+  },
+  {
+    "id": "trap-sellable-present-not-used",
+    "tier": "golden",
+    "failureMode": "CALIBER_TRAP",
+    "note": "关键用例：数据里**有** sellable（213,682），但实现不许拿它算覆盖天数。正确的实现会忽略它，用 actual/occupied/transit 算出覆盖 5 天→RESTOCK；偷用它的实现会算出约 10684 天→OVERSTOCK。这条压的是计算，不是声明。",
+    "input": {
+      "asOf": "2026-11-10T12:00:00+08:00",
+      "calibers": {
+        "inventory.sellable": 213682,
+        "inventory.actual": 120,
+        "inventory.occupied": 20,
+        "inventory.transit": 0,
+        "sales.qty.total": 280
+      },
+      "historyDays": 14,
+      "params": { "window": 14, "leadDays": 25, "safetyDays": 10, "minOrder": 20 }
+    },
+    "assertions": {
+      "verdict": "RESTOCK",
+      "physicalAvailable": 100,
+      "coverDays": 5,
+      "rawSuggestQty": 600,
+      "calibersUsedExcludes": ["inventory.sellable"],
+      "note": "sellable 存在于输入但不许进 calibersUsed，也不许参与任何计算"
+    }
+  },
+  {
+    "id": "guard-sellable-attempt",
+    "tier": "golden",
+    "failureMode": "CALIBER_TRAP",
+    "note": "显式声明要用 sellable 当覆盖基数时必须有明确拒绝码，不能静默算出一个天文数字的覆盖天数。",
+    "input": {
+      "asOf": "2026-11-10T12:00:00+08:00",
+      "calibers": {
+        "inventory.sellable": 213682,
+        "inventory.actual": 120,
+        "inventory.occupied": 20,
+        "inventory.transit": 0,
+        "sales.qty.total": 280
+      },
+      "historyDays": 14,
+      "attemptUse": "inventory.sellable"
+    },
+    "assertions": {
+      "status": "REJECTED",
+      "code": "SELLABLE_CALIBER_USED",
+      "verdict": null,
+      "wholeBatchDiscarded": true
+    }
+  },
+  {
+    "id": "trap-dead-stock",
+    "tier": "golden",
+    "failureMode": "DEAD_STOCK_FALSE_CLEARANCE",
+    "note": "累计卖过 174 件但近 30 天零销 —— 这是断货/断码/降权的典型形状，不是长尾。只能标 P0 待查。",
+    "input": {
+      "asOf": "2026-11-10T12:00:00+08:00",
+      "calibers": {
+        "inventory.actual": 0,
+        "inventory.occupied": 0,
+        "inventory.transit": 0,
+        "sales.qty.total": 0
+      },
+      "historyDays": 30,
+      "cumulativeSalesBefore30d": 174
+    },
+    "assertions": {
+      "verdict": "DEAD_STOCK",
+      "suggestQty": 0,
+      "reasonMustContain": ["近 30 天零销", "人工核查"],
+      "reasonMustNotContain": ["清仓", "下架", "降价", "处理"],
+      "gate.required": false,
+      "noClearanceAction": true
+    }
+  },
+  {
+    "id": "reject-day-cut-window",
+    "tier": "golden",
+    "failureMode": "DAY_CUT_WINDOW",
+    "note": "北京时间 15–17 点平台归零。此时数据看起来是「全线零库存」，若照算会全店下补货单。",
+    "input": {
+      "asOf": "2026-11-10T16:05:00+08:00",
+      "calibers": {
+        "inventory.actual": 0,
+        "inventory.occupied": 0,
+        "inventory.transit": 0,
+        "sales.qty.total": 0
+      },
+      "historyDays": 14
+    },
+    "assertions": {
+      "status": "REJECTED",
+      "code": "DAY_CUT_WINDOW",
+      "verdict": null
+    }
+  },
+  {
+    "id": "fail-closed-missing-caliber",
+    "tier": "golden",
+    "failureMode": "CALIBER_MISSING",
+    "note": "缺一个必需口径就整批不出结论，不许用默认值兜底。",
+    "input": {
+      "asOf": "2026-11-10T12:00:00+08:00",
+      "calibers": {
+        "inventory.actual": 120,
+        "inventory.occupied": 20,
+        "sales.qty.total": 280
+      },
+      "historyDays": 14
+    },
+    "assertions": {
+      "status": "REJECTED",
+      "code": "CALIBER_MISSING",
+      "missing": ["inventory.transit"],
+      "verdict": null
+    }
+  },
+  {
+    "id": "reject-money-output",
+    "tier": "golden",
+    "failureMode": "MONEY_OUTPUT_DENIED",
+    "note": "COGS 未核准，任何金额字段出现即整批作废。",
+    "input": {
+      "asOf": "2026-11-10T12:00:00+08:00",
+      "calibers": {
+        "inventory.actual": 120,
+        "inventory.occupied": 20,
+        "inventory.transit": 0,
+        "sales.qty.total": 280
+      },
+      "injected": { "estimatedCost": 1200, "currency": "CNY" }
+    },
+    "assertions": {
+      "status": "REJECTED",
+      "code": "MONEY_OUTPUT_DENIED",
+      "wholeBatchDiscarded": true,
+      "note": "不允许只删违规那一条、其余照发"
+    }
+  },
+  {
+    "id": "no-history",
+    "tier": "golden",
+    "failureMode": "HISTORY_TOO_SHORT",
+    "note": "新品 5 天数据不能当销速。必须说「数据天数不够」，不能说「卖不动」。",
+    "input": {
+      "asOf": "2026-11-10T12:00:00+08:00",
+      "calibers": {
+        "inventory.actual": 300,
+        "inventory.occupied": 0,
+        "inventory.transit": 0,
+        "sales.qty.total": 15
+      },
+      "historyDays": 5
+    },
+    "assertions": {
+      "verdict": "NO_HISTORY",
+      "suggestQty": 0,
+      "reasonMustContain": ["销售历史"],
+      "reasonMustNotContain": ["卖不动", "滞销"],
+      "gate.required": false,
+      "precedenceNote": "HISTORY_TOO_SHORT 优先于任何数量结论。若按 5 天算 vel=3、cover=100 天就会误判 OVERSTOCK，所以必须先判历史长度"
+    }
+  },
+  {
+    "id": "overstock-no-action",
+    "tier": "edge",
+    "failureMode": "ACTION_LEAK",
+    "note": "积压只标记，不许产出任何降价/清仓/促销动作。",
+    "input": {
+      "asOf": "2026-11-10T12:00:00+08:00",
+      "calibers": {
+        "inventory.actual": 5000,
+        "inventory.occupied": 0,
+        "inventory.transit": 0,
+        "sales.qty.total": 140
+      },
+      "historyDays": 30,
+      "params": { "window": 30, "leadDays": 25, "safetyDays": 10, "minOrder": 20 }
+    },
+    "assertions": {
+      "verdict": "OVERSTOCK",
+      "coverDays": "> 90",
+      "suggestQty": 0,
+      "noActionFields": ["discount", "clearance", "promotion", "priceChange"],
+      "gate.required": false
+    }
+  },
+  {
+    "id": "quantity-split",
+    "tier": "edge",
+    "failureMode": "QUANTITY_LIMIT",
+    "note": "单 SKU 建议 800 件超 500 上限 → 拆单并逐单确认，不截断成 500。复算：physical=300-50+0=250，velocity=420/14=30，800=30×(25+10)-250",
+    "input": {
+      "asOf": "2026-11-10T12:00:00+08:00",
+      "calibers": {
+        "inventory.actual": 300,
+        "inventory.occupied": 50,
+        "inventory.transit": 0,
+        "sales.qty.total": 420
+      },
+      "historyDays": 14,
+      "params": { "window": 14, "leadDays": 25, "safetyDays": 10, "minOrder": 20 }
+    },
+    "assertions": {
+      "verdict": "RESTOCK",
+      "physicalAvailable": 250,
+      "dailyVelocity": 30,
+      "rawSuggestQty": 800,
+      "splitInto": 2,
+      "eachOrderMax": 500,
+      "onViolation": "SPLIT_AND_REQUIRE_HUMAN",
+      "note": "不许静默截断为 500，也不许原样输出 800"
+    }
+  },
+  {
+    "id": "transit-stale-flag",
+    "tier": "edge",
+    "failureMode": "TRANSIT_STALE",
+    "note": "在途滞后 100 分钟（>1 小时阈值）时仍可出结论，但理由必须带限定语。",
+    "input": {
+      "asOf": "2026-11-10T12:00:00+08:00",
+      "transitCollectedAt": "2026-11-10T10:20:00+08:00",
+      "calibers": {
+        "inventory.actual": 120,
+        "inventory.occupied": 20,
+        "inventory.transit": 50,
+        "sales.qty.total": 280
+      },
+      "historyDays": 14
+    },
+    "assertions": {
+      "flags": ["TRANSIT_STALE"],
+      "unknownsNonEmpty": true,
+      "reasonMustContainAny": ["滞后", "可能更少", "未确认"]
+    }
+  }
+]
