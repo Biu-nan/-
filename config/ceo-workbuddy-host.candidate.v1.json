@@ -1,0 +1,9 @@
+{
+  "schema": "ceo-workbuddy-host-pin/v1",
+  "candidateOnly": true,
+  "version": "5.9.3",
+  "executable": "E:\\软件\\WorkBuddy\\WorkBuddy.exe",
+  "sha256": "bbf504003825e0e22dd8c401b396d79db78ec603558088565d1b2e81561704a0",
+  "signerThumbprint": "2241B013E2D6B9AAD7590E8056BF5E17CB1C795B",
+  "signatureStatus": "Valid"
+}

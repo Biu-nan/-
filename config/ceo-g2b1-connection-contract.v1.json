@@ -1,0 +1,123 @@
+{
+  "schema": "ceo-real-connection-contract/v1",
+  "version": "g2b1",
+  "mode": "PREPARATION_ONLY",
+  "productionWiringEnabled": false,
+  "supersedes": {
+    "contract": "config/ceo-g2b0-connection-contract.v1.json",
+    "retainedForRollback": true
+  },
+  "intendedDomain": "纳物一店订单支付表现",
+  "realStoreMapping": {
+    "status": "UNVERIFIED",
+    "registry": "config/ceo-store-mapping.v1.json",
+    "registryVersion": "1",
+    "mappingId": "mapping-nawu-store-1",
+    "storeAlias": "纳物一店",
+    "ceoStoreId": "400370",
+    "syntheticEnvironmentId": "400370",
+    "authorityReviewers": [],
+    "identityMigrationAllowed": false,
+    "required": [
+      "platformShopId",
+      "environmentId",
+      "storeAlias",
+      "authorityRecordId",
+      "approvedBy",
+      "approvedAt",
+      "validUntil",
+      "mappingHash"
+    ],
+    "note": "The mapping binds the real platform shop to the already frozen CEO store scope. Re-pointing the scope is an identity migration and is rejected."
+  },
+  "paidData": {
+    "status": "DRAFT_PENDING_HUMAN_APPROVAL",
+    "contract": "config/ceo-paid-orders.real-contract.v1.json",
+    "contractVersion": "real.v1-draft-1",
+    "policy": "config/ceo-paid-orders.real-policy.v1.json",
+    "policyVersion": "paid-orders.real.v1-DRAFT",
+    "approvalEnvelopeRequired": [
+      "approvalRecordId",
+      "reviewerId",
+      "reviewedAt",
+      "retentionPolicy"
+    ],
+    "adapter": "dist/src/ceo-real-export-adapter.js",
+    "verification": "dist/src/ceo-real-data-verification.js",
+    "forbiddenSubstitutes": [
+      "market facts",
+      "paid buyer count as order count",
+      "unapproved sales summary as paid events",
+      "any synthetic marker inside a real export"
+    ],
+    "checks": [
+      "CONTRACT_APPROVED",
+      "CONTRACT_BOUND",
+      "POLICY_APPROVED",
+      "STORE_MAPPING_VERIFIED",
+      "STORE_SCOPE_ALIGNED",
+      "REVIEWER_AUTHORIZED",
+      "STORE_REF_BOUND",
+      "EXPORT_COLUMNS_CONTRACTED",
+      "NO_PERSONAL_DATA",
+      "CLOSED_PERIOD",
+      "TIMEZONE_DECLARED",
+      "CURRENCY_DECLARED",
+      "COVERAGE_COMPLETE",
+      "NO_SYNTHETIC_MARKERS",
+      "SNAPSHOT_ADMISSIBLE"
+    ]
+  },
+  "taskboard": {
+    "status": "UNVERIFIED",
+    "authority": "Human-approved versioned designation from current storage owner",
+    "readMode": "OWNER_GENERATED_OFFLINE_SNAPSHOT",
+    "historicalPathIsAuthority": false,
+    "g2b1Behaviour": "Continue with the unconfigured degradation; no real Taskboard is opened in this stage."
+  },
+  "logOwner": {
+    "status": "UNVERIFIED",
+    "exclusiveWriterProven": false,
+    "authenticatedAdoptionInterface": "UNVERIFIED",
+    "g2b1Behaviour": "Isolated archive adapter only. No production log writer is created."
+  },
+  "workBuddy": {
+    "actualProductionConnection": "UNVERIFIED",
+    "entry": "dist/src/ceo-cockpit-projection.js",
+    "entrySchema": "ceo-workbuddy-entry/v1",
+    "cockpitSchema": "ceo-cockpit-projection/v1",
+    "authority": "NONE",
+    "cannotSupply": [
+      "principal",
+      "dataApproval",
+      "context",
+      "versions",
+      "databasePath",
+      "executor",
+      "reportId"
+    ],
+    "syntheticEndpoint": "POST /api/ceo/payment-readiness",
+    "productionWiringEnabled": false
+  },
+  "cockpit": {
+    "target": "一跨 OS 今日驾驶舱",
+    "schema": "ceo-cockpit-projection/v1",
+    "readOnly": true,
+    "writes": [],
+    "blockedBehaviour": "When verification is not VERIFIED the projection is BLOCKED and every value is null; gaps and investigation priorities remain visible.",
+    "acceptance": [
+      "Projection never mutates business state and reports formalTaskWrites=0, workflowExecutions=0.",
+      "Unverified facts never surface as numbers in the cockpit.",
+      "Priority order is preserved from the archived report; the cockpit cannot re-rank or create tasks.",
+      "A BLOCKED projection still explains which verification check failed."
+    ]
+  },
+  "acceptanceCriteria": [
+    "Default configuration keeps every real gate closed: contract DRAFT, policy DRAFT, mapping UNVERIFIED, reviewer registry empty.",
+    "The synthetic G2-B0 path remains byte-compatible and its 34 tests still pass.",
+    "A real context is only produced when all 15 verification checks pass.",
+    "Real reports reuse the G2-B0 archive, trace and Human correction path unchanged.",
+    "Test-only contracts and policies are usable only inside a marked isolated fixture root.",
+    "Verification receipts, contract/policy/mapping hashes are archived with the report for replay."
+  ]
+}

@@ -1,0 +1,120 @@
+{
+  "_comment": [
+    "这是 config/ops-stores.json 的结构模板，唯一入库的版本。",
+    "真实文件（含店铺登录账号与云主机公网 IP）被 .gitignore 排除，只存在于部署目录。",
+    "用法：复制到 config/ops-stores.json 后按实际填写；部署目录里已有真实文件，不要覆盖。",
+    "为什么入模板而不入真件：店铺名 + 登录账号 + 云主机 IP 三者同时出现构成基础设施",
+    "暴露组合，且这份信息没有轮换机制。而运行时完全不读它（只有 scripts/ 下的运营",
+    "脚本读），所以不入库不影响任何生产路径。"
+  ],
+  "schemaVersion": 1,
+  "updatedAt": "<ISO8601 时间戳>",
+  "owner": "<负责人>",
+  "note": "<这份台账的用途与维护约定>",
+
+  "namingRule": {
+    "canonical": "<统一命名口径>",
+    "envIdRole": "<envId 在命名中的角色>",
+    "decidedBy": "<裁决人>",
+    "decidedAt": "<YYYY-MM-DD>",
+    "source": "<裁决依据>"
+  },
+
+  "northStar": {
+    "primary": "<第一北极星指标>",
+    "primaryNote": "<口径补充>",
+    "crossCheck": "<交叉校验指标>",
+    "guardrails": [
+      "<护栏 1>",
+      "<护栏 2>",
+      "<护栏 3>",
+      "<护栏 4>"
+    ]
+  },
+
+  "caliberDecisions": [
+    {
+      "topic": "<口径议题>",
+      "decision": "<结论>",
+      "reason": "<理由>",
+      "decidedBy": "<裁决人>",
+      "decidedAt": "<YYYY-MM-DD>",
+      "implementation": "<落地位置或方式>"
+    }
+  ],
+
+  "dataSources": {
+    "cost": {
+      "name": "<数据源名称>",
+      "status": "<状态>",
+      "source": "<来源>",
+      "builder": "<构建脚本>",
+      "facts": "<可用的测量事实>",
+      "caliber": "<口径>",
+      "banned": "<禁止用法>",
+      "coverage": "<覆盖范围>",
+      "decidedBy": "<裁决人>",
+      "decidedAt": "<YYYY-MM-DD>"
+    }
+  },
+
+  "inventoryScope": {
+    "note": "<库存口径说明>",
+    "officialWarehouse": "<官仓口径>",
+    "ownWarehouse": "<自有仓口径>",
+    "shippingDocs": "<发货单据口径>",
+    "evidence": "<证据来源>"
+  },
+
+  "rounds": {
+    "1": "<第一轮纳入范围>",
+    "2": "<第二轮纳入范围>"
+  },
+
+  "excluded": [
+    {
+      "envId": 0,
+      "name": "<被排除的环境名>",
+      "reason": "<排除理由>",
+      "decidedBy": "<裁决人>",
+      "decidedAt": "<YYYY-MM-DD>"
+    }
+  ],
+
+  "stores": [
+    {
+      "displayName": "<店铺显示名>",
+      "envId": 0,
+      "mode": "<full-managed | pop>",
+      "channelId": "<平台渠道 ID>",
+      "platformEntry": "<平台入口>",
+      "loginAccount": "<登录账号 —— 这一项是真实文件不入库的主要原因>",
+      "device": "<运行该店的环境与公网 IP —— 同样是不入库的原因>",
+      "enabled": true,
+      "round": 1,
+      "entryNote": "<纳入说明>",
+      "inventorySource": "<库存来源>"
+    }
+  ],
+
+  "productDecisions": [
+    {
+      "type": "<决策类型>",
+      "store": "<店铺显示名>",
+      "platformProductId": "<平台商品 ID>",
+      "title": "<商品标题>",
+      "decision": "<决策结论>",
+      "reason": "<理由>",
+      "decidedBy": "<裁决人>",
+      "decidedAt": "<YYYY-MM-DD>",
+      "subItems": [
+        {
+          "sku": "<SKU>",
+          "skuId": "<SKU ID>",
+          "goodsId": "<货品 ID>"
+        }
+      ],
+      "actionRequired": "<需要执行的动作>"
+    }
+  ]
+}

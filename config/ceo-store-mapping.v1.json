@@ -1,0 +1,25 @@
+{
+  "schema": "ceo-store-mapping-registry/v1",
+  "version": "1",
+  "storePolicyStoreId": "400370",
+  "identityMigrationAllowed": false,
+  "authorityReviewers": [],
+  "reviewPolicy": "A mapping becomes VERIFIED only when platform shop, environment, alias, authority record and reviewer are all present and the approval is bound to the exact mapping bytes.",
+  "stores": [
+    {
+      "mappingId": "mapping-nawu-store-1",
+      "storeAlias": "纳物一店",
+      "platform": "aliexpress-choice",
+      "ceoStoreId": "400370",
+      "environmentId": "400370",
+      "platformShopId": null,
+      "authorityRecordId": null,
+      "approvedBy": null,
+      "approvedAt": null,
+      "validUntil": null,
+      "mappingHash": null,
+      "declaredStatus": "UNVERIFIED",
+      "notes": "Synthetic CEO store scope reused for isolation tests only. The real Aliexpress shop id, its environment id and an owner-issued authority record remain UNVERIFIED."
+    }
+  ]
+}

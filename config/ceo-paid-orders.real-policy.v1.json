@@ -1,0 +1,26 @@
+{
+  "schema": "ceo-data-source-policy/v1",
+  "version": "paid-orders.real.v1-DRAFT",
+  "status": "DRAFT_PENDING_HUMAN_APPROVAL",
+  "testOnly": false,
+  "mode": "REAL_APPROVED",
+  "storeId": "400370",
+  "approvedReviewers": [],
+  "sourceIds": [
+    "real-paid-export"
+  ],
+  "maxCaptureAgeMs": 86400000,
+  "eventBasisByCaliber": {
+    "orders.payment.count": [
+      "PAID_EVENT_GROSS"
+    ],
+    "orders.payment.units": [
+      "PAID_EVENT_GROSS"
+    ],
+    "orders.payment.gross": [
+      "PAID_EVENT_GROSS"
+    ]
+  },
+  "approval": null,
+  "notes": "Draft only. Reviewers must be the store owner identities registered in ceo-store-mapping.v1.json; the approval envelope must bind this exact policy bytes. Nothing here authorises reading real orders."
+}

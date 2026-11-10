@@ -70,8 +70,17 @@ dist/src/poll_runall.mjs
 /当前产品.backup/
 /product-facts.json
 
+# ── 运营台账：含店铺登录账号与云主机公网 IP，不入库（本文件唯一的 config 例外）──
+# 理由不是"它有秘密"，而是"基础设施暴露组合"：店铺名 + 登录账号 + 云主机公网 IP
+# 三者同时出现，对攻击者比单看任一项有用得多，而且这份信息没有轮换机制。
+# 关键事实：运行时完全不读它（只有 scripts/ 下 4 个运营脚本读），
+# 所以不入库不影响任何生产路径；真实文件继续留在部署目录。
+# 结构见 config/ops-stores.example.json（占位符版，入库）。
+/config/ops-stores.json
+
 # 说明：dist/ 是本项目真正的源码（无 src/），必须入库。
 # public/、prompts/、schemas/、根配置 JSON、package.json、watchdog.js、start-* 均入库。
+# 例外只有一个：config/ops-stores.json（运营台账，含登录账号与云主机 IP），见上方段落。
 
 # ── 2026-10-27 备份前整理：探档脚本与临时产物 ──
 # 背景：'git status' 长期挂着 183 个未跟踪项，其中真正的工程文件只有
