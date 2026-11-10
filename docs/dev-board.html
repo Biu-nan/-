@@ -161,6 +161,18 @@ const LINES = [
     {id:"OPS3", t:"C2b-B 平台导出导入器", s:"done", m:"<b>✅ 交付</b> <code>scripts/import-platform-export.mjs</code>：把速卖通后台「按日」导出 CSV 归一化 → <code>data/metrics/facts/platform-export/&lt;date&gt;.jsonl</code>（按日期分文件，因 <code>importStoreDaily</code> 去重键不含日期），再 <code>build-ops-db --rebuild</code> 即并入 <code>fact_store_daily</code>。支持<b>长表</b>(date,caliber,value) 与<b>宽表 + --map</b>(表头→口径)。<b>端到端已验证</b>：造 1900-01-01/02 假样本 → 导入 → rebuild → <code>fact_store_daily</code> 出现 <code>platform-export:4</code> 且可查 → 删样本 → rebuild 还原 938 行、0 残留。真实导出列需做一次 <code>--map</code> 映射再正式导入"},
     {id:"E1", t:"回写触发规则", s:"done", m:"<b>✅ 已批准（Lance 18:41，选项 A＝只批第一步 T1）</b>　·　范围：仅 T1 口径修正的「报告 → 抽取 → 变更建议 → Human 逐条批准」；<b>不开放 T2/T3、不允许自动落盘</b>　·　规则原文状态已改 <code>docs/WRITEBACK_RULE_2026-11-10.md</code>　·　抽取器 <code>scripts/writeback-t1.mjs</code> 已实现，六列必填 + evidenceRef 闸门；<b>实测 3 类拒收全部生效</b>（非 T1 / evidenceRef 空 / 外部引用），合法 T1 通过且 <code>autoApply:false</code>　·　产物只写 <code>data/writeback-proposals/</code>（运行态、已 gitignore），<b>绝不修改 prompts/ / config/ / contract.md</b>"},
     {id:"E2", t:"回写机制", s:"idle", m:"<b>已具备前半段</b>：E1 抽取器 <code>scripts/writeback-t1.mjs</code> 已实现「报告 → 变更建议 → 待 Human 批」　·　<b>刻意未做</b>：落盘 + <code>docs/CHANGELOG-writeback.md</code> 记账 —— 按批准范围「不允许自动落盘」，这两步必须等 Human 逐条批准后再另行走流程　·　下一步：拿一份真实报告的「可回写结论」表跑一次抽取，把 proposal 交给 Lance 逐条批/驳/改后再批　·　依赖 E1（已完成）"}
+  ]},
+  {key:"F 生命周期采购（PLM）", note:"生命周期先定策略 → 策略生成采购 → 诊断解释原因；影子先行、人批转正式。⚠️ 现在不开发，排在核心闭环之后，本线仅规划", tasks:[
+    {id:"F0", t:"规格对齐 + 数据模型稿", s:"done", m:"已交付：<code>docs/PLM_PURCHASE_LOGIC_SPEC_2026-11-10.md</code>（六板块规格+差距+数据缺口）与 <code>docs/PLM_PHASE1_DATA_MODEL_2026-11-10.md</code>（五维表 DDL 草稿）　·　已核实 <code>dim_item</code> 有 <b>652/652</b> 上架日期(<code>first_up_shelf</code>)，上架日期<b>无需新采集</b>　·　本轮仅规划，未动任何代码"},
+    {id:"F1", t:"五维数据模型落地", s:"idle", m:"目标：建 <code>fact_listing_status</code> / <code>fact_lifecycle</code> / <code>fact_diagnosis</code> / <code>fact_inventory_strategy</code> + <code>v_item_5dims</code>；<code>is_shadow</code> 双轨、正式仅人批 promote；有效可售日 v1=自然日上界　·　<b>验收</b>：建表成功、正式行 0 条、652 条 JOIN 上上架日期、<code>--evals</code> 11/11 零回归　·　阻塞：确认 <code>item_status</code> 语义 + 授权把 DDL 增量加进 build-ops-db"},
+    {id:"F2", t:"生命周期状态机（影子）", s:"idle", m:"目标：E/G/C/D/UNRESOLVED；21 有效可售日 + 13/14 日分辨 + 毕业条件(累计≥10)；冲突/数据不足 → UNRESOLVED（不硬判、不覆盖系统事实）　·　只写影子、出对照表不生效　·　<b>验收</b>：状态可复算、冲突不硬判　·　阻塞：F1 + 阈值 E→G(7/8) 与 C/D(5/6)"},
+    {id:"F3", t:"经营诊断层 6 码", s:"idle", m:"目标：TRAFFIC_WEAK/CTR_WEAK/CVR_WEAK/SUPPLY_BLOCKED/DEMAND_WEAK/DATA_UNRELIABLE 六码；<b>先上 A/C/D/F</b>（数据够），CTR 待点击数据　·　<b>验收</b>：每码有触发证据、只解释不替代生命周期　·　阻塞：F1 + 点击数据(FD1)"},
+    {id:"F4", t:"生命周期→库存策略引擎", s:"idle", m:"目标：E 低补≤10 / G 拉满 / C 销量+利润加权 / D 不补 → 写 <code>fact_inventory_strategy(target_days)</code>　·　<b>验收</b>：策略只由生命周期推导、影子　·　阻塞：F2"},
+    {id:"F5", t:"统一净需求 + 渠道 + 回撤", s:"idle", m:"目标：实仓分渠道(自营/官方/JIT)、有效在途不可超发、历史采购回撤、官方仓 25 天 ADS　·　<b>验收</b>：净需求可按渠道算且不超发　·　阻塞：F4 + 渠道/ETA 数据源(FD2) + 25 天公式确认"},
+    {id:"F6", t:"L1/L2/L3 三层产物 + PDCA", s:"idle", m:"目标：L1 全量评审(旧/新/证据/计算)、L2 采购决策(14 天/审核价)、L3 人工验证(供应商/价格/ETA/入仓)；PDCA 闭环　·　<b>验收</b>：三表可出、可追溯　·　阻塞：F5"},
+    {id:"F7", t:"影子→正式 切换", s:"wait", m:"影子对照 ≥N 天、人批后 promote 正式；未批不切　·　阻塞：F6 + 你定 N 与批准"},
+    {id:"FD1", t:"补采 点击/点击率", s:"idle", m:"平台「数据纵横」逐日导出 → <code>import-platform-export</code> 扩口径 <code>item.clicks/impressions</code>　·　阻塞：确认导出可得"},
+    {id:"FD2", t:"补采 渠道/ETA/供应商", s:"idle", m:"ERP 导出 自营/官方/JIT 归属 + ETA + 供应商 → <code>fact_channel_inventory</code>/<code>fact_supplier_eta</code>　·　阻塞：ERP 数据源"}
   ]}
 ];
 
