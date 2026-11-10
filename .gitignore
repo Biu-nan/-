@@ -146,3 +146,6 @@ _shortlist_result.json
 !/scripts/plan-restock.mjs
 # D4 全量商品级抓取（稳卖 CDP 旁听 sales.query，交付资产）
 !/scripts/fetch-ae-items.mjs
+# 运营分析库构建器 + 日巡检器（只读，交付资产；库文件 data/metrics/ops.db 仍忽略）
+!/scripts/build-ops-db.mjs
+!/scripts/ops-daily-check.mjs
