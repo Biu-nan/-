@@ -1,0 +1,10 @@
+{
+  "schema": "ceo-capabilities/v1",
+  "policyVersion": "ceo-governance/v1",
+  "storeId": "400370",
+  "profiles": {
+    "legacy": ["read"],
+    "shadow": ["read", "analyze"],
+    "human": ["read", "human.review"]
+  }
+}

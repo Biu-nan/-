@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yikuaborder-deploy.local/schemas/agent-event.schema.json",
+  "title": "跨 Agent 交接事件 (Agent Handoff Event)",
+  "description": "CEO Agent 与专业 Agent 之间、以及人与 CEO 之间每一次交接的结构化事件。写入后只追加不修改，改错另发 CORRECTED。这是「协同记录」的唯一真相源；群聊视图、甘特视图、证据链视图都只是它的投影，不得反向以 UI 状态为准。与 agents/_shared/trace.js 的分工：trace.js 记单个 Agent 内部的模型/工具调用（技术层），本协议记跨 Agent 的委托与交付（业务层），两者通过 traceRef 关联。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "eventId", "runId", "seq", "ts", "type", "from", "to", "payload"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+
+    "eventId": {
+      "type": "string",
+      "description": "事件唯一 ID，建议 uuidv4。全库唯一。",
+      "minLength": 8
+    },
+
+    "runId": {
+      "type": "string",
+      "description": "一次经营循环的 ID。同一条 run 下的所有事件构成一次完整协同记录，可按 runId 整体重放。",
+      "minLength": 1
+    },
+
+    "seq": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "run 内单调递增序号，从 1 开始，不允许跳号或重复。重放与断链检测依赖此字段。"
+    },
+
+    "ts": {
+      "type": "string",
+      "description": "事件发生时刻，ISO 8601 含时区偏移，例如 2026-11-10T11:09:08+08:00。禁止用本地时间不带偏移。",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,3})?(Z|[+-]\\d{2}:\\d{2})$"
+    },
+
+    "type": {
+      "type": "string",
+      "description": "事件类型。语义见 x-event-types。",
+      "enum": [
+        "INTENT",
+        "DELEGATED",
+        "ACCEPTED",
+        "BLOCKED",
+        "HANDOFF",
+        "DELIVERED",
+        "VERIFIED",
+        "REJECTED",
+        "HUMAN_GATE",
+        "HUMAN_DECISION",
+        "CORRECTED",
+        "PERMISSION_DENIED"
+      ]
+    },
+
+    "from": { "$ref": "#/$defs/actor" },
+    "to": { "$ref": "#/$defs/actor" },
+
+    "taskId": {
+      "type": ["string", "null"],
+      "description": "关联的经营任务 ID。不挂任务的系统级事件可为 null。"
+    },
+
+    "parentEventId": {
+      "type": ["string", "null"],
+      "description": "因果父事件。用于回答「这条指令是谁下的、追到哪句原话」。首条事件为 null。"
+    },
+
+    "evidence": {
+      "type": ["array", "null"],
+      "description": "证据清单。DELIVERED 与 VERIFIED 必须非空，否则视为无效事件（见 if/then 分支）。",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "ref"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["file", "http", "db-row", "screenshot", "jsonl", "hash"],
+            "description": "证据种类。file=本地文件、http=接口回读、db-row=库内行、screenshot=截图、jsonl=追踪文件、hash=裸摘要"
+          },
+          "ref": { "type": "string", "description": "证据引用路径或标识。必须是可被独立回读的位置，不能是叙述性文字。", "minLength": 1 },
+          "sha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+          "bytes": { "type": ["integer", "null"], "minimum": 0 },
+          "note": { "type": ["string", "null"] }
+        }
+      }
+    },
+
+    "payload": {
+      "type": "object",
+      "description": "类型专属内容。各类型必填字段见 x-payload-contract，由 runtime 校验器强制。"
+    },
+
+    "note": {
+      "type": ["string", "null"],
+      "description": "仅供展示的自然语言说明。绝不作为判断依据——判断只看结构化字段与 evidence。"
+    },
+
+    "traceRef": {
+      "type": ["string", "null"],
+      "description": "指向 agents/_shared/trace.js 产出的 jsonl 路径，用于把业务层事件与技术层调用对齐。"
+    },
+
+    "prevHash": {
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "上一条事件的 hash，形成哈希链。用于检测删改。首条为 null。"
+    },
+
+    "hash": {
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "本条事件的 hash（不含 hash 字段本身，规范化序列化后 sha256）。"
+    }
+  },
+
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "DELIVERED" } } },
+      "then": {
+        "properties": {
+          "evidence": { "type": "array", "minItems": 1 },
+          "payload": {
+            "required": ["artifacts", "selfClaim"],
+            "description": "交付必须给出产物路径与自述结论。自述结论不算完成，只算声明。"
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "VERIFIED" } } },
+      "then": {
+        "properties": {
+          "evidence": { "type": "array", "minItems": 1 },
+          "payload": {
+            "required": ["method", "readbackPath", "match"],
+            "description": "核验必须写明回读方法与回读位置。from.id 不得等于发出对应 DELIVERED 的 from.id —— 只比 id，不比 kind，换个角色标签不算换了主体。"
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "HUMAN_GATE" } } },
+      "then": {
+        "properties": {
+          "to": { "properties": { "kind": { "const": "human" } } },
+          "payload": {
+            "required": ["question", "options", "impact", "defaultIfIgnored"],
+            "properties": {
+              "defaultIfIgnored": {
+                "const": "stall",
+                "description": "超时唯一允许的行为是卡住等待。任何形态的自动放行、默认同意、超时通过都被禁止。"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "HANDOFF" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": ["ceoConfirmed"],
+            "properties": {
+              "ceoConfirmed": {
+                "const": true,
+                "description": "专业 Agent 之间不得私下串接，交接必须经 CEO Agent 确认。"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "CORRECTED" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": ["correctsEventId", "reason"],
+            "description": "改错只能追加纠正事件，绝不能改写或删除原事件。"
+          }
+        }
+      }
+    }
+  ],
+
+  "x-event-types": {
+    "INTENT": "Human → CEO。一句目标或约束，是整条 run 的起点。",
+    "DELEGATED": "CEO → 专业 Agent。派活，必带验收标准与权限上限。",
+    "ACCEPTED": "专业 Agent → CEO。受理，必带预计耗时与缺什么。",
+    "BLOCKED": "专业 Agent → CEO。卡住，reason 取值 MISSING_DATA / MISSING_PERMISSION / NEED_HUMAN / DEPENDENCY。",
+    "HANDOFF": "专业 Agent ↔ 专业 Agent。直接交接，必须 CEO 确认。",
+    "DELIVERED": "专业 Agent → CEO。交付产物与自述结论。抵达此态任务仍为「待核验」。",
+    "VERIFIED": "独立核验 → 专业 Agent。回读通过。from.id 不得等于对应 DELIVERED 的 from.id（只比 id，不比 kind）。",
+    "REJECTED": "独立核验 → 专业 Agent。回读不通过，必带 expected 与 actual。",
+    "HUMAN_GATE": "CEO → Human。请求批准。defaultIfIgnored 只能是 stall。",
+    "HUMAN_DECISION": "Human → CEO。人的决定，必带决定内容与授权范围。",
+    "CORRECTED": "任意 → 任意。纠正此前事件，原事件保留不动。",
+    "PERMISSION_DENIED": "系统 → 专业 Agent。越权被拦，必须留痕而不是静默失败。"
+  },
+
+  "x-payload-contract": {
+    "INTENT": { "required": ["goal"], "optional": ["constraints", "deadline", "scope"] },
+    "DELEGATED": { "required": ["objective", "acceptance", "permissionCeiling"], "optional": ["deadline", "contextRefs", "dependsOn"] },
+    "ACCEPTED": { "required": ["eta"], "optional": ["missing", "plan"] },
+    "BLOCKED": { "required": ["reason", "detail"], "optional": ["blockingOn"] },
+    "HANDOFF": { "required": ["ceoConfirmed", "handoffPayload"], "optional": ["reason"] },
+    "DELIVERED": { "required": ["artifacts", "selfClaim"], "optional": ["metrics"] },
+    "VERIFIED": { "required": ["method", "readbackPath", "match"], "optional": ["checks"] },
+    "REJECTED": { "required": ["reason", "expected", "actual"], "optional": ["checks"] },
+    "HUMAN_GATE": { "required": ["question", "options", "impact", "defaultIfIgnored"], "optional": ["amountCeiling", "deadline"] },
+    "HUMAN_DECISION": { "required": ["decision"], "optional": ["chosen", "amountCeiling", "conditions"] },
+    "CORRECTED": { "required": ["correctsEventId", "reason"], "optional": ["replacement"] },
+    "PERMISSION_DENIED": { "required": ["attempted", "ceiling"], "optional": ["agentId"] }
+  },
+
+  "$defs": {
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["human", "ceo", "agent", "verifier", "system"],
+          "description": "verifier 专指独立核验方，不得与执行方同一身份。"
+        },
+        "id": { "type": "string", "minLength": 1, "description": "例如 lance / ceo-agent / purchase-inventory" },
+        "label": { "type": ["string", "null"] }
+      }
+    }
+  }
+}
