@@ -151,3 +151,8 @@ _shortlist_result.json
 !/scripts/ops-daily-check.mjs
 # 运营日更编排器（串联 抓取→建库→巡检→摘要；离线/超时护栏，交付资产）
 !/scripts/daily-ops-pipeline.mjs
+# 日更计划任务：入口壳 + 安装器（绕开非 ASCII .bat 坑，交付资产）
+!/scripts/run-daily-ops.mjs
+!/scripts/install-daily-task.mjs
+# C2b-B 平台导出导入器（按日 CSV → fact_store_daily，交付资产）
+!/scripts/import-platform-export.mjs
