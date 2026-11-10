@@ -362,6 +362,30 @@ CREATE TABLE IF NOT EXISTS fact_market (
   PRIMARY KEY (stat_date, caliber, subject, window)
 );
 
+-- ══════════ 商品级流量（per-SKU 漏斗） ══════════
+-- 数据源：scripts/fetch-sales-rank.mjs → data/metrics/raw/sales-rank-<env>-p<PERIOD>-<stamp>.json
+-- ⚠️ 红线：pay_qty_residual（商品排行「支付件数」）是**残缺口径**——三店合计仅 ≈172 件/30d，
+--    与 store-overview 5,906 件差约 34 倍（部分订单/不含货通/仅活跃SKU）。
+--    **永久禁止用于营收、主指标或 GMV**。本表只取曝光/访客/加购/收藏做 per-SKU 流量漏斗。
+--    流量指标本身（曝光→访客→加购）是 per-SKU 层级唯一的真实漏斗数据。
+CREATE TABLE IF NOT EXISTS fact_item_traffic (
+  captured_date    TEXT NOT NULL,
+  store_id         TEXT NOT NULL,
+  item_id          TEXT NOT NULL,
+  period           TEXT NOT NULL,   -- p30 / p7（平台商品排行固定近30天，p7 为切维度尝试）
+  exposure         REAL,            -- 商品曝光量
+  visitor          REAL,            -- 商品访客数（去重）
+  add_cart         REAL,            -- 加购人数
+  favorite         REAL,            -- 收藏人数
+  pay_qty_residual REAL,            -- 支付件数（残缺口径·禁用营收·仅留痕）
+  pay_buyer        REAL,
+  huotong_pay_qty  REAL,            -- 货通支付件数
+  supply_price     REAL,            -- 当前供货价（展示用，非收入口径）
+  is_warehouse     TEXT,            -- 是否仓发
+  sub_orders_30d   REAL,            -- 近30天交易子单数
+  PRIMARY KEY (captured_date, store_id, item_id, period)
+);
+
 -- ══════════ 索引 ══════════
 CREATE INDEX IF NOT EXISTS ix_daily_cal   ON fact_store_daily(caliber, window, stat_date);
 CREATE INDEX IF NOT EXISTS ix_daily_store ON fact_store_daily(store_id, stat_date);
@@ -369,6 +393,7 @@ CREATE INDEX IF NOT EXISTS ix_snap_item   ON fact_item_snapshot(store_id, item_i
 CREATE INDEX IF NOT EXISTS ix_snap_sku    ON fact_sku_snapshot(store_id, item_id);
 CREATE INDEX IF NOT EXISTS ix_profit_item ON fact_item_profit(store_id, item_id);
 CREATE INDEX IF NOT EXISTS ix_market_subj ON fact_market(subject, caliber);
+CREATE INDEX IF NOT EXISTS ix_traffic_item ON fact_item_traffic(store_id, item_id, period);
 `;
 
 // ═════════════════ 导入器 ═════════════════
@@ -747,7 +772,67 @@ function importMarket(db) {
   note('fact_market', n);
 }
 
-// ═════════════════ 视图（运营问句的固化） ═════════════════
+/** sales-rank-<env>-p<PERIOD>-<stamp>.json → fact_item_traffic（per-SKU 漏斗）
+ *  每条记录 = 一个商品在商品排行页的一行。
+ *  选取规则：一个 (env, period) 取**覆盖最广（item 数最多）**的 stamp，而非最新——
+ *    商品排行页只列"当期活跃子集"，随平台 T-2/T-3 延迟滚动漂移，最新一次可能比旧的更稀疏；
+ *    买家侧目标是"看全活跃商品的漏斗"，故以覆盖最广为准（限 30 天内，避免用陈旧全量）。
+ *  ⚠️ 跳过空壳 stamp（并发抓取失败时稳卖客户端写出 ok=false 的空文件）。
+ *  ⚠️ pay_qty_residual 残缺口径：原样入库但视图/报告一律不拿它当销售。 */
+function importItemTraffic(db) {
+  const dir = path.join(METRICS, 'raw');
+  const stmt = db.prepare(`INSERT OR REPLACE INTO fact_item_traffic
+    (captured_date,store_id,item_id,period,exposure,visitor,add_cart,favorite,
+     pay_qty_residual,pay_buyer,huotong_pay_qty,supply_price,is_warehouse,sub_orders_30d)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+  const buckets = new Map(); // "env|period" → [{stamp, file, count}]
+  const files = listDir(dir).filter((f) => /^sales-rank-\d+-p\d+-\d+\.json$/.test(f));
+  for (const f of files) {
+    const m = f.match(/^sales-rank-(\d+)-(p\d+)-(\d+)\.json$/);
+    if (!m) continue;
+    const key = `${m[1]}|${m[2]}`;
+    const j = readJson(path.join(dir, f));
+    const count = j?.items?.length || 0;
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push({ stamp: m[3], file: f, count });
+  }
+  const today = new Date();
+  let n = 0, skipped = 0, emptyStamps = 0;
+  for (const [key, list] of buckets) {
+    const env = key.split('|')[0];
+    // 30 天内的候选，按 item 数降序、同数取最新；无 30 天内候选则用全部
+    const within30 = list.filter((x) => {
+      const d = new Date(x.stamp.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'));
+      return (today - d) <= 30 * 86400000;
+    });
+    const pool = within30.length ? within30 : list;
+    pool.sort((a, b) => (b.count - a.count) || b.stamp.localeCompare(a.stamp));
+    let loaded = false;
+    for (const c of pool) {
+      if (!c.count) { emptyStamps++; continue; }
+      const j = readJson(path.join(dir, c.file));
+      if (!j?.items?.length) { emptyStamps++; continue; }
+      const capturedDate = c.stamp.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3');
+      for (const it of j.items) {
+        if (!it?.itemId) { skipped++; continue; }
+        stmt.run(
+          capturedDate, `env:${env}`, String(it.itemId), periodFrom(c.file),
+          toNum(it.exposure), toNum(it.visitor), toNum(it.addCart), toNum(it.favorite),
+          toNum(it.payQty), toNum(it.payBuyer), toNum(it.huotongPayQty),
+          toNum(it.supplyPrice), toText(it.isWarehouse), toNum(it.subOrders30d),
+        );
+        n++;
+      }
+      loaded = true;
+      break;
+    }
+    if (loaded) continue;
+  }
+  note('fact_item_traffic', n, { note: `per-SKU 曝光/访客/加购/收藏${skipped ? ` ${skipped} 条无itemId` : ''}${emptyStamps ? ` 跳过空壳stamp ${emptyStamps}` : ''}` });
+}
+function periodFrom(file) { const m = file.match(/-(p\d+)-/); return m ? m[1] : 'p30'; }
+
+// ═══════════════ 视图（运营问句的固化） ═════════════════
 
 const VIEWS = `
 DROP VIEW IF EXISTS v_data_coverage;
@@ -758,6 +843,7 @@ CREATE VIEW v_data_coverage AS
   UNION ALL SELECT 'fact_item_snapshot', COUNT(*), COUNT(DISTINCT captured_date), MIN(captured_date), MAX(captured_date) FROM fact_item_snapshot
   UNION ALL SELECT 'fact_sku_snapshot',  COUNT(*), COUNT(DISTINCT captured_date), MIN(captured_date), MAX(captured_date) FROM fact_sku_snapshot
   UNION ALL SELECT 'fact_item_profit',   COUNT(*), COUNT(DISTINCT built_date),  MIN(built_date),   MAX(built_date)   FROM fact_item_profit
+  UNION ALL SELECT 'fact_item_traffic',  COUNT(*), COUNT(DISTINCT captured_date), MIN(captured_date), MAX(captured_date) FROM fact_item_traffic
   UNION ALL SELECT 'fact_cost',          COUNT(*), NULL, NULL, NULL FROM fact_cost
   UNION ALL SELECT 'fact_market',        COUNT(*), COUNT(DISTINCT stat_date), MIN(stat_date), MAX(stat_date) FROM fact_market;
 
@@ -885,6 +971,49 @@ SELECT p.store_id, p.item_id, p.title, p.category,
             WHEN p.est_gross_margin < 15 THEN 'THIN'
             ELSE 'OK' END AS margin_state
   FROM fact_item_profit p;
+
+-- 商品级流量漏斗 × 销售 × 库存：定位"增收"的具体杠杆
+-- 只取每店最新 p30 流量 + 最新 items 快照（去重）。
+-- ⚠️ pay_qty_residual（残缺口径）只留痕，不进销售口径；本报告一律用 fact_item_snapshot 的销量。
+-- growth_tag：
+--   HIGH_TRAFFIC_ZERO_SALES  → 高曝光(前25%)却 30d 零销：标题/价格/落地页问题，最大转化杠杆
+--   TRAFFIC_STOCKOUT         → 高曝光 + 真断货(可用<=0 且有7d销)：被库存吃掉的增长，立刻补
+--   HIGH_TRAFFIC            → 高曝光，可继续放大流量或优化转化
+--   LOW_TRAFFIC             → 曝光垫底，先解决"被看见"再谈转化
+DROP VIEW IF EXISTS v_item_funnel;
+CREATE VIEW v_item_funnel AS
+WITH tf_latest AS (
+  SELECT t.* FROM fact_item_traffic t
+  JOIN (SELECT store_id, item_id, MAX(captured_date) AS d FROM fact_item_traffic
+         WHERE period = 'p30' GROUP BY store_id, item_id) m
+    ON m.store_id = t.store_id AND m.item_id = t.item_id AND m.d = t.captured_date AND t.period = 'p30'
+), snap_latest AS (
+  SELECT f.* FROM fact_item_snapshot f
+  JOIN (SELECT store_id, MAX(captured_date) AS d FROM fact_item_snapshot GROUP BY store_id) m
+    ON m.store_id = f.store_id AND m.d = f.captured_date
+), ranked AS (
+  SELECT tf.store_id, tf.item_id, tf.exposure, tf.visitor, tf.add_cart, tf.favorite,
+         tf.pay_qty_residual, tf.captured_date,
+         PERCENT_RANK() OVER (PARTITION BY tf.store_id ORDER BY tf.exposure) AS exp_rank
+    FROM tf_latest tf
+)
+SELECT r.store_id, r.item_id, i.title, i.cat_l1,
+       r.exposure, r.visitor, r.add_cart, r.favorite,
+       r.pay_qty_residual,                 -- 残缺口径·仅留痕
+       s.recent7d_sales, s.recent30d_sales, s.real_inv, s.locked_inv, s.suggest_prepare7d, s.supply_price_low,
+       ROUND(r.visitor / NULLIF(r.exposure, 0), 4)  AS visitor_per_exp,
+       ROUND(r.add_cart / NULLIF(r.visitor, 0), 4)  AS cart_per_visitor,
+       ROUND(r.exp_rank, 3) AS exp_rank,
+       CASE
+         -- 仅当销量快照存在时才判"零销/断货"，避免无快照店（如416488/461693暂无 items 快照）误报
+         WHEN r.exp_rank >= 0.75 AND s.recent30d_sales IS NOT NULL AND s.recent30d_sales = 0 THEN 'HIGH_TRAFFIC_ZERO_SALES'
+         WHEN r.exp_rank >= 0.75 AND s.recent7d_sales IS NOT NULL AND (COALESCE(s.real_inv, 0) - COALESCE(s.locked_inv, 0)) <= 0 AND s.recent7d_sales > 0 THEN 'TRAFFIC_STOCKOUT'
+         WHEN r.exp_rank >= 0.75 THEN 'HIGH_TRAFFIC'
+         ELSE 'LOW_TRAFFIC'
+       END AS growth_tag
+  FROM ranked r
+  LEFT JOIN dim_item i ON i.store_id = r.store_id AND i.item_id = r.item_id
+  LEFT JOIN snap_latest s ON s.store_id = r.store_id AND s.item_id = r.item_id;
 `;
 
 // ═════════════════ 主流程 ═════════════════
@@ -914,6 +1043,7 @@ function main() {
     importCostBridge(db);
     importItemProfit(db);
     importMarket(db);
+    importItemTraffic(db);
     db.exec(VIEWS);
     db.exec('COMMIT');
   } catch (e) {

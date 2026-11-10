@@ -95,10 +95,21 @@ const checks = [];
   const r = g(`SELECT MAX(d) d FROM (
       SELECT MAX(stat_date) d FROM fact_store_daily
       UNION ALL SELECT MAX(captured_date) FROM fact_store_funnel
-      UNION ALL SELECT MAX(captured_date) FROM fact_item_snapshot)`);
+      UNION ALL SELECT MAX(captured_date) FROM fact_item_snapshot
+      UNION ALL SELECT MAX(captured_date) FROM fact_item_traffic)`);
   const days = r?.d ? Math.floor((Date.now() - new Date(r.d + 'T00:00:00+08:00').getTime()) / 86400000) : null;
   checks.push({ id: 'freshness', name: '数据新鲜度', status: days == null ? 'FAIL' : days <= 2 ? 'PASS' : days <= 7 ? 'WARN' : 'FAIL',
     detail: days == null ? '无数据' : `最新 ${r.d}，距今 ${days} 天${days > 2 ? '（超过 2 天，趋势结论失效）' : ''}` });
+}
+
+// 1.6 商品级流量覆盖（per-SKU 漏斗是"增收"的关键新维度；缺失则增长杠杆分析不可用）
+{
+  const r = g(`SELECT COUNT(DISTINCT item_id) items, COUNT(*) rows, MAX(captured_date) d
+                FROM fact_item_traffic WHERE period = 'p30'`);
+  const days = r?.d ? Math.floor((Date.now() - new Date(r.d + 'T00:00:00+08:00').getTime()) / 86400000) : null;
+  const stale = days == null ? true : days > 7;
+  checks.push({ id: 'item_traffic', name: '商品级流量(per-SKU 漏斗)覆盖', status: !r?.items ? 'WARN' : stale ? 'WARN' : 'PASS',
+    detail: r?.items ? `${r.items} 商品 / ${r.rows} 行 · 最新 ${r.d}${stale ? '（超过 7 天，增长杠杆分析可能失效）' : ''}${r.items < 50 ? ' · 注：商品排行页只列有自然流量的活跃商品，非全部在售' : ''}` : '无 per-SKU 流量数据（未跑 fetch-sales-rank）' });
 }
 
 const dataFailed = checks.some((c) => c.status === 'FAIL');
@@ -152,6 +163,20 @@ if (!dataFailed) {
       alerts.push({ level: r.pct > 10 ? 'P1' : 'P2', kind: 'BROKEN_SIZE', store: r.store_id, subject: 'STORE',
         detail: `断码 ${r.broken}/${r.total} = ${r.pct}%（schema 阈值 warn 5% / critical 10%）` });
     }
+  }
+
+  // P1/P2 增长杠杆：高曝光却零销（转化优化空间）/ 高曝光却断货（被库存吃掉的增长）
+  for (const r of q(`SELECT store_id, item_id, title, exposure, visitor, add_cart, recent30d_sales, growth_tag
+                       FROM v_item_funnel
+                      WHERE growth_tag IN ('HIGH_TRAFFIC_ZERO_SALES','TRAFFIC_STOCKOUT')
+                        ${storeArg ? 'AND store_id = ?' : ''}
+                      ORDER BY exposure DESC LIMIT 30`, ...wargs)) {
+    const level = r.growth_tag === 'TRAFFIC_STOCKOUT' ? 'P1' : 'P2';
+    const why = r.growth_tag === 'TRAFFIC_STOCKOUT'
+      ? '高曝光却被库存截断（立刻补货可释放增长）'
+      : '高曝光但 30d 零销（标题/价格/落地页问题，最大转化杠杆）';
+    alerts.push({ level, kind: r.growth_tag, store: r.store_id, subject: r.item_id,
+      detail: `${why} 曝光${r.exposure} 访客${r.visitor} 加购${r.add_cart} 30d销${r.recent30d_sales ?? '-'}`, title: r.title });
   }
 }
 

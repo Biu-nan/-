@@ -149,3 +149,5 @@ _shortlist_result.json
 # 运营分析库构建器 + 日巡检器（只读，交付资产；库文件 data/metrics/ops.db 仍忽略）
 !/scripts/build-ops-db.mjs
 !/scripts/ops-daily-check.mjs
+# 运营日更编排器（串联 抓取→建库→巡检→摘要；离线/超时护栏，交付资产）
+!/scripts/daily-ops-pipeline.mjs

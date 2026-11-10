@@ -26,7 +26,14 @@ const { WenmaiApi } = require('../nawu-fetch/lib/wenmai-api.cjs');
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const STORE_ID = Number(process.argv[2] || 400370);
-const CHANNEL = 2358891;
+// channel 由 config/ops-stores.json 的 envId→channelId 映射推导（不再硬编码，支持多店）
+let CHANNEL = 2358891;
+try {
+  const cfg = JSON.parse(require('node:fs').readFileSync(path.join(ROOT, 'config/ops-stores.json'), 'utf8'));
+  const stores = cfg.stores ?? [];
+  const hit = stores.find((s) => Number(s.envId) === STORE_ID);
+  if (hit?.channelId) CHANNEL = Number(hit.channelId);
+} catch { /* 回退默认 2358891 */ }
 const API = 'mtop.global.merchant.sales.query';
 const DRY = process.argv.includes('--dry-run');
 const KEEP_OPEN = process.argv.includes('--keep-open');
