@@ -146,3 +146,37 @@ agents/_shared/trace.js       → dist/src/agent-shared/trace.js
 `ae-product-design` 有 8 个槽位、完整契约、真实出图链路，但**没有 eval 用例**（`evals/cases.json` 存在但内容是 golden-happy-path 这类整链用例，跑一次要开浏览器出 8 张图）。所以任何结构改动都无法快速验证。
 
 这意味着：**在 D3 之前，更该先给 ae-product-design 补一组不联网的离线用例**，否则每次动它都是盲改。这条建议独立于 D3，建议单列。
+（这条已由 D3b 完成：`run-offline.mjs` 21 用例 / 132 断言 / 2 秒，16 种变异全被抓。）
+
+---
+
+## 7. ⚠ 勘误（2026-11-10 18:30）：§3 的「17 个文件」不准，实际 20 个
+
+影子目录完整预演见 `docs/D3_PREFLIGHT_2026-11-10.md`。**主目录零改动。**
+
+**§3.2 的 12 个改 import 文件漏了 2 个真引用方**：
+- `agents/ae-product-design/evals/run-offline.mjs` —— 2 个动态 import
+  （`../../_shared/schemas.js`、`../../_shared/permissions.js`）。
+  它就是 D3b 的 132 断言评测器；漏掉它，「改动前后各跑一遍离线断言」这条前置在删目录后根本跑不起来。
+- `dist/test/agent-safety-scale.test.js:78` —— 1 个故意 import 旧路径的对照实证
+  （验证「两套 P 标号同字母不同义」）。改路径后仍通过，但**必须改**，否则删目录即断链。
+
+**此外 §3 完全没提第 3 个结构耦合文件**：
+`agents/ae-product-design/evals/mutations.mjs`（5 处 `file: "_shared/…"` 变异目标 +
+`buildWorkTree()` 硬编码 `cp(AGENTS_ROOT, "_shared")`）。
+删目录后实测直接 `ENOENT … lstat 'agents\_shared'`；
+**修好崩溃后还会静默失效** —— 源码迁到 `../../../dist/src/agent-shared/` 后，
+从 WORK 副本向上三级会解析到真实 `dist/`，变异打副本、被测代码读真身，
+「16 种变异全部被抓」会变成假绿。
+
+**修正后的清单**：5 个移动 + **14 个**真 import 方 + **1 个**结构改造 = **20 个文件**。
+另有 2 个只有注释提到 `_shared/`、不必改：`purchase-inventory/src/limits.js`、
+`dist/src/agent-safety-scale.js`。
+
+**预演结论**：按 20 文件做机械路径迁移（不改 `permissions.js` 语义）**零回归** ——
+132 断言全过、安全契约 11/11、全量失败名集合 `diff` 为空。
+但 §5 的执行顺序要补两步：
+- 第 4 步之前**单独重设计 `mutations.mjs` 的 WORK 结构**，并注入一个已知假变异验证它确实会红
+- §3.3 的 `permissions.js` **语义拆分本次未预演**，必须与路径迁移分两轮验，不要合成一次大改
+
+详细数据与修法方向见 `docs/D3_PREFLIGHT_2026-11-10.md` §2 / §4 / §5 / §6。
