@@ -884,7 +884,12 @@ A2d-2 不是"给 /api 加个中间件"：`ceo-governance.js` 要求 token ≥32 
 | `888761c` | `config/** -text` 规则补全 |
 | `c813f1f` | A2d-0 兼容健康探针 + 回归脚本 |
 
-**仍未做**：A2d-1（run 升级）、A2d-2（凭据体系）、看门狗由 Lance 在终端常驻启动。
+**仍未做**：A2d-1（run 升级）、A2d-2（凭据体系）。
+
+**18:20 更正**：本节写于 17:40，当时「看门狗由 Lance 在终端常驻启动」确实还没做。
+18:13 已由桌面终端（`explorer.exe → powershell.exe → watchdog.js`）启动并加载
+`c813f1f` 的新探针，`watchdog.log` 出现「初始探针：via=api-status」，服务稳定 200。
+⇒ **这一项已完成**，详见 `docs/OPERATIONS_HANDOFF_2026-11-10.md` §1。
 
 ---
 
