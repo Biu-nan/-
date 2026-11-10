@@ -748,3 +748,140 @@ A2c 的生产准入把批准记录绑定到 manifest 指纹，指纹是对**磁�
 > 它是 stat 缓存的判断，不是内容的判断。要么看 `git diff`（会算内容），
 > 要么直接 `sha256(git cat-file -p :path)` 对比 `sha256(磁盘)`。
 > 凡是"指纹/校验和"驱动的东西，都必须用后一种方式验收。
+
+---
+
+## 17. A5 与 A2d-0（2026-11-10 17:10–17:40）
+
+### 17.1 先纠正自己：上一轮的"6 个含账号配置"归类是错的
+
+§16.7 把 6 个文件整体称作"含运营/账号信息"，实测**只有 1 个真敏感**。
+逐个读内容之后：
+
+| 文件 | 实际内容 | 结论 |
+|---|---|---|
+| `ceo-knowledge.v1.json` | 3 条规则文本（"最多三个优先级"等） | 无凭据 |
+| `ceo-paid-orders.real-policy.v1.json` | DRAFT 空壳，`approval:null`，自述"nothing authorises reading real orders" | 无凭据 |
+| `ceo-g2b1-connection-contract.v1.json` | `PREPARATION_ONLY`、`productionWiringEnabled:false`、状态全 UNVERIFIED | 无凭据 |
+| `ceo-store-mapping.v1.json` | 映射骨架，`approvedBy`/`approval`/`mappingHash` 全 null | 无凭据 |
+| `ceo-workbuddy-host.candidate.v1.json` | 本机路径 + sha256 + 证书指纹（**校验材料，正该版本化**） | 环境相关，但非秘密 |
+| `ops-stores.json` | 4 店名称 + **登录账号** + **云主机公网 IP** + channelId，另含 northStar / caliberDecisions / productDecisions | **真敏感** |
+
+### 17.2 为什么 5 个必须入，不是偏好问题
+
+这三处代码对它们有硬引用：
+
+```
+dist/src/ceo-conversation-cli.js:12    policy 组列出 6 个 config 路径
+dist/src/ceo-operational-entry.js:102  bindings.files 逐个 readFile 算 hash
+dist/src/ceo-workbuddy-host.js:32     直接 readFile 固定 WorkBuddy 身份
+```
+
+缺任一个就是 `ENOENT`。也就是说：**当前分支 HEAD 上这三个模块本来是坏的**，
+而刚提交的 A2/A2c 代码正引用着它们。这是 §16.7 只入 3 个留下的缺口。
+
+### 17.3 泄露面核查（做决策前先查，不靠猜）
+
+| 检查 | 结果 |
+|---|---|
+| `git log --all -- config/ops-stores.json` | **空**：任何分支的任何历史提交里都不存在 |
+| `origin/main`、`origin/master`、`private-backup/*` 树里的 `config/` | **0 个文件** |
+| 含另外 4 个文件的 3 个 feature 分支（`ceo-g2a`、`ceo-g2b1`、`ceo-ui-security-gateway`） | **均无 upstream、从未推送** |
+| 本地缓存的 `origin/main`/`origin/master` vs `git ls-remote` | hash 一致，缓存未过期 |
+
+结论：**这些配置从未上过 GitHub**，本次是纯决策，无需历史清理。
+
+### 17.4 A5 落地：5 入 1 不入
+
+- **入库 5 个**（无凭据、被硬引用）
+- **`ops-stores.json` 不入库**：`.gitignore` 加 `/config/ops-stores.json`，
+  并同步修正 `.gitignore:74` 那句"根配置 JSON 均入库"——那里正是 §16.7 漂移的来源
+- **新增 `config/ops-stores.example.json`**：14 个顶层键、stores 11 字段、
+  productDecisions 含 subItems，值全是占位符 + 字段用途说明
+
+**为什么不选"脱敏后入库"**：脱敏后要维护两份、迟早忘记同步；一份 example
+已经解决"新人不知道结构"，真实文件继续留在部署目录（只有 `scripts/` 下 4 个
+运营脚本读它，运行时完全不读，不入库不影响任何生产路径）。
+**为什么不选"直接入"**：账号 + 公网 IP 的组合一旦推送就不可逆。
+
+验证：example 合法 JSON；22 个真实值（店铺名/账号/公网 IP/渠道 ID/负责人/排除项名）
+在 example 中**命中 0**；`git check-ignore` 确认真件被忽略、5 个配置未被误忽略。
+
+### 17.5 又一处"清单不止一处"：`888761c`
+
+A5 提交后做字节核对，发现 2 个文件不合格（磁盘 CRLF、blob LF）：
+`ceo-knowledge.v1.json`、`ceo-workbuddy-host.candidate.v1.json`。
+
+原因：`.gitattributes` 的 config 规则只列了 `ceo-capabilities.v1.json` 一项，
+而那是按 `ceo-main-boundary.js` 的清单写的。**算 sha256 的清单有三处**，
+第 2、3 处会引入 config/ 下别的文件 → 逐个列举必然漏。
+改成整目录 `config/** -text`，并把三处清单的位置写进 `.gitattributes` 注释。
+修正后 **285 个受管文件 `sha256(git cat-file)` == `sha256(磁盘)`，不一致 0**。
+
+> 教训：写"按字节绑定的东西"的规则时，不要把规则来源写成"某个文件的清单"，
+> 因为清单本身会散落在多处。要么按目录划界，要么把清单收敛成唯一来源。
+
+### 17.6 A2d 的判断：真问题不是"加鉴权"，是"先定义什么叫活着"
+
+三个硬事实：
+
+1. `classifyCeoRequest` 把 `/api/status` 判成 **`unsafe`**（公开白名单只有
+   `/healthz`、`/api/version` 及若干 safeReads）。网关一装，看门狗探的
+   `/api/status` 必被拒 → `probeStatus` 得 `ok:false` → 连续失败 → `taskkill` → 重启循环。
+2. `public/app.js` 现在**裸调** `/api/*`，没有任何凭据机制 → 网关一装，整个工作台 401。
+3. **顺序陷阱**：`/healthz` 只在 `CEO_RUNTIME_MODE !== null` 时挂载，
+   现役单根生产**没有** `/healthz`。所以"直接把看门狗改探 /healthz"这个看似最正确的
+   动作，会立刻把 `:3000` 打成重启循环。
+
+于是 A2d 拆成三块，严格按序：
+
+| 块 | 内容 | 状态 |
+|---|---|---|
+| **A2d-0** | 看门狗兼容探针（先 `/healthz`，404/连不上回退 `/api/status`） | ✅ `c813f1f` |
+| A2d-1 | run 升级 → 双根生产 → 挂 `/healthz` 并装网关 | 等 A2c2 + A2d-0 稳定 |
+| A2d-2 | 真实凭据体系（前端分发/存储、看门狗、Listing Agent 调用、轮换撤销） | 需单独设计评审 |
+
+A2d-2 不是"给 /api 加个中间件"：`ceo-governance.js` 要求 token ≥32 字节且
+`storeId === 400370`，前端若把 token 放 localStorage 等于公开，需要先想清楚。
+
+### 17.7 A2d-0 的实现与验证
+
+两步判定：
+
+```
+/healthz 200          → ok:true，读响应 inFlight 当 running
+/healthz 非 404 非 200 → ok:false，且不回退（503=未就绪，回退只会掩盖真因）
+/healthz 404 或连不上  → 回退 /api/status，走改造前的原逻辑
+```
+
+`running` 语义不变——"正在跑任务就不要强杀"：`/healthz` 读 `inFlight`，
+`/api/status` 读 `state.running`。返回值加 `via`，启动时打一行日志。
+
+**回归脚本 `scripts/verify-watchdog-probe.mjs`**：不给看门狗加"可被导入"的开关
+（那会改动保命组件的执行路径），而是从源文件里**原文抽出**两个函数拼成
+`data:` URL 模块导入——测的是真实源码，不是抄一份副本。
+
+| 验证 | 结果 |
+|---|---|
+| `node --check watchdog.js` | 通过 |
+| 默认模式（5 假服务用例 + 1 跳过） | **5/5** |
+| `WATCHDOG_PROBE_LIVE_PORT=3000` | **6/6** |
+| ⑥ 现役 `:3000` 真探 | `{ok:true, running:false, via:"api-status"}` —— 证明现役走回退且判活，**行为零变化** |
+| `/healthz` 200 + `inFlight:true` | `running:true` —— 保住"别强杀长任务"的保护 |
+
+附带：`watchdog.js` 本身是 219 行全 CRLF 且原不在 `-text` 覆盖内，
+直接提交又会制造"git 存 LF、磁盘 CRLF"的漂移，补一行 `watchdog.js -text`
+后按原始字节入库；3 个改动文件字节核对全部一致。
+
+### 17.8 本轮提交清单
+
+| 提交 | 内容 |
+|---|---|
+| `65040c5` | git 存生产实际字节，不再归一化换行 |
+| `2c9b22f` | A4 第一批：3 个零敏感文件 |
+| `64f163b` | 10 份证据文档入库 |
+| `d757f3c` | A5：5 入 1 不入 + example + gitignore |
+| `888761c` | `config/** -text` 规则补全 |
+| `c813f1f` | A2d-0 兼容健康探针 + 回归脚本 |
+
+**仍未做**：A2d-1（run 升级）、A2d-2（凭据体系）、看门狗由 Lance 在终端常驻启动。
