@@ -28,12 +28,16 @@ const val = (n, d) => { const i = argv.indexOf(`--${n}`); return i >= 0 && argv[
 const ENV = val("env", "400370");
 const WIN = Number(val("window", "7"));
 const AS_JSON = argv.includes("--json");
-const DATE = val("date", new Date().toISOString().slice(0, 10));
+const DATE = val("date", (() => new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10))());
 const SOURCE = val("source", "full"); // full=全量 items-raw.json；page1=item-query-page1.json
 
-// 数据源：优先全量 items-raw.json（fetch-ae-items.mjs 落盘，覆盖全店 474 商品），
-// 缺失则回退 item-query-page1.json（仅第 1 页 9 个商品）。
-const FULL_PATH = path.join(ROOT, `data/metrics/raw/aliexpress/${DATE}/items-raw.json`);
+// 数据源解析顺序（多店共用目录，路径必须带店号）：
+//   ① <date>/env-<ENV>/items-raw.json   分店全量（权威）
+//   ② <date>/items-raw.json             旧版**非隔离**路径：须用本店 page1 做 itemId 交集验证归属，
+//                                        零交集一律拒绝（2026-11-10 曾把 461693 的全量误当 400370）
+//   ③ <date>/env-<ENV>/item-query-page1.json  仅第 1 页，最后兜底
+const SCOPED_FULL = path.join(ROOT, `data/metrics/raw/aliexpress/${DATE}/env-${ENV}/items-raw.json`);
+const LEGACY_FULL = path.join(ROOT, `data/metrics/raw/aliexpress/${DATE}/items-raw.json`);
 const P1_PATH = path.join(ROOT, `data/metrics/raw/aliexpress/${DATE}/env-${ENV}/item-query-page1.json`);
 
 async function readJsonSafe(p) {
@@ -41,22 +45,41 @@ async function readJsonSafe(p) {
   catch (e) { return { ok: false, err: e.message, p }; }
 }
 
-const _full = await readJsonSafe(FULL_PATH);
-const useFull = SOURCE !== "page1" && _full.ok;
-let data, srcLabel;
-if (useFull) {
-  data = _full.data;
-  srcLabel = "full";
+// 旧版根文件归属校验：与本店 page1 至少 1 个 itemId 重合才认
+async function legacyBelongsToEnv(file) {
+  const a = await readJsonSafe(file);
+  const b = await readJsonSafe(P1_PATH);
+  if (!a.ok) return { ok: false, reason: a.err };
+  if (!b.ok) return { ok: false, reason: "缺少本店 page1，无法验证归属" };
+  const items = a.data.items ?? [];
+  const p1 = b.data?.data?.data?.list ?? b.data.items ?? [];
+  if (!p1.length) return { ok: false, reason: "本店 page1 为空，无法验证归属" };
+  const set = new Set(p1.map((x) => String(x.itemId)));
+  const ov = items.filter((x) => set.has(String(x.itemId))).length;
+  if (ov > 0) return { ok: true, overlap: ov };
+  return { ok: false, reason: `与本店 page1 零交集(0/${p1.length})，疑似他店数据` };
+}
+
+let data, srcLabel, SRC_PATH;
+const _scoped = SOURCE !== "page1" ? await readJsonSafe(SCOPED_FULL) : { ok: false };
+if (_scoped.ok) {
+  data = _scoped.data; srcLabel = "full-scoped"; SRC_PATH = SCOPED_FULL;
+} else if (SOURCE !== "page1" && (await readJsonSafe(LEGACY_FULL)).ok) {
+  const verdict = await legacyBelongsToEnv(LEGACY_FULL);
+  if (!verdict.ok) {
+    console.error(`拒绝使用旧版根 items-raw.json：${verdict.reason}\n  ${LEGACY_FULL}\n请改用分店路径 env-${ENV}/items-raw.json（重新抓取即可生成）。`);
+    process.exit(2);
+  }
+  data = (await readJsonSafe(LEGACY_FULL)).data; srcLabel = "full-legacy"; SRC_PATH = LEGACY_FULL;
 } else {
   const _p1 = await readJsonSafe(P1_PATH);
   if (!_p1.ok) {
-    console.error("找不到商品数据源（全量与 page1 均缺失）:\n  " + FULL_PATH + "\n  " + P1_PATH);
+    console.error("找不到商品数据源:\n  " + SCOPED_FULL + "\n  " + P1_PATH);
     process.exit(2);
   }
-  data = _p1.data;
-  srcLabel = "page1";
+  data = _p1.data; srcLabel = "page1"; SRC_PATH = P1_PATH;
 }
-const SRC_PATH = useFull ? FULL_PATH : P1_PATH;
+const useFull = srcLabel.startsWith("full");
 const list = useFull ? (data.items ?? []) : (data?.data?.data?.list ?? []);
 const SRC_KIND = srcLabel;
 const DECLARED_TOTAL = useFull ? (data.total ?? null) : null;

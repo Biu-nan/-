@@ -160,3 +160,6 @@ _shortlist_result.json
 !/scripts/verify-production-gate.mjs
 # 核心闭环一键验收器（7 环节聚合 PASS/FAIL，交付资产）
 !/scripts/verify-core-loop.mjs
+
+# 突变测试临时工作区（评测器每次运行生成，非交付资产；防止 git add . 误带）
+/.eval-mutants-*/

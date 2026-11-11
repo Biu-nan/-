@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// 运营日更编排器（一键串起：抓取 → 建库 → 巡检 → 摘要）
+// 运营日更编排器（一键串起：抓取 → 建库 → 巡检 → 补货总览 → 摘要）
 //
 // 设计原则（继承稳卖客户端铁律）：
 //   1. 稳卖 3980 的 openEnv 是**串行**的——多脚本并发会踩 websocket（"New request sent before
 //      previous response received"）。故所有抓取**严格顺序**执行，绝不一把梭。
 //   2. 抓取失败（如某店会话过期 NEEDS_MANUAL_LOGIN）只记录，不阻断后续与建库。
-//   3. 建库 + 巡检**永远执行**（即使浏览器离线，也是对现有数据的最新分析）。
+//   3. 建库 + 巡检 + 补货总览**永远执行**（即使浏览器离线，也是对现有数据的最新分析）。
 //
 // 用法：
 //   node scripts/daily-ops-pipeline.mjs                  # 日更（店铺漏斗 + 商品级流量 + 建库 + 巡检）
@@ -32,7 +32,9 @@ const OFFLINE = argv.includes('--offline');
 const SCRIPT_TIMEOUT_MS = 240000; // 单脚本硬上限；openEnv/页面卡死时强制回收，不拖垮整条链路
 const DATE = (() => {
   const i = argv.indexOf('--date');
-  return i > -1 ? argv[i + 1] : new Date().toISOString().slice(0, 10);
+  // 北京日期（UTC+8）：toISOString() 取的是 UTC 日，北京时间 00:00–08:00 跑会写成前一天
+  if (i > -1) return argv[i + 1];
+  return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
 })();
 const storeArg = (() => {
   const i = argv.indexOf('--stores');
@@ -56,16 +58,18 @@ function runScript(scriptRel, extraArgs) {
     const child = spawn(process.execPath, [path.join(ROOT, scriptRel), ...extraArgs], {
       cwd: ROOT, env: { ...process.env, NODE_NO_WARNINGS: '1' },
     });
-    let out = '';
-    child.stdout.on('data', (d) => { out += d; });
-    child.stderr.on('data', (d) => { out += d; });
+    let stdout = '', stderr = '';
+    child.stdout.on('data', (d) => { stdout += d; });
+    child.stderr.on('data', (d) => { stderr += d; });
     const killTimer = setTimeout(() => {
       child.kill('SIGKILL');
-      out += `\n[SCRIPT_TIMEOUT] ${scriptRel} 超过 ${SCRIPT_TIMEOUT_MS / 1000}s 被强制终止（疑似 openEnv/页面卡死）\n`;
-      resolve({ code: 124, out, timedOut: true });
+      stderr += `\n[SCRIPT_TIMEOUT] ${scriptRel} 超过 ${SCRIPT_TIMEOUT_MS / 1000}s 被强制终止（疑似 openEnv/页面卡死）\n`;
+      resolve({ code: 124, stdout, stderr, out: stdout + stderr, timedOut: true });
     }, SCRIPT_TIMEOUT_MS);
-    child.on('close', (code) => { clearTimeout(killTimer); resolve({ code, out }); });
-    child.on('error', (e) => { clearTimeout(killTimer); resolve({ code: 1, out: out + `\n[SCRIPT_ERROR] ${e.message}` }); });
+    // stdout/stderr 分开返回：JSON 解析必须只用 stdout，
+    // 否则任何 stderr 告警都会让 JSON.parse 失败、把巡检 FAIL 静默吞成退出码 0。
+    child.on('close', (code) => { clearTimeout(killTimer); resolve({ code, stdout, stderr, out: stdout + stderr }); });
+    child.on('error', (e) => { clearTimeout(killTimer); resolve({ code: 1, stdout, stderr: stderr + `\n[SCRIPT_ERROR] ${e.message}`, out: stdout + stderr }); });
   });
 }
 
@@ -106,7 +110,39 @@ async function main() {
   log.push(`[build] ops.db: ${build.code === 0 ? '重建完成' : 'exit ' + build.code}`);
   const check = await runScript('scripts/ops-daily-check.mjs', ['--json']);
   let checkJson = null;
-  try { checkJson = JSON.parse(check.stdout || check.out); } catch { /* */ }
+  try { checkJson = JSON.parse(check.stdout); } catch {
+    log.push('[check] JSON 解析失败（stdout 非 JSON）：' + (check.stdout || '').slice(0, 200).replace(/\n/g, ' '));
+  }
+
+  // 补货总览：只读 ops.db，不碰浏览器 ⇒ 离线也产出（这是每天唯一"可直接执行"的业务产物）
+  const restock = [];
+  for (const st of storeArg) {
+    const outFile = path.join(METRICS, `restock-${DATE.replace(/-/g, '')}-${st}.json`);
+    const r = await runScript('agents/purchase-inventory/src/snapshot-from-opsdb.mjs',
+      ['--store', st, '--batch', '--top', '10', '--out', outFile]);
+    let j = null;
+    try { j = JSON.parse(fs.readFileSync(outFile, 'utf8')); } catch { /* 无产物 */ }
+    if (j) {
+      restock.push(j);
+      const mix = Object.entries(j.dateMix || {}).map(([d, c]) => `${d}×${c}`).join(' ');
+      log.push(`[restock] ${st}: RESTOCK ${j.summary?.restock ?? 0} SKU / ${j.totalSuggestQty ?? 0} 件（快照 ${mix || '-'}）`);
+    } else {
+      log.push(`[restock] ${st}: 无产物（exit ${r.code}）`);
+    }
+  }
+  const restockTotalSku = restock.reduce((s, j) => s + (j.summary?.restock ?? 0), 0);
+  const restockTotalQty = restock.reduce((s, j) => s + (j.totalSuggestQty ?? 0), 0);
+  const restockMd = restock.length
+    ? [
+      `合计 **${restockTotalSku} SKU / ${restockTotalQty} 件**（逐 SKU 取最近观测；金额一律 0，COGS 未核准不下钱结论）`,
+      ...restock.map((j) => {
+        const top = (j.restockTop || []).slice(0, 3).map((x) => `${x.skuId}(补${x.suggestQty})`).join(' ');
+        const mix = Object.entries(j.dateMix || {}).map(([d, c]) => `${d}×${c}`).join(' ');
+        const rej = j.rejected?.count ? `　口径拒绝 ${j.rejected.count}` : '';
+        return `- **${j.storeId}**: 需补 ${j.summary?.restock ?? 0} SKU / ${j.totalSuggestQty ?? 0} 件${top ? `　Top: ${top}` : ''}${mix ? `　快照 ${mix}` : ''}${rej}`;
+      }),
+    ].join('\n')
+    : '- 无（ops.db 无 SKU 快照）';
 
   const elapsed = ((Date.now() - t0) / 1000).toFixed(0);
   const summary =
@@ -123,6 +159,9 @@ ${checkJson?.checks?.map((c) => `- ${c.status === 'PASS' ? '✅' : c.status === 
 ## 业务告警（P0/P1/P2）
 ${checkJson?.alerts?.length ? checkJson.alerts.slice(0, 25).map((a) => `- [${a.level}] ${a.kind} ${a.store} ${a.subject}: ${a.detail}`).join('\n') : '- ✅ 无'}
 
+## 补货总览（真实库存口径，可直接拿去核对下单）
+${restockMd}
+
 ## 增收缺口
 ${checkJson?.gap?.map((g) => `- ${g.name}: 现状 ${g.qty_30d ?? '-'} 件/30d · ${g.month_target != null ? '目标 ' + g.month_target + ' / 缺 ' + g.gap_qty + ' (' + g.gap_pct + '%)' : '未设目标'}`).join('\n') ?? '-'}
 
@@ -137,7 +176,10 @@ ${log.join('\n')}
   fs.writeFileSync(outPath, summary, 'utf8');
   console.log(summary);
   console.log(`\n摘要已写: ${path.relative(ROOT, outPath)}`);
-  process.exit(checkJson?.dataFailed ? 2 : 0);
+  // fail-closed：巡检 JSON 拿不到（解析失败/脚本崩）也算失败，绝不静默返回 0
+  const dataFailed = checkJson ? !!checkJson.dataFailed : true;
+  if (!checkJson) console.error('⚠️ 巡检结果不可读，按数据校验失败处理（退出码 2）');
+  process.exit(dataFailed ? 2 : 0);
 }
 
 main().catch((e) => { console.error('编排器失败:', e.message); process.exit(1); });

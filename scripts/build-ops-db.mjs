@@ -582,21 +582,67 @@ function importItems(db) {
     VALUES(${Array(26).fill('?').join(',')})`);
 
   let ni = 0, ns = 0, nf = 0, nk = 0;
-  // 扫描 raw/aliexpress/<date>/items-raw.json 与 env-<id>/item-query-page1.json
+  const unattributed = [];
+  const DEFAULT_STORE = 'env:400370';
+  const readItemsOf = (file) => {
+    const j = readJson(file);
+    return j?.items ?? j?.data?.data?.list ?? [];
+  };
+  const isDateDir = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d);
+
+  // 扫描 raw/aliexpress/<date>/
+  //   · env-<id>/items-raw.json        分店全量（权威，最高优先）
+  //   · env-<id>/item-query-page1.json 分店第 1 页（补漏）
+  //   · <date>/items-raw.json          旧版**非隔离**路径：谁最后抓谁留下，
+  //     归属一律用 itemId 交集判定，禁止硬编码成某店（曾把 461693 的 158 个
+  //     商品灌进 env:400370，导致补货清单算的是别人的库存）
   for (const dateDir of listDir(dir)) {
-    const full = path.join(dir, dateDir, 'items-raw.json');
-    const jobs = [];
-    if (fs.existsSync(full)) jobs.push({ file: full, storeId: 'env:400370' }); // 全量抓取只覆盖 400370
-    for (const sub of listDir(path.join(dir, dateDir))) {
-      if (!sub.startsWith('env-')) continue;
-      const p1 = path.join(dir, dateDir, sub, 'item-query-page1.json');
-      if (fs.existsSync(p1)) jobs.push({ file: p1, storeId: `env:${sub.slice(4)}` });
+    if (!isDateDir(dateDir)) continue;
+    const dayDir = path.join(dir, dateDir);
+    const subs = listDir(dayDir).filter((s) => s.startsWith('env-'));
+
+    const scoped = [];
+    for (const sub of subs) {
+      const storeId = `env:${sub.slice(4)}`;
+      const fFull = path.join(dayDir, sub, 'items-raw.json');
+      const fPage = path.join(dayDir, sub, 'item-query-page1.json');
+      if (fs.existsSync(fFull)) scoped.push({ file: fFull, storeId, kind: 'full' });
+      if (fs.existsSync(fPage)) scoped.push({ file: fPage, storeId, kind: 'page1' });
     }
+
+    // 归属判定：与各分店 scoped 文件的 itemId 交集，交集=1 家才认，0 家或多家一律跳过
+    const scopedIds = scoped.map((s) => new Set(readItemsOf(s.file).map((it) => String(it.itemId))));
+    const legacy = [];
+    for (const name of ['items-raw.json', 'item-query-page1.json']) {
+      const f = path.join(dayDir, name);
+      if (!fs.existsSync(f)) continue;
+      const items = readItemsOf(f);
+      if (!items.length) continue;
+      const owners = [];
+      scoped.forEach((s, i) => {
+        if (!scopedIds[i].size) return;
+        const ov = items.filter((it) => scopedIds[i].has(String(it.itemId))).length;
+        if (ov > 0) owners.push({ storeId: s.storeId, ov });
+      });
+      if (owners.length === 1) {
+        legacy.push({ file: f, storeId: owners[0].storeId, kind: 'legacy-attributed' });
+      } else if (owners.length === 0 && subs.length === 0) {
+        // 单店时代的老数据（当日没有任何分店目录）→ 归默认店
+        legacy.push({ file: f, storeId: DEFAULT_STORE, kind: 'legacy-single-store' });
+      } else if (owners.length === 0) {
+        unattributed.push(`${dateDir}/${name}: 与任何分店无交集，已跳过`);
+      } else {
+        unattributed.push(`${dateDir}/${name}: 归属歧义(${owners.map((o) => o.storeId + '×' + o.ov).join(', ')})，已跳过`);
+      }
+    }
+
+    const jobs = [...scoped, ...legacy];
     const seenItem = new Set();
     for (const job of jobs) {
       const j = readJson(job.file);
       const items = j?.items ?? j?.data?.data?.list ?? [];
-      const capturedDate = (j?.capturedAt ?? dateDir).slice(0, 10);
+      // 日期以目录为准：capturedAt 是 UTC 时间戳，跨日会错档
+      const capturedDate = dateDir;
       for (const it of items) {
         if (!it?.itemId) continue;
         const key = `${capturedDate}|${job.storeId}|${it.itemId}`;
@@ -648,6 +694,9 @@ function importItems(db) {
   note('dim_sku', ns);
   note('fact_item_snapshot', nf);
   note('fact_sku_snapshot', nk);
+  if (unattributed.length) {
+    for (const w of unattributed) console.warn(`  ⚠️ 商品快照归属不明 ${w}`);
+  }
 }
 
 function importCost(db) {

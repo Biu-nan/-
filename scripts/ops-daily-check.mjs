@@ -112,6 +112,29 @@ const checks = [];
     detail: r?.items ? `${r.items} 商品 / ${r.rows} 行 · 最新 ${r.d}${stale ? '（超过 7 天，增长杠杆分析可能失效）' : ''}${r.items < 50 ? ' · 注：商品排行页只列有自然流量的活跃商品，非全部在售' : ''}` : '无 per-SKU 流量数据（未跑 fetch-sales-rank）' });
 }
 
+// 1.7 分店隔离（防"他店数据被记成本店"）
+// 真实事故：2026-11-10 全量抓取写的是非隔离路径 raw/aliexpress/<date>/items-raw.json，
+// 最后抓的 461693 覆盖了 400370 的全量，而导入端把它硬编码归给 env:400370，
+// 导致补货清单算的是别家库存。此处用"同一 item_id 出现在多个 store"做哨兵。
+{
+  const dup = g(`SELECT COUNT(*) c FROM (
+                   SELECT item_id FROM dim_item GROUP BY item_id HAVING COUNT(DISTINCT store_id) > 1
+                 )`);
+  // 同日快照里同一 item_id 归属多店
+  const dupSnap = g(`SELECT COUNT(*) c FROM (
+                       SELECT captured_date, item_id FROM fact_item_snapshot
+                        GROUP BY captured_date, item_id HAVING COUNT(DISTINCT store_id) > 1
+                     )`);
+  const n1 = dup?.c ?? 0, n2 = dupSnap?.c ?? 0;
+  checks.push({
+    id: 'store_isolation', name: '分店数据隔离（同一商品不应归属多店）',
+    status: n1 > 0 || n2 > 0 ? 'FAIL' : 'PASS',
+    detail: n1 || n2
+      ? `dim_item 跨店重复 ${n1} 个 · 同日快照跨店重复 ${n2} 个 ⇒ 疑似非隔离 raw 路径污染，补货/漏斗结论不可信`
+      : '无跨店重复（raw 路径已按 env-<id> 隔离）',
+  });
+}
+
 const dataFailed = checks.some((c) => c.status === 'FAIL');
 
 // ─────────── 2. 业务告警（数据 FAIL 时跳过） ───────────

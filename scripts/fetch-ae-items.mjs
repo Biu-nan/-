@@ -43,7 +43,16 @@ const MAX_PAGES = Number((() => {
 })());
 
 const ITEMS_DIR = path.join(ROOT, 'data/metrics/items');
-const RAW_DIR = path.join(ROOT, 'data/metrics/raw/aliexpress', new Date().toISOString().slice(0, 10));
+// 北京日期（UTC+8）。原用 toISOString() 取的是 UTC 日，北京时间 00:00–08:00 跑会写进前一天目录。
+function beijingDate(d = new Date()) {
+  return new Date(d.getTime() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+}
+const RUN_DATE = beijingDate();
+const RAW_DIR = path.join(ROOT, 'data/metrics/raw/aliexpress', RUN_DATE);
+// 分店隔离目录：全量商品快照必须按店落盘。
+// 历史上写的是 RAW_DIR/items-raw.json（不含店号），多店同日按抓取顺序互相覆盖，
+// 2026-11-10 最后抓的 461693 覆盖了 400370 的全量，并被导入端误记成 400370。
+const RAW_STORE_DIR = path.join(RAW_DIR, `env-${STORE_ID}`);
 const log = (...a) => console.log('[items]', ...a);
 
 // 日切窗口：北京 15:00–17:00（平台标 PST 实为 PDT，日切在 UTC 07:00）
@@ -204,7 +213,7 @@ async function main() {
     log(`校验: Σrecent30dSalesNum = ${sumD30}`);
 
     const daycut = inDaycutWindow();
-    const date = new Date().toISOString().slice(0, 10);
+    const date = RUN_DATE;
     const payload = items.map((it) => ({
       ...it,
       _meta: {
@@ -221,16 +230,17 @@ async function main() {
       log('--dry-run，不落盘');
     } else {
       fs.mkdirSync(ITEMS_DIR, { recursive: true });
-      fs.mkdirSync(RAW_DIR, { recursive: true });
+      fs.mkdirSync(RAW_STORE_DIR, { recursive: true });
       const outFile = path.join(ITEMS_DIR, `${date}.jsonl`);
       fs.writeFileSync(outFile, payload.map((x) => JSON.stringify(x)).join('\n') + '\n', 'utf8');
+      const rawFile = path.join(RAW_STORE_DIR, 'items-raw.json');
       fs.writeFileSync(
-        path.join(RAW_DIR, 'items-raw.json'),
-        JSON.stringify({ total: declaredTotal, count: items.length, coverage, capturedAt: new Date().toISOString(), items }, null, 1),
+        rawFile,
+        JSON.stringify({ total: declaredTotal, count: items.length, coverage, storeId: `env:${STORE_ID}`, capturedAt: new Date().toISOString(), items }, null, 1),
         'utf8'
       );
       log('已写:', path.relative(ROOT, outFile));
-      log('原始快照:', path.relative(ROOT, path.join(RAW_DIR, 'items-raw.json')));
+      log('原始快照:', path.relative(ROOT, rawFile));
       if (daycut) log('⚠️ 处于日切窗口（北京15-17），todaySalesNum 不可信，30d/7d 误差 <3%');
     }
   } finally {

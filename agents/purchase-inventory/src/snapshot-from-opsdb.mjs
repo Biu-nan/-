@@ -156,26 +156,48 @@ async function main() {
 
   // ── 批量：逐 SKU 真实评估，打印补货清单（默认）──
   const limits = await loadLimits();
-  const rows = db.prepare(
-    "SELECT * FROM fact_sku_snapshot WHERE store_id = ? AND captured_date = ?",
-  ).all(storeId, date);
+  const explicitDate = arg("--date");
+  const maxAgeDays = Number(arg("--max-age-days", 45));
+  let rows;
+  if (explicitDate) {
+    rows = db.prepare(
+      "SELECT * FROM fact_sku_snapshot WHERE store_id = ? AND captured_date = ?",
+    ).all(storeId, explicitDate);
+  } else {
+    // 每 SKU 取各自最近一次观测。原因：单日抓取可能只覆盖第 1 页（~10 个商品），
+    // 若只取"最新单日"会把整店清单打回 10 个商品，掩盖真实缺口。
+    const floor = new Date(Date.now() - maxAgeDays * 86400000).toISOString().slice(0, 10);
+    rows = db.prepare(`
+      SELECT k.* FROM fact_sku_snapshot k
+      JOIN (SELECT item_id, sku_id, MAX(captured_date) d
+              FROM fact_sku_snapshot
+             WHERE store_id = ? AND captured_date >= ?
+             GROUP BY item_id, sku_id) m
+        ON k.item_id = m.item_id AND k.sku_id = m.sku_id AND k.captured_date = m.d
+      WHERE k.store_id = ?
+    `).all(storeId, floor, storeId);
+  }
+  const dateMix = {};
+  for (const r of rows) dateMix[r.captured_date] = (dateMix[r.captured_date] ?? 0) + 1;
   db.close();
-  if (!rows.length) die(`${storeId} ${date} 无 SKU 数据`);
+  if (!rows.length) die(`${storeId} 在最近 ${maxAgeDays} 天无 SKU 数据（可用 --date 指定日期）`);
+  const effDate = explicitDate || Object.keys(dateMix).sort().pop();
 
   const summary = { restock: 0, watch: 0, overstock: 0, deadStock: 0, noHistory: 0 };
   const rejected = [];
   const restockItems = [];
-  const asOf = `${date}T12:00:00+08:00`;
+  const asOf = `${effDate}T12:00:00+08:00`;
 
   for (const row of rows) {
     const cal = calibersOf(row);
+    const rowDate = row.captured_date;
     const input = {
       skuId: row.sku_id,
-      asOf,
+      asOf: `${rowDate}T12:00:00+08:00`,
       calibers: cal,
       historyDays: HISTORY_DAYS,
       cumulativeSalesBefore30d: Math.max(0, n(row.total_sales) - n(row.recent30d_sales)),
-      transitCollectedAt: `${date}T11:58:00+08:00`,
+      transitCollectedAt: `${rowDate}T11:58:00+08:00`,
       params: { window: WINDOW_DAYS },
     };
     const r = await runOne(input, limits);
@@ -205,7 +227,8 @@ async function main() {
 
   const result = {
     storeId: storeId.replace(/^env:/, ""),
-    captured_date: date,
+    captured_date: effDate,
+    dateMix,
     asOf,
     window: WINDOW_DAYS,
     historyDays: HISTORY_DAYS,
@@ -217,7 +240,9 @@ async function main() {
     restockTop: restockItems.slice(0, topN),
   };
 
-  console.log(`\n# 真实补货评估 · ${storeId} · ${date}（window=${WINDOW_DAYS}d）`);
+  const mixLabel = Object.entries(dateMix).sort().map(([d, c]) => `${d}×${c}`).join(' · ');
+  console.log(`\n# 真实补货评估 · ${storeId} · ${effDate}（window=${WINDOW_DAYS}d，逐 SKU 取最近观测）`);
+  console.log(`  快照日期构成: ${mixLabel}`);
   console.log(`  SKU 总数 ${rows.length}，可评估 ${result.evaluated}，口径拒绝 ${rejected.length}`);
   console.log(`  结论分布: RESTOCK ${summary.restock} · WATCH ${summary.watch} · OVERSTOCK ${summary.overstock} · DEAD_STOCK ${summary.deadStock} · NO_HISTORY ${summary.noHistory}`);
   console.log(`  需补货 SKU ${restockItems.length} 个，合计建议 ${totalSuggest} 件\n`);
