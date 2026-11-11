@@ -163,3 +163,5 @@ _shortlist_result.json
 
 # 突变测试临时工作区（评测器每次运行生成，非交付资产；防止 git add . 误带）
 /.eval-mutants-*/
+# CEO 路线图（G–L）并入看板生成器（幂等、可复跑，交付资产）
+!/scripts/apply-ceo-roadmap-board.mjs
